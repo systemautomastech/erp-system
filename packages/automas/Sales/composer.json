@@ -1,0 +1,25 @@
+{
+    "name": "automas/sales",
+    "description": "Description for sales package",
+    "type": "library",
+    "license": "MIT",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Automas\\Sales\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "AutomasERP",
+            "email": "systemautomastech@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Automas\\Sales\\Providers\\SalesServiceProvider"
+            ]
+        }
+    }
+}
