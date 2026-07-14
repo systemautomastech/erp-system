@@ -2,7 +2,6 @@
 
 namespace Automas\Pbx\Http\Controllers;
 
-use Automas\Pbx\DataTables\PbxCallLogDataTable;
 use Automas\Pbx\Models\PbxCallLog;
 use Automas\Pbx\Models\PbxExtension;
 use Illuminate\Http\Request;
@@ -11,9 +10,9 @@ use Illuminate\Support\Facades\Auth;
 
 class PbxCallLogController extends Controller
 {
-    public function index(PbxCallLogDataTable $dataTable, Request $request)
+    public function index()
     {
-        if (!Auth::user()->isAbleTo('pbx view call logs')) {
+        if (!Auth::user()->can('pbx view call logs')) {
             return redirect()->back()->with('error', __('Permission denied.'));
         }
 
@@ -52,7 +51,7 @@ class PbxCallLogController extends Controller
 
     public function storeEvent(Request $request)
     {
-        if (!Auth::user()->isAbleTo('pbx use softphone')) {
+        if (!Auth::user()->can('pbx use softphone')) {
             return response()->json([
                 'success' => false,
                 'message' => __('Permission denied.'),

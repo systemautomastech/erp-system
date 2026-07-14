@@ -1,166 +1,248 @@
-<template>
-  <div class="history-panel panel-transition">
-    <div class="panel-header">
-      <h2>Recent calls</h2>
-    </div>
-
-    <div class="search-row mb-2 position-relative">
-      <input :value="recentSearch" @input="updateSearch($event.target.value)" type="text" class="form-control"
-        placeholder="Search recent calls" />
-
-      <div v-if="showNoResultCallPopover" class="no-result-popover shadow-sm">
-        <div class="small text-muted mb-1">No result found</div>
-
-        <div class="fw-semibold mb-2">
-          {{ recentSearch }}
-        </div>
-
-        <button class="btn btn-sm btn-primary w-100" @click="callSearchNumber">
-          <PhoneIcon class="me-1 action-icon" />
-          Call
-        </button>
-      </div>
-    </div>
-
-    <!-- <div class="history-actions d-flex gap-2 mb-2">
-      <button class="btn btn-sm btn-primary" :disabled="!callStore.recentCalls.length" @click="redialLastCall">
-        <RotateCw class="me-1" /> Redial
-      </button>
-      <button class="btn btn-sm btn-outline-secondary" :disabled="missedUnreadCount === 0" @click="markMissedRead">
-        <Check class="me-1" /> Mark read
-      </button>
-      <button class="btn btn-sm btn-outline-danger" :disabled="!callStore.missedCalls.length"
-        @click="confirmClearMissed">
-        <Trash2 class="me-1" /> Clear
-      </button>
-    </div> -->
-
-    <div v-if="filteredRecentCalls.length" class="history-list">
-      <div v-for="item in filteredRecentCalls" :key="item.id" class="history-item border-bottom py-2 px-1">
-        <div class="ms-1 w-100" :class="{
-          'text-danger': item.status === 'missed' || item.status === 'failed' || item.status === 'rejected',
-          'text-success': item.status === 'answered',
-          'text-primary': item.direction === 'outbound' && item.status === 'answered',
-        }"
-          @click="copyNumber(item.number)">
-          <span class="fw-semibold history-number">
-            {{ item.number }}
-
-            <small v-if="copiedNumber === item.number" class="text-success text-muted ms-2">
-              ✓ Copied
-            </small>
-          </span>
-          <div class="history-meta d-flex gap-2 align-items-center">
-            <small class="d-flex align-items-center">
-              <PhoneMissed v-if="item.status === 'missed'" class="history-direction-icon text-danger" />
-
-              <X v-else-if="item.status === 'failed' || item.status === 'rejected'"
-                class="history-direction-icon text-danger" />
-
-              <ArrowDownLeft v-else-if="item.direction === 'outbound'" class="history-direction-icon text-success" />
-
-              <ArrowUpRight v-else-if="item.direction === 'inbound'" class="history-direction-icon text-success" />
-            </small>
-
-            <small class="text-muted">{{ getCallLabel(item) }}</small>
-            <small class="text-muted">{{ item.time }}</small>
-          </div>
-        </div>
-
-        <div class="history-item-right">
-          <div class="history-avatar" @click.stop="callFromHistory(item)">
-            <PhoneIcon class="action-icon" />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-else class="text-center text-muted py-3">
-      No recent calls found
-    </div>
-  </div>
-</template>
-
-<script setup>
+import { useMemo, useState } from 'react'
 import {
-  PhoneIcon,
-  RotateCw,
-  Check,
-  Trash2,
-  ArrowDownLeft,
-  ArrowUpRight,
-  PhoneMissed,
-  X
-} from 'lucide-vue-next'
+    ArrowDownLeft,
+    ArrowUpRight,
+    PhoneIcon,
+    PhoneMissed,
+    X,
+} from 'lucide-react'
 
-import { defineProps } from 'vue'
+import type {
+    CallStore,
+    RecentCall,
+} from '../store/callStore'
 
-function getCallLabel(item) {
-  if (item.status === 'missed') return 'Missed'
-  if (item.status === 'failed') return 'Failed'
-  if (item.status === 'rejected') return 'Rejected'
-
-  if (item.direction === 'inbound') return 'Incoming'
-  if (item.direction === 'outbound') return 'Outgoing'
-
-  return 'Call'
+interface DialerHistoryProps {
+    callStore: CallStore
+    recentSearch: string
+    missedUnreadCount: number
+    filteredRecentCalls: RecentCall[]
+    redialLastCall: () => void
+    markMissedRead: () => void
+    confirmClearMissed: () => void
+    callFromHistory: (item: RecentCall) => void
+    onRecentSearchChange: (value: string) => void
 }
 
-const props = defineProps({
-  callStore: Object,
-  recentSearch: String,
-  missedUnreadCount: Number,
-  filteredRecentCalls: Array,
-  redialLastCall: Function,
-  markMissedRead: Function,
-  confirmClearMissed: Function,
-  callFromHistory: Function,
-})
+function getCallLabel(item: RecentCall): string {
+    if (item.status === 'missed') return 'Missed'
+    if (item.status === 'failed') return 'Failed'
+    if (item.status === 'rejected') return 'Rejected'
 
-const emit = defineEmits(['close', 'update:recentSearch'])
+    if (item.direction === 'inbound') return 'Incoming'
+    if (item.direction === 'outbound') return 'Outgoing'
 
-function updateSearch(value) {
-  emit('update:recentSearch', value)
+    return 'Call'
 }
 
-import { ref } from 'vue'
+function getHistoryTextClass(item: RecentCall): string {
+    if (
+        item.status === 'missed' ||
+        item.status === 'failed' ||
+        item.status === 'rejected'
+    ) {
+        return 'text-danger'
+    }
 
-const copiedNumber = ref(null)
+    if (
+        item.direction === 'outbound' &&
+        item.status === 'answered'
+    ) {
+        return 'text-primary'
+    }
 
-async function copyNumber(number) {
-  try {
-    await navigator.clipboard.writeText(number)
+    if (item.status === 'answered') {
+        return 'text-success'
+    }
 
-    copiedNumber.value = number
-
-    setTimeout(() => {
-      if (copiedNumber.value === number) {
-        copiedNumber.value = null
-      }
-    }, 1500)
-  } catch (err) {
-    console.error('Failed to copy:', err)
-  }
+    return ''
 }
 
-import { computed } from 'vue'
+export default function DialerHistory({
+    recentSearch,
+    filteredRecentCalls,
+    callFromHistory,
+    onRecentSearchChange,
+}: DialerHistoryProps) {
+    const [copiedNumber, setCopiedNumber] =
+        useState<string | null>(null)
 
-const showNoResultCallPopover = computed(() => {
-  return (
-    props.recentSearch &&
-    props.recentSearch.trim().length >= 3 &&
-    props.filteredRecentCalls.length === 0
-  )
-})
+    const showNoResultCallPopover = useMemo(
+        () =>
+            recentSearch.trim().length >= 3 &&
+            filteredRecentCalls.length === 0,
+        [
+            recentSearch,
+            filteredRecentCalls.length,
+        ],
+    )
 
-function callSearchNumber() {
-  const number = props.recentSearch.trim()
-  if (!number) return
+    const copyNumber = async (
+        number: string,
+    ): Promise<void> => {
+        try {
+            await navigator.clipboard.writeText(
+                number,
+            )
 
-  props.callFromHistory({
-    number,
-    direction: 'outbound',
-    status: 'answered',
-  })
+            setCopiedNumber(number)
+
+            window.setTimeout(() => {
+                setCopiedNumber(
+                    (currentCopiedNumber) =>
+                        currentCopiedNumber === number
+                            ? null
+                            : currentCopiedNumber,
+                )
+            }, 1500)
+        } catch (error) {
+            console.error(
+                'Failed to copy:',
+                error,
+            )
+        }
+    }
+
+    const callSearchNumber = (): void => {
+        const number = recentSearch.trim()
+
+        if (!number) return
+
+        callFromHistory({
+            number,
+            direction: 'outbound',
+            status: 'answered',
+        })
+    }
+
+    return (
+        <div className="history-panel panel-transition">
+            <div className="panel-header">
+                <h2>Recent calls</h2>
+            </div>
+
+            <div className="search-row mb-2 position-relative">
+                <input
+                    value={recentSearch}
+                    onChange={(event) =>
+                        onRecentSearchChange(
+                            event.target.value,
+                        )
+                    }
+                    type="text"
+                    className="form-control"
+                    placeholder="Search recent calls"
+                />
+
+                {showNoResultCallPopover && (
+                    <div className="no-result-popover shadow-sm">
+                        <div className="small text-muted mb-1">
+                            No result found
+                        </div>
+
+                        <div className="fw-semibold mb-2">
+                            {recentSearch}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-primary w-100"
+                            onClick={callSearchNumber}
+                        >
+                            <PhoneIcon className="me-1 action-icon" />
+                            Call
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {filteredRecentCalls.length > 0 ? (
+                <div className="history-list">
+                    {filteredRecentCalls.map(
+                        (item) => (
+                            <div
+                                key={
+                                    item.id ??
+                                    `${item.number}-${item.created_at ?? item.time ?? ''}`
+                                }
+                                className="history-item border-bottom py-2 px-1"
+                            >
+                                <button
+                                    type="button"
+                                    className={`ms-1 w-100 text-start border-0 bg-transparent p-0 ${getHistoryTextClass(
+                                        item,
+                                    )}`}
+                                    onClick={() => {
+                                        void copyNumber(
+                                            item.number,
+                                        )
+                                    }}
+                                >
+                                    <span className="fw-semibold history-number">
+                                        {item.number}
+
+                                        {copiedNumber ===
+                                            item.number && (
+                                            <small className="text-success text-muted ms-2">
+                                                ✓ Copied
+                                            </small>
+                                        )}
+                                    </span>
+
+                                    <span className="history-meta d-flex gap-2 align-items-center">
+                                        <small className="d-flex align-items-center">
+                                            {item.status ===
+                                            'missed' ? (
+                                                <PhoneMissed className="history-direction-icon text-danger" />
+                                            ) : item.status ===
+                                                  'failed' ||
+                                              item.status ===
+                                                  'rejected' ? (
+                                                <X className="history-direction-icon text-danger" />
+                                            ) : item.direction ===
+                                              'outbound' ? (
+                                                <ArrowDownLeft className="history-direction-icon text-success" />
+                                            ) : item.direction ===
+                                              'inbound' ? (
+                                                <ArrowUpRight className="history-direction-icon text-success" />
+                                            ) : null}
+                                        </small>
+
+                                        <small className="text-muted">
+                                            {getCallLabel(
+                                                item,
+                                            )}
+                                        </small>
+
+                                        <small className="text-muted">
+                                            {item.time}
+                                        </small>
+                                    </span>
+                                </button>
+
+                                <div className="history-item-right">
+                                    <button
+                                        type="button"
+                                        className="history-avatar border-0"
+                                        onClick={() =>
+                                            callFromHistory(
+                                                item,
+                                            )
+                                        }
+                                        aria-label={`Call ${item.number}`}
+                                    >
+                                        <PhoneIcon className="action-icon" />
+                                    </button>
+                                </div>
+                            </div>
+                        ),
+                    )}
+                </div>
+            ) : (
+                <div className="text-center text-muted py-3">
+                    No recent calls found
+                </div>
+            )}
+        </div>
+    )
 }
-</script>

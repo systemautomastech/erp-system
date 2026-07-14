@@ -29,6 +29,7 @@ class AccountTypeController extends Controller
                         $q->whereRaw('1 = 0');
                     }
                 })
+            
                 ->latest()
                 ->get();
 

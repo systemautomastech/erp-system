@@ -1,74 +1,82 @@
-import { ref } from 'vue'
+import { useState, useCallback } from 'react'
 
-export function useForwarding(callStore) {
-  const forwardNumber = ref('')
-  const forwardEnabled = ref(false)
+import type { CallStore } from '../store/callStore'
 
-  function enableForwarding() {
-    if (!forwardNumber.value.trim()) return
-    forwardEnabled.value = true
-    if (callStore) {
-      callStore.connectionMessage = `Forwarding enabled to ${forwardNumber.value}`
+declare global {
+  interface Window {
+    CTI_PHONE?: {
+      transfer?: (target: string) => Promise<void> | void
+      call?: (target: string) => Promise<void> | void
     }
   }
+}
 
-  function disableForwarding() {
-    forwardEnabled.value = false
-    forwardNumber.value = ''
-    if (callStore) {
-      callStore.connectionMessage = 'Call forwarding disabled'
-    }
-  }
+export function useForwarding(callStore: CallStore) {
+  const [forwardNumber, setForwardNumber] = useState('')
+  const [forwardEnabled, setForwardEnabled] = useState(false)
 
-  async function forwardCurrentCall(destination = '') {
-    const target = (destination || forwardNumber.value || '').trim()
-    if (!target) return
-    if (!callStore || callStore.callStatus !== 'active') {
-      if (callStore) {
-        callStore.connectionMessage = 'No active call available to forward.'
+  const enableForwarding = useCallback((): void => {
+    if (!forwardNumber.trim()) return
+
+    setForwardEnabled(true)
+
+    callStore.connectionMessage = `Forwarding enabled to ${forwardNumber}`
+  }, [forwardNumber, callStore])
+
+  const disableForwarding = useCallback((): void => {
+    setForwardEnabled(false)
+    setForwardNumber('')
+
+    callStore.connectionMessage = 'Call forwarding disabled'
+  }, [callStore])
+
+  const forwardCurrentCall = useCallback(
+    async (destination = ''): Promise<void> => {
+      const target = (destination || forwardNumber).trim()
+
+      if (!target) return
+
+      if (callStore.callStatus !== 'active') {
+        callStore.connectionMessage =
+          'No active call available to forward.'
+        return
       }
-      return
-    }
 
-    if (callStore) {
       callStore.connectionMessage = `Forwarding current call to ${target}`
-    }
 
-    if (window.CTI_PHONE?.transfer) {
-      try {
-        const result = window.CTI_PHONE.transfer(target)
-        if (result && typeof result.then === 'function') {
-          await result
-        }
-      } catch (err) {
-        console.error('Transfer failed:', err)
-        if (callStore) {
+      if (window.CTI_PHONE?.transfer) {
+        try {
+          await Promise.resolve(window.CTI_PHONE.transfer(target))
+        } catch (err) {
+          console.error('Transfer failed:', err)
           callStore.connectionMessage = 'Call forward failed'
         }
+        return
       }
-      return
-    }
 
-    if (window.CTI_PHONE?.call) {
-      try {
-        await window.CTI_PHONE.call(target)
-      } catch (err) {
-        console.error('Fallback forward call failed:', err)
-        if (callStore) {
+      if (window.CTI_PHONE?.call) {
+        try {
+          await Promise.resolve(window.CTI_PHONE.call(target))
+        } catch (err) {
+          console.error('Fallback forward call failed:', err)
           callStore.connectionMessage = 'Forward attempt failed'
         }
+        return
       }
-      return
-    }
 
-    if (callStore) {
-      callStore.connectionMessage = 'Forwarding not supported by CTI_PHONE'
-    }
-  }
+      callStore.connectionMessage =
+        'Forwarding not supported by CTI_PHONE'
+    },
+    [forwardNumber, callStore],
+  )
 
   return {
     forwardNumber,
+    setForwardNumber,
+
     forwardEnabled,
+    setForwardEnabled,
+
     enableForwarding,
     disableForwarding,
     forwardCurrentCall,

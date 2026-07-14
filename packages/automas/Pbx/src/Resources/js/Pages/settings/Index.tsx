@@ -2,7 +2,8 @@ import { FormEvent } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { LoaderCircle, Save } from 'lucide-react';
-
+import AuthenticatedLayout from "@/layouts/authenticated-layout";
+import {AppSidebar} from "@/components/app-sidebar";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -91,7 +92,10 @@ export default function Index({ setting }: PbxSettingsPageProps) {
     };
 
     return (
-        <>
+        <AuthenticatedLayout
+            breadcrumbs={[{label: t('Dashboard')}]}
+            pageTitle={t('Client Dashboard')}
+        >
             <Head title={t('PBX Settings')} />
 
             <div className="space-y-6">
@@ -427,7 +431,7 @@ export default function Index({ setting }: PbxSettingsPageProps) {
                     </CardContent>
                 </Card>
             </div>
-        </>
+        </AuthenticatedLayout>
     );
 }
 
@@ -443,17 +447,12 @@ function FormField({
     id,
     label,
     error,
-    required = false,
     children,
 }: FormFieldProps) {
     return (
         <div className="space-y-2">
             <Label htmlFor={id}>
                 {label}
-
-                {required && (
-                    <span className="ml-1 text-destructive">*</span>
-                )}
             </Label>
 
             {children}

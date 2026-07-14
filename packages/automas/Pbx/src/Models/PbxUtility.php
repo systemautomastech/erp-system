@@ -14,15 +14,22 @@ class PbxUtility extends Model
     public static function GivePermissionToRoles($role_id = null, $rolename = null)
     {
         $staff_permission = [
-            'pbx view call logs',
-            'pbx use softphone',
+            'manage extensions',
+            'view extensions',
+            'view call logs',
         ];
 
         $manager_permission = [
-            'pbx manage settings',
-            'pbx manage extensions',
-            'pbx view call logs',
-            'pbx use softphone',
+            'manage settings',
+            'manage extensions',
+            'view extensions',
+            'create extensions',
+            'edit extensions',
+            'delete extensions',
+            'manage pbx',
+            'view call logs',
+            'delete call logs',
+            'use dialer',
         ];
 
         if ($rolename == 'staff') {

@@ -1,43 +1,85 @@
+import { useCallback } from 'react'
 import axios from 'axios'
 
-export function useCallerLookup(callStore) {
-  async function performCallerLookup(phoneNumber) {
-    if (!window.Dialer?.api?.callerLookup) return
+import type { CallStore } from '../store/callStore'
 
-    try {
-      const { data } = await axios.get(window.Dialer.api.callerLookup, {
-        params: { number: phoneNumber },
-      })
+interface CallerLookupResponse {
+  found: boolean
+  type?: string
+  id?: number | string
+  name?: string
+  phone?: string
+  email?: string
+  organization?: string
+  address?: string
+  extra?: Record<string, unknown>
+}
 
-      if (data.found) {
-        callStore.callerInfo = {
-          found: true,
-          type: data.type,
-          id: data.id,
-          name: data.name,
-          phone: data.phone,
-          email: data.email,
-          organization: data.organization,
-          address: data.address,
-          extra: data.extra,
+declare global {
+  interface Window {
+    Dialer?: {
+      api?: {
+        callerLookup?: string
+      }
+    }
+  }
+}
+
+export function useCallerLookup(callStore: CallStore) {
+  const performCallerLookup = useCallback(
+    async (phoneNumber: string): Promise<void> => {
+      const callerLookupUrl = window.Dialer?.api?.callerLookup
+
+      if (!callerLookupUrl || !phoneNumber.trim()) {
+        return
+      }
+
+      try {
+        const { data } = await axios.get<CallerLookupResponse>(
+          callerLookupUrl,
+          {
+            params: {
+              number: phoneNumber,
+            },
+          },
+        )
+
+        if (data.found) {
+          callStore.callerInfo = {
+            found: true,
+            type: data.type,
+            id: data.id,
+            name: data.name,
+            phone: data.phone,
+            email: data.email,
+            organization: data.organization,
+            address: data.address,
+            extra: data.extra,
+          }
+
+          callStore.contactName = data.name ?? ''
+          return
         }
 
-        callStore.contactName = data.name
-      } else {
         callStore.callerInfo = {
           found: false,
           number: phoneNumber,
         }
-      }
-    } catch (error) {
-      console.warn('Caller lookup failed:', error)
 
-      callStore.callerInfo = {
-        found: false,
-        number: phoneNumber,
+        callStore.contactName = ''
+      } catch (error) {
+        console.warn('Caller lookup failed:', error)
+
+        callStore.callerInfo = {
+          found: false,
+          number: phoneNumber,
+        }
+
+        callStore.contactName = ''
       }
-    }
-  }
+    },
+    [callStore],
+  )
 
   return {
     performCallerLookup,

@@ -1,19 +1,26 @@
-<script setup>
-import { useDialerTabOwner } from '../composables/useDialerTabOwner.js'
-import DialerPhone from './Dialer.vue'
+import Dialer from './Dialer'
+import { useDialerTabOwner } from '../hooks/useDialerTabOwner'
 
-const { isOwnerTab, openDialerPopup } = useDialerTabOwner()
-</script>
+export default function WebPhone() {
+    const {
+        isOwnerTab,
+        openDialerPopup,
+    } = useDialerTabOwner()
 
-<template>
-  <DialerPhone v-if="isOwnerTab" />
+    if (isOwnerTab) {
+        return <Dialer />
+    }
 
-  <button
-    v-else
-    class="phone-tab"
-    @click="openDialerPopup"
-    title="Dialer active in another tab"
-  >
-    Dialer running in another tab
-  </button>
-</template>
+    return (
+        <button
+            type="button"
+            className="phone-tab"
+            onClick={() => {
+                void openDialerPopup()
+            }}
+            title="Dialer active in another tab"
+        >
+            Dialer running in another tab
+        </button>
+    )
+}

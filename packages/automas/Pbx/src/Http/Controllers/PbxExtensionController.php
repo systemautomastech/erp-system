@@ -17,41 +17,70 @@ use Inertia\Response;
 
 class PbxExtensionController extends Controller
 {
-    public function index(): Response|RedirectResponse
+    public function index(Request $request)
     {
-        if (!Auth::user()->isAbleTo('pbx manage extensions')) {
-            return redirect()
-                ->back()
-                ->with('error', __('Permission denied.'));
+        $query = PbxExtension::query()
+            ->with('user');
+
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+
+            $query->where(function ($query) use ($search) {
+                $query
+                    ->where('extension', 'like', '%' . $search . '%')
+                    ->orWhere('caller_id', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery
+                            ->where('name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%');
+                    });
+            });
         }
 
-        $creatorId = (int) creatorId();
+        $allowedSortFields = [
+            'extension',
+            'caller_id',
+            'is_active',
+            'created_at',
+        ];
 
-        $setting = PbxSetting::query()
-            ->forCreator($creatorId)
-            ->first();
+        $sortField = $request->get('sort', 'created_at');
 
-        $extensions = PbxExtension::query()
-            ->forCreator($creatorId)
-            ->with([
-                'user:id,name,email',
-            ])
-            ->latest()
-            ->paginate(10)
+        if (!in_array($sortField, $allowedSortFields, true)) {
+            $sortField = 'created_at';
+        }
+
+        $sortDirection = $request->get('direction', 'desc');
+
+        if (!in_array($sortDirection, ['asc', 'desc'], true)) {
+            $sortDirection = 'desc';
+        }
+
+        $query->orderBy($sortField, $sortDirection);
+
+        $perPage = (int) $request->get('per_page', 10);
+
+        if (!in_array($perPage, [10, 15, 25, 50, 100], true)) {
+            $perPage = 10;
+        }
+
+        $extensions = $query
+            ->paginate($perPage)
             ->withQueryString();
 
-        return Inertia::render('Pbx/Pages/extensions/Index', [
+        $setting = PbxSetting::query()->first();
+
+        return Inertia::render('Pbx/extensions/Index', [
             'extensions' => $extensions,
             'setting' => $setting,
-            'canCreateExtension' => $setting
-                ? $extensions->total() < (int) $setting->max_extensions
-                : false,
+            'canCreateExtension' => $setting !== null
+                && $extensions->total() < (int) $setting->max_extensions,
         ]);
     }
 
     public function create(): Response|RedirectResponse
     {
-        if (!Auth::user()->isAbleTo('pbx manage extensions')) {
+        if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
                 ->with('error', __('Permission denied.'));
@@ -66,10 +95,7 @@ class PbxExtensionController extends Controller
         if (!$setting) {
             return redirect()
                 ->route('pbx.settings.index')
-                ->with(
-                    'error',
-                    __('Configure PBX settings before managing extensions.')
-                );
+                ->with('error',__('Configure PBX settings before managing extensions.'));
         }
 
         if (!$this->canAddExtension($creatorId)) {
@@ -81,7 +107,7 @@ class PbxExtensionController extends Controller
                 );
         }
 
-        return Inertia::render('Pbx/Pages/extensions/Create', [
+        return Inertia::render('Pbx/extensions/Create', [
             'users' => $this->getAvailableUsers($creatorId),
             'setting' => $setting,
             'assignedUserIds' => $this->getAssignedUserIds($creatorId),
@@ -91,7 +117,7 @@ class PbxExtensionController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        if (!Auth::user()->isAbleTo('pbx manage extensions')) {
+        if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
                 ->with('error', __('Permission denied.'));
@@ -136,7 +162,7 @@ class PbxExtensionController extends Controller
     public function edit(
         PbxExtension $extension
     ): Response|RedirectResponse {
-        if (!Auth::user()->isAbleTo('pbx manage extensions')) {
+        if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
                 ->with('error', __('Permission denied.'));
@@ -163,7 +189,7 @@ class PbxExtensionController extends Controller
             'user:id,name,email',
         ]);
 
-        return Inertia::render('Pbx/Pages/extensions/Edit', [
+        return Inertia::render('Pbx/extensions/Edit', [
             'extension' => $extension,
             'users' => $this->getAvailableUsers(
                 $creatorId,
@@ -185,7 +211,7 @@ class PbxExtensionController extends Controller
         Request $request,
         PbxExtension $extension
     ): RedirectResponse {
-        if (!Auth::user()->isAbleTo('pbx manage extensions')) {
+        if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
                 ->with('error', __('Permission denied.'));
@@ -225,7 +251,7 @@ class PbxExtensionController extends Controller
     public function destroy(
         PbxExtension $extension
     ): RedirectResponse {
-        if (!Auth::user()->isAbleTo('pbx manage extensions')) {
+        if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
                 ->with('error', __('Permission denied.'));

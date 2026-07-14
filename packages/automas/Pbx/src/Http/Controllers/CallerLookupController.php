@@ -14,7 +14,7 @@ class CallerLookupController extends Controller
 {
     public function lookup(Request $request)
     {
-        if (!Auth::user()->isAbleTo('pbx use softphone')) {
+        if (!Auth::user()->can('use dialer')) {
             return response()->json(['found' => false], 403);
         }
 

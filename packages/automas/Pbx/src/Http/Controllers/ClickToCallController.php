@@ -23,7 +23,7 @@ class ClickToCallController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user || (method_exists($user, 'isAbleTo') && !$user->isAbleTo('pbx use softphone'))) {
+            if (!$user || (method_exists($user, 'isAbleTo') && !$user->can('use dialer'))) {
                 return response()->json([
                     'success' => false,
                     'message' => __('Permission denied.'),

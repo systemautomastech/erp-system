@@ -14,7 +14,7 @@ class PbxSettingsController extends Controller
 {
     public function index(): Response|RedirectResponse
     {
-        if (!Auth::user()->isAbleTo('pbx manage settings')) {
+        if (!Auth::user()->can('manage settings')) {
             return redirect()
                 ->back()
                 ->with('error', __('Permission denied.'));
@@ -26,14 +26,14 @@ class PbxSettingsController extends Controller
             ->forCreator($creatorId)
             ->first();
 
-        return Inertia::render('Pbx/Pages/settings/Index', [
+        return Inertia::render('Pbx/settings/Index', [
             'setting' => $setting,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        if (!Auth::user()->isAbleTo('pbx manage settings')) {
+        if (!Auth::user()->can('manage settings')) {
             return redirect()
                 ->back()
                 ->with('error', __('Permission denied.'));
