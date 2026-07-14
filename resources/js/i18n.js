@@ -2,38 +2,38 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 const customBackend = {
-  type: 'backend',
-  init: function(services, backendOptions) {
-    this.services = services;
-    this.options = backendOptions;
-  },
-  read: function(language, namespace, callback) {
-    const loadPath = window.route ? window.route('languages.translations', language) : `/translations/${language}`;
-    
-    fetch(loadPath)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        const authLayoutDirection = window.auth?.user?.layout_direction || window.auth?.layout_direction;
-        const rtlLanguages = ['ar', 'he'];
-        const detectedDirection = rtlLanguages.includes(language) ? 'rtl' : 'ltr';
-        
-        // Use auth layout direction if available, otherwise detect from language
-        const direction = authLayoutDirection || data.layoutDirection || detectedDirection;
-        
-        document.documentElement.dir = direction;
-        document.documentElement.style.direction = direction;
-        document.body.dir = direction;
-        document.body.style.direction = direction;
-        
-        callback(null, data.translations);
-      })
-      .catch(error => callback(error, null));
-  }
+    type: 'backend',
+    init: function (services, backendOptions) {
+        this.services = services;
+        this.options = backendOptions;
+    },
+    read: function (language, namespace, callback) {
+        const loadPath = window.route ? window.route('languages.translations', language) : `/translations/${language}`;
+
+        fetch(loadPath)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const authLayoutDirection = window.auth?.user?.layout_direction || window.auth?.layout_direction;
+                const rtlLanguages = ['ar', 'he'];
+                const detectedDirection = rtlLanguages.includes(language) ? 'rtl' : 'ltr';
+
+                // Use auth layout direction if available, otherwise detect from language
+                const direction = authLayoutDirection || data.layoutDirection || detectedDirection;
+
+                document.documentElement.dir = direction;
+                document.documentElement.style.direction = direction;
+                document.body.dir = direction;
+                document.body.style.direction = direction;
+
+                callback(null, data.translations);
+            })
+            .catch(error => callback(error, null));
+    }
 };
 
 const userLang = window.auth?.user?.lang || window.auth?.lang || 'en';

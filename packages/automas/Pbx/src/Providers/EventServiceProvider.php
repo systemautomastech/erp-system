@@ -34,9 +34,6 @@ class EventServiceProvider extends Provider
         ];
     }
     protected $listen = [
-        CompanyMenuEvent::class => [
-            CompanyMenuListener::class
-        ],
         DefaultData::class => [
             DataDefault::class
         ],
