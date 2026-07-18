@@ -1,0 +1,1 @@
+import{r as i}from"./ui-BNyWK_d6.js";function x(c){return i.useMemo(()=>{let o=0,n=0,e=0;c.forEach(t=>{const a=(t.quantity||0)*(t.unit_price||0),r=a*(t.discount_percentage||0)/100,s=(a-r)*(t.tax_percentage||0)/100;o+=a,n+=r,e+=s});const u=o-n+e;return{subtotal:o,discountAmount:n,taxAmount:e,total:u}},[c])}export{x as useTaxCalculator};

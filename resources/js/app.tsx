@@ -3,120 +3,268 @@ import "../css/app.css";
 import "../css/rtl.css";
 import "./i18n";
 
-import { createRoot } from "react-dom/client";
-import { createInertiaApp, router } from "@inertiajs/react";
-import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "sonner";
 import { Suspense } from "react";
+import { createRoot } from "react-dom/client";
+import {
+    createInertiaApp,
+    router,
+} from "@inertiajs/react";
 import axios from "axios";
+import { Toaster } from "sonner";
 
+import { ThemeProvider } from "@/components/theme-provider";
 
-// Silent CSRF token refresh
-const refreshToken = async () => {
-    try {
-        const response = await fetch(window.location.href, { method: 'GET' });
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newToken = doc.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (newToken) {
-            document.querySelector('meta[name="csrf-token"]')?.setAttribute('content', newToken);
-            axios.defaults.headers.common['X-CSRF-TOKEN'] = newToken;
-        }
-    } catch (e) {}
+import WebPhone from "../../packages/automas/Pbx/src/Resources/js/Pages/dialer/components/WebPhone";
+
+window.Dialer = {
+    api: {
+        webrtcConfig: route("pbx.webrtc-config"),
+        clickToCall: route("pbx.click-to-call"),
+        callerLookup: route("pbx.caller-lookup"),
+        callEvents: route("pbx.call-events.store"),
+    },
+
+    assets: {
+        ringtone: route("pbx.ringtone"),
+    },
 };
 
-router.on('before', (event) => {
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+const refreshToken = async (): Promise<void> => {
+    try {
+        const response = await fetch(window.location.href, {
+            method: "GET",
+        });
+
+        const html = await response.text();
+        const parser = new DOMParser();
+        const documentResponse = parser.parseFromString(
+            html,
+            "text/html",
+        );
+
+        const newToken = documentResponse
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content");
+
+        if (!newToken) {
+            return;
+        }
+
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.setAttribute("content", newToken);
+
+        axios.defaults.headers.common[
+            "X-CSRF-TOKEN"
+        ] = newToken;
+    } catch {
+        // Silent refresh failure
+    }
+};
+
+router.on("before", () => {
+    const token = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute("content");
+
     if (!token) {
-        refreshToken();
+        void refreshToken();
     }
 });
 
-router.on('error', async (event) => {
+router.on("error", async (event) => {
     const errors = event.detail.errors;
-    if (errors && (errors[419] || errors['419'] || Object.values(errors).some(e => String(e).includes('419')))) {
+
+    const has419Error =
+        errors &&
+        (
+            errors[419] ||
+            errors["419"] ||
+            Object.values(errors).some((error) =>
+                String(error).includes("419"),
+            )
+        );
+
+    if (has419Error) {
         await refreshToken();
     }
 });
 
-// Global fetch interceptor
-const originalFetch = window.fetch;
-window.fetch = async (...args) => {
-    const [url, options] = args;
+const originalFetch = window.fetch.bind(window);
 
-    // Ensure fresh token before request
-    if (options && options.method && options.method !== 'GET') {
-        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+window.fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+): Promise<Response> => {
+    const method = init?.method?.toUpperCase() ?? "GET";
+
+    if (method !== "GET") {
+        let token = document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content");
+
         if (!token) {
             await refreshToken();
+
+            token = document
+                .querySelector(
+                    'meta[name="csrf-token"]',
+                )
+                ?.getAttribute("content");
         }
-        // Update token in headers
-        const newToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (newToken && options.headers) {
-            (options.headers as any)['X-CSRF-TOKEN'] = newToken;
+
+        if (token) {
+            const headers = new Headers(init?.headers);
+
+            headers.set("X-CSRF-TOKEN", token);
+
+            init = {
+                ...init,
+                headers,
+            };
         }
     }
 
-    const response = await originalFetch(...args);
+    let response = await originalFetch(input, init);
 
-    // Fallback: retry on 419 error
     if (response.status === 419) {
         await refreshToken();
-        if (options && options.headers) {
-            const newToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            if (newToken) {
-                (options.headers as any)['X-CSRF-TOKEN'] = newToken;
-            }
+
+        const newToken = document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content");
+
+        if (newToken) {
+            const headers = new Headers(init?.headers);
+
+            headers.set("X-CSRF-TOKEN", newToken);
+
+            init = {
+                ...init,
+                headers,
+            };
         }
-        return originalFetch(...args);
+
+        response = await originalFetch(input, init);
     }
+
     return response;
 };
 
+/*
+|--------------------------------------------------------------------------
+| Inertia application
+|--------------------------------------------------------------------------
+*/
+
 createInertiaApp({
     title: (title) => {
+        const appElement =
+            document.getElementById("app");
+
         const initialPage = JSON.parse(
-            document.getElementById("app")?.dataset.page || "{}"
+            appElement?.dataset.page || "{}",
         );
+
         const pageProps = initialPage?.props ?? {};
-        let customTitle;
-        if (pageProps?.auth?.user?.type === "superadmin") {
-            customTitle = pageProps?.adminAllSetting?.titleText;
+
+        let customTitle: string | undefined;
+
+        if (
+            pageProps?.auth?.user?.type ===
+            "superadmin"
+        ) {
+            customTitle =
+                pageProps?.adminAllSetting?.titleText;
         } else if (pageProps?.auth?.user?.type) {
-            customTitle = pageProps?.companyAllSetting?.titleText;
+            customTitle =
+                pageProps?.companyAllSetting?.titleText;
         } else {
-            customTitle = pageProps?.adminAllSetting?.titleText;
+            customTitle =
+                pageProps?.adminAllSetting?.titleText;
         }
-        const appName = customTitle || import.meta.env.VITE_APP_NAME || "Laravel";
+
+        const appName =
+            customTitle ||
+            import.meta.env.VITE_APP_NAME ||
+            "Laravel";
+
         return `${title} - ${appName}`;
     },
+
     resolve: (name) => {
         const allPages = {
-            ...import.meta.glob('./pages/**/*.tsx'),
-            ...import.meta.glob('../../packages/automas/*/src/Resources/js/Pages/**/*.tsx')
+            ...import.meta.glob(
+                "./pages/**/*.tsx",
+            ),
+
+            ...import.meta.glob(
+                "../../packages/automas/*/src/Resources/js/Pages/**/*.tsx",
+            ),
         };
 
-        // Try pages directory (lowercase p)
-        const lowerPagePath = `./pages/${name}.tsx`;
-        if (allPages[lowerPagePath]) {
-            return allPages[lowerPagePath]();
+        const applicationPagePath =
+            `./pages/${name}.tsx`;
+
+        if (allPages[applicationPagePath]) {
+            return allPages[
+                applicationPagePath
+            ]();
         }
 
-        // Try package pages
-        const [packageName, ...pagePath] = name.split('/');
-        const packagePagePath = `../../packages/automas/${packageName}/src/Resources/js/Pages/${pagePath.join('/')}.tsx`;
+        const [packageName, ...pagePath] =
+            name.split("/");
+
+        const packagePagePath =
+            `../../packages/automas/${packageName}` +
+            `/src/Resources/js/Pages/` +
+            `${pagePath.join("/")}.tsx`;
+
         if (allPages[packagePagePath]) {
             return allPages[packagePagePath]();
         }
 
-        throw new Error(`Page not found: ${name}`);
+        throw new Error(
+            `Page not found: ${name}`,
+        );
     },
+
     setup({ el, App, props }) {
-        // Make props globally available
-        (window as any).page = props;
+        /*
+         * Keeps compatibility with existing code that reads
+         * window.page.
+         */
+        (window as Window & {
+            page?: typeof props;
+        }).page = props;
+
         const root = createRoot(el);
+
+        const initialPageProps =
+            props.initialPage.props as {
+                auth?: {
+                    user?: {
+                        permissions?: string[];
+                    };
+                };
+            };
+
+        const user =
+            initialPageProps.auth?.user;
+
+        const permissions =
+            user?.permissions ?? [];
+
+        /*
+         * Show only for authenticated users.
+         *
+         * If permission checking is required, replace this with:
+         *
+         * const showDialer =
+         *     Boolean(user) &&
+         *     permissions.includes("use dialer");
+         */
+        const showDialer = Boolean(user);
 
         root.render(
             <ThemeProvider
@@ -127,12 +275,20 @@ createInertiaApp({
             >
                 <Suspense fallback={null}>
                     <App {...props} />
+
+                    {showDialer && <WebPhone />}
                 </Suspense>
-                <Toaster position="top-center" richColors expand={true} />
-            </ThemeProvider>
+
+                <Toaster
+                    position="top-center"
+                    richColors
+                    expand
+                />
+            </ThemeProvider>,
         );
     },
+
     progress: {
-        color: "#4B5563",
+        color: "#ff3300e3",
     },
 });

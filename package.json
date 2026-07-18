@@ -3,7 +3,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "node --max-old-space-size=12288 ./node_modules/.bin/tsc && node --max-old-space-size=8192 ./node_modules/.bin/vite build"
+        "build": "cross-env NODE_OPTIONS=--max-old-space-size=12288 tsc && cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build"
     },
     "devDependencies": {
         "@headlessui/react": "^1.4.2",
@@ -15,6 +15,7 @@
         "@vitejs/plugin-react": "^4.2.0",
         "autoprefixer": "^10.4.12",
         "axios": "^1.6.4",
+        "cross-env": "^10.1.0",
         "glob": "^13.0.6",
         "laravel-vite-plugin": "^1.0",
         "less": "^4.4.2",

@@ -165,6 +165,49 @@ const getImagePath = (path: string, pageProps?: any): string => {
   }
 };
 
+// const getSoundPath = (path: string, pageProps?: any): string => {
+//   if (!path || typeof path !== 'string') return '';
+//   if (path.startsWith('http')) return path;
+
+//   // Handle automas package paths or storage/sounds paths - use baseUrl directly
+//   if (path.includes('packages/automas') || path.includes('storage/app/public/sounds')) {
+//     let baseUrl;
+//     if (pageProps?.baseUrl) {
+//       baseUrl = pageProps.baseUrl;
+//     } else {
+//       const { props } = usePage();
+//       baseUrl = (props as any).baseUrl || window.location.origin;
+//     }
+//     const cleanPath = path.startsWith('/') ? path : '/' + path;
+//     return `${baseUrl}${cleanPath}`;
+//   }
+
+//   try {
+//     let imageUrlPrefix;
+//     if (pageProps?.imageUrlPrefix) {
+//       imageUrlPrefix = pageProps.imageUrlPrefix;
+//     } else {
+//       const { props } = usePage();
+//       imageUrlPrefix = (props as any).imageUrlPrefix || '';
+//     }
+
+//     if (!imageUrlPrefix) return '';
+
+//     const prefixEndsWithSlash = imageUrlPrefix.endsWith('/');
+//     const pathStartsWithSlash = path.startsWith('/');
+
+//     if (prefixEndsWithSlash && pathStartsWithSlash) {
+//       return imageUrlPrefix + path.substring(1);
+//     } else if (!prefixEndsWithSlash && !pathStartsWithSlash) {
+//       return imageUrlPrefix + '/' + path;
+//     } else {
+//       return imageUrlPrefix + path;
+//     }
+//   } catch {
+//     return '';
+//   }
+// };
+
 /**
  * Format currency based on saved settings
  */
