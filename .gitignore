@@ -21,4 +21,4 @@ yarn-error.log
 *.swo
 *~
 .vscode
-/packages/automas/pbx
+/packages/automas/Pbx/src/Resources/js/Pages/dialer/components

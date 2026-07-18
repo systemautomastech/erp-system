@@ -6,6 +6,12 @@
         "enabled": true
     },
     {
+        "code": "bn",
+        "name": "বাংলা",
+        "countryCode": "BD",
+        "enabled": true
+    },
+    {
         "code": "es",
         "name": "Español",
         "countryCode": "ES",
