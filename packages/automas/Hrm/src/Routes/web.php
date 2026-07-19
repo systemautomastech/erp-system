@@ -1,4 +1,5 @@
 <?php
+
 use Automas\Hrm\Http\Controllers\IpRestrictController;
 use Automas\Hrm\Http\Controllers\PayrollController;
 use Automas\Hrm\Http\Controllers\LoanTypeController;
@@ -41,7 +42,7 @@ use Automas\Hrm\Http\Controllers\BranchController;
 use Automas\Hrm\Http\Controllers\HrmDocumentController;
 use Automas\Hrm\Http\Controllers\LeaveBalanceController;
 use Automas\Hrm\Http\Controllers\OvertimeController;
-use Automas\Hrm\Http\Controllers\SetSalaryController; 
+use Automas\Hrm\Http\Controllers\SetSalaryController;
 use Automas\Hrm\Http\Controllers\WorkingDaysController;
 
 Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Hrm'])->group(function () {
@@ -75,6 +76,8 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Hrm'])->group(fun
         Route::put('/{employeedocumenttype}', [EmployeeDocumentTypeController::class, 'update'])->name('update');
         Route::delete('/{employeedocumenttype}', [EmployeeDocumentTypeController::class, 'destroy'])->name('destroy');
     });
+
+    Route::get('employees/generate-id/{departmentId}', [EmployeeController::class, 'generateId'])->name('hrm.employees.generate-id');
 
     Route::prefix('hrm/employees')->name('hrm.employees.')->group(function () {
         Route::get('/', [EmployeeController::class, 'index'])->name('index');

@@ -21,6 +21,7 @@ interface BrandSettings {
   footerText: string;
   sidebarVariant: string;
   sidebarStyle: string;
+  sidebarTextColor: string;
   themeMode: string;
   themeColor: string;
   customColor: string;
@@ -45,6 +46,7 @@ export default function BrandSettings({ userSettings, auth }: BrandSettingsProps
     footerText: userSettings?.footerText || '© AutomasERP. All rights reserved.',
     sidebarVariant: userSettings?.sidebarVariant || 'inset',
     sidebarStyle: userSettings?.sidebarStyle || 'plain',
+    sidebarTextColor: userSettings?.sidebarTextColor || '#ffffff',
     themeMode: userSettings?.themeMode || 'light',
     themeColor: userSettings?.themeColor || 'green',
     customColor: userSettings?.customColor || '#10b981',
@@ -58,9 +60,10 @@ export default function BrandSettings({ userSettings, auth }: BrandSettingsProps
         logo_light: userSettings?.logo_light || '',
         favicon: userSettings?.favicon || '',
         titleText: userSettings?.titleText || 'AutomasERP',
-        footerText: userSettings?.footerText || '© AutomasERP. All rights reserved.',
+        footerText: userSettings?.footerText || '©AutomasERP. All rights reserved.',
         sidebarVariant: userSettings?.sidebarVariant || 'inset',
         sidebarStyle: userSettings?.sidebarStyle || 'plain',
+        sidebarTextColor: userSettings?.sidebarTextColor || '#ffffff',
         themeMode: userSettings?.themeMode || 'light',
         themeColor: userSettings?.themeColor || 'green',
         customColor: userSettings?.customColor || '#10b981',
@@ -424,6 +427,90 @@ export default function BrandSettings({ userSettings, auth }: BrandSettingsProps
                           ))}
                         </div>
                       </div>
+
+                      {settings.sidebarStyle !== 'plain' && (
+                        <div className="space-y-2">
+                          <Label htmlFor="sidebarTextColor">
+                            {t('Sidebar Text Color')}
+                          </Label>
+
+                          <div className="flex gap-2">
+                            <div className="relative shrink-0">
+                              <Input
+                                id="sidebarTextColorPicker"
+                                type="color"
+                                value={settings.sidebarTextColor}
+                                onChange={(e) =>
+                                  handleSelectChange(
+                                    'sidebarTextColor',
+                                    e.target.value
+                                  )
+                                }
+                                className="absolute inset-0 cursor-pointer opacity-0"
+                              />
+
+                              <div
+                                className="h-10 w-10 cursor-pointer rounded-md border"
+                                style={{
+                                  backgroundColor: settings.sidebarTextColor,
+                                }}
+                              />
+                            </div>
+
+                            <Input
+                              id="sidebarTextColor"
+                              name="sidebarTextColor"
+                              type="text"
+                              value={settings.sidebarTextColor}
+                              onChange={(e) =>
+                                handleSelectChange(
+                                  'sidebarTextColor',
+                                  e.target.value
+                                )
+                              }
+                              placeholder="#ffffff"
+                            />
+                          </div>
+
+                          <div className="flex gap-2">
+                            {[
+                              { name: 'White', value: '#ffffff' },
+                              { name: 'Black', value: '#111827' },
+                              { name: 'Light Gray', value: '#e5e7eb' },
+                            ].map((color) => (
+                              <Button
+                                key={color.value}
+                                type="button"
+                                variant={
+                                  settings.sidebarTextColor === color.value
+                                    ? 'default'
+                                    : 'outline'
+                                }
+                                size="sm"
+                                onClick={() =>
+                                  handleSelectChange(
+                                    'sidebarTextColor',
+                                    color.value
+                                  )
+                                }
+                              >
+                                <span
+                                  className="mr-2 h-3 w-3 rounded-full border"
+                                  style={{ backgroundColor: color.value }}
+                                />
+
+                                {t(color.name)}
+                              </Button>
+                            ))}
+                          </div>
+
+                          <p className="text-xs text-muted-foreground">
+                            {t(
+                              'Select a readable color for sidebar labels, menu items and icons.'
+                            )}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -495,6 +582,7 @@ export default function BrandSettings({ userSettings, auth }: BrandSettingsProps
                   customColor={settings.customColor}
                   sidebarVariant={settings.sidebarVariant}
                   sidebarStyle={settings.sidebarStyle}
+                  sidebarTextColor={settings.sidebarTextColor}
                   themeMode={settings.themeMode}
                 />
 

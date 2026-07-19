@@ -18,7 +18,7 @@ class DepartmentController extends Controller
     public function index()
     {
         if (Auth::user()->can('manage-departments')) {
-            $departments = Department::with('branch')->select('id', 'department_name', 'branch_id', 'created_at')
+            $departments = Department::with('branch')->select('id', 'department_name', 'branch_id', 'emp_id_prefix', 'created_at')
                 ->where(function ($q) {
                     if (Auth::user()->can('manage-any-departments')) {
                         $q->where('created_by', creatorId());
@@ -48,6 +48,7 @@ class DepartmentController extends Controller
             $department = new Department();
             $department->department_name = $validated['department_name'];
             $department->branch_id = $validated['branch_id'];
+            $department->emp_id_prefix = $validated['employee_prefix'];
 
             $department->creator_id = Auth::id();
             $department->created_by = creatorId();
@@ -68,6 +69,7 @@ class DepartmentController extends Controller
 
             $department->department_name = $validated['department_name'];
             $department->branch_id = $validated['branch_id'];
+            $department->emp_id_prefix = $validated['employee_prefix'];
 
             $department->save();
 

@@ -14,6 +14,7 @@ class Department extends Model
         'department_name',
         'branch_id',
         'creator_id',
+        'emp_id_prefix',
         'created_by',
     ];
     public function branch()

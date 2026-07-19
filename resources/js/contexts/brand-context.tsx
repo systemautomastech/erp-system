@@ -10,6 +10,7 @@ interface BrandSettings {
   footerText?: string;
   sidebarVariant?: string;
   sidebarStyle?: string;
+  sidebarTextColor?: string; // Add this
   themeMode?: string;
   themeColor?: string;
   customColor?: string;
@@ -33,11 +34,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = auth?.user?.roles?.includes('superadmin');
 
   let globalSettings;
-  if(isSuperAdmin != undefined) {
-        globalSettings = isSuperAdmin ? adminAllSetting : companyAllSetting;
-    } else {
-        globalSettings = adminAllSetting ;
-    }
+  if (isSuperAdmin != undefined) {
+    globalSettings = isSuperAdmin ? adminAllSetting : companyAllSetting;
+  } else {
+    globalSettings = adminAllSetting;
+  }
 
   // Use user-level layout direction from auth, or detect from HTML lang attribute for guest users
   const layoutDirection = React.useMemo(() => {
@@ -45,7 +46,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (auth?.layout_direction) {
       return auth.layout_direction;
     }
-    
+
     // For guest users (login page), detect from HTML lang attribute
     const htmlLang = document.documentElement.lang || 'en';
     const rtlLanguages = ['ar', 'he', 'ur', 'fa', 'ps', 'yi'];
@@ -60,6 +61,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     footerText: globalSettings?.footerText || '© AutomasERP. All rights reserved.',
     sidebarVariant: globalSettings?.sidebarVariant || 'inset',
     sidebarStyle: globalSettings?.sidebarStyle || 'plain',
+    sidebarTextColor: globalSettings?.sidebarTextColor || '#ffffff',
     themeMode: globalSettings?.themeMode || 'light',
     themeColor: globalSettings?.themeColor || 'green',
     customColor: globalSettings?.customColor || '#10b981',
@@ -161,28 +163,64 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       document.head.appendChild(existingStyle);
     }
 
-    if (settings.sidebarStyle === 'colored' || settings.sidebarStyle === 'gradient') {
-      const sidebarBg = settings.sidebarStyle === 'colored'
-        ? primaryColor
-        : `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}80 100%)`;
+    if (
+      settings.sidebarStyle === 'colored' ||
+      settings.sidebarStyle === 'gradient'
+    ) {
+      const sidebarTextColor =
+        settings.sidebarTextColor || '#ffffff';
 
       existingStyle.textContent = `
+    [data-sidebar] {
+      --sidebar-foreground: ${sidebarTextColor};
+      --sidebar-accent-foreground: ${sidebarTextColor};
+      --sidebar-primary-foreground: ${sidebarTextColor};
 
-        [data-sidebar] .bg-sidebar-primary {
-          background: rgba(255,255,255,0.2);
-        }
-        [data-sidebar] [data-sidebar="menu-button"]:hover {
-          background: rgba(255,255,255,0.1);
-        }
-        [data-sidebar] [data-sidebar="menu-button"][data-active="true"] {
-          background: rgba(255,255,255,0.2);
-        }
-      `;
+      color: ${sidebarTextColor};
+    }
+
+    [data-sidebar] [data-sidebar="header"],
+    [data-sidebar] [data-sidebar="content"],
+    [data-sidebar] [data-sidebar="footer"],
+    [data-sidebar] [data-sidebar="group-label"],
+    [data-sidebar] [data-sidebar="menu-button"],
+    [data-sidebar] [data-sidebar="menu-sub-button"] {
+      color: ${sidebarTextColor};
+    }
+
+    [data-sidebar] [data-sidebar="menu-button"] svg,
+    [data-sidebar] [data-sidebar="menu-sub-button"] svg {
+      color: ${sidebarTextColor};
+      stroke: currentColor;
+    }
+
+    [data-sidebar] .bg-sidebar-primary {
+      background: rgba(255, 255, 255, 0.2);
+      color: ${sidebarTextColor};
+    }
+
+    [data-sidebar] [data-sidebar="menu-button"]:hover,
+    [data-sidebar] [data-sidebar="menu-sub-button"]:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: ${sidebarTextColor};
+    }
+
+    [data-sidebar] [data-sidebar="menu-button"][data-active="true"],
+    [data-sidebar] [data-sidebar="menu-sub-button"][data-active="true"] {
+      background: rgba(255, 255, 255, 0.2);
+      color: ${sidebarTextColor};
+    }
+
+    [data-sidebar] [data-sidebar="menu-button"] *,
+    [data-sidebar] [data-sidebar="menu-sub-button"] * {
+      color: inherit;
+    }
+  `;
     } else {
       existingStyle.textContent = '';
     }
 
-  }, [settings.themeColor, settings.customColor, layoutDirection, settings.themeMode]);
+  }, [settings.themeColor, settings.customColor, settings.sidebarStyle, settings.sidebarTextColor, layoutDirection, settings.themeMode]);
 
   const getSidebarStyles = (): React.CSSProperties => {
     const primaryColor = getPrimaryColor();

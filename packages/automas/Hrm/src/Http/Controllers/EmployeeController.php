@@ -23,9 +23,9 @@ class EmployeeController extends Controller
 {
     private function checkEmployeeAccess(Employee $employee)
     {
-        if(Auth::user()->can('manage-any-employees')) {
+        if (Auth::user()->can('manage-any-employees')) {
             return $employee->created_by == creatorId();
-        } elseif(Auth::user()->can('manage-own-employees')) {
+        } elseif (Auth::user()->can('manage-own-employees')) {
             return ($employee->creator_id == Auth::id() || $employee->user_id == Auth::id());
         }
         return false;
@@ -39,7 +39,7 @@ class EmployeeController extends Controller
                     if (Auth::user()->can('manage-any-employees')) {
                         $q->where('created_by', creatorId());
                     } elseif (Auth::user()->can('manage-own-employees')) {
-                        $q->where('creator_id',Auth::id())->orWhere('user_id', Auth::id());
+                        $q->where('creator_id', Auth::id())->orWhere('user_id', Auth::id());
                     } else {
                         $q->whereRaw('1 = 0');
                     }
@@ -47,7 +47,7 @@ class EmployeeController extends Controller
                 ->when(request('employee_id'), function ($q) {
                     $q->where(function ($query) {
                         $query->where('employee_id', 'like', '%' . request('employee_id') . '%');
-                        $query->orWhereHas('user', function($userQuery) {
+                        $query->orWhereHas('user', function ($userQuery) {
                             $userQuery->where('name', 'like', '%' . request('employee_id') . '%');
                         });
                     });
@@ -132,7 +132,7 @@ class EmployeeController extends Controller
             // Load user relationship for email access
             $employee->load('user');
 
-           
+
 
             // Store documents
             if ($request->has('documents')) {
@@ -168,7 +168,7 @@ class EmployeeController extends Controller
     public function edit(Employee $employee)
     {
         if (Auth::user()->can('edit-employees')) {
-            if(!$this->checkEmployeeAccess($employee)) {
+            if (!$this->checkEmployeeAccess($employee)) {
                 return redirect()->route('hrm.employees.index')->with('error', __('Permission denied'));
             }
             $existingDocuments = EmployeeDocument::where('user_id', $employee->id)
@@ -280,14 +280,14 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         if (Auth::user()->can('view-employees')) {
-            if(!$this->checkEmployeeAccess($employee)) {
+            if (!$this->checkEmployeeAccess($employee)) {
                 return redirect()->route('hrm.employees.index')->with('error', __('Permission denied'));
             }
             $employee->load(['user:id,name,email,avatar', 'branch', 'department', 'designation', 'shift']);
             $documents = EmployeeDocument::where('user_id', $employee->id)
                 ->with('documentType')
                 ->get()
-                ->map(function($doc) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'document_type_id' => $doc->document_type_id,
@@ -319,5 +319,19 @@ class EmployeeController extends Controller
         } else {
             return redirect()->back()->with('error', __('Permission denied'));
         }
+    }
+
+    public function generateId($departmentId)
+    {
+        $department = Department::query()
+            ->where('id', $departmentId)
+            ->where('created_by', creatorId())
+            ->firstOrFail();
+
+        return response()->json([
+            'employee_id' => Employee::generateEmployeeId(
+                $department->id
+            ),
+        ]);
     }
 }

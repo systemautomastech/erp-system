@@ -15,7 +15,8 @@ class UpdateDepartmentRequest extends FormRequest
     {
         return [
             'department_name' => 'required|max:100',
-            'branch_id' => 'required|exists:branches,id'
+            'branch_id' => 'required|exists:branches,id',
+            'employee_prefix' => 'required|max:5'
         ];
     }
 }

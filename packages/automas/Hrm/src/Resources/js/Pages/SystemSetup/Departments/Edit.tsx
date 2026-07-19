@@ -14,6 +14,7 @@ export default function Edit({ department, onSuccess, branches }: EditDepartment
     const { data, setData, put, processing, errors } = useForm<DepartmentFormData>({
         department_name: department.department_name ?? '',
         branch_id: department.branch_id?.toString() || '',
+        employee_prefix: department.emp_id_prefix ?? 'EMP',
     });
 
     const submit = (e: React.FormEvent) => {
@@ -59,6 +60,19 @@ export default function Edit({ department, onSuccess, branches }: EditDepartment
                         </SelectContent>
                     </Select>
                     <InputError message={errors.branch_id} />
+                </div>
+
+                <div>
+                    <Label htmlFor="employee_prefix">{t('Employee ID Prefix')}</Label>
+                    <Input
+                        id="employee_prefix"
+                        type="text"
+                        value={data.employee_prefix}
+                        onChange={(e) => setData('employee_prefix', e.target.value)}
+                        placeholder={t('Leave blank to use EMP')}
+                        required
+                    />
+                    <InputError message={errors.employee_prefix} />
                 </div>
 
                 <div className="flex justify-end gap-2">

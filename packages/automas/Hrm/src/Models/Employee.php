@@ -91,22 +91,40 @@ class Employee extends Model
         return $this->belongsTo(Shift::class, 'shift', 'id');
     }
 
-    public static function generateEmployeeId()
-    {
+    public static function generateEmployeeId(
+        $departmentId = null
+    ): string {
         $prefix = 'EMP';
-        $year = date('Y');
-        $lastEmployee = self::where('employee_id', 'like', $prefix . $year . '%')
-            ->where('created_by', creatorId())
-            ->orderBy('employee_id', 'desc')
-            ->first();
 
-        if ($lastEmployee) {
-            $lastNumber = (int) substr($lastEmployee->employee_id, -4);
-            $newNumber = $lastNumber + 1;
-        } else {
-            $newNumber = 1;
+        if (!empty($departmentId)) {
+            $departmentPrefix = Department::query()
+                ->where('id', $departmentId)
+                ->where('created_by', creatorId())
+                ->value('emp_id_prefix');
+
+            if (!empty($departmentPrefix)) {
+                $prefix = strtoupper($departmentPrefix);
+            }
         }
 
-        return $prefix . $year . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        $year = now()->format('y');
+        $idStart = $prefix . $year;
+
+        $lastEmployeeId = self::query()
+            ->where('created_by', creatorId())
+            ->where('employee_id', 'like', $idStart . '%')
+            ->orderByDesc('employee_id')
+            ->value('employee_id');
+
+        $lastNumber = $lastEmployeeId
+            ? (int) substr($lastEmployeeId, -3)
+            : 0;
+
+        return $idStart . str_pad(
+            $lastNumber + 1,
+            3,
+            '0',
+            STR_PAD_LEFT
+        );
     }
 }

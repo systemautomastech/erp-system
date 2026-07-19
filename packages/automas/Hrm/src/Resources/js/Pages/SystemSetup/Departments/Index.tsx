@@ -52,6 +52,11 @@ export default function Index() {
             sortable: false
         },
         {
+            key: 'emp_id_prefix',
+            header: t('Prefix'),
+            sortable: false
+        },
+        {
             key: 'branch.branch_name',
             header: t('Branch'),
             sortable: false,
@@ -103,8 +108,8 @@ export default function Index() {
             <AuthenticatedLayout
                 breadcrumbs={[
                     { label: t('Hrm'), url: route('hrm.index') },
-                    {label: t('System Setup')},
-                    {label: t('Departments')}
+                    { label: t('System Setup') },
+                    { label: t('Departments') }
                 ]}
                 pageTitle={t('System Setup')}
             >

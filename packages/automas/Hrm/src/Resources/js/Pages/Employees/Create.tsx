@@ -17,9 +17,11 @@ import { CreateEmployeeFormData } from './types';
 import { useEffect, useState } from 'react';
 import { useFormFields } from '@/hooks/useFormFields';
 import { Repeater } from "@/components/ui/repeater";
+import axios from 'axios';
+import * as React from 'react';
 
 export default function Create() {
-    const { users, branches, departments, designations, shifts, documentTypes, generatedEmployeeId ,auth } = usePage<any>().props;
+    const { users, branches, departments, designations, shifts, documentTypes, generatedEmployeeId, auth } = usePage<any>().props;
     const [activeTab, setActiveTab] = useState('personal');
     const [filteredBranches, setFilteredBranches] = useState(branches || []);
     const [filteredDepartments, setFilteredDepartments] = useState(departments || []);
@@ -169,6 +171,45 @@ export default function Create() {
         });
     };
 
+    const [generatingEmployeeId, setGeneratingEmployeeId] =
+        React.useState(false);
+
+    const handleDepartmentChange = async (
+        departmentId: string
+    ) => {
+        setData('department_id', departmentId);
+        setData('employee_id', '');
+
+        if (!departmentId) {
+            return;
+        }
+
+        setGeneratingEmployeeId(true);
+
+        try {
+            const response = await axios.get(
+                route(
+                    'hrm.employees.generate-id',
+                    departmentId
+                )
+            );
+
+            setData(
+                'employee_id',
+                response.data.employee_id
+            );
+        } catch (error) {
+            console.error(
+                'Failed to generate employee ID:',
+                error
+            );
+
+            setData('employee_id', '');
+        } finally {
+            setGeneratingEmployeeId(false);
+        }
+    };
+
     return (
         <AuthenticatedLayout
             breadcrumbs={[
@@ -196,15 +237,23 @@ export default function Create() {
                             <TabsContent value="personal" className="space-y-6 mt-6">
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <div>
-                                        <Label htmlFor="employee_id">{t('Employee Id')}</Label>
+                                        <Label htmlFor="employee_id">
+                                            {t('Employee Id')}
+                                        </Label>
+
                                         <Input
                                             id="employee_id"
                                             type="text"
                                             value={data.employee_id}
-                                            placeholder={t('Auto Generated')}
+                                            placeholder={
+                                                generatingEmployeeId
+                                                    ? t('Generating...')
+                                                    : t('Select a department')
+                                            }
                                             readOnly
-                                            className="bg-gray-50"
+                                            className="bg-muted font-medium"
                                         />
+
                                         <InputError message={errors.employee_id} />
                                     </div>
 
@@ -299,7 +348,7 @@ export default function Create() {
                                             </SelectContent>
                                         </Select>
                                         <InputError message={errors.shift_id} />
-                                        {shifts?.length === 0  && auth?.user?.permissions?.includes('create-shifts') && (
+                                        {shifts?.length === 0 && auth?.user?.permissions?.includes('create-shifts') && (
                                             <p className="text-xs text-gray-500 mt-1">
                                                 {t('Create shift here.')} <button type="button" onClick={(e) => { e.preventDefault(); router.get(route('hrm.shifts.index')); }} className="text-blue-600 hover:underline">{t('Create shift')}</button>
                                             </p>
@@ -364,33 +413,75 @@ export default function Create() {
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="department_id" required>{t('Department')}</Label>
+                                        <Label htmlFor="department_id" required>
+                                            {t('Department')}
+                                        </Label>
+
                                         <Select
                                             value={data.department_id?.toString() || ''}
-                                            onValueChange={(value) => setData('department_id', value)}
+                                            onValueChange={handleDepartmentChange}
                                             disabled={!data.branch_id}
                                             required
                                         >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={data.branch_id ? t('Select Department') : t('Select Branch first')} />
+                                            <SelectTrigger id="department_id">
+                                                <SelectValue
+                                                    placeholder={
+                                                        data.branch_id
+                                                            ? t('Select Department')
+                                                            : t('Select Branch first')
+                                                    }
+                                                />
                                             </SelectTrigger>
-                                            <SelectContent searchable={true}>
+
+                                            <SelectContent searchable>
                                                 {filteredDepartments?.map((item: any) => (
-                                                    <SelectItem key={item.id} value={item.id.toString()}>
+                                                    <SelectItem
+                                                        key={item.id}
+                                                        value={item.id.toString()}
+                                                    >
                                                         {item.department_name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
+
                                         <InputError message={errors.department_id} />
+
                                         {(() => {
-                                            const branchDepartments = data.branch_id ? departments.filter(dept => dept.branch_id.toString() === data.branch_id) : [];
-                                            return ((data.branch_id && branchDepartments.length === 0) || (!data.branch_id && departments?.length === 0)) && auth?.user?.permissions?.includes('create-departments');
+                                            const branchDepartments = data.branch_id
+                                                ? departments.filter(
+                                                    (department) =>
+                                                        department.branch_id.toString() ===
+                                                        data.branch_id
+                                                )
+                                                : [];
+
+                                            return (
+                                                ((data.branch_id &&
+                                                    branchDepartments.length === 0) ||
+                                                    (!data.branch_id &&
+                                                        departments?.length === 0)) &&
+                                                auth?.user?.permissions?.includes(
+                                                    'create-departments'
+                                                )
+                                            );
                                         })() && (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {t('Create department here.')} <button type="button" onClick={() => router.get(route('hrm.departments.index'))} className="text-blue-600 hover:underline">{t('Create department')}</button>
-                                            </p>
-                                        )}
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {t('Create department here.')}{' '}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            router.get(
+                                                                route('hrm.departments.index')
+                                                            )
+                                                        }
+                                                        className="text-blue-600 hover:underline"
+                                                    >
+                                                        {t('Create department')}
+                                                    </button>
+                                                </p>
+                                            )}
                                     </div>
 
                                     <div>
@@ -417,10 +508,10 @@ export default function Create() {
                                             const departmentDesignations = data.department_id ? designations.filter(desig => desig.department_id.toString() === data.department_id) : [];
                                             return ((data.department_id && departmentDesignations.length === 0) || (!data.department_id && designations?.length === 0)) && auth?.user?.permissions?.includes('create-designations');
                                         })() && (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {t('Create designation here.')} <button type="button" onClick={(e) => { e.preventDefault(); router.get(route('hrm.designations.index')); }} className="text-blue-600 hover:underline">{t('Create designation')}</button>
-                                            </p>
-                                        )}
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {t('Create designation here.')} <button type="button" onClick={(e) => { e.preventDefault(); router.get(route('hrm.designations.index')); }} className="text-blue-600 hover:underline">{t('Create designation')}</button>
+                                                </p>
+                                            )}
                                     </div>
                                 </div>
 
@@ -792,7 +883,7 @@ export default function Create() {
                                         minItems={1}
                                         showDefault={true}
                                     />
-                                    
+
                                     {documentTypes?.length === 0 && auth?.user?.permissions?.includes('create-employee-document-types') && (
                                         <p className="text-xs text-gray-500 mt-1">
                                             {t('Create document type here.')} <button type="button" onClick={(e) => { e.preventDefault(); router.get(route('hrm.employee-document-types.index')); }} className="text-blue-600 hover:underline">{t('Create document type')}</button>

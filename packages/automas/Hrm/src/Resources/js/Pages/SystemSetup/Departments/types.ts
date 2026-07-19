@@ -11,6 +11,7 @@ export interface Department {
 export interface DepartmentFormData {
     department_name: string;
     branch_id: string;
+    employee_prefix: string;
 }
 
 export interface CreateDepartmentProps extends CreateProps {

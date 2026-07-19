@@ -16,6 +16,7 @@ export default function Create({ onSuccess, branches }: CreateDepartmentProps) {
     const { data, setData, post, processing, errors } = useForm<DepartmentFormData>({
         department_name: '',
         branch_id: '',
+        employee_prefix: 'EMP',
     });
 
     const submit = (e: React.FormEvent) => {
@@ -45,7 +46,7 @@ export default function Create({ onSuccess, branches }: CreateDepartmentProps) {
                     />
                     <InputError message={errors.department_name} />
                 </div>
-                
+
                 <div>
                     <Label htmlFor="branch_id" required>{t('Branch')}</Label>
                     <Select value={data.branch_id?.toString() || ''} onValueChange={(value) => setData('branch_id', value)} required>
@@ -66,6 +67,23 @@ export default function Create({ onSuccess, branches }: CreateDepartmentProps) {
                             {t('Create branch here.')} <button type="button" onClick={(e) => { e.preventDefault(); router.get(route('hrm.branches.index')); }} className="text-blue-600 hover:underline">{t('Create branch')}</button>
                         </p>
                     )}
+                </div>
+
+                <div>
+                    <Label htmlFor="employee_prefix">{t('Employee ID Prefix')}</Label>
+                    <Input
+                        id="employee_prefix"
+                        name="employee_prefix"
+                        type="text"
+                        value={data.employee_prefix}
+                        onChange={(e) =>
+                            setData('employee_prefix', e.target.value)
+                        }
+                        placeholder={t('Leave blank to use EMP')}
+                        maxLength={5}
+                    />
+
+                    <InputError message={errors.employee_prefix} />
                 </div>
 
                 <div className="flex justify-end gap-2">
