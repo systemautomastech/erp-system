@@ -35,19 +35,19 @@ class PermissionRoleSeeder extends Seeder
 
 
         // Create Company User
-        $company = User::firstOrCreate(
-            ['email' => 'company@example.com'],
-            [
-                'name' => 'Company',
-                'email_verified_at' => now(),
-                'password' => Hash::make('1234'),
-                'mobile_no' => '+122233344455',
-                'type' => 'company',
-                'lang' => 'en',
-                'creator_id' => $superAdmin->id,
-                'created_by' => $superAdmin->id
-            ]
-        );
+        // $company = User::firstOrCreate(
+        //     ['email' => 'company@example.com'],
+        //     [
+        //         'name' => 'Company',
+        //         'email_verified_at' => now(),
+        //         'password' => Hash::make('1234'),
+        //         'mobile_no' => '+122233344455',
+        //         'type' => 'company',
+        //         'lang' => 'en',
+        //         'creator_id' => $superAdmin->id,
+        //         'created_by' => $superAdmin->id
+        //     ]
+        // );
 
         $permissions = [
             // Dashboard permissions
@@ -358,9 +358,9 @@ class PermissionRoleSeeder extends Seeder
         $superAdmin->assignRole('superadmin');
 
         // Assign company role
-        $company->assignRole('company');
+        // $company->assignRole('company');
 
         // Make Company's role
-        User::MakeRole($company->id);
+        // User::MakeRole($company->id);
     }
 }
