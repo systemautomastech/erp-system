@@ -63,7 +63,7 @@ class CustomerController extends Controller
             if (! empty($validated['user_id'])) {
                 $user = User::findOrFail($validated['user_id']);
             } else {
-                $user = $this->storeUser($validated);
+                $user = $this->storeUser($request, $validated);
             }
 
             $customer = new Customer();
@@ -123,15 +123,15 @@ class CustomerController extends Controller
         return back()->with('error', __('Permission denied'));
     }
 
-    private function storeUser($request)
+    private function storeUser(StoreCustomerRequest $request, array $validated): User
     {
         $role = Role::findByName('client');
 
         $user = new User();
-        $user->name = $request['company_name'];
-        $user->email = $request['company_name'];
-        $user->mobile_no = $request['contact_person_mobile'];
-        $user->password = Hash::make(12345678);
+        $user->name = $validated['company_name'];
+        $user->email = $validated['contact_person_email'];
+        $user->mobile_no = $validated['contact_person_mobile'] ?? null;
+        $user->password = Hash::make('12345678');
         $user->type = 'client';
         $user->is_enable_login = true;
         $user->lang = company_setting('defaultLanguage') ?? 'en';
@@ -141,6 +141,8 @@ class CustomerController extends Controller
         $user->save();
 
         $user->assignRole($role);
+
+        CreateUser::dispatch($request, $user);
 
         return $user;
     }

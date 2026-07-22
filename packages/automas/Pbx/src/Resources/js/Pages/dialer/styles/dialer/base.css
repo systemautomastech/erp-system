@@ -88,8 +88,8 @@
 
 .webphone {
   position: fixed;
-  width: min(300px, calc(100vw - 18px));
-  height: min(590px, calc(100vh - 18px));
+  width: min(310px, calc(100vw - 18px));
+  height: min(600px, calc(100vh - 18px));
   background: linear-gradient(180deg, var(--webphone-bg), var(--webphone-bg));
   color: var(--webphone-text);
   border-radius: 34px;
