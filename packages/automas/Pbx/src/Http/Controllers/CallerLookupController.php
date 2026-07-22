@@ -2,165 +2,153 @@
 
 namespace Automas\Pbx\Http\Controllers;
 
-use Automas\Lead\Models\Lead;
-use Automas\Lead\Models\Deal;
-use Automas\Account\Models\Customer;
+use App\Models\User;
 use Automas\Hrm\Models\Employee;
+use Automas\Lead\Models\Deal;
+use Automas\Lead\Models\Lead;
+use Automas\Pbx\Models\PbxExtension;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class CallerLookupController extends Controller
 {
-    public function lookup(Request $request)
+    public function lookup(Request $request): JsonResponse
     {
-        if (!Auth::user()->can('use dialer')) {
-            return response()->json(['found' => false], 403);
-        }
+        // if (! Auth::user()?->can('use dialer')) {
+        //     return response()->json([
+        //         'found' => false,
+        //         'message' => 'You do not have permission to use the dialer.',
+        //     ], 403);
+        // }
 
-        $request->validate([
-            'number' => 'required|string|max:50',
+        $validated = $request->validate([
+            'number' => ['required', 'string', 'max:50'],
         ]);
 
-        $phoneNumber = $request->input('number');
+        $phoneNumber = trim($validated['number']);
         $creatorId = (int) creatorId();
+        $digits = $this->normalizeNumber($phoneNumber);
 
-        // Normalize phone number for matching
-        $normalized = $this->normalizeNumber($phoneNumber);
-        // also prepare a digits-only form and last-10 digits for fuzzy matching
-        $normalized_digits = preg_replace('/[^0-9]/', '', $phoneNumber);
-        $last10 = strlen($normalized_digits) > 10 ? substr($normalized_digits, -10) : $normalized_digits;
+        if ($digits === '') {
+            return response()->json([
+                'found' => false,
+                'number' => $phoneNumber,
+            ]);
+        }
 
-        // Search in all models
-        $results = [];
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Search PBX extension first
+        |--------------------------------------------------------------------------
+        |
+        | Examples: 100, 101, 200, 201
+        |
+        */
+        $extensionUser = $this->findUserByExtension(
+            extension: $digits,
+            creatorId: $creatorId,
+        );
 
-        // Search in Leads
+        if ($extensionUser) {
+            return $this->userResponse(
+                user: $extensionUser,
+                creatorId: $creatorId,
+                source: 'extension',
+                extension: $digits,
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prepare telephone variants
+        |--------------------------------------------------------------------------
+        */
+        $phoneVariants = $this->getPhoneVariants($digits);
+        $last10 = substr($digits, -10);
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2. Search users by mobile number
+        |--------------------------------------------------------------------------
+        |
+        | Search any user except company or super-admin users.
+        |
+        */
+        $user = $this->findUserByPhone(
+            creatorId: $creatorId,
+            phoneVariants: $phoneVariants,
+            last10: $last10,
+        );
+
+        if ($user) {
+            return $this->userResponse(
+                user: $user,
+                creatorId: $creatorId,
+                source: 'mobile',
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Search leads only when no user was found
+        |--------------------------------------------------------------------------
+        */
         if (class_exists(Lead::class)) {
-            $lead = Lead::where('created_by', $creatorId)
-                ->where(function ($query) use ($normalized, $phoneNumber, $last10) {
-                    $query->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') = ?", [$normalized])
-                        ->orWhere('phone', $phoneNumber)
-                        ->orWhereRaw("RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?", [$last10]);
-                })
-                ->first();
+            $lead = $this->findLead(
+                creatorId: $creatorId,
+                phoneVariants: $phoneVariants,
+                last10: $last10,
+            );
 
             if ($lead) {
-                $results[] = [
-                    'score' => 100,
+                return $this->foundResponse([
                     'type' => 'lead',
                     'id' => $lead->id,
                     'name' => $lead->name,
                     'phone' => $lead->phone,
-                    'email' => $lead->email ?? null,
+                    'email' => $lead->email,
                     'organization' => null,
-                    'address' => null,
                     'extra' => [
-                        'lead_stage' => $lead->stage?->name ?? null,
-                        'lead_subject' => $lead->subject ?? null,
-                        'lead_status' => $lead->status ?? null,
-                        'lead_created_at' =>$lead->created_at->diffForHumans() ?? null,
+                        'record_type' => 'lead',
+                        'lead_stage' => $lead->stage?->name,
+                        'lead_subject' => $lead->subject,
+                        'lead_created_at' => $lead->created_at?->diffForHumans(),
                         'lead_link' => route('leads.show', $lead->id),
                     ],
-                ];
+                ]);
             }
         }
 
-        // Search in Deals
+        /*
+        |--------------------------------------------------------------------------
+        | 4. Search deals only when no user or lead was found
+        |--------------------------------------------------------------------------
+        */
         if (class_exists(Deal::class)) {
-            $deal = Deal::where('created_by', $creatorId)
-                ->where(function ($query) use ($normalized, $phoneNumber, $last10) {
-                    $query->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') = ?", [$normalized])
-                        ->orWhere('phone', $phoneNumber)
-                        ->orWhereRaw("RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?", [$last10]);
-                })
-                ->first();
+            $deal = $this->findDeal(
+                creatorId: $creatorId,
+                phoneVariants: $phoneVariants,
+                last10: $last10,
+            );
 
             if ($deal) {
-                $results[] = [
-                    'score' => 100,
+                return $this->foundResponse([
                     'type' => 'deal',
                     'id' => $deal->id,
                     'name' => $deal->name,
                     'phone' => $deal->phone,
                     'email' => null,
                     'organization' => null,
-                    'address' => null,
                     'extra' => [
-                        'deal_stage' => $deal->stage?->name ?? null,
+                        'record_type' => 'deal',
+                        'deal_stage' => $deal->stage?->name,
                         'deal_link' => route('deals.show', $deal->id),
                     ],
-                ];
+                ]);
             }
-        }
-
-        // Search in Customers
-        if (class_exists(Customer::class)) {
-            $customer = Customer::where('created_by', $creatorId)
-                ->where(function ($query) use ($normalized, $phoneNumber, $last10) {
-                    $query->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(contact, ' ', ''), '-', ''), '(', ''), ')', '') = ?", [$normalized])
-                        ->orWhere('contact', $phoneNumber)
-                        ->orWhereRaw("RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(contact, ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?", [$last10]);
-                })
-                ->first();
-
-            if ($customer) {
-                $results[] = [
-                    'score' => 90,
-                    'type' => 'client',
-                    'id' => $customer->id,
-                    'name' => $customer->name,
-                    'phone' => $customer->contact ?? null,
-                    'email' => $customer->user?->email ?? null,
-                    'organization' => $customer->name,
-                    'address' => null,
-                    'extra' => [],
-                ];
-            }
-        }
-
-        // Search in Employees
-        if (class_exists(Employee::class)) {
-            $employee = Employee::where(function ($query) use ($normalized, $phoneNumber, $last10) {
-                $query->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') = ?", [$normalized])
-                    ->orWhere('phone', $phoneNumber)
-                    ->orWhereRaw("RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?", [$last10]);
-            })
-                ->first();
-
-            if ($employee) {
-                $results[] = [
-                    'score' => 80,
-                    'type' => 'staff',
-                    'id' => $employee->id,
-                    'name' => $employee->name,
-                    'phone' => $employee->phone,
-                    'email' => $employee->email ?? null,
-                    'organization' => null,
-                    'address' => $employee->address ?? null,
-                    'extra' => [],
-                ];
-            }
-        }
-
-        // Return best match if found
-        if (!empty($results)) {
-            usort($results, function ($a, $b) {
-                return $b['score'] - $a['score'];
-            });
-
-            $match = $results[0];
-
-            return response()->json([
-                'found' => true,
-                'type' => $match['type'],
-                'id' => $match['id'],
-                'name' => $match['name'],
-                'organization' => $match['organization'],
-                'phone' => $match['phone'],
-                'email' => $match['email'],
-                'address' => $match['address'],
-                'extra' => $match['extra'],
-            ]);
         }
 
         return response()->json([
@@ -169,12 +157,455 @@ class CallerLookupController extends Controller
         ]);
     }
 
-    private function normalizeNumber($phone)
-    {
-        // Remove all non-digit characters except leading +
-        if (strpos($phone, '+') === 0) {
-            return '+' . preg_replace('/[^0-9]/', '', substr($phone, 1));
+    /**
+     * Find the user assigned to an active PBX extension.
+     */
+    private function findUserByExtension(
+        string $extension,
+        int $creatorId,
+    ): ?User {
+        $pbxExtension = PbxExtension::query()
+            ->select([
+                'id',
+                'user_id',
+                'extension',
+                'caller_id',
+            ])
+            ->with([
+                'user' => function ($query): void {
+                    $query->select([
+                        'id',
+                        'name',
+                        'email',
+                        'mobile_no',
+                        'type',
+                        'created_by',
+                    ]);
+                },
+            ])
+            ->where('creator_id', $creatorId)
+            ->where('extension', $extension)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $pbxExtension?->user) {
+            return null;
         }
-        return preg_replace('/[^0-9]/', '', $phone);
+
+        $user = $pbxExtension->user;
+
+        /*
+         * Protect SaaS data and exclude system-level users.
+         */
+        if (
+            (int) $user->created_by !== $creatorId ||
+            $this->isExcludedUserType($user->type)
+        ) {
+            return null;
+        }
+
+        /*
+         * Add extension information without another database query.
+         */
+        $user->setAttribute(
+            'pbx_extension',
+            $pbxExtension->extension,
+        );
+
+        $user->setAttribute(
+            'pbx_caller_id',
+            $pbxExtension->caller_id,
+        );
+
+        return $user;
+    }
+
+    /**
+     * Find any allowed user by users.mobile_no.
+     */
+    private function findUserByPhone(
+        int $creatorId,
+        array $phoneVariants,
+        string $last10,
+    ): ?User {
+        /*
+         * Fast exact indexed lookup first.
+         */
+        $user = User::query()
+            ->select([
+                'id',
+                'name',
+                'email',
+                'mobile_no',
+                'type',
+                'created_by',
+            ])
+            ->where('created_by', $creatorId)
+            ->whereNotIn('type', $this->excludedUserTypes())
+            ->whereIn('mobile_no', $phoneVariants)
+            ->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        /*
+         * Fallback for formatted numbers.
+         */
+        return User::query()
+            ->select([
+                'id',
+                'name',
+                'email',
+                'mobile_no',
+                'type',
+                'created_by',
+            ])
+            ->where('created_by', $creatorId)
+            ->whereNotIn('type', $this->excludedUserTypes())
+            ->where(function (Builder $query) use (
+                $phoneVariants,
+                $last10
+            ): void {
+                $this->applyNormalizedPhoneSearch(
+                    query: $query,
+                    column: 'mobile_no',
+                    phoneVariants: $phoneVariants,
+                    last10: $last10,
+                );
+            })
+            ->first();
+    }
+
+    /**
+     * Build the user response and include employee details when available.
+     */
+    private function userResponse(
+        User $user,
+        int $creatorId,
+        string $source,
+        ?string $extension = null,
+    ): JsonResponse {
+        $employee = $this->findEmployeeForUser(
+            userId: (int) $user->id,
+            creatorId: $creatorId,
+        );
+
+        $resolvedExtension = $extension
+            ?? $user->getAttribute('pbx_extension');
+
+        return $this->foundResponse([
+            'type' => 'user',
+            'id' => $user->id,
+            'name' => $user->name,
+            'phone' => $user->mobile_no,
+            'email' => $user->email,
+            'organization' => null,
+            'extra' => [
+                'record_type' => 'user',
+                'user_type' => $user->type,
+                'lookup_source' => $source,
+                'extension' => $resolvedExtension,
+                'caller_id' => $user->getAttribute('pbx_caller_id'),
+                'employee_id' => $employee?->employee_id,
+                'department' => $employee?->department?->name,
+                'designation' => $employee?->designation?->name,
+                'branch' => $employee?->branch?->name,
+            ],
+        ]);
+    }
+
+    /**
+     * Find employee information for a user.
+     */
+    private function findEmployeeForUser(
+        int $userId,
+        int $creatorId,
+    ): ?Employee {
+        if (! class_exists(Employee::class)) {
+            return null;
+        }
+
+        return Employee::query()
+            ->select([
+                'id',
+                'employee_id',
+                'user_id',
+                'branch_id',
+                'department_id',
+                'designation_id',
+                'created_by',
+            ])
+            ->with([
+                'branch:id,name',
+                'department:id,name',
+                'designation:id,name',
+            ])
+            ->where('user_id', $userId)
+            ->where('created_by', $creatorId)
+            ->first();
+    }
+
+    private function findLead(
+        int $creatorId,
+        array $phoneVariants,
+        string $last10,
+    ): ?Lead {
+        $columns = [
+            'id',
+            'name',
+            'phone',
+            'email',
+            'subject',
+            'stage_id',
+            'created_at',
+        ];
+
+        /*
+         * Exact search first for better index usage.
+         */
+        $lead = Lead::query()
+            ->select($columns)
+            ->with('stage:id,name')
+            ->where('created_by', $creatorId)
+            ->whereIn('phone', $phoneVariants)
+            ->first();
+
+        if ($lead) {
+            return $lead;
+        }
+
+        return Lead::query()
+            ->select($columns)
+            ->with('stage:id,name')
+            ->where('created_by', $creatorId)
+            ->where(function (Builder $query) use (
+                $phoneVariants,
+                $last10
+            ): void {
+                $this->applyNormalizedPhoneSearch(
+                    query: $query,
+                    column: 'phone',
+                    phoneVariants: $phoneVariants,
+                    last10: $last10,
+                );
+            })
+            ->first();
+    }
+
+    private function findDeal(
+        int $creatorId,
+        array $phoneVariants,
+        string $last10,
+    ): ?Deal {
+        $columns = [
+            'id',
+            'name',
+            'phone',
+            'stage_id',
+        ];
+
+        /*
+         * Exact search first for better index usage.
+         */
+        $deal = Deal::query()
+            ->select($columns)
+            ->with('stage:id,name')
+            ->where('created_by', $creatorId)
+            ->whereIn('phone', $phoneVariants)
+            ->first();
+
+        if ($deal) {
+            return $deal;
+        }
+
+        return Deal::query()
+            ->select($columns)
+            ->with('stage:id,name')
+            ->where('created_by', $creatorId)
+            ->where(function (Builder $query) use (
+                $phoneVariants,
+                $last10
+            ): void {
+                $this->applyNormalizedPhoneSearch(
+                    query: $query,
+                    column: 'phone',
+                    phoneVariants: $phoneVariants,
+                    last10: $last10,
+                );
+            })
+            ->first();
+    }
+
+    private function applyNormalizedPhoneSearch(
+        Builder $query,
+        string $column,
+        array $phoneVariants,
+        string $last10,
+    ): void {
+        $normalizedColumn = $this->normalizedSqlColumn($column);
+
+        $normalizedVariants = array_values(
+            array_unique(
+                array_filter(
+                    array_map(
+                        fn ($number): string => $this->normalizeNumber(
+                            (string) $number,
+                        ),
+                        $phoneVariants,
+                    ),
+                ),
+            ),
+        );
+
+        $query->where(function (Builder $phoneQuery) use (
+            $normalizedColumn,
+            $normalizedVariants,
+            $last10
+        ): void {
+            foreach ($normalizedVariants as $variant) {
+                $phoneQuery->orWhereRaw(
+                    "{$normalizedColumn} = ?",
+                    [$variant],
+                );
+            }
+
+            if (strlen($last10) === 10) {
+                $phoneQuery->orWhereRaw(
+                    "RIGHT({$normalizedColumn}, 10) = ?",
+                    [$last10],
+                );
+            }
+        });
+    }
+
+    private function getPhoneVariants(string $digits): array
+    {
+        $variants = [$digits];
+
+        /*
+         * International format: 8801733490080
+         */
+        if (
+            str_starts_with($digits, '880') &&
+            strlen($digits) === 13
+        ) {
+            $nationalNumber = substr($digits, 3);
+
+            $variants[] = $nationalNumber;
+            $variants[] = '0' . $nationalNumber;
+            $variants[] = '+' . $digits;
+        }
+
+        /*
+         * Local format: 01733490080
+         */
+        if (
+            str_starts_with($digits, '0') &&
+            strlen($digits) === 11
+        ) {
+            $withoutZero = substr($digits, 1);
+
+            $variants[] = $withoutZero;
+            $variants[] = '880' . $withoutZero;
+            $variants[] = '+880' . $withoutZero;
+        }
+
+        /*
+         * National format without zero: 1733490080
+         */
+        if (
+            str_starts_with($digits, '1') &&
+            strlen($digits) === 10
+        ) {
+            $variants[] = '0' . $digits;
+            $variants[] = '880' . $digits;
+            $variants[] = '+880' . $digits;
+        }
+
+        return array_values(
+            array_unique(
+                array_filter($variants),
+            ),
+        );
+    }
+
+    private function excludedUserTypes(): array
+    {
+        return [
+            'company',
+            'super admin',
+            'superadmin',
+            'super-admin',
+        ];
+    }
+
+    private function isExcludedUserType(?string $type): bool
+    {
+        $normalizedType = strtolower(
+            trim((string) $type),
+        );
+
+        return in_array(
+            $normalizedType,
+            $this->excludedUserTypes(),
+            true,
+        );
+    }
+
+    private function normalizedSqlColumn(string $column): string
+    {
+        if (! in_array($column, ['mobile_no', 'phone'], true)) {
+            throw new \InvalidArgumentException(
+                'Invalid phone lookup column.',
+            );
+        }
+
+        return "
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                REPLACE(
+                                    COALESCE({$column}, ''),
+                                    ' ',
+                                    ''
+                                ),
+                                '-',
+                                ''
+                            ),
+                            '(',
+                            ''
+                        ),
+                        ')',
+                        ''
+                    ),
+                    '+',
+                    ''
+                ),
+                '.',
+                ''
+            )
+        ";
+    }
+
+    private function normalizeNumber(string $phone): string
+    {
+        return preg_replace('/\D+/', '', $phone) ?? '';
+    }
+
+    private function foundResponse(array $match): JsonResponse
+    {
+        return response()->json([
+            'found' => true,
+            'type' => $match['type'],
+            'id' => $match['id'],
+            'name' => $match['name'],
+            'phone' => $match['phone'] ?? null,
+            'email' => $match['email'] ?? null,
+            'organization' => $match['organization'] ?? null,
+            'extra' => $match['extra'] ?? [],
+        ]);
     }
 }

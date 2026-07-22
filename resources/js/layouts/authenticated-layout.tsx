@@ -73,7 +73,7 @@ function AuthenticatedLayoutContent({
                 dir={settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr'}
             >
                 <header
-                    className={`bg-background/95 backdrop-blur-md flex h-14 shrink-0 items-center gap-2 px-6 py-2 border-b shadow-sm mb-2 justify-between`}
+                    className={`bg-background/95 backdrop-blur-md flex h-16 shrink-0 items-center gap-2 px-6 py-2 border-b shadow-sm mb-2 justify-between`}
                     >
                     {/* Sidebar + Breadcrumb */}
                     <div className={`flex items-center gap-2 ${ settings.layoutDirection === "rtl" ? "order-2 flex-row-reverse" : "order-1" }`} >

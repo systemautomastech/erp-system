@@ -1,19 +1,42 @@
 export interface RecentCall {
-    id?: string;
-    number: string;
+  id?: string
+  number: string
 
-    name?: string;
-    direction?: string;
-    status?: string;
-    duration?: number | string;
+  name?: string
+  direction?: string
+  status?: string
+  duration?: number | string
 
-    createdAt?: string;
-    created_at?: string;
-    time?: string;
-    read?: boolean;
+  createdAt?: string
+  created_at?: string
+  time?: string
+  read?: boolean
 
-    module?: string;
-    recordId?: string | number;
+  module?: string
+  recordId?: string | number
+}
+
+export interface CallerExtra {
+  [key: string]: unknown
+
+  record_type?: string
+  user_type?: string
+  lookup_source?: string
+
+  extension?: string
+  caller_id?: string
+  employee_id?: string
+  department?: string
+  designation?: string
+  branch?: string
+
+  lead_stage?: string
+  lead_subject?: string
+  lead_created_at?: string
+  lead_link?: string
+
+  deal_stage?: string
+  deal_link?: string
 }
 
 export interface CallerInfo {
@@ -25,13 +48,7 @@ export interface CallerInfo {
   number?: string
   email?: string
   organization?: string
-  address?: string
-  lead_subject?: string;
-  lead_status?: string;
-  lead_created_at?: string;
-
-  [key: string]: unknown;
-  extra?: Record<string, unknown>
+  extra?: CallerExtra
 }
 
 export interface CallStore {

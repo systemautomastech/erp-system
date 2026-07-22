@@ -891,7 +891,7 @@ export function useDialer() {
         caller
 
       setActivePanel('dialpad')
-      setIsOpen(true)
+      setIsOpen(false)
 
       forceStoreRender()
 
@@ -993,7 +993,7 @@ export function useDialer() {
       callStore.agentStatus =
         'busy'
 
-      setIsOpen(true)
+      setIsOpen(false)
       startTimer()
       forceStoreRender()
     }

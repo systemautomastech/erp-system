@@ -57,13 +57,13 @@
 
 .phone-tab {
   position: fixed;
-  right: 15px;
-  bottom: 0px;
-  width: 92px;
-  height: 45px;
+  right: 0;
+  bottom: 40%;
+  width: 45px;
+  height: 60px;
   border: 1px solid var(--webphone-success);
   border-right: 0;
-  border-radius: 18px 18px 0 0px;
+  border-radius: 18px 0 0 18px;
   background: var(--webphone-success);
   color: white;
   z-index: 99999;
@@ -82,14 +82,14 @@
 }
 
 .phone-tab-icon {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
 }
 
 .webphone {
   position: fixed;
-  width: min(320px, calc(100vw - 18px));
-  height: min(630px, calc(100vh - 18px));
+  width: min(300px, calc(100vw - 18px));
+  height: min(590px, calc(100vh - 18px));
   background: linear-gradient(180deg, var(--webphone-bg), var(--webphone-bg));
   color: var(--webphone-text);
   border-radius: 34px;
@@ -441,6 +441,7 @@
 }
 
 @keyframes pulse-ringing {
+
   0%,
   100% {
     box-shadow: none;

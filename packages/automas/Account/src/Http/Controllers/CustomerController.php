@@ -12,18 +12,23 @@ use Automas\Account\Http\Requests\UpdateCustomerRequest;
 use Automas\Account\Events\CreateCustomer;
 use Automas\Account\Events\UpdateCustomer;
 use Automas\Account\Events\DestroyCustomer;
+use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Session;
+use App\Events\CreateUser;
 
 class CustomerController extends Controller
 {
     public function index()
     {
-        if(Auth::user()->can('manage-customers')){
+        if (Auth::user()->can('manage-customers')) {
             $customers = Customer::query()
                 ->with('user:id,name,avatar,is_disable')
-                ->where(function($q) {
-                    if(Auth::user()->can('manage-any-customers')) {
+                ->where(function ($q) {
+                    if (Auth::user()->can('manage-any-customers')) {
                         $q->where('created_by', creatorId());
-                    } elseif(Auth::user()->can('manage-own-customers')) {
+                    } elseif (Auth::user()->can('manage-own-customers')) {
                         $q->where('creator_id', Auth::id());
                     } else {
                         $q->whereRaw('1 = 0');
@@ -52,11 +57,17 @@ class CustomerController extends Controller
 
     public function store(StoreCustomerRequest $request)
     {
-        if(Auth::user()->can('create-customers')){
+        if (Auth::user()->can('create-customers')) {
             $validated = $request->validated();
 
+            if (! empty($validated['user_id'])) {
+                $user = User::findOrFail($validated['user_id']);
+            } else {
+                $user = $this->storeUser($validated);
+            }
+
             $customer = new Customer();
-            $customer->user_id = $validated['user_id'] ?? null;
+            $customer->user_id = $user->id ?? null;
             $customer->company_name = $validated['company_name'];
             $customer->contact_person_name = $validated['contact_person_name'];
             $customer->contact_person_email = $validated['contact_person_email'] ?? null;
@@ -80,7 +91,7 @@ class CustomerController extends Controller
 
     public function update(UpdateCustomerRequest $request, Customer $customer)
     {
-        if(Auth::user()->can('edit-customers')){
+        if (Auth::user()->can('edit-customers')) {
             $validated = $request->validated();
 
             $customer->company_name = $validated['company_name'];
@@ -104,11 +115,33 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
-        if(Auth::user()->can('delete-customers')){
+        if (Auth::user()->can('delete-customers')) {
             DestroyCustomer::dispatch($customer);
             $customer->delete();
             return back()->with('success', __('The customer has been deleted.'));
         }
         return back()->with('error', __('Permission denied'));
+    }
+
+    private function storeUser($request)
+    {
+        $role = Role::findByName('client');
+
+        $user = new User();
+        $user->name = $request['company_name'];
+        $user->email = $request['company_name'];
+        $user->mobile_no = $request['contact_person_mobile'];
+        $user->password = Hash::make(12345678);
+        $user->type = 'client';
+        $user->is_enable_login = true;
+        $user->lang = company_setting('defaultLanguage') ?? 'en';
+        $user->email_verified_at = now();
+        $user->creator_id = Auth::id();
+        $user->created_by = creatorId();
+        $user->save();
+
+        $user->assignRole($role);
+
+        return $user;
     }
 }
