@@ -1,4 +1,4 @@
-name: Deploy MyERP With SSH
+name: Deploy MyERP With SSH & git
 
 on:
   push:
