@@ -337,9 +337,9 @@ class CallerLookupController extends Controller
                 'created_by',
             ])
             ->with([
-                'branch:id,name',
-                'department:id,name',
-                'designation:id,name',
+                'branch:id,branch_name',
+                'department:id,department_name',
+                'designation:id,designation_name',
             ])
             ->where('user_id', $userId)
             ->where('created_by', $creatorId)
