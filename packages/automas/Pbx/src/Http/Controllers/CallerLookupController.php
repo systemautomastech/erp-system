@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Auth;
 
 class CallerLookupController extends Controller
 {
@@ -31,51 +30,82 @@ class CallerLookupController extends Controller
         $phoneNumber = trim($validated['number']);
         $creatorId = (int) creatorId();
         $digits = $this->normalizeNumber($phoneNumber);
+        $digitLength = strlen($digits);
 
         if ($digits === '') {
             return response()->json([
                 'found' => false,
                 'number' => $phoneNumber,
+                'message' => 'Invalid phone number.',
             ]);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 1. Search PBX extension first
+        | Extension lookup
         |--------------------------------------------------------------------------
         |
-        | Examples: 100, 101, 200, 201
+        | Any number shorter than 9 digits is treated only as an extension.
+        | It will not search users, leads or deals.
         |
         */
-        $extensionUser = $this->findUserByExtension(
-            extension: $digits,
-            creatorId: $creatorId,
-        );
-
-        if ($extensionUser) {
-            return $this->userResponse(
-                user: $extensionUser,
-                creatorId: $creatorId,
-                source: 'extension',
+        if ($digitLength < 9) {
+            $extensionUser = $this->findUserByExtension(
                 extension: $digits,
+                creatorId: $creatorId,
             );
+
+            if ($extensionUser) {
+                return $this->userResponse(
+                    user: $extensionUser,
+                    creatorId: $creatorId,
+                    source: 'extension',
+                    extension: $digits,
+                );
+            }
+
+            return response()->json([
+                'found' => false,
+                'number' => $phoneNumber,
+                'lookup_type' => 'extension',
+            ]);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Prepare telephone variants
+        | Unsupported nine-digit number
         |--------------------------------------------------------------------------
+        |
+        | Phone-number searching starts from 10 digits.
+        |
+        */
+        if ($digitLength === 9) {
+            return response()->json([
+                'found' => false,
+                'number' => $phoneNumber,
+                'message' => 'The number must contain at least 10 digits.',
+            ]);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Phone lookup
+        |--------------------------------------------------------------------------
+        |
+        | Numbers containing 10 or more digits are searched in this order:
+        |
+        | 1. Users
+        | 2. Leads
+        | 3. Deals
+        |
         */
         $phoneVariants = $this->getPhoneVariants($digits);
         $last10 = substr($digits, -10);
 
         /*
         |--------------------------------------------------------------------------
-        | 2. Search users by mobile number
+        | 1. Search users
         |--------------------------------------------------------------------------
-        |
-        | Search any user except company or super-admin users.
-        |
         */
         $user = $this->findUserByPhone(
             creatorId: $creatorId,
@@ -93,7 +123,7 @@ class CallerLookupController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 3. Search leads only when no user was found
+        | 2. Search leads
         |--------------------------------------------------------------------------
         */
         if (class_exists(Lead::class)) {
@@ -116,7 +146,7 @@ class CallerLookupController extends Controller
                         'lead_stage' => $lead->stage?->name,
                         'lead_subject' => $lead->subject,
                         'lead_created_at' => $lead->created_at?->diffForHumans(),
-                        'lead_link' => route('leads.show', $lead->id),
+                        'lead_link' => route('lead.leads.show', $lead->id),
                     ],
                 ]);
             }
@@ -124,7 +154,7 @@ class CallerLookupController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 4. Search deals only when no user or lead was found
+        | 3. Search deals
         |--------------------------------------------------------------------------
         */
         if (class_exists(Deal::class)) {
@@ -145,7 +175,7 @@ class CallerLookupController extends Controller
                     'extra' => [
                         'record_type' => 'deal',
                         'deal_stage' => $deal->stage?->name,
-                        'deal_link' => route('deals.show', $deal->id),
+                        'deal_link' => route('deal.deals.show', $deal->id),
                     ],
                 ]);
             }
@@ -154,6 +184,7 @@ class CallerLookupController extends Controller
         return response()->json([
             'found' => false,
             'number' => $phoneNumber,
+            'lookup_type' => 'phone',
         ]);
     }
 
@@ -183,7 +214,7 @@ class CallerLookupController extends Controller
                     ]);
                 },
             ])
-            ->where('creator_id', $creatorId)
+            ->where('created_by', $creatorId)
             ->where('extension', $extension)
             ->where('is_active', true)
             ->first();
@@ -308,9 +339,9 @@ class CallerLookupController extends Controller
                 'extension' => $resolvedExtension,
                 'caller_id' => $user->getAttribute('pbx_caller_id'),
                 'employee_id' => $employee?->employee_id,
-                'department' => $employee?->department?->name,
-                'designation' => $employee?->designation?->name,
-                'branch' => $employee?->branch?->name,
+                'department' => $employee?->department?->department_name,
+                'designation' => $employee?->designation?->designation_name,
+                'branch' => $employee?->branch?->branch_name,
             ],
         ]);
     }
@@ -346,6 +377,9 @@ class CallerLookupController extends Controller
             ->first();
     }
 
+    /**
+     * Find a lead by phone number.
+     */
     private function findLead(
         int $creatorId,
         array $phoneVariants,
@@ -393,6 +427,9 @@ class CallerLookupController extends Controller
             ->first();
     }
 
+    /**
+     * Find a deal by phone number.
+     */
     private function findDeal(
         int $creatorId,
         array $phoneVariants,
@@ -437,6 +474,9 @@ class CallerLookupController extends Controller
             ->first();
     }
 
+    /**
+     * Search a formatted phone column using normalized values.
+     */
     private function applyNormalizedPhoneSearch(
         Builder $query,
         string $column,
@@ -479,12 +519,16 @@ class CallerLookupController extends Controller
         });
     }
 
+    /**
+     * Generate supported Bangladeshi phone-number formats.
+     */
     private function getPhoneVariants(string $digits): array
     {
         $variants = [$digits];
 
         /*
-         * International format: 8801733490080
+         * International format:
+         * 8801733490080
          */
         if (
             str_starts_with($digits, '880') &&
@@ -498,7 +542,8 @@ class CallerLookupController extends Controller
         }
 
         /*
-         * Local format: 01733490080
+         * Local format:
+         * 01733490080
          */
         if (
             str_starts_with($digits, '0') &&
@@ -512,7 +557,8 @@ class CallerLookupController extends Controller
         }
 
         /*
-         * National format without zero: 1733490080
+         * National format without leading zero:
+         * 1733490080
          */
         if (
             str_starts_with($digits, '1') &&
@@ -530,6 +576,9 @@ class CallerLookupController extends Controller
         );
     }
 
+    /**
+     * User types that must not be returned by caller lookup.
+     */
     private function excludedUserTypes(): array
     {
         return [
@@ -540,6 +589,9 @@ class CallerLookupController extends Controller
         ];
     }
 
+    /**
+     * Check whether a user type is excluded.
+     */
     private function isExcludedUserType(?string $type): bool
     {
         $normalizedType = strtolower(
@@ -553,6 +605,9 @@ class CallerLookupController extends Controller
         );
     }
 
+    /**
+     * Generate a normalized SQL expression for phone searching.
+     */
     private function normalizedSqlColumn(string $column): string
     {
         if (! in_array($column, ['mobile_no', 'phone'], true)) {
@@ -590,11 +645,17 @@ class CallerLookupController extends Controller
         ";
     }
 
+    /**
+     * Remove every non-digit character from a number.
+     */
     private function normalizeNumber(string $phone): string
     {
         return preg_replace('/\D+/', '', $phone) ?? '';
     }
 
+    /**
+     * Return a successful caller-lookup response.
+     */
     private function foundResponse(array $match): JsonResponse
     {
         return response()->json([

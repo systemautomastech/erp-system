@@ -30,7 +30,7 @@ Route::middleware([
     Route::get('call-logs', [PbxCallLogController::class, 'index'])
         ->name('call-logs.index');
 
-    Route::post('call-events', [PbxCallLogController::class, 'storeEvent'])
+    Route::post('store-call-events', [PbxCallLogController::class, 'storeEvent'])
         ->name('call-events.store');
 });
 
