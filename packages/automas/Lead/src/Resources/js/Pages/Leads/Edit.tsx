@@ -95,7 +95,7 @@ export default function EditLead({ lead, sources: propSources, products: propPro
                     </div>
 
                     <div>
-                        <Label htmlFor="email" required>{t('Email')}</Label>
+                        <Label htmlFor="email">{t('Email')}</Label>
                         <Input
                             id="email"
                             type="email"

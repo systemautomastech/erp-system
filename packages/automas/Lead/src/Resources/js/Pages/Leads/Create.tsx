@@ -67,7 +67,7 @@ export default function Create({ onSuccess }: CreateLeadProps) {
                     </div>
 
                     <div>
-                        <Label htmlFor="email" required>{t('Email')}</Label>
+                        <Label htmlFor="email">{t('Email')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -101,7 +101,7 @@ export default function Create({ onSuccess }: CreateLeadProps) {
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select User')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent  searchable>
                                 {users?.map((item: any) => (
                                     <SelectItem key={item.id} value={item.id.toString()}>
                                         {item.name}

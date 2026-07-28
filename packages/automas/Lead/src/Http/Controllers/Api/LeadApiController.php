@@ -141,7 +141,7 @@ class LeadApiController extends Controller
                     'name'    => 'required',
                     'email'   => 'required|email',
                     'subject' => 'required',
-                    'phone'   => 'nullable|string|regex:/^\+\d{1,3}\d{9,13}$/',
+                    'phone'   => 'nullable|string|regex:/^\+?\d{10,16}$/',
                     'date'    => 'required|date',
                 ]);
 
@@ -230,7 +230,7 @@ class LeadApiController extends Controller
                     'sources'     => 'nullable|max:100',
                     'products'    => 'nullable|max:100',
                     'notes'       => 'nullable|max:1000',
-                    'phone'       => 'nullable|string|regex:/^\+\d{1,3}\d{9,13}$/',
+                    'phone'       => 'nullable|string|regex:/^\+?\d{10,16}$/',
                 ]);
 
                 if ($validator->fails()) {

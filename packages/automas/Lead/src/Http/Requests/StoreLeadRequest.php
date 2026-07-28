@@ -15,9 +15,9 @@ class StoreLeadRequest extends FormRequest
     {
         return [
             'name' => 'required|max:100',
-            'email' => 'required|email',
-            'subject' => 'required|max:200',            
-            'phone' => 'nullable|string|regex:/^\+\d{1,3}\d{9,13}$/',
+            'email' => 'nullable|email',
+            'subject' => 'required|max:200',
+            'phone' => 'nullable|string|regex:/^\+?\d{10,16}$/',
             'date' => 'nullable|date',
             'user_id' => 'required|exists:users,id',
         ];

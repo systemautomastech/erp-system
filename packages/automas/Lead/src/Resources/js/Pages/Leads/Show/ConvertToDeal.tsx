@@ -39,10 +39,11 @@ export default function ConvertToDeal({ lead, deal, buttonClassName }: ConvertTo
     const [formData, setFormData] = useState({
         name: lead.subject || lead.name,
         price: '0',
-        client_check: 'new',
+        client_check: 'none',
         clients: '',
         client_name: lead.name,
         client_email: lead.email,
+        client_phone: lead.phone || '',
         client_password: '',
         is_transfer: ['products', 'sources', 'files', 'discussion', 'notes', 'calls', 'emails']
     });
@@ -146,11 +147,32 @@ export default function ConvertToDeal({ lead, deal, buttonClassName }: ConvertTo
                                 error={errors.price}
                             />
                         </div>
+                        <div>
+                            <Label htmlFor="client_phone">{t('Client Phone')}</Label>
+                            <Input
+                                id="client_phone"
+                                type="tel"
+                                value={formData.client_phone}
+                                onChange={(e) =>
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        client_phone: e.target.value
+                                    }))
+                                }
+                                placeholder={t('Enter Client Phone')}
+                                required
+                            />
+                            <InputError message={errors.client_phone} />
+                        </div>
                     </div>
 
                     <div className="space-y-3">
                         <Label>{t('Client Type')}</Label>
                         <RadioGroup value={formData.client_check} onValueChange={(value) => setFormData(prev => ({ ...prev, client_check: value }))}>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="none" id="none_client" />
+                                <Label htmlFor="none_client">{t('No Client')}</Label>
+                            </div>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="new" id="new_client" />
                                 <Label htmlFor="new_client">{t('New Client')}</Label>
@@ -180,7 +202,7 @@ export default function ConvertToDeal({ lead, deal, buttonClassName }: ConvertTo
                                 </Select>
                                 <InputError message={errors.clients} />
                             </div>
-                        ) : (
+                        ) : formData.client_check === 'new' ? (
                             <>
                                 <div>
                                     <Label htmlFor="client_name">{t('Client Name')}</Label>
@@ -217,7 +239,7 @@ export default function ConvertToDeal({ lead, deal, buttonClassName }: ConvertTo
                                     <InputError message={errors.client_password} />
                                 </div>
                             </>
-                        )}
+                        ) : (null)}
                     </div>
 
                     <div>

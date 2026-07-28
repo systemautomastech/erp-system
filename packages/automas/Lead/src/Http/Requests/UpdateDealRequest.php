@@ -18,7 +18,7 @@ class UpdateDealRequest extends FormRequest
             'price'         => 'numeric|min:0',
             'pipeline_id'   => 'required|integer|exists:pipelines,id',
             'stage_id'      => 'required|integer|exists:deal_stages,id',
-            'phone'         => 'nullable|string|regex:/^\+\d{1,3}\d{9,13}$/',
+            'phone'         => 'nullable|string|regex:/^\+?\d{10,16}$/',
             'sources'       => 'nullable|array',
             'sources.*'     => 'integer|exists:sources,id',
             'products'      => 'nullable|array',

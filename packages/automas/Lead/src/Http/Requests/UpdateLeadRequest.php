@@ -15,7 +15,7 @@ class UpdateLeadRequest extends FormRequest
     {
         return [
             'name' => 'required|max:100',
-            'email' => 'required|email',
+            'email' => 'nullable|email',
             'subject' => 'required|max:200',
             'user_id' => 'required|exists:users,id',
             'pipeline_id' => 'nullable|integer',
@@ -23,7 +23,7 @@ class UpdateLeadRequest extends FormRequest
             'sources' => 'nullable|max:100',
             'products' => 'nullable|max:100',
             'notes' => 'nullable',
-            'phone' => 'nullable|string|regex:/^\+\d{1,3}\d{9,13}$/',
+            'phone' => 'nullable|string|regex:/^\+?\d{10,16}$/',
             'date' => 'nullable|date',
         ];
     }

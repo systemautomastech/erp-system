@@ -27,7 +27,7 @@ class UpdateEmployeeRequest extends FormRequest
             'postal_code' => 'required|max:20',
             'emergency_contact_name' => 'required|max:100',
             'emergency_contact_relationship' => 'required|string    |max:100',
-            'emergency_contact_number' => 'required|string|regex:/^\+\d{1,3}\d{9,13}$/',
+            'emergency_contact_number' => 'required|string|regex:/^\+?\d{10,16}$/',
             'bank_name' => 'required|max:100',
             'account_holder_name' => 'required|max:100',
             'account_number' => 'required|max:50',

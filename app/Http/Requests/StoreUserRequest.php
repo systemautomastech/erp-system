@@ -21,7 +21,7 @@ class StoreUserRequest extends FormRequest
                 'email',
                 'unique:users,email,NULL,id,created_by,' . creatorId()
             ],
-            'mobile_no' => 'nullable|string|regex:/^\+\d{1,3}\d{9,13}$/',
+            'mobile_no' => 'nullable|string|regex:/^\+?\d{10,16}$/',
             'password' => 'required|confirmed|min:6',
             'type' => $typeRule,
             'is_enable_login' => 'boolean',

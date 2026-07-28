@@ -37,10 +37,9 @@ export function PhoneInputComponent({
                 type="tel"
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder || t('+1234567890')}
+                placeholder={placeholder || t('+88017XXXXXXXX')}
                 className={`${className} ${readOnly ? 'bg-gray-50' : ''}`}
-                pattern="^\+\d{1,3}\d{9,13}$"
-                required={required}
+                pattern="^\+?\d{10,16}$" required={required}
                 readOnly={readOnly}
                 style={style}
             />

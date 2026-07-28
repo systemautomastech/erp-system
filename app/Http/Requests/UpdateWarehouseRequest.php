@@ -18,7 +18,7 @@ class UpdateWarehouseRequest extends FormRequest
             'address' => 'required|string',
             'city' => 'required|string|max:255',
             'zip_code' => 'required|string|max:20',
-            'phone' => 'nullable|string|regex:/^\+\d{1,3}\d{9,13}$/',
+            'phone' => 'nullable|string|regex:/^\+?\d{10,16}$/',
             'email' => 'nullable|email|max:255',
             'is_active' => 'boolean',
         ];

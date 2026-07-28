@@ -88,12 +88,12 @@ class LeadController extends Controller
                         $q->where('created_by', creatorId());
                     } elseif (Auth::user()->can('manage-own-leads')) {
                         $q->where('created_by', creatorId())
-                          ->where(function($subQ) {
-                              $subQ->where('creator_id', Auth::id())
-                                   ->orWhereHas('userLeads', function($leadQ) {
-                                       $leadQ->where('user_id', Auth::id());
-                                   });
-                          });
+                            ->where(function ($subQ) {
+                                $subQ->where('creator_id', Auth::id())
+                                    ->orWhereHas('userLeads', function ($leadQ) {
+                                        $leadQ->where('user_id', Auth::id());
+                                    });
+                            });
                     } else {
                         $q->whereRaw('1 = 0');
                     }
@@ -107,7 +107,7 @@ class LeadController extends Controller
                 })
                 ->when(request('is_active') !== null && request('is_active') !== '', fn($q) => $q->where('is_active', request('is_active') === '1' ? 1 : 0))
                 ->when(request('user_id') && request('user_id') !== '', fn($q) => $q->where('user_id', request('user_id')))
-                ->when(request('pipeline_id') && request('pipeline_id') !== '', fn($q) => $q->where('pipeline_id', request('pipeline_id')), function($q) use ($defaultPipelineId) {
+                ->when(request('pipeline_id') && request('pipeline_id') !== '', fn($q) => $q->where('pipeline_id', request('pipeline_id')), function ($q) use ($defaultPipelineId) {
                     // If no pipeline_id in request, use default pipeline
                     if ($defaultPipelineId) {
                         $q->where('pipeline_id', $defaultPipelineId);
@@ -121,7 +121,7 @@ class LeadController extends Controller
                 ->withQueryString();
 
             $users = User::where('created_by', '=', creatorId())
-                ->emp([],['vendor'])
+                ->emp(['vendor', 'client'])
                 ->select('id', 'name')
                 ->get();
 
@@ -166,7 +166,7 @@ class LeadController extends Controller
             } else {
                 $pipeline = $pipelines->first();
             }
-            
+
             if (!empty($pipeline)) {
                 $stage = LeadStage::where('pipeline_id', '=', $pipeline->id)->first();
             } else {
@@ -177,7 +177,7 @@ class LeadController extends Controller
             } else {
                 $lead                 = new Lead();
                 $lead->name           = $request->name;
-                $lead->email          = $request->email;
+                $lead->email          = $request->email ?? null;
                 $lead->subject        = $request->subject;
                 $lead->user_id        = $request->user_id;
                 $lead->pipeline_id    = $pipeline->id;
@@ -235,10 +235,8 @@ class LeadController extends Controller
     public function show(Lead $lead)
     {
         if (Auth::user()->can('view-leads') && $lead->created_by == creatorId()) {
-            if(!Auth::user()->can('manage-any-leads') && $lead->creator_id != Auth::id())
-            {
-                if (Auth::user()->can('manage-own-leads'))
-                {
+            if (!Auth::user()->can('manage-any-leads') && $lead->creator_id != Auth::id()) {
+                if (Auth::user()->can('manage-own-leads')) {
                     $hasAccess = false;
 
                     // Check if user is assigned to this lead
@@ -249,8 +247,7 @@ class LeadController extends Controller
                     if (!$hasAccess) {
                         return redirect()->route('lead.leads.index')->with('error', __('Permission denied'));
                     }
-                }
-                else {
+                } else {
                     return redirect()->route('lead.leads.index')->with('error', __('Permission denied'));
                 }
             }
@@ -325,7 +322,7 @@ class LeadController extends Controller
                     $products = ProductServiceItem::where('created_by', '=', creatorId())->get()->pluck('name', 'id');
                 }
 
-                $users = User::where('created_by', '=', creatorId())->emp([],['vendor'])->get()->pluck('name', 'id');
+                $users = User::where('created_by', '=', creatorId())->emp(['vendor', 'client'])->get()->pluck('name', 'id');
                 $users->prepend(__('Select User'), null);
 
                 $lead->sources = explode(',', $lead->sources ?? '');
@@ -351,7 +348,7 @@ class LeadController extends Controller
 
 
             $lead->name        = $validated['name'];
-            $lead->email       = $validated['email'];
+            $lead->email       = $validated['email'] ?? null;
             $lead->subject     = $validated['subject'];
             $lead->user_id     = $validated['user_id'];
             $lead->phone       = $validated['phone'];
@@ -424,7 +421,7 @@ class LeadController extends Controller
     {
         if (Auth::user()->can('manage-lead-users')) {
             $users = User::where('created_by', '=', creatorId())
-                ->emp([],['vendor'])
+                ->emp([], ['vendor'])
                 ->whereNotIn('id', function ($q) use ($lead) {
                     $q->select('user_id')->from('user_leads')->where('lead_id', '=', $lead->id);
                 })
@@ -432,14 +429,14 @@ class LeadController extends Controller
                 ->get();
 
             return response()->json($users);
-        }else{
+        } else {
             return response()->json(['error' => __('Permission denied')], 403);
         }
     }
 
     public function assignUsers(AssignUsersRequest $request, Lead $lead)
     {
-        
+
         if (Auth::user()->can('create-lead-users')) {
             $lead->load(['pipeline', 'stage']);
 
@@ -459,14 +456,14 @@ class LeadController extends Controller
                     'lead_name'     => $lead->name,
                     'lead_email'    => $lead->email,
                     'lead_subject'  => $lead->subject,
-                    'follow_up_date'=> $lead->date ? \Carbon\Carbon::parse($lead->date)->format('d M Y') : null,
+                    'follow_up_date' => $lead->date ? \Carbon\Carbon::parse($lead->date)->format('d M Y') : null,
                     'lead_pipeline' => $lead->pipeline->name ?? '',
                     'lead_stage'    => $lead->stage->name ?? '',
                 ];
                 $newUsers = User::whereIn('id', $newUserIds)->get()->pluck('email', 'id')->toArray();
                 if (!empty($newUsers)) {
                     $message = EmailTemplate::sendEmailTemplate('Lead Assign', $newUsers, $emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
+                    if ($message['is_success'] == false && !empty($message['error'])) {
                         return redirect()->route('lead.leads.show', $lead->id)
                             ->with('success', __('The users have been assigned successfully.'))
                             ->with('error', $message['error']);
@@ -490,7 +487,7 @@ class LeadController extends Controller
             DestroyUserLead::dispatch($lead);
 
             return redirect()->route('lead.leads.show', $lead->id)->with('success', __('The user has been deleted.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -508,7 +505,7 @@ class LeadController extends Controller
                 ->get();
 
             return response()->json($products);
-        }else{
+        } else {
             return response()->json(['error' => __('Permission denied')], 403);
         }
     }
@@ -536,7 +533,7 @@ class LeadController extends Controller
             );
 
             return redirect()->route('lead.leads.show', $lead->id)->with('success', __('The products have been assigned successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -551,7 +548,7 @@ class LeadController extends Controller
             DestroyLeadProduct::dispatch($lead);
 
             return redirect()->route('lead.leads.show', $lead->id)->with('success', __('The product has been deleted.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -569,7 +566,7 @@ class LeadController extends Controller
                 ->get();
 
             return response()->json($sources);
-        }else{
+        } else {
             return response()->json(['error' => __('Permission denied')], 403);
         }
     }
@@ -593,7 +590,7 @@ class LeadController extends Controller
                 ]
             );
             return redirect()->route('lead.leads.show', $lead->id)->with('success', __('The sources have been assigned successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -608,7 +605,7 @@ class LeadController extends Controller
             DestroyLeadSource::dispatch($lead);
 
             return redirect()->route('lead.leads.show', $lead->id)->with('success', __('The source has been deleted.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -643,14 +640,14 @@ class LeadController extends Controller
 
                 // Send Email
                 $message = EmailTemplate::sendEmailTemplate('Lead Emails', $lead_users, $emailData);
-                if($message['is_success'] == false && !empty($message['error'])) {
+                if ($message['is_success'] == false && !empty($message['error'])) {
                     return back()
                         ->with('success', __('The email has been created successfully.'))
                         ->with('error', $message['error']);
                 }
             }
             return back()->with('success', __('The email has been created successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -669,7 +666,7 @@ class LeadController extends Controller
             LeadAddDiscussion::dispatch($request, $lead);
 
             return back()->with('success', __('The discussion has been created successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -819,7 +816,7 @@ class LeadController extends Controller
                         'lead_new_stage' => $newStage->name,
                     ];
                     $message = EmailTemplate::sendEmailTemplate('Lead Move', $lead_users, $emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
+                    if ($message['is_success'] == false && !empty($message['error'])) {
                         return back()
                             ->with('success', __('The lead moved successfully.'))
                             ->with('error', $message['error']);
@@ -847,7 +844,7 @@ class LeadController extends Controller
                 ->get();
 
             return response()->json($clients);
-        }else{
+        } else {
             return response()->json([]);
         }
     }
@@ -868,7 +865,9 @@ class LeadController extends Controller
 
             $creatorId = creatorId();
 
-            if ($request->client_check == 'exist') {
+            $client = null;
+
+            if ($request->client_check === 'exist') {
                 $client = User::where('type', 'client')
                     ->where('email', $request->clients)
                     ->where('created_by', $creatorId)
@@ -877,18 +876,27 @@ class LeadController extends Controller
                 if (!$client) {
                     return back()->with('error', __('The client is not available.'));
                 }
-            } else {
+            }
+
+            if ($request->client_check === 'new') {
                 $checkUser = canCreateUser();
+
                 if (!$checkUser['can_create']) {
-                    return redirect()->route('users.index')->with('error', $checkUser['message']);
+                    return redirect()
+                        ->route('users.index')
+                        ->with('error', $checkUser['message']);
                 }
 
-                $role = Role::where('name', 'client')->where('created_by', $creatorId)->first();
+                $role = Role::where('name', 'client')
+                    ->where('created_by', $creatorId)
+                    ->first();
+
                 $enableEmailVerification = admin_setting('enableEmailVerification');
 
                 $client = User::create([
                     'name' => $request->client_name,
                     'email' => $request->client_email,
+                    'phone' => $request->client_phone,
                     'password' => \Hash::make($request->client_password),
                     'email_verified_at' => $enableEmailVerification === 'on' ? null : now(),
                     'type' => 'client',
@@ -896,17 +904,18 @@ class LeadController extends Controller
                     'creator_id' => Auth::id(),
                     'created_by' => $creatorId,
                 ]);
+
                 $client->assignRole($role);
 
                 // Dispatch event for packages to handle their fields
                 CreateUser::dispatch($request, $client);
 
                 if ($enableEmailVerification === 'on') {
-                    // Apply dynamic mail configuration
                     SetConfigEmail(creatorId());
                     $client->sendEmailVerificationNotification();
                 }
             }
+
 
             // $cArr = [
             //     'email' => $request->client_email,
@@ -916,27 +925,36 @@ class LeadController extends Controller
             // // Send Email to client if they are new created.
             // EmailTemplate::sendEmailTemplate('New User', [$client->id => $client->email], $cArr);
 
-            if(company_setting('New User') == 'on') {
+            if (
+                $request->client_check === 'new' &&
+                company_setting('New User') == 'on'
+            ) {
                 $emailData = [
                     'name' => $request->client_name,
                     'email' => $request->client_email,
                     'password' => $request->client_password,
                 ];
 
-                $message = EmailTemplate::sendEmailTemplate('New User', [$client->email], $emailData);
-                if($message['is_success'] == false && !empty($message['error'])) {
+                $message = EmailTemplate::sendEmailTemplate(
+                    'New User',
+                    [$client->email],
+                    $emailData
+                );
+
+                if ($message['is_success'] == false && !empty($message['error'])) {
                     return back()
                         ->with('success', __('The user has been created successfully.'))
                         ->with('error', $message['error']);
                 }
             }
 
-            $stage = DealStage::where('pipeline_id', $lead->pipeline_id)->first();           
+            $stage = DealStage::where('pipeline_id', $lead->pipeline_id)->first();
             if (!$stage) {
                 return back()->with('error', __('Please create stage for this pipeline.'));
             }
             $deal              = new Deal();
             $deal->name        = $request->name;
+            $deal->phone       = $request->client_phone;
             $deal->price       = $request->price ?? 0;
             $deal->pipeline_id = $lead->pipeline_id;
             $deal->stage_id    = $stage->id;
@@ -949,10 +967,12 @@ class LeadController extends Controller
             $deal->created_by  = $lead->created_by;
             $deal->save();
 
-            ClientDeal::create([
-                'deal_id' => $deal->id,
-                'client_id' => $client->id,
-            ]);
+            if ($client) {
+                ClientDeal::create([
+                    'deal_id' => $deal->id,
+                    'client_id' => $client->id,
+                ]);
+            }
 
             $lead->load(['tasks', 'userLeads', 'discussions', 'files', 'calls', 'emails']);
 
@@ -969,7 +989,7 @@ class LeadController extends Controller
                 }
             }
 
-            if (company_setting('Deal Assign') == 'on') {
+            if ($client && company_setting('Deal Assign') == 'on') {
                 $emailData = [
                     'deal_name'     => $deal->name,
                     'deal_pipeline' => $deal->pipeline->name,
@@ -978,8 +998,8 @@ class LeadController extends Controller
                     'deal_price'    => $deal->price,
                 ];
                 if (!empty($emailData)) {
-                    $message = EmailTemplate::sendEmailTemplate('Deal Assign', [$client->email],$emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
+                    $message = EmailTemplate::sendEmailTemplate('Deal Assign', [$client->email], $emailData);
+                    if ($message['is_success'] == false && !empty($message['error'])) {
                         return back()
                             ->with('success', __('The clients have been assigned successfully.'))
                             ->with('error', $message['error']);
@@ -1053,7 +1073,7 @@ class LeadController extends Controller
             LeadConvertDeal::dispatch($request, $lead);
 
             return back()->with('success', __('The lead has been converted into a deal successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
