@@ -182,34 +182,41 @@ class LeadController extends Controller
                 $lead->user_id        = $request->user_id;
                 $lead->pipeline_id    = $pipeline->id;
                 $lead->stage_id       = $stage->id;
+                $lead->sources        = $request->sources ? implode(',', $request->sources) : null;
                 $lead->phone          = $request->phone;
                 $lead->date           = $request->date;
                 $lead->creator_id     = Auth::id();
                 $lead->created_by     = creatorId();
                 $lead->save();
 
-                if (Auth::user()->type == 'company') {
-                    $usrLeads = [
-                        $usr->id,
-                        $request->user_id,
-                    ];
-                } else {
-                    $usrLeads = [
-                        creatorId(),
-                        $request->user_id,
-                    ];
-                }
+                // if (Auth::user()->type == 'company') {
+                //     $usrLeads = [
+                //         $usr->id,
+                //         $request->user_id,
+                //     ];
+                // } else {
+                //     $usrLeads = [
+                //         creatorId(),
+                //         $request->user_id,
+                //     ];
+                // }
 
-                $usrLeads = array_unique(array_filter($usrLeads));
+                // $usrLeads = array_unique(array_filter($usrLeads));
 
-                foreach ($usrLeads as $usrLead) {
-                    UserLead::firstOrCreate(
-                        [
-                            'user_id' => $usrLead,
-                            'lead_id' => $lead->id,
-                        ]
-                    );
-                }
+                // foreach ($usrLeads as $usrLead) {
+                //     UserLead::firstOrCreate(
+                //         [
+                //             'user_id' => $usrLead,
+                //             'lead_id' => $lead->id,
+                //         ]
+                //     );
+                // }
+                UserLead::firstOrCreate(
+                    [
+                        'user_id' => $request->user_id,
+                        'lead_id' => $lead->id,
+                    ]
+                );
             }
             CreateLead::dispatch($request, $lead);
 

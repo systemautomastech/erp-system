@@ -40,6 +40,7 @@ export default function Index() {
 
     const [filters, setFilters] = useState<LeadFilters>({
         name: urlParams.get('name') || '',
+        phone: urlParams.get('phone') || '',
         email: urlParams.get('email') || '',
         subject: urlParams.get('subject') || '',
         is_active: urlParams.get('is_active') || '',
@@ -104,7 +105,7 @@ export default function Index() {
         const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
         setSortField(field);
         setSortDirection(direction);
-        router.get(route('lead.leads.index'), {...filters, per_page: perPage, sort: field, direction, view: viewMode}, {
+        router.get(route('lead.leads.index'), { ...filters, per_page: perPage, sort: field, direction, view: viewMode }, {
             preserveState: true,
             replace: true
         });
@@ -113,6 +114,7 @@ export default function Index() {
     const clearFilters = () => {
         setFilters({
             name: '',
+            phone: '',
             email: '',
             subject: '',
             is_active: '',
@@ -121,7 +123,7 @@ export default function Index() {
             stage_id: '',
             date_range: '',
         });
-        router.get(route('lead.leads.index'), {per_page: perPage, view: viewMode});
+        router.get(route('lead.leads.index'), { per_page: perPage, view: viewMode });
     };
 
     const openModal = async (mode: 'add' | 'edit', data: Lead | null = null) => {
@@ -240,32 +242,32 @@ export default function Index() {
                         {task.title}
                     </h4>
                     <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
-                                    <MoreVertical className="h-3 w-3" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {auth.user?.permissions?.includes('view-leads') && (
-                                    <DropdownMenuItem onClick={() => router.get(route('lead.leads.show', lead.id))}>                                        
-                                        <Eye className="h-3 w-3 mr-2" />
-                                        {t('View')}
-                                    </DropdownMenuItem>
-                                )}
-                                {auth.user?.permissions?.includes('edit-leads') && (
-                                    <DropdownMenuItem onClick={() => openModal('edit', lead)}>
-                                        <EditIcon className="h-3 w-3 mr-2" />
-                                        {t('Edit')}
-                                    </DropdownMenuItem>
-                                )}
-                                {auth.user?.permissions?.includes('delete-leads') && (
-                                    <DropdownMenuItem onClick={() => openDeleteDialog(lead.id)} className="text-red-600 hover:!text-red-600 focus:text-red-600">
-                                        <Trash2 className="h-3 w-3 mr-2" />
-                                        {t('Delete')}
-                                    </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
+                                <MoreVertical className="h-3 w-3" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {auth.user?.permissions?.includes('view-leads') && (
+                                <DropdownMenuItem onClick={() => router.get(route('lead.leads.show', lead.id))}>
+                                    <Eye className="h-3 w-3 mr-2" />
+                                    {t('View')}
+                                </DropdownMenuItem>
+                            )}
+                            {auth.user?.permissions?.includes('edit-leads') && (
+                                <DropdownMenuItem onClick={() => openModal('edit', lead)}>
+                                    <EditIcon className="h-3 w-3 mr-2" />
+                                    {t('Edit')}
+                                </DropdownMenuItem>
+                            )}
+                            {auth.user?.permissions?.includes('delete-leads') && (
+                                <DropdownMenuItem onClick={() => openDeleteDialog(lead.id)} className="text-red-600 hover:!text-red-600 focus:text-red-600">
+                                    <Trash2 className="h-3 w-3 mr-2" />
+                                    {t('Delete')}
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {task.description && (
@@ -275,9 +277,8 @@ export default function Index() {
                 <div className="flex items-center justify-between mb-3">
                     <Tooltip>
                         <TooltipTrigger>
-                            <div className={`flex items-center space-x-1 text-sm font-medium px-2 py-1 rounded ${
-                                lead.tasks_count > 0 && lead.complete_tasks_count === lead.tasks_count ? 'text-green-600 bg-green-50' : 'text-gray-600 bg-gray-50'
-                            }`}>
+                            <div className={`flex items-center space-x-1 text-sm font-medium px-2 py-1 rounded ${lead.tasks_count > 0 && lead.complete_tasks_count === lead.tasks_count ? 'text-green-600 bg-green-50' : 'text-gray-600 bg-gray-50'
+                                }`}>
                                 <CheckSquare className="h-3 w-3" />
                                 <span>{lead.complete_tasks_count || 0}/{lead.tasks_count || 0}</span>
                             </div>
@@ -398,91 +399,19 @@ export default function Index() {
             sortable: true
         },
         {
+            key: 'phone',
+            header: t('Phone'),
+            sortable: false
+        },
+        {
             key: 'subject',
             header: t('Subject'),
-            sortable: true
-        },
-        {
-            key: 'users',
-            header: t('Users'),
-            sortable: false,
-            render: (value: any, row: any) => (
-                <div className="flex items-center">
-                    <TooltipProvider>
-                        <div className="flex -space-x-1">
-                            {row.user_leads?.length > 0 ? row.user_leads.slice(0, 3).map((userLead: any, index: number) => (
-                                <Tooltip key={userLead.user.id}>
-                                    <TooltipTrigger>
-                                        <Avatar className="h-8 w-8 border-2 border-white">
-                                            {userLead.user.avatar ? (
-                                                <img
-                                                    src={getImagePath(userLead.user.avatar)}
-                                                    alt={userLead.user.name}
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            ) : (
-                                                <AvatarFallback className="text-xs bg-primary/10">
-                                                    {userLead.user.name.charAt(0).toUpperCase()}
-                                                </AvatarFallback>
-                                            )}
-                                        </Avatar>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{userLead.user.name}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            )) : (
-                                <Avatar className="h-8 w-8 border-2 border-white">
-                                    <AvatarFallback className="text-xs bg-gray-200">
-                                        <UsersIcon className="h-3 w-3" />
-                                    </AvatarFallback>
-                                </Avatar>
-                            )}
-                            {row.user_leads?.length > 3 && (
-                                <Tooltip>
-                                    <TooltipTrigger>
-                                        <Avatar className="h-8 w-8 border-2 border-white">
-                                            <AvatarFallback className="text-xs bg-gray-100">
-                                                +{row.user_leads.length - 3}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <div className="space-y-1">
-                                            {row.user_leads.slice(3).map((userLead: any) => (
-                                                <p key={userLead.user.id}>{userLead.user.name}</p>
-                                            ))}
-                                        </div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}
-                        </div>
-                    </TooltipProvider>
-                </div>
-            )
-        },
-        
-        {
-            key: 'tasks',
-            header: t('Tasks'),
-            sortable: false,
-            render: (value: any, row: any) => {
-                const totalTasks = row.tasks_count || 0;
-                const completedTasks = row.complete_tasks_count || 0;
-                return (
-                    <span className={`text-sm font-medium ${
-                        totalTasks === 0 ? 'text-gray-400' :
-                        completedTasks === totalTasks ? 'text-green-600' : ''
-                    }`}>
-                        {completedTasks}/{totalTasks}
-                    </span>
-                );
-            }
+            sortable: false
         },
         {
             key: 'date',
             header: t('Follow Up Date'),
-            sortable: false,
+            sortable: true,
             render: (value: string) => {
                 if (!value) return '-';
                 const isExpired = new Date(value) < new Date();
@@ -493,6 +422,83 @@ export default function Index() {
                 );
             }
         },
+        // {
+        //     key: 'users',
+        //     header: t('Users'),
+        //     sortable: false,
+        //     render: (value: any, row: any) => (
+        //         <div className="flex items-center">
+        //             <TooltipProvider>
+        //                 <div className="flex -space-x-1">
+        //                     {row.user_leads?.length > 0 ? row.user_leads.slice(0, 3).map((userLead: any, index: number) => (
+        //                         <Tooltip key={userLead.user.id}>
+        //                             <TooltipTrigger>
+        //                                 <Avatar className="h-8 w-8 border-2 border-white">
+        //                                     {userLead.user.avatar ? (
+        //                                         <img
+        //                                             src={getImagePath(userLead.user.avatar)}
+        //                                             alt={userLead.user.name}
+        //                                             className="h-full w-full object-cover"
+        //                                         />
+        //                                     ) : (
+        //                                         <AvatarFallback className="text-xs bg-primary/10">
+        //                                             {userLead.user.name.charAt(0).toUpperCase()}
+        //                                         </AvatarFallback>
+        //                                     )}
+        //                                 </Avatar>
+        //                             </TooltipTrigger>
+        //                             <TooltipContent>
+        //                                 <p>{userLead.user.name}</p>
+        //                             </TooltipContent>
+        //                         </Tooltip>
+        //                     )) : (
+        //                         <Avatar className="h-8 w-8 border-2 border-white">
+        //                             <AvatarFallback className="text-xs bg-gray-200">
+        //                                 <UsersIcon className="h-3 w-3" />
+        //                             </AvatarFallback>
+        //                         </Avatar>
+        //                     )}
+        //                     {row.user_leads?.length > 3 && (
+        //                         <Tooltip>
+        //                             <TooltipTrigger>
+        //                                 <Avatar className="h-8 w-8 border-2 border-white">
+        //                                     <AvatarFallback className="text-xs bg-gray-100">
+        //                                         +{row.user_leads.length - 3}
+        //                                     </AvatarFallback>
+        //                                 </Avatar>
+        //                             </TooltipTrigger>
+        //                             <TooltipContent>
+        //                                 <div className="space-y-1">
+        //                                     {row.user_leads.slice(3).map((userLead: any) => (
+        //                                         <p key={userLead.user.id}>{userLead.user.name}</p>
+        //                                     ))}
+        //                                 </div>
+        //                             </TooltipContent>
+        //                         </Tooltip>
+        //                     )}
+        //                 </div>
+        //             </TooltipProvider>
+        //         </div>
+        //     )
+        // },
+
+        // {
+        //     key: 'tasks',
+        //     header: t('Tasks'),
+        //     sortable: false,
+        //     render: (value: any, row: any) => {
+        //         const totalTasks = row.tasks_count || 0;
+        //         const completedTasks = row.complete_tasks_count || 0;
+        //         return (
+        //             <span className={`text-sm font-medium ${totalTasks === 0 ? 'text-gray-400' :
+        //                 completedTasks === totalTasks ? 'text-green-600' : ''
+        //                 }`}>
+        //                 {completedTasks}/{totalTasks}
+        //             </span>
+        //         );
+        //     }
+        // },
+
         {
             key: 'stage',
             header: t('Stage'),
@@ -507,13 +513,40 @@ export default function Index() {
                 );
             }
         },
-        ...(auth.user?.permissions?.some((p: string) => ['view-leads','edit-leads', 'delete-leads'].includes(p)) ? [{
+        {
+            key: 'note',
+            header: t('Note'),
+            sortable: false,
+            render: (value: any, row: any) => {
+                const note = row.notes
+                    ? row.notes
+                        .replace(/<[^>]*>/g, ' ')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim()
+                    : '';
+
+                const shortNote = note
+                    ? note.split(' ').slice(0, 12).join(' ') + (note.split(' ').length > 12 ? '...' : '')
+                    : '';
+
+                return (
+                    <span
+                        className="block max-w-[250px] text-xs text-gray-600 line-clamp-2"
+                        title={note}
+                    >
+                        {shortNote || '-'}
+                    </span>
+                );
+            }
+        },
+        ...(auth.user?.permissions?.some((p: string) => ['view-leads', 'edit-leads', 'delete-leads'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
             render: (_: any, lead: Lead) => (
                 <div className="flex gap-1">
                     <TooltipProvider>
-                        
+
                         {auth.user?.permissions?.includes('edit-leads') && (
                             <ConvertToDeal
                                 lead={lead}
@@ -584,63 +617,63 @@ export default function Index() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('CRM'), url: route('lead.index')},
-                {label: t('Leads')}
+                { label: t('CRM'), url: route('lead.index') },
+                { label: t('Leads') }
             ]}
             pageTitle={t('Manage Leads')}
             pageActions={
                 <div className="flex items-center gap-2">
                     <TooltipProvider>
-                                <Select value={filters.pipeline_id || currentPipelineId?.toString() || ''} onValueChange={(value) => {
-                                    const pipelineId = value === 'all' ? '' : value;
-                                    setFilters({...filters, pipeline_id: pipelineId});
+                        <Select value={filters.pipeline_id || currentPipelineId?.toString() || ''} onValueChange={(value) => {
+                            const pipelineId = value === 'all' ? '' : value;
+                            setFilters({ ...filters, pipeline_id: pipelineId });
 
-                                    // Save default pipeline to user table
-                                    if (pipelineId) {
-                                        fetch(route('lead.leads.save-default-pipeline'), {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                                            },
-                                            body: JSON.stringify({ pipeline_id: pipelineId })
-                                        });
-                                    }
+                            // Save default pipeline to user table
+                            if (pipelineId) {
+                                fetch(route('lead.leads.save-default-pipeline'), {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                                    },
+                                    body: JSON.stringify({ pipeline_id: pipelineId })
+                                });
+                            }
 
-                                    setFilters(prev => ({...prev, pipeline_id: pipelineId, stage_id: ''}));
-                                    router.get(route('lead.leads.index'), {...filters, pipeline_id: pipelineId, stage_id: '', per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode}, {
-                                        preserveState: true,
-                                        replace: true
-                                    });
-                                }}>
-                                    <SelectTrigger className="w-40">
-                                        <SelectValue placeholder={t('Select Pipeline')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {pipelines?.map((pipeline: any) => (
-                                            <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
-                                                {pipeline.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-
-
-
-                                {googleDriveButtons.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
+                            setFilters(prev => ({ ...prev, pipeline_id: pipelineId, stage_id: '' }));
+                            router.get(route('lead.leads.index'), { ...filters, pipeline_id: pipelineId, stage_id: '', per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode }, {
+                                preserveState: true,
+                                replace: true
+                            });
+                        }}>
+                            <SelectTrigger className="w-40">
+                                <SelectValue placeholder={t('Select Pipeline')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {pipelines?.map((pipeline: any) => (
+                                    <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
+                                        {pipeline.name}
+                                    </SelectItem>
                                 ))}
-                                 {oneDriveButtons.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                {dropboxBtn.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                {boxBtn.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                {auth.user?.permissions?.includes('view-leads') && (
-                                    <>
+                            </SelectContent>
+                        </Select>
+
+
+
+                        {googleDriveButtons.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {oneDriveButtons.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {dropboxBtn.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {boxBtn.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {auth.user?.permissions?.includes('view-leads') && (
+                            <>
                                 <Tooltip delayDuration={0}>
                                     <TooltipTrigger asChild>
                                         <Button variant="outline" size="sm" onClick={() => setViewMode(viewMode === 'kanban' ? 'list' : 'kanban')}>
@@ -691,7 +724,7 @@ export default function Index() {
                             <div className="flex-1 max-w-md">
                                 <SearchInput
                                     value={filters.name}
-                                    onChange={(value) => setFilters({...filters, name: value})}
+                                    onChange={(value) => setFilters({ ...filters, name: value })}
                                     onSearch={handleFilter}
                                     placeholder={t('Search Name and Subject...')}
                                 />
@@ -699,7 +732,7 @@ export default function Index() {
                             <div className="flex items-center gap-3">
                                 <PerPageSelector
                                     routeName="lead.leads.index"
-                                    filters={{...filters, view: viewMode}}
+                                    filters={{ ...filters, view: viewMode }}
                                 />
                                 <div className="relative">
                                     <FilterButton
@@ -724,7 +757,7 @@ export default function Index() {
                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('User')}</label>
-                                    <Select value={filters.user_id} onValueChange={(value) => setFilters({...filters, user_id: value})}>
+                                    <Select value={filters.user_id} onValueChange={(value) => setFilters({ ...filters, user_id: value })}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('Filter by User')} />
                                         </SelectTrigger>
@@ -739,7 +772,7 @@ export default function Index() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('Stage')}</label>
-                                    <Select value={filters.stage_id} onValueChange={(value) => setFilters({...filters, stage_id: value})}>
+                                    <Select value={filters.stage_id} onValueChange={(value) => setFilters({ ...filters, stage_id: value })}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('Filter by Stage')} />
                                         </SelectTrigger>
@@ -758,7 +791,7 @@ export default function Index() {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('Follow Up Date Range')}</label>
                                     <DateRangePicker
                                         value={filters.date_range}
-                                        onChange={(value) => setFilters({...filters, date_range: value})}
+                                        onChange={(value) => setFilters({ ...filters, date_range: value })}
                                         placeholder={t('Select date range')}
                                     />
                                 </div>
@@ -773,27 +806,27 @@ export default function Index() {
                     <CardContent className="p-0">
                         <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
                             <div className="min-w-[800px]">
-                            <DataTable
-                                data={leads?.data || []}
-                                columns={tableColumns}
-                                onSort={handleSort}
-                                sortKey={sortField}
-                                sortDirection={sortDirection as 'asc' | 'desc'}
-                                className="rounded-none"
-                                emptyState={
-                                    <NoRecordsFound
-                                        icon={UsersIcon}
-                                        title={t('No Leads found')}
-                                        description={t('Get started by creating your first Lead.')}
-                                        hasFilters={!!(filters.name || filters.email || filters.subject || filters.is_active || filters.user_id || filters.stage_id)}
-                                        onClearFilters={clearFilters}
-                                        createPermission="create-leads"
-                                        onCreateClick={() => openModal('add')}
-                                        createButtonText={t('Create Lead')}
-                                        className="h-auto"
-                                    />
-                                }
-                            />
+                                <DataTable
+                                    data={leads?.data || []}
+                                    columns={tableColumns}
+                                    onSort={handleSort}
+                                    sortKey={sortField}
+                                    sortDirection={sortDirection as 'asc' | 'desc'}
+                                    className="rounded-none"
+                                    emptyState={
+                                        <NoRecordsFound
+                                            icon={UsersIcon}
+                                            title={t('No Leads found')}
+                                            description={t('Get started by creating your first Lead.')}
+                                            hasFilters={!!(filters.name || filters.email || filters.subject || filters.is_active || filters.user_id || filters.stage_id)}
+                                            onClearFilters={clearFilters}
+                                            createPermission="create-leads"
+                                            onCreateClick={() => openModal('add')}
+                                            createButtonText={t('Create Lead')}
+                                            className="h-auto"
+                                        />
+                                    }
+                                />
                             </div>
                         </div>
                     </CardContent>
@@ -802,7 +835,7 @@ export default function Index() {
                         <Pagination
                             data={leads || { data: [], links: [], meta: {} }}
                             routeName="lead.leads.index"
-                            filters={{...filters, per_page: perPage, view: viewMode}}
+                            filters={{ ...filters, per_page: perPage, view: viewMode }}
                         />
                     </CardContent>
                 </Card>

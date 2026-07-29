@@ -19,21 +19,57 @@ use Automas\Lead\Events\DestroyLeadTask;
 
 class LeadTaskController extends Controller
 {
+    // public function index()
+    // {
+    //     if(Auth::user()->can('manage-lead-tasks')){
+    //         $tasks = LeadTask::with(['lead'])
+    //             ->where(function($q) {
+    //                 if(Auth::user()->can('manage-any-lead-tasks')) {
+    //                     $q->where('created_by', creatorId());
+    //                 } elseif(Auth::user()->can('manage-own-lead-tasks')) {
+    //                     $q->where(function($subQ) {
+    //                         $subQ->where('creator_id', Auth::id())
+    //                              ->orWhereIn('lead_id', function($leadQ) {
+    //                                  $leadQ->select('lead_id')
+    //                                        ->from('user_leads')
+    //                                        ->where('user_id', Auth::id());
+    //                              });
+    //                     });
+    //                 } else {
+    //                     $q->whereRaw('1 = 0');
+    //                 }
+    //             })
+    //             ->when(request('name'), fn($q) => $q->where('name', 'like', '%' . request('name') . '%'))
+    //             ->when(request('priority'), fn($q) => $q->where('priority', request('priority')))
+    //             ->when(request('status'), fn($q) => $q->where('status', request('status')))
+    //             ->when(request('sort'), fn($q) => $q->orderBy(request('sort'), request('direction', 'asc')), fn($q) => $q->latest())
+    //             ->paginate(request('per_page', 10))
+    //             ->withQueryString();
+
+    //         return Inertia::render('Lead/Tasks/Index', [
+    //             'tasks' => $tasks,
+    //         ]);
+    //     }
+    //     else{
+    //         return back()->with('error', __('Permission denied'));
+    //     }
+    // }
+
     public function index()
     {
-        if(Auth::user()->can('manage-lead-tasks')){
+        if (Auth::user()->can('manage-lead-tasks')) {
             $tasks = LeadTask::with(['lead'])
-                ->where(function($q) {
-                    if(Auth::user()->can('manage-any-lead-tasks')) {
+                ->where(function ($q) {
+                    if (Auth::user()->can('manage-any-lead-tasks')) {
                         $q->where('created_by', creatorId());
-                    } elseif(Auth::user()->can('manage-own-lead-tasks')) {
-                        $q->where(function($subQ) {
+                    } elseif (Auth::user()->can('manage-own-lead-tasks')) {
+                        $q->where(function ($subQ) {
                             $subQ->where('creator_id', Auth::id())
-                                 ->orWhereIn('lead_id', function($leadQ) {
-                                     $leadQ->select('lead_id')
-                                           ->from('user_leads')
-                                           ->where('user_id', Auth::id());
-                                 });
+                                ->orWhereIn('lead_id', function ($leadQ) {
+                                    $leadQ->select('lead_id')
+                                        ->from('user_leads')
+                                        ->where('user_id', Auth::id());
+                                });
                         });
                     } else {
                         $q->whereRaw('1 = 0');
@@ -46,19 +82,18 @@ class LeadTaskController extends Controller
                 ->paginate(request('per_page', 10))
                 ->withQueryString();
 
-            return Inertia::render('Lead/Tasks/Index', [
+            return Inertia::render('Lead/Tasks/LeadTasks', [
                 'tasks' => $tasks,
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
     public function store(StoreLeadTaskRequest $request)
     {
-        if(Auth::user()->can('create-lead-tasks')){
+        if (Auth::user()->can('create-lead-tasks')) {
             $usr = Auth::user();
-            $validated = $request->validated();                  
+            $validated = $request->validated();
 
             $leadTask             = new LeadTask();
             $leadTask->lead_id    = $validated['lead_id'];
@@ -79,21 +114,17 @@ class LeadTaskController extends Controller
                     'remark' => json_encode(['title' => $leadTask->name]),
                 ]
             );
-            $lead       = Lead::find($validated['lead_id']);
-            $lead_users = $lead->user->pluck('id')->toArray();
-            $usrs       = User::whereIN('id', $lead_users)->get()->pluck('email', 'id')->toArray();
-           
-            return redirect()->route('lead.leads.show', $validated['lead_id'])->with('success', __('The task has been created successfully.'));
-        }
-        else{
+
+            return back()->with('success', __('The task has been created successfully.'));
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function update(UpdateLeadTaskRequest $request, LeadTask $task)
     {
-        if(Auth::user()->can('edit-lead-tasks')){
-            
+        if (Auth::user()->can('edit-lead-tasks')) {
+
             $validated = $request->validated();
 
             $task->name     = $validated['name'];
@@ -105,22 +136,20 @@ class LeadTaskController extends Controller
 
             UpdateLeadTask::dispatch($request, $task);
 
-            return redirect()->route('lead.leads.show', $task->lead_id)->with('success', __('The task details are updated successfully.'));
-        }
-        else{
+            return back()->with('success', __('The task details are updated successfully.'));
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function destroy(LeadTask $task)
     {
-        if(Auth::user()->can('delete-lead-tasks')){
+        if (Auth::user()->can('delete-lead-tasks')) {
             $lead_id = $task->lead_id;
             DestroyLeadTask::dispatch($task);
             $task->delete();
             return redirect()->route('lead.leads.show', $lead_id)->with('success', __('The task has been deleted.'));
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }

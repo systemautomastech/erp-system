@@ -15,9 +15,11 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { formatDate } from '@/utils/helpers';
 import { useFormFields } from '@/hooks/useFormFields';
+import { MultiSelectEnhanced } from '@/components/ui/multi-select-enhanced';
+
 
 export default function Create({ onSuccess }: CreateLeadProps) {
-    const { users } = usePage<any>().props;
+    const { users, sources } = usePage<any>().props;
 
     const { t } = useTranslation();
     const { data, setData, post, processing, errors } = useForm<CreateLeadFormData>({
@@ -26,6 +28,7 @@ export default function Create({ onSuccess }: CreateLeadProps) {
         name: '',
         email: '',
         phone: '',
+        sources: [],
         date: '',
     });
 
@@ -101,7 +104,7 @@ export default function Create({ onSuccess }: CreateLeadProps) {
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select User')} />
                             </SelectTrigger>
-                            <SelectContent  searchable>
+                            <SelectContent searchable>
                                 {users?.map((item: any) => (
                                     <SelectItem key={item.id} value={item.id.toString()}>
                                         {item.name}
@@ -131,6 +134,48 @@ export default function Create({ onSuccess }: CreateLeadProps) {
                             placeholder={t('Select Follow Up Date')}
                         />
                         <InputError message={errors.date} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="sources">
+                            {t('Sources')}
+                        </Label>
+
+                        <MultiSelectEnhanced
+                            options={
+                                Array.isArray(sources)
+                                    ? sources.map((source: any) => ({
+                                        value: String(source.id),
+                                        label: String(source.name ?? ''),
+                                    }))
+                                    : Object.entries(sources || {}).map(
+                                        ([id, source]: [string, any]) => ({
+                                            value: String(
+                                                source?.id ?? id
+                                            ),
+                                            label: String(
+                                                source?.name ??
+                                                source ??
+                                                ''
+                                            ),
+                                        })
+                                    )
+                            }
+                            value={
+                                Array.isArray(data.sources)
+                                    ? data.sources.map(String)
+                                    : []
+                            }
+                            onValueChange={(values) =>
+                                setData('sources', values)
+                            }
+                            placeholder={t('Select Sources')}
+                            searchable
+                        />
+
+                        <InputError message={errors.sources} />
                     </div>
                 </div>
 

@@ -38,6 +38,7 @@ export default function Index() {
 
     const [filters, setFilters] = useState<DealFilters>({
         name: urlParams.get('name') || '',
+        phone: urlParams.get('phone') || '',
         notes: urlParams.get('notes') || '',
         pipeline_id: urlParams.get('pipeline_id') || (pipelines?.[0]?.id?.toString() || ''),
         stage_id: urlParams.get('stage_id') || '',
@@ -70,7 +71,7 @@ export default function Index() {
     });
 
     const handleFilter = () => {
-        router.get(route('lead.deals.index'), {...filters, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode}, {
+        router.get(route('lead.deals.index'), { ...filters, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode }, {
             preserveState: true,
             replace: true
         });
@@ -80,7 +81,7 @@ export default function Index() {
         const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
         setSortField(field);
         setSortDirection(direction);
-        router.get(route('lead.deals.index'), {...filters, per_page: perPage, sort: field, direction, view: viewMode}, {
+        router.get(route('lead.deals.index'), { ...filters, per_page: perPage, sort: field, direction, view: viewMode }, {
             preserveState: true,
             replace: true
         });
@@ -94,6 +95,7 @@ export default function Index() {
     const clearFilters = () => {
         setFilters({
             name: '',
+            phone: '',
             notes: '',
             pipeline_id: '',
             stage_id: '',
@@ -101,7 +103,7 @@ export default function Index() {
             is_active: '',
 
         });
-        router.get(route('lead.deals.index'), {per_page: perPage, view: viewMode});
+        router.get(route('lead.deals.index'), { per_page: perPage, view: viewMode });
     };
 
 
@@ -240,9 +242,8 @@ export default function Index() {
                 <div className="flex items-center justify-between mb-3">
                     <Tooltip>
                         <TooltipTrigger>
-                            <div className={`flex items-center space-x-1 text-sm font-medium px-2 py-1 rounded ${
-                                deal.tasks_count > 0 && deal.complete_tasks_count === deal.tasks_count ? 'text-green-600 bg-green-50' : 'text-gray-600 bg-gray-50'
-                            }`}>
+                            <div className={`flex items-center space-x-1 text-sm font-medium px-2 py-1 rounded ${deal.tasks_count > 0 && deal.complete_tasks_count === deal.tasks_count ? 'text-green-600 bg-green-50' : 'text-gray-600 bg-gray-50'
+                                }`}>
                                 <CheckSquare className="h-3 w-3" />
                                 <span>{deal.complete_tasks_count || 0}/{deal.tasks_count || 0}</span>
                             </div>
@@ -368,85 +369,89 @@ export default function Index() {
             sortable: true
         },
         {
+            key: 'phone',
+            header: t('Phone'),
+            sortable: false,
+        },
+        {
             key: 'price',
             header: t('Price'),
-            sortable: false,
+            sortable: true,
             render: (value: number) => value ? formatCurrency(value) : '-'
         },
-        {
-            key: 'tasks',
-            header: t('Tasks'),
-            sortable: false,
-            render: (value: any, row: any) => {
-                const totalTasks = row.tasks_count || 0;
-                const completedTasks = row.complete_tasks_count || 0;
-                return (
-                    <span className={`text-sm font-medium ${
-                        totalTasks === 0 ? 'text-gray-400' :
-                        completedTasks === totalTasks ? 'text-green-600' : ''
-                    }`}>
-                        {completedTasks}/{totalTasks}
-                    </span>
-                );
-            }
-        },
-        {
-            key: 'clients',
-            header: t('Clients'),
-            sortable: false,
-            render: (_: any, row: any) => (
-                <div className="flex items-center">
-                    <TooltipProvider>
-                        <div className="flex -space-x-1">
-                            {row.client_deals?.length > 0 ? row.client_deals.slice(0, 3).map((cd: any) => (
-                                <Tooltip key={cd.client_id} delayDuration={0}>
-                                    <TooltipTrigger>
-                                        <Avatar className="h-8 w-8 border-2 border-white">
-                                            {cd.client?.avatar ? (
-                                                <img
-                                                    src={getImagePath(cd.client.avatar)}
-                                                    alt={cd.client.name}
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            ) : (
-                                                <AvatarFallback className="text-xs bg-primary/10">
-                                                    {cd.client?.name?.charAt(0).toUpperCase()}
-                                                </AvatarFallback>
-                                            )}
-                                        </Avatar>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{cd.client?.name}</p></TooltipContent>
-                                </Tooltip>
-                            )) : (
-                                <Avatar className="h-8 w-8 border-2 border-white">
-                                    <AvatarFallback className="text-xs bg-gray-200">
-                                        <UsersIcon className="h-3 w-3" />
-                                    </AvatarFallback>
-                                </Avatar>
-                            )}
-                            {row.client_deals?.length > 3 && (
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger>
-                                        <Avatar className="h-8 w-8 border-2 border-white">
-                                            <AvatarFallback className="text-xs bg-gray-100">
-                                                +{row.client_deals.length - 3}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <div className="space-y-1">
-                                            {row.client_deals.slice(3).map((cd: any) => (
-                                                <p key={cd.client_id}>{cd.client?.name}</p>
-                                            ))}
-                                        </div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}
-                        </div>
-                    </TooltipProvider>
-                </div>
-            )
-        },
+        // {
+        //     key: 'tasks',
+        //     header: t('Tasks'),
+        //     sortable: false,
+        //     render: (value: any, row: any) => {
+        //         const totalTasks = row.tasks_count || 0;
+        //         const completedTasks = row.complete_tasks_count || 0;
+        //         return (
+        //             <span className={`text-sm font-medium ${totalTasks === 0 ? 'text-gray-400' :
+        //                 completedTasks === totalTasks ? 'text-green-600' : ''
+        //                 }`}>
+        //                 {completedTasks}/{totalTasks}
+        //             </span>
+        //         );
+        //     }
+        // },
+        // {
+        //     key: 'clients',
+        //     header: t('Clients'),
+        //     sortable: false,
+        //     render: (_: any, row: any) => (
+        //         <div className="flex items-center">
+        //             <TooltipProvider>
+        //                 <div className="flex -space-x-1">
+        //                     {row.client_deals?.length > 0 ? row.client_deals.slice(0, 3).map((cd: any) => (
+        //                         <Tooltip key={cd.client_id} delayDuration={0}>
+        //                             <TooltipTrigger>
+        //                                 <Avatar className="h-8 w-8 border-2 border-white">
+        //                                     {cd.client?.avatar ? (
+        //                                         <img
+        //                                             src={getImagePath(cd.client.avatar)}
+        //                                             alt={cd.client.name}
+        //                                             className="h-full w-full object-cover"
+        //                                         />
+        //                                     ) : (
+        //                                         <AvatarFallback className="text-xs bg-primary/10">
+        //                                             {cd.client?.name?.charAt(0).toUpperCase()}
+        //                                         </AvatarFallback>
+        //                                     )}
+        //                                 </Avatar>
+        //                             </TooltipTrigger>
+        //                             <TooltipContent><p>{cd.client?.name}</p></TooltipContent>
+        //                         </Tooltip>
+        //                     )) : (
+        //                         <Avatar className="h-8 w-8 border-2 border-white">
+        //                             <AvatarFallback className="text-xs bg-gray-200">
+        //                                 <UsersIcon className="h-3 w-3" />
+        //                             </AvatarFallback>
+        //                         </Avatar>
+        //                     )}
+        //                     {row.client_deals?.length > 3 && (
+        //                         <Tooltip delayDuration={0}>
+        //                             <TooltipTrigger>
+        //                                 <Avatar className="h-8 w-8 border-2 border-white">
+        //                                     <AvatarFallback className="text-xs bg-gray-100">
+        //                                         +{row.client_deals.length - 3}
+        //                                     </AvatarFallback>
+        //                                 </Avatar>
+        //                             </TooltipTrigger>
+        //                             <TooltipContent>
+        //                                 <div className="space-y-1">
+        //                                     {row.client_deals.slice(3).map((cd: any) => (
+        //                                         <p key={cd.client_id}>{cd.client?.name}</p>
+        //                                     ))}
+        //                                 </div>
+        //                             </TooltipContent>
+        //                         </Tooltip>
+        //                     )}
+        //                 </div>
+        //             </TooltipProvider>
+        //         </div>
+        //     )
+        // },
         {
             key: 'stage',
             header: t('Stage'),
@@ -466,16 +471,42 @@ export default function Index() {
             header: t('Status'),
             sortable: false,
             render: (value: string) => (
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                    value === 'Won' ? 'bg-green-100 text-green-700' :
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${value === 'Won' ? 'bg-green-100 text-green-700' :
                     value === 'Loss' ? 'bg-red-100 text-red-700' :
-                    'bg-blue-100 text-blue-700'
-                }`}>
+                        'bg-blue-100 text-blue-700'
+                    }`}>
                     {value || '-'}
                 </span>
             )
         },
-        ...(auth.user?.permissions?.some((p: string) => ['view-deals','edit-deals', 'delete-deals'].includes(p)) ? [{
+        {
+            key: 'note',
+            header: t('Note'),
+            sortable: false,
+            render: (value: any, row: any) => {
+                const note = row.notes
+                    ? row.notes
+                        .replace(/<[^>]*>/g, ' ')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim()
+                    : '';
+
+                const shortNote = note
+                    ? note.split(' ').slice(0, 12).join(' ') + (note.split(' ').length > 12 ? '...' : '')
+                    : '';
+
+                return (
+                    <span
+                        className="block max-w-[250px] text-xs text-gray-600 line-clamp-2"
+                        title={note}
+                    >
+                        {shortNote || '-'}
+                    </span>
+                );
+            }
+        },
+        ...(auth.user?.permissions?.some((p: string) => ['view-deals', 'edit-deals', 'delete-deals'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
             render: (_: any, deal: Deal) => (
@@ -496,7 +527,7 @@ export default function Index() {
                         {auth.user?.permissions?.includes('view-deals') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="sm" onClick={() => router.get(route('lead.deals.show', deal.id))} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
+                                    <Button variant="ghost" size="sm" onClick={() => router.get(route('lead.deals.show', deal.id))} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
                                         <Eye className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
@@ -543,63 +574,63 @@ export default function Index() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('CRM'), url: route('lead.index')},
-                {label: t('Deals')}
+                { label: t('CRM'), url: route('lead.index') },
+                { label: t('Deals') }
             ]}
             pageTitle={t('Manage Deals')}
             pageActions={
                 <div className="flex items-center gap-2">
                     <TooltipProvider>
-                                <Select value={filters.pipeline_id || pipelines?.[0]?.id?.toString() || 'all'} onValueChange={(value) => {
-                                    const pipelineId = value === 'all' ? '' : value;
-                                    setFilters({...filters, pipeline_id: pipelineId});
+                        <Select value={filters.pipeline_id || pipelines?.[0]?.id?.toString() || 'all'} onValueChange={(value) => {
+                            const pipelineId = value === 'all' ? '' : value;
+                            setFilters({ ...filters, pipeline_id: pipelineId });
 
-                                    // Save default pipeline to user table
-                                    if (pipelineId) {
-                                        fetch(route('lead.deals.save-default-pipeline'), {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                                            },
-                                            body: JSON.stringify({ pipeline_id: pipelineId })
-                                        });
-                                    }
+                            // Save default pipeline to user table
+                            if (pipelineId) {
+                                fetch(route('lead.deals.save-default-pipeline'), {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                                    },
+                                    body: JSON.stringify({ pipeline_id: pipelineId })
+                                });
+                            }
 
-                                    router.get(route('lead.deals.index'), {...filters, pipeline_id: pipelineId, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode}, {
-                                        preserveState: true,
-                                        replace: true
-                                    });
-                                }}>
-                                    <SelectTrigger className="w-40">
-                                        <SelectValue placeholder={t('Select Pipeline')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {pipelines?.map((pipeline: any) => (
-                                            <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
-                                                {pipeline.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            router.get(route('lead.deals.index'), { ...filters, pipeline_id: pipelineId, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode }, {
+                                preserveState: true,
+                                replace: true
+                            });
+                        }}>
+                            <SelectTrigger className="w-40">
+                                <SelectValue placeholder={t('Select Pipeline')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {pipelines?.map((pipeline: any) => (
+                                    <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
+                                        {pipeline.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
 
-                                {googleDriveButtons.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                 {oneDriveButtons.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                {dropboxButtons.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                {boxButtons.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                {hubspotButtons.map((button) => (
-                                    <div key={button.id}>{button.component}</div>
-                                ))}
-                                {auth.user?.permissions?.includes('view-deals') && (
-                                    <>
+                        {googleDriveButtons.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {oneDriveButtons.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {dropboxButtons.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {boxButtons.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {hubspotButtons.map((button) => (
+                            <div key={button.id}>{button.component}</div>
+                        ))}
+                        {auth.user?.permissions?.includes('view-deals') && (
+                            <>
 
                                 <Tooltip delayDuration={0}>
                                     <TooltipTrigger asChild>
@@ -646,122 +677,122 @@ export default function Index() {
                 })()
             ) : (
                 <Card className="shadow-sm">
-                {/* Search & Controls Header */}
-                <CardContent className="p-6 border-b bg-gray-50/50">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 max-w-md">
-                            <SearchInput
-                                value={filters.name}
-                                onChange={(value) => setFilters({...filters, name: value})}
-                                onSearch={handleFilter}
-                                placeholder={t('Search Deals...')}
-                            />
-                        </div>
-                        <div className="flex items-center gap-3">
-
-                            <PerPageSelector
-                                routeName="lead.deals.index"
-                                filters={{...filters, view: viewMode}}
-                            />
-                            <div className="relative">
-                                <FilterButton
-                                    showFilters={showFilters}
-                                    onToggle={() => setShowFilters(!showFilters)}
+                    {/* Search & Controls Header */}
+                    <CardContent className="p-6 border-b bg-gray-50/50">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 max-w-md">
+                                <SearchInput
+                                    value={filters.name}
+                                    onChange={(value) => setFilters({ ...filters, name: value })}
+                                    onSearch={handleFilter}
+                                    placeholder={t('Search Deals...')}
                                 />
-                                {(() => {
-                                    const activeFilters = [filters.stage_id, filters.status].filter(f => f !== '' && f !== null && f !== undefined).length;
-                                    return activeFilters > 0 && (
-                                        <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                                            {activeFilters}
-                                        </span>
-                                    );
-                                })()}
                             </div>
-                        </div>
-                    </div>
-                </CardContent>
+                            <div className="flex items-center gap-3">
 
-                {/* Advanced Filters */}
-                {showFilters && (
-                    <CardContent className="p-6 bg-blue-50/30 border-b">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Stage')}</label>
-                                <Select value={filters.stage_id} onValueChange={(value) => setFilters({...filters, stage_id: value})}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('Filter by Stage')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {stages?.filter((item: any) =>
-                                            !filters.pipeline_id || item.pipeline_id?.toString() === filters.pipeline_id
-                                        ).map((item: any) => (
-                                            <SelectItem key={item.id} value={item.id.toString()}>
-                                                {item.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
-                                <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('Filter by Status')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Won">{t('Won')}</SelectItem>
-                                        <SelectItem value="Loss">{t('Loss')}</SelectItem>
-                                        <SelectItem value="Active">{t('Active')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
-                                <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
+                                <PerPageSelector
+                                    routeName="lead.deals.index"
+                                    filters={{ ...filters, view: viewMode }}
+                                />
+                                <div className="relative">
+                                    <FilterButton
+                                        showFilters={showFilters}
+                                        onToggle={() => setShowFilters(!showFilters)}
+                                    />
+                                    {(() => {
+                                        const activeFilters = [filters.stage_id, filters.status].filter(f => f !== '' && f !== null && f !== undefined).length;
+                                        return activeFilters > 0 && (
+                                            <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                                                {activeFilters}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
                             </div>
                         </div>
                     </CardContent>
-                )}
 
-                {/* Table Content */}
-                <CardContent className="p-0">
+                    {/* Advanced Filters */}
+                    {showFilters && (
+                        <CardContent className="p-6 bg-blue-50/30 border-b">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Stage')}</label>
+                                    <Select value={filters.stage_id} onValueChange={(value) => setFilters({ ...filters, stage_id: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('Filter by Stage')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {stages?.filter((item: any) =>
+                                                !filters.pipeline_id || item.pipeline_id?.toString() === filters.pipeline_id
+                                            ).map((item: any) => (
+                                                <SelectItem key={item.id} value={item.id.toString()}>
+                                                    {item.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
+                                    <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('Filter by Status')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Won">{t('Won')}</SelectItem>
+                                            <SelectItem value="Loss">{t('Loss')}</SelectItem>
+                                            <SelectItem value="Active">{t('Active')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-end gap-2">
+                                    <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
+                                    <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    )}
+
+                    {/* Table Content */}
+                    <CardContent className="p-0">
                         <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
                             <div className="min-w-[800px]">
-                            <DataTable
-                                data={deals?.data || []}
-                                columns={tableColumns}
-                                onSort={handleSort}
-                                sortKey={sortField}
-                                sortDirection={sortDirection as 'asc' | 'desc'}
-                                className="rounded-none"
-                                emptyState={
-                                    <NoRecordsFound
-                                        icon={DollarSignIcon}
-                                        title={t('No Deals found')}
-                                        description={t('Get started by creating your first Deal.')}
-                                        hasFilters={!!(filters.name || filters.notes || filters.stage_id || filters.status)}
-                                        onClearFilters={clearFilters}
-                                        createPermission="create-deals"
-                                        onCreateClick={() => openModal('add')}
-                                        createButtonText={t('Create Deal')}
-                                        className="h-auto"
-                                    />
-                                }
-                            />
+                                <DataTable
+                                    data={deals?.data || []}
+                                    columns={tableColumns}
+                                    onSort={handleSort}
+                                    sortKey={sortField}
+                                    sortDirection={sortDirection as 'asc' | 'desc'}
+                                    className="rounded-none"
+                                    emptyState={
+                                        <NoRecordsFound
+                                            icon={DollarSignIcon}
+                                            title={t('No Deals found')}
+                                            description={t('Get started by creating your first Deal.')}
+                                            hasFilters={!!(filters.name || filters.notes || filters.stage_id || filters.status)}
+                                            onClearFilters={clearFilters}
+                                            createPermission="create-deals"
+                                            onCreateClick={() => openModal('add')}
+                                            createButtonText={t('Create Deal')}
+                                            className="h-auto"
+                                        />
+                                    }
+                                />
                             </div>
                         </div>
-                </CardContent>
+                    </CardContent>
 
-                {/* Pagination Footer */}
-                <CardContent className="px-4 py-2 border-t bg-gray-50/30">
-                    <Pagination
-                        data={deals || { data: [], links: [], meta: {} }}
-                        routeName="lead.deals.index"
-                        filters={{...filters, per_page: perPage, view: viewMode}}
-                    />
-                </CardContent>
-            </Card>
+                    {/* Pagination Footer */}
+                    <CardContent className="px-4 py-2 border-t bg-gray-50/30">
+                        <Pagination
+                            data={deals || { data: [], links: [], meta: {} }}
+                            routeName="lead.deals.index"
+                            filters={{ ...filters, per_page: perPage, view: viewMode }}
+                        />
+                    </CardContent>
+                </Card>
             )}
 
             <Dialog open={modalState.isOpen} onOpenChange={closeModal}>

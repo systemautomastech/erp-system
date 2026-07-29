@@ -71,6 +71,7 @@ export interface EditLeadFormData {
 
 export interface LeadFilters {
     name: string;
+    phone: string;
     email: string;
     subject: string;
     is_active: string;

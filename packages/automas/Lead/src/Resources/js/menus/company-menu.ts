@@ -17,16 +17,26 @@ export const leadCompanyMenu = (t: (key: string) => string) => [
         icon: Contact,
         permission: 'manage-leads',
         order: 500,
-        children: [                       
+        children: [
             {
                 title: t('Leads'),
                 href: route('lead.leads.index'),
                 permission: 'manage-leads',
             },
             {
+                title: t('Lead Task'),
+                href: route('lead.tasks.index'),
+                permission: 'manage-leads',
+            },
+            {
                 title: t('Deals'),
                 href: route('lead.deals.index'),
                 permission: 'manage-deals',
+            },
+            {
+                title: t('Deal Task'),
+                href: route('deal.tasks.index'),
+                permission: 'manage-leads',
             },
             {
                 title: t('System Setup'),
@@ -37,20 +47,20 @@ export const leadCompanyMenu = (t: (key: string) => string) => [
                 title: t('Reports'),
                 href: route('lead.reports.index'),
                 permission: 'view-reports',
-                children: [                       
+                children: [
                     {
                         title: t('Lead Reports'),
                         href: route('lead.reports.leads'),
                         permission: 'view-reports',
-                    },   
+                    },
                     {
                         title: t('Deal Reports'),
                         href: route('lead.reports.deals'),
                         permission: 'view-reports',
-                    },  
+                    },
                 ]
-            },   
-                     
+            },
+
         ],
-    }   
+    }
 ];
