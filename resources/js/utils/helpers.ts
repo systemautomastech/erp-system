@@ -50,18 +50,71 @@ const getAdminSetting = (key: string, pageProps?: any) => {
 /**
  * Format date to readable format
  */
-const formatDate = (date: string | Date, pageProps?: any): string => {
+const formatDate = (
+  date: string | Date,
+  pageProps?: any
+): string => {
   if (!date) return '';
-  const format = getCompanySetting('dateFormat', pageProps) || 'Y-m-d';
+
+  const format =
+    getCompanySetting('dateFormat', pageProps) || 'Y-m-d';
+
   const d = new Date(date);
+
+  if (Number.isNaN(d.getTime())) {
+    return '';
+  }
+
   const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const monthIndex = d.getMonth();
+  const month = String(monthIndex + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
 
-  return format
-    .replace('Y', String(year))
-    .replace('m', month)
-    .replace('d', day);
+  const shortMonths = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  const fullMonths = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  const replacements: Record<string, string> = {
+    Y: String(year),
+    y: String(year).slice(-2),
+    m: month,
+    n: String(monthIndex + 1),
+    d: day,
+    j: String(d.getDate()),
+    M: shortMonths[monthIndex],
+    F: fullMonths[monthIndex],
+  };
+
+  return format.replace(
+    /Y|y|m|n|d|j|M|F/g,
+    (token: string) => replacements[token] || token
+  );
 };
 
 /**
@@ -306,76 +359,76 @@ const isPackageActive = (packageName: string, pageProps?: any): boolean => {
   }
 };
 const formatStorage = (kb: number) => {
-    if (kb >= 1024 * 1024) {
-      return `${(kb / (1024 * 1024)).toFixed(1)} GB`;
-    } else if (kb >= 1024) {
-      return `${(kb / 1024).toFixed(1)} MB`;
-    } else {
-      return `${kb} GB`;
-    }
-  };
+  if (kb >= 1024 * 1024) {
+    return `${(kb / (1024 * 1024)).toFixed(1)} GB`;
+  } else if (kb >= 1024) {
+    return `${(kb / 1024).toFixed(1)} MB`;
+  } else {
+    return `${kb} GB`;
+  }
+};
 
 
 /**
  * Get package favicon by package name
  */
 const getPackageFavicon = (packageName: string, pageProps?: any): string | undefined => {
-    try {
-      let packages;
+  try {
+    let packages;
 
-      if (pageProps?.packages) {
-        packages = pageProps.packages;
-      } else {
-        const { props } = usePage();
-        packages = (props as any).packages || [];
-      }
-
-      const packageData = packages.find((pkg: any) => pkg.name === packageName);
-      return packageData?.image || undefined;
-    } catch {
-      return undefined;
+    if (pageProps?.packages) {
+      packages = pageProps.packages;
+    } else {
+      const { props } = usePage();
+      packages = (props as any).packages || [];
     }
-  };
+
+    const packageData = packages.find((pkg: any) => pkg.name === packageName);
+    return packageData?.image || undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 /**
  * Get package alias name by package name
  */
 const getPackageAlias = (packageName: string, pageProps?: any): string | undefined => {
-    try {
-      let packages;
-      if (pageProps?.packages) {
-        packages = pageProps.packages;
-      } else {
-        // Only call usePage if pageProps not provided
-        const { props } = usePage();
-        packages = (props as any).packages || [];
-      }
-
-      const packageData = packages.find((pkg: any) => pkg.name === packageName);
-      return packageData?.alias || packageName;
-    } catch {
-      return packageName;
+  try {
+    let packages;
+    if (pageProps?.packages) {
+      packages = pageProps.packages;
+    } else {
+      // Only call usePage if pageProps not provided
+      const { props } = usePage();
+      packages = (props as any).packages || [];
     }
-  };
+
+    const packageData = packages.find((pkg: any) => pkg.name === packageName);
+    return packageData?.alias || packageName;
+  } catch {
+    return packageName;
+  }
+};
 
 /**
  * Get enabled packages names
  */
 const adminPackages = (pageProps?: any): string[] => {
-    try {
-      let packages;
-      if (pageProps?.packages) {
-        packages = pageProps.packages;
-      } else {
-        const { props } = usePage();
-        packages = (props as any).packages || [];
-      }
-
-      return packages.filter((pkg: any) => pkg.is_enable === true).map((pkg: any) => pkg.name);
-    } catch {
-      return [];
+  try {
+    let packages;
+    if (pageProps?.packages) {
+      packages = pageProps.packages;
+    } else {
+      const { props } = usePage();
+      packages = (props as any).packages || [];
     }
-  };
+
+    return packages.filter((pkg: any) => pkg.is_enable === true).map((pkg: any) => pkg.name);
+  } catch {
+    return [];
+  }
+};
 
 /**
  * Format file size in bytes to human readable format
@@ -432,22 +485,22 @@ const getBase64FileExtension = (base64String: string): string => {
  */
 
 const downloadFile = (url: string): void => {
-    // Create a temporary link
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';  // opens in new tab
-    link.rel = 'noopener noreferrer';
+  // Create a temporary link
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';  // opens in new tab
+  link.rel = 'noopener noreferrer';
 
-    // Optional: if it's a direct downloadable file, force download
-    if (url.match(/\.(pdf|jpg|png|jpeg|docx|zip)$/i)) {
-      link.download = '';
-    }else{
-      link.download = url.split('/').pop() || '';
-    }
+  // Optional: if it's a direct downloadable file, force download
+  if (url.match(/\.(pdf|jpg|png|jpeg|docx|zip)$/i)) {
+    link.download = '';
+  } else {
+    link.download = url.split('/').pop() || '';
+  }
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 /**
@@ -499,24 +552,24 @@ const getSubscriptionDetails = (userId?: number, pageProps?: any): SubscriptionD
 };
 
 export {
-    formatDate,
-    formatTime,
-    formatDateTime,
-    getImagePath,
-    formatCurrency,
-    formatAdminCurrency,
-    getCurrencySymbol,
-    getAdminCurrencySymbol,
-    isPackageActive,
-    getCompanySetting,
-    getAdminSetting,
-    formatStorage,
-    formatFileSize,
-    getPackageFavicon,
-    getPackageAlias,
-    adminPackages,
-    convertFileToBase64,
-    getBase64FileExtension,
-    downloadFile,
-    getSubscriptionDetails
+  formatDate,
+  formatTime,
+  formatDateTime,
+  getImagePath,
+  formatCurrency,
+  formatAdminCurrency,
+  getCurrencySymbol,
+  getAdminCurrencySymbol,
+  isPackageActive,
+  getCompanySetting,
+  getAdminSetting,
+  formatStorage,
+  formatFileSize,
+  getPackageFavicon,
+  getPackageAlias,
+  adminPackages,
+  convertFileToBase64,
+  getBase64FileExtension,
+  downloadFile,
+  getSubscriptionDetails
 };

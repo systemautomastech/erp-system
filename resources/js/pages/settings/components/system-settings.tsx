@@ -124,12 +124,13 @@ export default function SystemSettings({ userSettings, auth }: SystemSettingsPro
       }));
 
   const dateFormats = [
-    { value: 'Y-m-d', label: 'YYYY-MM-DD (2024-01-15)' },
-    { value: 'm-d-Y', label: 'MM-DD-YYYY (01-15-2024)' },
-    { value: 'd-m-Y', label: 'DD-MM-YYYY (15-01-2024)' },
-    { value: 'Y/m/d', label: 'YYYY/MM/DD (2024/01/15)' },
-    { value: 'm/d/Y', label: 'MM/DD/YYYY (01/15/2024)' },
-    { value: 'd/m/Y', label: 'DD/MM/YYYY (15/01/2024)' },
+    { value: 'Y-m-d', label: 'YYYY-MM-DD (2026-01-15)' },
+    { value: 'm-d-Y', label: 'MM-DD-YYYY (01-15-2026)' },
+    { value: 'd-m-Y', label: 'DD-MM-YYYY (15-01-2026)' },
+    { value: 'Y/m/d', label: 'YYYY/MM/DD (2026/01/15)' },
+    { value: 'm/d/Y', label: 'MM/DD/YYYY (01/15/2026)' },
+    { value: 'd/m/Y', label: 'DD/MM/YYYY (15/01/2026)' },
+    { value: 'd F, Y', label: 'DD F, YYYY (15 July, 2026)' },
   ];
 
   const timeFormats = [
@@ -156,7 +157,7 @@ export default function SystemSettings({ userSettings, auth }: SystemSettingsPro
     { value: 'Europe/London', label: 'London (GMT)' },
     { value: 'Europe/Paris', label: 'Paris (CET)' },
     { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-    { value: 'Asia/Kolkata', label: 'India (IST)' },
+    { value: 'Asia/Dhaka', label: 'Bangladesh (BST)' },
   ];
 
   return (

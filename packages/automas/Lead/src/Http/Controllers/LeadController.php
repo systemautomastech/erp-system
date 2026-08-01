@@ -259,6 +259,9 @@ class LeadController extends Controller
                 }
             }
 
+            $labels = Label::with('pipeline')->where('created_by', creatorId())->select('id', 'name', 'color', 'pipeline_id')->get();
+
+
             $lead = Lead::with([
                 'stage',
                 'pipeline',
@@ -301,6 +304,7 @@ class LeadController extends Controller
             }
             return Inertia::render('Lead/Leads/Show/Index', [
                 'lead' => $lead,
+                'labels' => $labels,
                 'productItems' => $productItems,
                 'sourceItems' => $sourceItems,
                 'deal' => $deal ? [
@@ -415,7 +419,7 @@ class LeadController extends Controller
                 }
                 $leads->save();
 
-                return redirect()->route('lead.leads.index')->with('success', __('The label details are updated successfully.'));
+                return redirect()->back()->with('success', __('The label details are updated successfully.'));
             } else {
                 return redirect()->back()->with('error', __('Permission Denied.'));
             }

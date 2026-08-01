@@ -215,6 +215,54 @@ export default function Index() {
 
         return { columns, tasks: tasksByStage };
     };
+    const getFollowUpStatus = (value?: string | null) => {
+        if (!value) {
+            return { label: '-', className: 'text-muted-foreground', title: '' };
+        }
+
+        const followUpDate = new Date(value);
+        if (Number.isNaN(followUpDate.getTime())) {
+            return { label: formatDate(value), className: 'text-muted-foreground', title: formatDate(value) };
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        followUpDate.setHours(0, 0, 0, 0);
+
+        const differenceInDays = Math.round(
+            (followUpDate.getTime() - today.getTime()) / 86400000
+        );
+
+        if (differenceInDays < 0) {
+            return {
+                label: `${t('Overdue')} ${Math.abs(differenceInDays)}${t('d')}`,
+                className: 'bg-red-50 text-red-700 border-red-200',
+                title: formatDate(value),
+            };
+        }
+
+        if (differenceInDays === 0) {
+            return {
+                label: t('Today'),
+                className: 'bg-amber-50 text-amber-700 border-amber-200',
+                title: formatDate(value),
+            };
+        }
+
+        if (differenceInDays === 1) {
+            return {
+                label: t('Tomorrow'),
+                className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                title: formatDate(value),
+            };
+        }
+
+        return {
+            label: formatDate(value),
+            className: 'bg-muted text-muted-foreground border-border',
+            title: formatDate(value),
+        };
+    };
 
     const LeadCard = ({ task }: { task: any }) => {
         const lead = task.lead;
@@ -409,8 +457,8 @@ export default function Index() {
             sortable: false
         },
         {
-            key: 'date',
-            header: t('Follow Up Date'),
+            key: 'created_at',
+            header: t('Created'),
             sortable: true,
             render: (value: string) => {
                 if (!value) return '-';
@@ -422,83 +470,6 @@ export default function Index() {
                 );
             }
         },
-        // {
-        //     key: 'users',
-        //     header: t('Users'),
-        //     sortable: false,
-        //     render: (value: any, row: any) => (
-        //         <div className="flex items-center">
-        //             <TooltipProvider>
-        //                 <div className="flex -space-x-1">
-        //                     {row.user_leads?.length > 0 ? row.user_leads.slice(0, 3).map((userLead: any, index: number) => (
-        //                         <Tooltip key={userLead.user.id}>
-        //                             <TooltipTrigger>
-        //                                 <Avatar className="h-8 w-8 border-2 border-white">
-        //                                     {userLead.user.avatar ? (
-        //                                         <img
-        //                                             src={getImagePath(userLead.user.avatar)}
-        //                                             alt={userLead.user.name}
-        //                                             className="h-full w-full object-cover"
-        //                                         />
-        //                                     ) : (
-        //                                         <AvatarFallback className="text-xs bg-primary/10">
-        //                                             {userLead.user.name.charAt(0).toUpperCase()}
-        //                                         </AvatarFallback>
-        //                                     )}
-        //                                 </Avatar>
-        //                             </TooltipTrigger>
-        //                             <TooltipContent>
-        //                                 <p>{userLead.user.name}</p>
-        //                             </TooltipContent>
-        //                         </Tooltip>
-        //                     )) : (
-        //                         <Avatar className="h-8 w-8 border-2 border-white">
-        //                             <AvatarFallback className="text-xs bg-gray-200">
-        //                                 <UsersIcon className="h-3 w-3" />
-        //                             </AvatarFallback>
-        //                         </Avatar>
-        //                     )}
-        //                     {row.user_leads?.length > 3 && (
-        //                         <Tooltip>
-        //                             <TooltipTrigger>
-        //                                 <Avatar className="h-8 w-8 border-2 border-white">
-        //                                     <AvatarFallback className="text-xs bg-gray-100">
-        //                                         +{row.user_leads.length - 3}
-        //                                     </AvatarFallback>
-        //                                 </Avatar>
-        //                             </TooltipTrigger>
-        //                             <TooltipContent>
-        //                                 <div className="space-y-1">
-        //                                     {row.user_leads.slice(3).map((userLead: any) => (
-        //                                         <p key={userLead.user.id}>{userLead.user.name}</p>
-        //                                     ))}
-        //                                 </div>
-        //                             </TooltipContent>
-        //                         </Tooltip>
-        //                     )}
-        //                 </div>
-        //             </TooltipProvider>
-        //         </div>
-        //     )
-        // },
-
-        // {
-        //     key: 'tasks',
-        //     header: t('Tasks'),
-        //     sortable: false,
-        //     render: (value: any, row: any) => {
-        //         const totalTasks = row.tasks_count || 0;
-        //         const completedTasks = row.complete_tasks_count || 0;
-        //         return (
-        //             <span className={`text-sm font-medium ${totalTasks === 0 ? 'text-gray-400' :
-        //                 completedTasks === totalTasks ? 'text-green-600' : ''
-        //                 }`}>
-        //                 {completedTasks}/{totalTasks}
-        //             </span>
-        //         );
-        //     }
-        // },
-
         {
             key: 'stage',
             header: t('Stage'),
@@ -512,6 +483,27 @@ export default function Index() {
                     </span>
                 );
             }
+        },
+        {
+            key: 'date',
+            header: t('Follow Up'),
+            sortable: true,
+            render: (value: string) => {
+                const followUp = getFollowUpStatus(value);
+
+                if (!value) {
+                    return <span className="text-muted-foreground">-</span>;
+                }
+
+                return (
+                    <span
+                        className={`inline-flex min-w-[95px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${followUp.className}`}
+                        title={followUp.title}
+                    >
+                        {followUp.label}
+                    </span>
+                );
+            },
         },
         {
             key: 'note',

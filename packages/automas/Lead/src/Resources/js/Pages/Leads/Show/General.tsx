@@ -11,21 +11,43 @@ import { Input } from '@/components/ui/input';
 import { InputError } from '@/components/ui/input-error';
 import { Textarea } from '@/components/ui/textarea';
 import { useForm, usePage } from '@inertiajs/react';
-import { Plus, Mail, Phone, Calendar, User, GitBranch, Layers, CheckSquare, Globe, Package } from 'lucide-react';
-import { useFormFields } from '@/hooks/useFormFields';
+import {
+    Plus,
+    Mail,
+    Phone,
+    Calendar,
+    User,
+    GitBranch,
+    Layers,
+    CheckSquare,
+    Globe,
+    Package,
+    Tag,
+    Pencil,
+} from 'lucide-react'; import { useFormFields } from '@/hooks/useFormFields';
+import LabelView from '../LabelView';
 
 interface GeneralProps {
     lead: Lead;
 }
 
+interface LeadLabel {
+    id: number;
+    name: string;
+    color: string;
+    pipeline_id?: number;
+}
+
 export default function General({ lead }: GeneralProps) {
     const { t } = useTranslation();
-    const { productItems, sourceItems } = usePage<any>().props;
-    const productItemsList: { id: number; name: string }[] = productItems || [];
+    const { productItems, sourceItems, labels } = usePage<any>().props;
+
+    const labelList: LeadLabel[] = labels || []; const productItemsList: { id: number; name: string }[] = productItems || [];
     const sourceItemsList: { id: number; name: string }[] = sourceItems || [];
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [discussionModalOpen, setDiscussionModalOpen] = useState(false);
     const [emailEditorKey, setEmailEditorKey] = useState(0);
+    const [labelModalOpen, setLabelModalOpen] = useState(false);
 
     const { data: emailForm, setData: setEmailData, post: postEmail, processing: emailProcessing, errors: emailErrors, reset: resetEmail } = useForm({
         to: '',
@@ -35,9 +57,10 @@ export default function General({ lead }: GeneralProps) {
 
     const { data: notesForm, setData: setNotesData, put: putNotes, processing: notesProcessing, errors: notesErrors } = useForm({
         name: lead.name,
-        email: lead.email,
+        email: lead.email || '',
         subject: lead.subject,
         user_id: lead.user_id,
+        labels: lead.labels || '',
         phone: lead.phone || '',
         date: lead.date || '',
         pipeline_id: lead.pipeline_id,
@@ -49,7 +72,7 @@ export default function General({ lead }: GeneralProps) {
         message: '',
     });
 
-    const customFields = useFormFields('getCustomFields', { ...lead, module: 'Lead', sub_module: 'Lead', id: lead.id }, () => {}, {}, 'view', t);
+    const customFields = useFormFields('getCustomFields', { ...lead, module: 'Lead', sub_module: 'Lead', id: lead.id }, () => { }, {}, 'view', t);
 
     const emailSubjectAI = useFormFields('aiField', emailForm, (field, value) => {
         setEmailData(field as any, value);
@@ -80,6 +103,14 @@ export default function General({ lead }: GeneralProps) {
         });
     };
 
+    const selectedLabelIds = (lead.labels || '')
+        .split(',')
+        .map((id) => Number(id))
+        .filter(Boolean);
+
+    const assignedLabels = labelList.filter((label) =>
+        selectedLabelIds.includes(label.id)
+    );
     return (
         <div className="space-y-8">
             {/* Stats Cards */}
@@ -121,18 +152,58 @@ export default function General({ lead }: GeneralProps) {
                     </div>
                 </div>
             </div>
-            
+
             {/* Header + Details — Combined Card */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
 
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5 border-b border-blue-100">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div>
-                            <h1 className="text-lg font-bold text-gray-900">{lead.name}</h1>
+                    <div className="grid grid-cols-[1fr_30%] gap-6 items-start">
+
+                        {/* Left */}
+                        <div className="min-w-0">
+                            <h1 className="text-lg font-bold text-gray-900">
+                                {lead.name}
+                            </h1>
+
                             {lead.subject && (
-                                <p className="text-sm text-gray-500 mt-1">{lead.subject}</p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {lead.subject}
+                                </p>
                             )}
+                        </div>
+
+                        {/* Right */}
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="flex flex-wrap justify-end gap-2 max-w-full">
+                                {assignedLabels.map((label) => (
+                                    <span
+                                        key={label.id}
+                                        className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white whitespace-nowrap"
+                                        style={{ backgroundColor: label.color }}
+                                    >
+                                        {label.name}
+                                    </span>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => setLabelModalOpen(true)}
+                                    className="
+                                    inline-flex h-7 w-7 shrink-0
+                                    items-center justify-center
+                                    rounded-full border border-gray-300
+                                    bg-white text-gray-600
+                                    shadow-sm transition
+                                    hover:border-primary
+                                    hover:bg-primary/10
+                                    hover:text-primary
+                                    focus:outline-none
+                                    focus:ring-2
+                                    focus:ring-primary/30"
+                                    aria-label={t('Manage Labels')}
+                                >
+                                    <Tag className="h-3.5 w-3.5" />
+                                </button>                            </div>
                         </div>
                     </div>
                 </div>
@@ -166,9 +237,8 @@ export default function General({ lead }: GeneralProps) {
                             </div>
                             <div>
                                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{t('Follow Up Date')}</p>
-                                <p className={`text-sm font-medium ${
-                                    lead.date && new Date(lead.date) < new Date() ? 'text-red-500' : 'text-gray-800'
-                                }`}>
+                                <p className={`text-sm font-medium ${lead.date && new Date(lead.date) < new Date() ? 'text-red-500' : 'text-gray-800'
+                                    }`}>
                                     {lead.date ? formatDate(lead.date) : '-'}
                                 </p>
                             </div>
@@ -209,7 +279,7 @@ export default function General({ lead }: GeneralProps) {
                 </div>
             </div>
 
-            
+
 
             {/* Description Section */}
             {lead.description && (
@@ -427,6 +497,15 @@ export default function General({ lead }: GeneralProps) {
                         </div>
                     </form>
                 </DialogContent>
+            </Dialog>
+
+            <Dialog open={labelModalOpen} onOpenChange={setLabelModalOpen}>
+                {labelModalOpen && (
+                    <LabelView
+                        lead={lead}
+                        onSuccess={() => setLabelModalOpen(false)}
+                    />
+                )}
             </Dialog>
         </div>
     );
