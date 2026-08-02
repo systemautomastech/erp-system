@@ -43,6 +43,7 @@ export interface LeadFormData {
     stage_id?: string;
     sources?: string[];
     products?: string[];
+    labels?: string[];
     notes?: string;
 }
 
@@ -66,6 +67,7 @@ export interface EditLeadFormData {
     stage_id: string;
     sources: string[];
     products: string[];
+    labels: string[];
     notes: string;
 }
 

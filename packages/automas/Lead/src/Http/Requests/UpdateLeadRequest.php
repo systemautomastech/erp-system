@@ -25,6 +25,7 @@ class UpdateLeadRequest extends FormRequest
             'notes' => 'nullable',
             'phone' => 'nullable|string|regex:/^\+?\d{10,16}$/',
             'date' => 'nullable|date',
+            'labels' => 'nullable|array',
         ];
     }
 }

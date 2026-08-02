@@ -50,7 +50,9 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
 
     Route::get('crm/leads/existing-clients', [LeadController::class, 'getExistingClients'])->name('lead.leads.existing-clients');
     Route::post('crm/leads/save-default-pipeline', [LeadController::class, 'saveDefaultPipeline'])->name('lead.leads.save-default-pipeline');
+
     Route::resource('crm/leads', LeadController::class)->names('lead.leads');
+    Route::put('crm/leads/{lead}/notes', [LeadController::class, 'updateNotes'])->name('lead.leads.update-notes');
     Route::post('crm/leads/order', [LeadController::class, 'order'])->name('lead.leads.order');
     Route::patch('crm/leads/{lead}/labels', [LeadController::class, 'updateLabels'])->name('lead.leads.update-labels');
     Route::get('crm/leads/{lead}/available-users', [LeadController::class, 'getAvailableUsers'])->name('lead.leads.available-users');
@@ -76,6 +78,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
     Route::get('crm/stages/{pipeline}', [LeadController::class, 'getStagesByPipeline'])->name('lead.stages.by-pipeline');
 
     Route::resource('crm/deals', DealController::class)->names('lead.deals');
+    Route::put('crm/deals/{deal}/notes', [DealController::class, 'updateNotes'])->name('lead.deals.update-notes');
     Route::post('crm/deals/save-default-pipeline', [DealController::class, 'saveDefaultPipeline'])->name('lead.deals.save-default-pipeline');
     Route::post('crm/deals/order', [DealController::class, 'order'])->name('lead.deals.order');
     Route::post('crm/deals/{deal}/change-status', [DealController::class, 'changeStatus'])->name('lead.deals.change-status');

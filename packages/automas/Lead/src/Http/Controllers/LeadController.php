@@ -261,7 +261,6 @@ class LeadController extends Controller
 
             $labels = Label::with('pipeline')->where('created_by', creatorId())->select('id', 'name', 'color', 'pipeline_id')->get();
 
-
             $lead = Lead::with([
                 'stage',
                 'pipeline',
@@ -369,7 +368,7 @@ class LeadController extends Controller
             $lead->sources     = array_key_exists('sources', $validated) ? (is_array($validated['sources']) ? (empty($validated['sources']) ? null : implode(',', array_filter($validated['sources']))) : ($validated['sources'] ?? $lead->sources)) : $lead->sources;
             $lead->products    = array_key_exists('products', $validated) ? (is_array($validated['products']) ? (empty($validated['products']) ? null : implode(',', array_filter($validated['products']))) : ($validated['products'] ?? $lead->products)) : $lead->products;
             $lead->notes       = $validated['notes'] ?? $lead->notes;
-            $lead->labels      = $request->input('labels', $lead->labels);
+            $lead->labels      = $request->input('labels', $lead->labels) ? (is_array($request->input('labels')) ? implode(',', array_filter($request->input('labels'))) : $request->input('labels')) : null;
             $lead->save();
 
             UpdateLead::dispatch($request, $lead);
@@ -403,6 +402,20 @@ class LeadController extends Controller
             ->get();
 
         return response()->json($stages);
+    }
+
+    public function updateNotes(Request $request, $id)
+    {
+        if (Auth::user()->can('edit-leads')) {
+            $lead = Lead::find($id);
+            if ($lead->created_by == creatorId()) {
+                $lead->notes = $request->notes;
+                $lead->save();
+                return redirect()->back()->with('success', __('The notes are updated successfully.'));
+            }
+        } else {
+            return redirect()->back()->with('error', __('Permission denied'));
+        }
     }
 
     public function updateLabels(Request $request, $id)

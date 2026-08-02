@@ -547,7 +547,7 @@ export default function Index() {
                                 buttonClassName={lead.is_converted ? "h-8 w-8 p-0 text-gray-400 hover:text-gray-500" : "h-8 w-8 p-0 text-yellow-600 hover:text-yellow-700"}
                             />
                         )}
-                        {auth.user?.permissions?.includes('edit-leads') && (
+                        {/* {auth.user?.permissions?.includes('edit-leads') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
                                     <Button variant="ghost" size="sm" onClick={() => setLabelingItem(lead)} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
@@ -558,7 +558,7 @@ export default function Index() {
                                     <p>{t('Label')}</p>
                                 </TooltipContent>
                             </Tooltip>
-                        )}
+                        )} */}
                         {auth.user?.permissions?.includes('view-leads') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
