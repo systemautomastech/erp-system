@@ -43,6 +43,7 @@ const reportGifs: Record<string, string> = {
     sales_invoice_report:    'packages/automas/SmartReports/src/Resources/assets/images/sales.png',
     purchase_invoice_report: 'packages/automas/SmartReports/src/Resources/assets/images/purchase.png',
     deal_pipeline_report:    'packages/automas/SmartReports/src/Resources/assets/images/deal.png',
+    lead_report:             'packages/automas/SmartReports/src/Resources/assets/images/deal.png',
     product_stock_report:    'packages/automas/SmartReports/src/Resources/assets/images/stock.png',
     project_progress_report: 'packages/automas/SmartReports/src/Resources/assets/images/project.png',
 };
@@ -58,6 +59,7 @@ const SmartReportsIndex: React.FC<Props> = ({ reports }) => {
             sales_invoice_report:    'smart-reports.sales-invoice.report',
             purchase_invoice_report: 'smart-reports.purchase-invoice.report',
             deal_pipeline_report:    'smart-reports.deal-pipeline.report',
+            lead_report:             'smart-reports.lead.report',
             product_stock_report:    'smart-reports.product-stock.report',
             project_progress_report: 'smart-reports.project-progress.report',
         };
