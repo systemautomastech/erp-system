@@ -33,6 +33,7 @@ use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\AIAgentChatPageController;
 use App\Http\Controllers\AIAgentChatController;
+use App\Http\Controllers\ProposalSetupController;
 use Inertia\Inertia;
 
 
@@ -178,6 +179,14 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::post('sales-proposals/{salesProposal}/convert-to-invoice', [SalesProposalController::class, 'convertToInvoice'])->name('sales-proposals.convert-to-invoice');
     Route::get('sales-proposals/warehouse/products', [SalesProposalController::class, 'getWarehouseProducts'])->name('sales-proposals.warehouse.products');
     Route::get('sales-proposals/services/list', [SalesProposalController::class, 'getServices'])->name('sales-proposals.services');
+
+    // Proposal Setup
+    Route::get('sales-proposal/general-settings', [ProposalSetupController::class, 'generalSettings'])->name('proposal-setup.general-settings');
+    Route::get('sales-proposal/template-branding', [ProposalSetupController::class, 'templateBranding'])->name('proposal-setup.template-branding');
+    Route::get('sales-proposal/default-terms', [ProposalSetupController::class, 'defaultTerms'])->name('proposal-setup.default-terms');
+    Route::get('sales-proposal/default-pages', [ProposalSetupController::class, 'defaultPages'])->name('proposal-setup.default-pages');
+
+    // Route::post('sales-proposal/setup', [SalesProposalSetupController::class, 'store'])->name('sales-proposal.setup.store');
 
     // Messenger routes
     Route::get('messenger', [MessengerController::class, 'index'])->name('messenger.index');
