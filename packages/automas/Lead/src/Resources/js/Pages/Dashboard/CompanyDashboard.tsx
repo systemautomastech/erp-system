@@ -43,59 +43,57 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.visit(route('lead.deals.index'))}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-blue-700">{t('Total Deals')}</CardTitle>
+                            <CardTitle className="text-sm font-medium text-blue-700">{t('Today Deal')}</CardTitle>
                             <Rocket className="h-5 w-5 text-blue-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-blue-800">{stats?.total_deals || 0}</div>
+                            <div className="text-2xl font-bold text-blue-800">{stats?.todayDeals || 0}</div>
                         </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.visit(route('lead.leads.index'))}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-green-700">{t('Total Leads')}</CardTitle>
-                            <TrendingUp className="h-5 w-5 text-green-600" />
+                            <CardTitle className="text-sm font-medium text-green-700">{t('Yesterday Deal')}</CardTitle>
+                            <Calendar className="h-5 w-5 text-green-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-800">{stats?.total_leads || 0}</div>
+                            <div className="text-2xl font-bold text-green-800">{stats?.yesterdayDeals || 0}</div>
                         </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.visit(route('users.index'))}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-purple-700">{t('Total Users')}</CardTitle>
-                            <Users className="h-5 w-5 text-purple-600" />
+                            <CardTitle className="text-sm font-medium text-purple-700">{t('Monthly Deal')}</CardTitle>
+                            <CalendarDays className="h-5 w-5 text-purple-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-purple-800">{stats?.total_users || 0}</div>
+                            <div className="text-2xl font-bold text-purple-800">{stats?.monthlyDeals || 0}</div>
                         </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.get(route('users.index'), { type: 'client' })}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-orange-700">{t('Total Clients')}</CardTitle>
-                            <Users className="h-5 w-5 text-orange-600" />
+                            <CardTitle className="text-sm font-medium text-orange-700">{t('Total')}</CardTitle>
+                            <BarChart3 className="h-5 w-5 text-orange-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-orange-800">{stats?.total_clients || 0}</div>
+                            <div className="text-2xl font-bold text-orange-800">{stats?.totalDeals || 0}</div>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* seconds row */}
                 {/* Second Row */}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card
                         className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 hover:shadow-md transition-shadow cursor-pointer"
-                        onClick={() => router.visit(route('lead.deals.index'))}
+                        onClick={() => router.visit(route('lead.leads.index'))}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-teal-700">
-                                {t('Total Deals')}
+                                {t('Today Lead')}
                             </CardTitle>
-                            <Rocket className="h-5 w-5 text-teal-600" />
+                            <Target className="h-5 w-5 text-teal-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-teal-800">
-                                {stats?.total_deals || 0}
+                                {stats?.todayLeads || 0}
                             </div>
                         </CardContent>
                     </Card>
@@ -106,30 +104,30 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-pink-700">
-                                {t('Total Leads')}
+                                {t('Yesterday Lead')}
                             </CardTitle>
-                            <TrendingUp className="h-5 w-5 text-pink-600" />
+                            <Clock className="h-5 w-5 text-pink-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-pink-800">
-                                {stats?.total_leads || 0}
+                                {stats?.yesterdayLeads || 0}
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card
                         className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer"
-                        onClick={() => router.visit(route('users.index'))}
+                        onClick={() => router.visit(route('lead.leads.index'))}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-indigo-700">
-                                {t('Total Users')}
+                                {t('Monthly Lead')}
                             </CardTitle>
-                            <Users className="h-5 w-5 text-indigo-600" />
+                            <Award className="h-5 w-5 text-indigo-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-indigo-800">
-                                {stats?.total_users || 0}
+                                {stats?.monthlyLeads || 0}
                             </div>
                         </CardContent>
                     </Card>
@@ -140,22 +138,19 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-amber-700">
-                                {t('Total Clients')}
+                                {t('Total')}
                             </CardTitle>
-                            <Users className="h-5 w-5 text-amber-600" />
+                            <BarChart3 className="h-5 w-5 text-amber-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-amber-800">
-                                {stats?.total_clients || 0}
+                                {stats?.totalLeads || 0}
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* third row */}
-
                 {/* Third Row */}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card
                         className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:shadow-md transition-shadow cursor-pointer"
@@ -163,13 +158,13 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-red-700">
-                                {t('Total Deals')}
+                                {t('Today Call')}
                             </CardTitle>
-                            <Rocket className="h-5 w-5 text-red-600" />
+                            <Phone className="h-5 w-5 text-red-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-red-800">
-                                {stats?.total_deals || 0}
+                                {stats?.todayCalls || 0}
                             </div>
                         </CardContent>
                     </Card>
@@ -180,13 +175,13 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-cyan-700">
-                                {t('Total Leads')}
+                                {t('Yesterday Call')}
                             </CardTitle>
-                            <TrendingUp className="h-5 w-5 text-cyan-600" />
+                            <Clock className="h-5 w-5 text-cyan-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-cyan-800">
-                                {stats?.total_leads || 0}
+                                {stats?.yesterdayCalls || 0}
                             </div>
                         </CardContent>
                     </Card>
@@ -197,13 +192,13 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-lime-700">
-                                {t('Total Users')}
+                                {t('Monthly Calls')}
                             </CardTitle>
                             <Users className="h-5 w-5 text-lime-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-lime-800">
-                                {stats?.total_users || 0}
+                                {stats?.monthlyCalls || 0}
                             </div>
                         </CardContent>
                     </Card>
@@ -214,13 +209,13 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-violet-700">
-                                {t('Total Clients')}
+                                {t('Total')}
                             </CardTitle>
-                            <Users className="h-5 w-5 text-violet-600" />
+                            <BarChart3 className="h-5 w-5 text-violet-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-violet-800">
-                                {stats?.total_clients || 0}
+                                {stats?.totalCalls || 0}
                             </div>
                         </CardContent>
                     </Card>

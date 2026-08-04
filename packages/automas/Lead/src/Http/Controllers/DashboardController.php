@@ -24,24 +24,41 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        if(Auth::user()->can('manage-crm-dashboard')){
+        if (Auth::user()->can('manage-crm-dashboard')) {
             $user = Auth::user();
-            
+
             if ($user->type == 'client') {
                 return $this->clientDashboard($request);
             }
-            
+
             if ($user->type != 'company') {
                 return $this->userDashboard($request);
             }
-            
-            $users = User::where('created_by', creatorId());
+
             $deal = Deal::where('created_by', creatorId());
             $lead = Lead::where('created_by', creatorId());
-            $totalLeads = $lead->count();
-            $totalDeals = $deal->count();
-            $totalUsers = $users->where('type', '!=', 'client')->count();
-            $totalClients = $users->where('type', 'client')->count();
+
+            // Deal stats
+            $todayDeals = (clone $deal)->whereDate('created_at', now()->toDateString())->count();
+            $yesterdayDeals = (clone $deal)->whereDate('created_at', now()->subDay()->toDateString())->count();
+            $monthlyDeals = (clone $deal)->whereMonth('created_at', now()->month)->count();
+            $totalDeals = (clone $deal)->count();
+
+
+            // Leads stats
+            $leads = Lead::where('created_by', creatorId());
+            $todayLeads = (clone $leads)->whereDate('created_at', now()->toDateString())->count();
+            $yesterdayLeads = (clone $leads)->whereDate('created_at', now()->subDay()->toDateString())->count();
+            $monthlyLeads = (clone $leads)->whereMonth('created_at', now()->month)->count();
+            $totalLeads = (clone $leads)->count();
+
+            // Call stats
+            $todayCalls     = DealCall::whereDate('created_at', now()->toDateString())->count();
+            $yesterdayCalls = DealCall::whereDate('created_at', now()->subDays(1)->toDateString())->count();
+            $monthlyCalls     = DealCall::whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            $totalCalls = DealCall::count();
 
             // Recent deals
             $recentDeals = $deal
@@ -58,7 +75,7 @@ class DashboardController extends Controller
 
             // Calendar events from deal tasks and lead tasks
             $calendarEvents = [];
-            
+
             if ($user->type == 'company') {
                 // Deal tasks
                 $deals = $deal->with('tasks')->get();
@@ -77,7 +94,7 @@ class DashboardController extends Controller
                         ];
                     }
                 }
-                
+
                 // Lead tasks
                 $leads = $lead->with('tasks')->get();
                 foreach ($leads as $leadItem) {
@@ -130,7 +147,7 @@ class DashboardController extends Controller
                         ];
                     }
                 }
-                
+
                 // User lead tasks
                 $userLeads = UserLead::where('user_id', $user->id)->with('lead.tasks')->get();
                 foreach ($userLeads as $userLead) {
@@ -152,17 +169,17 @@ class DashboardController extends Controller
 
             // Deal and Lead calls pie chart data
             $dealCallsChart = [];
-            
+
             $totalDealCalls = DealCall::where('user_id', creatorId())->count();
             $totalLeadCalls = LeadCall::where('user_id', creatorId())->count();
-            
+
             if ($totalDealCalls > 0) {
                 $dealCallsChart[] = [
                     'name' => 'Deal Calls',
                     'value' => $totalDealCalls
                 ];
             }
-            
+
             if ($totalLeadCalls > 0) {
                 $dealCallsChart[] = [
                     'name' => 'Lead Calls',
@@ -177,12 +194,12 @@ class DashboardController extends Controller
                 ->when($pipelineId, fn($q) => $q->where('pipeline_id', $pipelineId))
                 ->orderBy('order', 'ASC')
                 ->get();
-            
+
             foreach ($dealStages as $stage) {
                 $dealCount = $deal
                     ->where('stage_id', $stage->id)
                     ->count();
-                
+
                 $dealStageChart[] = [
                     'name' => $stage->name,
                     'deals' => $dealCount
@@ -191,13 +208,42 @@ class DashboardController extends Controller
 
             $pipelines = Pipeline::where('created_by', creatorId())->get(['id', 'name']);
 
+            // $stats = [
+            //     'todayDeals' => $todayDeals,
+            //     'yesterdayDeals' => $yesterdayDeals,
+            //     'monthDeals' => $monthlyDeals,
+            //     'totalDeals' => $totalDeals,
+
+            //     'todayLeads' => $todayLead,
+            //     'yesterdayLeads' => $yesterdayLead,
+            //     'monthLeads' => $monthlyLead,
+            //     'totalLeads' => $totalLead,
+
+            //     'todayCalls' => $todayCalls,
+            //     'yesterdayCalls' => $yesterdayCalls,
+            //     'monthCalls' => $monthlyCalls,
+            //     'totalCalls' => $totalCalls
+            // ];
+
+            // dd($stats);
             return Inertia::render('Lead/Dashboard/CompanyDashboard', [
                 'stats' => [
-                    'total_leads' => $totalLeads,
-                    'total_deals' => $totalDeals,
-                    'total_users' => $totalUsers,
-                    'total_clients' => $totalClients,
+                    'todayDeals' => $todayDeals,
+                    'yesterdayDeals' => $yesterdayDeals,
+                    'monthDeals' => $monthlyDeals,
+                    'totalDeals' => $totalDeals,
+
+                    'todayLeads' => $todayLeads,
+                    'yesterdayLeads' => $yesterdayLeads,
+                    'monthLeads' => $monthlyLeads,
+                    'totalLeads' => $totalLeads,
+
+                    'todayCalls' => $todayCalls,
+                    'yesterdayCalls' => $yesterdayCalls,
+                    'monthCalls' => $monthlyCalls,
+                    'totalCalls' => $totalCalls
                 ],
+
                 'recentDeals' => $recentDeals,
                 'recentLeads' => $recentLeads,
                 'calendarEvents' => $calendarEvents,
@@ -209,35 +255,35 @@ class DashboardController extends Controller
         }
         return back()->with('error', __('Permission denied'));
     }
-    
+
     private function clientDashboard(Request $request)
     {
         $user = Auth::user();
-        
+
         // Get assigned deals for client
         $assignedDealIds = ClientDeal::where('client_id', $user->id)->pluck('deal_id');
         $deals = Deal::whereIn('id', $assignedDealIds);
-        
+
         // Get all stats from deals
         $totalDeals = $deals->count();
         $activeDealCount = $deals->where('status', 'Active')->count();
         $wonDealCount = $deals->where('status', 'Won')->count();
         $lossDealCount = $deals->where('status', 'Loss')->count();
         $totalDealValue = $deals->sum('price');
-        
+
         // Recent deals assigned to client
         $recentDeals = $deals->with('stage')
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
-            
+
         // Deal status chart
         $dealStatusChart = [
             ['name' => 'Active', 'value' => $activeDealCount],
             ['name' => 'Won', 'value' => $wonDealCount],
             ['name' => 'Loss', 'value' => $lossDealCount]
         ];
-            
+
         // Calendar events from assigned deal tasks and lead tasks
         $calendarEvents = [];
         $clientDeals = ClientDeal::where('client_id', $user->id)->with('deal.tasks')->get();
@@ -256,7 +302,7 @@ class DashboardController extends Controller
                 ];
             }
         }
-        
+
         return Inertia::render('Lead/Dashboard/ClientDashboard', [
             'stats' => [
                 'total_deals' => $totalDeals,
@@ -270,45 +316,45 @@ class DashboardController extends Controller
             'message' => __('Client Dashboard - View your assigned deals.')
         ]);
     }
-    
+
     private function userDashboard(Request $request)
     {
         $user = Auth::user();
-        
+
         // Get assigned deals and leads for user
         $assignedDealIds = UserDeal::where('user_id', $user->id)->pluck('deal_id');
         $assignedLeadIds = UserLead::where('user_id', $user->id)->pluck('lead_id');
-        
+
         $assignedDeals = Deal::whereIn('id', $assignedDealIds)->count();
         $assignedLeads = Lead::whereIn('id', $assignedLeadIds)->count();
-        
+
         // Task statistics
         $completedTasks = DealTask::whereIn('deal_id', $assignedDealIds)
-            ->where('status', 1)->count() + 
+            ->where('status', 1)->count() +
             LeadTask::whereIn('lead_id', $assignedLeadIds)
             ->where('status', 1)->count();
-            
+
         $pendingTasks = DealTask::whereIn('deal_id', $assignedDealIds)
-            ->where('status', 0)->count() + 
+            ->where('status', 0)->count() +
             LeadTask::whereIn('lead_id', $assignedLeadIds)
             ->where('status', 0)->count();
-        
+
         // Recent assigned deals
         $recentDeals = Deal::whereIn('id', $assignedDealIds)
             ->with('stage')
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
-            
+
         // Recent assigned leads
         $recentLeads = Lead::whereIn('id', $assignedLeadIds)
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get(['id', 'name', 'subject', 'created_at']);
-        
+
         // Calendar events from assigned tasks
         $calendarEvents = [];
-        
+
         // Deal tasks
         $userDeals = UserDeal::where('user_id', $user->id)->with('deal.tasks')->get();
         foreach ($userDeals as $userDeal) {
@@ -326,7 +372,7 @@ class DashboardController extends Controller
                 ];
             }
         }
-        
+
         // Lead tasks
         $userLeads = UserLead::where('user_id', $user->id)->with('lead.tasks')->get();
         foreach ($userLeads as $userLead) {
@@ -344,16 +390,16 @@ class DashboardController extends Controller
                 ];
             }
         }
-        
+
         // Total amount from assigned deals
         $totalAmount = Deal::whereIn('id', $assignedDealIds)->sum('price');
-        
+
         // Task status chart
         $taskStatusChart = [
             ['name' => 'Completed', 'value' => $completedTasks],
             ['name' => 'Pending', 'value' => $pendingTasks]
         ];
-        
+
         return Inertia::render('Lead/Dashboard/UserDashboard', [
             'stats' => [
                 'assigned_deals' => $assignedDeals,

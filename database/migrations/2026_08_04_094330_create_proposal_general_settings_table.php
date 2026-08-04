@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('proposal_number_prefix');
             $table->unsignedInteger('next_starting_number');
             $table->unsignedSmallInteger('validity_period_days')->default(30);
-            $table->;
+            // $table->;
             $table->timestamps();
         });
     }
