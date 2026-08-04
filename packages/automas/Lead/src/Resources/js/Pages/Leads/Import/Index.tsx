@@ -12,6 +12,7 @@ import {
     ArrowLeft,
     ArrowRight,
     CheckCircle2,
+    Download,
     Eye,
     FileSpreadsheet,
     LoaderCircle,
@@ -42,9 +43,13 @@ interface UploadForm {
     mode: ImportMode;
 }
 
+interface ImportPageProps {
+    downloadLink?: string;
+}
+
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
-export default function Index() {
+export default function Index({ downloadLink = '' }: ImportPageProps) {
     const { t } = useTranslation();
 
     const inputRef = useRef<HTMLInputElement>(null);
@@ -389,10 +394,11 @@ export default function Index() {
                             </div>
 
                             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                <Download className="h-3 w-3" />
                                 <span>
                                     {t('Download sample CSV file:')}
                                 </span>
-                                <a href="/sample/lead-import-sample.csv"
+                                <a href={downloadLink}
                                     download
                                     className="inline-flex items-center rounded-md border bg-muted/30 px-3 py-1.5 font-medium text-foreground transition-colors hover:bg-muted/50">
                                     {t('Download')}

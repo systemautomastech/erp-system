@@ -112,6 +112,13 @@ if (!function_exists('company_setting')) {
     }
 }
 
+if (!function_exists('getFilePath')) {
+    function getFilePath($path)
+    {
+       return url('/storage/app/public/' . $path);
+    }
+}
+
 if (!function_exists('getImageUrlPrefix')) {
     function getImageUrlPrefix(): string
     {
