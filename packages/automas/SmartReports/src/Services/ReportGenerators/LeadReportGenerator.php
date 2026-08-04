@@ -12,13 +12,21 @@ use Automas\Lead\Models\Label;
 
 class LeadReportGenerator
 {
-    public static function normalizeLeadStatus(array $row): string
+    public static function normalizeLeadStatus(mixed $row): string
     {
-        if (!empty($row['is_converted']) || isset($row['is_converted']) && (int) $row['is_converted'] === 1) {
+        $isConverted = is_array($row)
+            ? ($row['is_converted'] ?? null)
+            : ($row->is_converted ?? null);
+
+        if (!empty($isConverted) || isset($isConverted) && (int) $isConverted === 1) {
             return 'Converted';
         }
 
-        if (!empty($row['is_active'])) {
+        $isActive = is_array($row)
+            ? ($row['is_active'] ?? null)
+            : ($row->is_active ?? null);
+
+        if (!empty($isActive)) {
             return 'Active';
         }
 
@@ -59,7 +67,6 @@ class LeadReportGenerator
                 'lead_stages.name as stage_name',
                 'owner.name as assigned_to',
                 'creator.name as created_by_name',
-                DB::raw('CAST(leads.status AS CHAR) as status'),
                 DB::raw('(SELECT COUNT(*) FROM lead_tasks WHERE lead_id = leads.id) as task_count'),
                 DB::raw('(SELECT COUNT(*) FROM lead_calls WHERE lead_id = leads.id) as call_count'),
                 DB::raw('(SELECT COUNT(*) FROM lead_emails WHERE lead_id = leads.id) as email_count')

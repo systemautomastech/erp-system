@@ -143,6 +143,7 @@ class LeadController extends Controller
                 'sources' => $sources,
                 'products' => $products,
                 'currentPipelineId' => request('pipeline_id') ?: $defaultPipelineId,
+                'pbxModuleActive' => module_is_active('Pbx'),
             ]);
         } else {
             return back()->with('error', __('Permission denied'));

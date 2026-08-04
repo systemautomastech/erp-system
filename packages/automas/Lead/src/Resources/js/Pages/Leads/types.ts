@@ -91,6 +91,7 @@ export interface LeadsIndexProps {
     auth: AuthContext;
     users: any[];
     currentPipelineId?: number | null;
+    pbxModuleActive?: boolean;
     [key: string]: unknown;
 }
 

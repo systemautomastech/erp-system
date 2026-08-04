@@ -43,7 +43,7 @@ const reportGifs: Record<string, string> = {
     sales_invoice_report:    'packages/automas/SmartReports/src/Resources/assets/images/sales.png',
     purchase_invoice_report: 'packages/automas/SmartReports/src/Resources/assets/images/purchase.png',
     deal_pipeline_report:    'packages/automas/SmartReports/src/Resources/assets/images/deal.png',
-    lead_report:             'packages/automas/SmartReports/src/Resources/assets/images/deal.png',
+    lead_report:             'packages/automas/SmartReports/src/Resources/assets/images/lead.png',
     product_stock_report:    'packages/automas/SmartReports/src/Resources/assets/images/stock.png',
     project_progress_report: 'packages/automas/SmartReports/src/Resources/assets/images/project.png',
 };
