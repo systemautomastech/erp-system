@@ -59,7 +59,7 @@ export default function Index({ activeTab }: Props) {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                { label: t('Sales Proposals'), href: route('sales-proposals.index') },
+                { label: t('Sales Proposals'), url: route('sales-proposals.index') },
                 { label: getBreadcrumbLabel() },
             ]}
             pageTitle={t('System Setup')}

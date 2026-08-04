@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:public/build/assets/trending-down-D8pp-IR-.js
 import{c as n}from"./createLucideIcon-CF3pYp0j.js";/**
-========
-import{c as n}from"./app-DxVyFUBD.js";/**
->>>>>>>> b500f9510a3f06750b600f90cef8049fd31a2da8:public/build/assets/trending-down-BWTJ90Ak.js
  * @license lucide-react v0.378.0 - ISC
  *
  * This source code is licensed under the ISC license.
