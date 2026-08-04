@@ -605,23 +605,42 @@ class ImportLeadChunk implements ShouldQueue
 
     private function normalizePhone(?string $value): ?string
     {
-        if (!$value) {
+        if (blank($value)) {
             return null;
         }
 
         $value = trim($value);
 
-        /*
-         * Excel scientific notation, such as:
-         * 1.880171234567E+12
-         */
+        // Handle Excel scientific notation
         if (preg_match('/^[+-]?\d+(?:\.\d+)?E[+-]?\d+$/i', $value)) {
             $value = number_format((float) $value, 0, '', '');
         }
 
-        $value = preg_replace('/[^\d+]/', '', $value) ?? '';
+        // Keep digits only
+        $value = preg_replace('/\D+/', '', $value) ?? '';
 
-        return $value !== '' ? $value : null;
+        if ($value === '') {
+            return null;
+        }
+
+        // +88017xxxxxxxx / 88017xxxxxxxx
+        if (str_starts_with($value, '880')) {
+            $value = substr($value, 3);
+        }
+
+        // Excel removed leading zero
+        // 1765656777 -> 01765656777
+        if (strlen($value) === 10 && str_starts_with($value, '1')) {
+            $value = '0' . $value;
+        }
+
+        // Already correct
+        if (strlen($value) === 11 && str_starts_with($value, '0')) {
+            return $value;
+        }
+
+        // Invalid number
+        return null;
     }
 
     private function normalizeEmail(?string $value): ?string

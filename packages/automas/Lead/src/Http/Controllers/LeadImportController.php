@@ -28,8 +28,8 @@ class LeadImportController extends Controller
             auth()->user()?->can('create-leads'),
             403
         );
-
-        return Inertia::render('Lead/Leads/Import/Index');
+        $downloadLink = getFilePath('samples/lead_import.csv');
+        return Inertia::render('Lead/Leads/Import/Index', compact('downloadLink'));
     }
 
     public function upload(UploadLeadImportRequest $request, LeadImportCsvService $csvService): RedirectResponse
@@ -725,7 +725,8 @@ class LeadImportController extends Controller
         );
     }
 
-    public function start(LeadImport $leadImport): RedirectResponse {
+    public function start(LeadImport $leadImport): RedirectResponse
+    {
         abort_unless(
             auth()->user()?->can('create-leads'),
             403
