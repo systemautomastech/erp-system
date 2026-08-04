@@ -74,7 +74,7 @@ class SmartReportController extends Controller
             // Sales Invoice — current month
             $salesStats = [];
             if (class_exists('\App\Models\SalesInvoice')) {
-                $rows = SalesInvoice::where('created_by', $cid)
+                $rows = SalesInvoice::whereRaw('created_by = ?', [$cid])
                     ->whereBetween('invoice_date', [$monthStart, $monthEnd])
                     ->selectRaw('status, count(*) as cnt')
                     ->groupBy('status')
@@ -89,7 +89,7 @@ class SmartReportController extends Controller
             // Purchase Invoice — current month
             $purchaseStats = [];
             if (class_exists('\App\Models\PurchaseInvoice')) {
-                $rows = PurchaseInvoice::where('created_by', $cid)
+                $rows = PurchaseInvoice::whereRaw('created_by = ?', [$cid])
                     ->whereBetween('invoice_date', [$monthStart, $monthEnd])
                     ->selectRaw('status, count(*) as cnt')
                     ->groupBy('status')
@@ -199,6 +199,16 @@ class SmartReportController extends Controller
                     'icon'        => 'pipeline',
                     'stats'       => $dealStats,
                 ]] : []),
+                ...($leadActive ? [[
+                    'type'        => 'lead_report',
+                    'name'        => 'Lead Report',
+                    'description' => 'Dynamic lead performance report with user, stage, source, label and date filters',
+                    'module'      => 'CRM',
+                    'icon'        => 'users',
+                    'stats'       => [
+                        ['label' => 'Total Leads', 'value' => 0, 'color' => 'blue'],
+                    ],
+                ]] : []),
                 [
                     'type'        => 'product_stock_report',
                     'name'        => 'Product Stock Report',
@@ -274,6 +284,15 @@ class SmartReportController extends Controller
     {
         if (Auth::user()->can('manage-deal-pipeline-reports')) {
             return Inertia::render('SmartReports/DealPipelineReport');
+        } else {
+            return back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function leadReport(Request $request)
+    {
+        if (Auth::user()->can('manage-deal-pipeline-reports')) {
+            return Inertia::render('SmartReports/LeadReport');
         } else {
             return back()->with('error', __('Permission denied'));
         }

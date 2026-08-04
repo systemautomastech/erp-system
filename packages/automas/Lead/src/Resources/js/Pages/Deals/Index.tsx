@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit as EditIcon, Trash2, Eye, DollarSign as DollarSignIcon, Download, FileImage, Tag, MoreVertical, Calendar, Kanban, List, ShoppingCart, Globe, CheckSquare, Users as UsersIcon } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Eye, DollarSign as DollarSignIcon, Download, FileImage, Tag, MoreVertical, Calendar, Kanban, List, ShoppingCart, Globe, CheckSquare, Users as UsersIcon, Phone } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -58,6 +58,7 @@ export default function Index() {
     });
     const [viewingItem, setViewingItem] = useState<Deal | null>(null);
     const [labelingItem, setLabelingItem] = useState<Deal | null>(null);
+    const [callItem, setCallItem] = useState<Deal | null>(null);
 
     const [showFilters, setShowFilters] = useState(false);
 
@@ -480,6 +481,16 @@ export default function Index() {
             )
         },
         {
+            key: 'created_at',
+            header: t('Created'),
+            sortable: false,
+            render: (value: string) => (
+                <span className="text-xs text-gray-600">
+                    {formatDate(value)}
+                </span>
+            )
+        },
+        {
             key: 'note',
             header: t('Note'),
             sortable: false,
@@ -506,13 +517,25 @@ export default function Index() {
                 );
             }
         },
-        ...(auth.user?.permissions?.some((p: string) => ['view-deals', 'edit-deals', 'delete-deals'].includes(p)) ? [{
+        ...(auth.user?.permissions?.some((p: string) => ['view-deals', 'edit-deals', 'delete-deals', 'use dialer'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
             render: (_: any, deal: Deal) => (
                 <div className="flex gap-1">
                     <TooltipProvider>
-                        {auth.user?.permissions?.includes('edit-deals') && (
+                        {auth.user?.permissions?.includes('use dialer') && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="sm" onClick={() => callDeal(deal)} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
+                                        <Phone className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{t('Click to Call')}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+                        {/* {auth.user?.permissions?.includes('edit-deals') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
                                     <Button variant="ghost" size="sm" onClick={() => setLabelingItem(deal)} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
@@ -523,7 +546,7 @@ export default function Index() {
                                     <p>{t('Label')}</p>
                                 </TooltipContent>
                             </Tooltip>
-                        )}
+                        )} */}
                         {auth.user?.permissions?.includes('view-deals') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>

@@ -15,9 +15,10 @@ import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { formatDate } from '@/utils/helpers';
 import { useFormFields } from '@/hooks/useFormFields';
+import { Tag } from "lucide-react";
 
 export default function EditLead({ lead, sources: propSources, products: propProducts, onSuccess }: EditLeadProps & { sources?: any, products?: any }) {
-    const { users, pipelines, products } = usePage<any>().props;
+    const { users, pipelines, products, labels: labelOptions } = usePage<any>().props;
     const [stages, setStages] = useState([]);
     const [sources, setSources] = useState(propSources || []);
     const [productOptions, setProductOptions] = useState(propProducts || []);
@@ -30,6 +31,7 @@ export default function EditLead({ lead, sources: propSources, products: propPro
         stage_id: lead.stage_id?.toString() || '',
         sources: Array.isArray(lead.sources) ? lead.sources : (lead.sources ? lead.sources.split(',') : []),
         products: Array.isArray(lead.products) ? lead.products : (lead.products ? lead.products.split(',') : []),
+        labels: Array.isArray(lead.labels) ? lead.labels : (lead.labels ? lead.labels.split(',') : []),
     });
 
     const nameAI = useFormFields('aiField', data, setData, errors, 'edit', 'name', 'Name', 'lead', 'lead');
@@ -61,6 +63,7 @@ export default function EditLead({ lead, sources: propSources, products: propPro
             ...data,
             sources: Array.isArray(data.sources) ? (data.sources.length > 0 ? data.sources.join(',') : '') : data.sources,
             products: Array.isArray(data.products) ? (data.products.length > 0 ? data.products.join(',') : '') : data.products,
+            labels: Array.isArray(data.labels) ? (data.labels.length > 0 ? data.labels.join(',') : '') : data.labels,
         };
 
         put(route('lead.leads.update', lead.id), {
@@ -69,6 +72,49 @@ export default function EditLead({ lead, sources: propSources, products: propPro
                 onSuccess();
             }
         });
+    };
+
+    const normalizeLabels = (labels: unknown): string[] => {
+        if (!labels) {
+            return [];
+        }
+
+        if (Array.isArray(labels)) {
+            return labels
+                .map(String)
+                .map((value) => value.trim())
+                .filter(Boolean);
+        }
+
+        if (typeof labels === 'string') {
+            const value = labels.trim();
+
+            if (!value) {
+                return [];
+            }
+
+            // Handles JSON: ["4","5","8","9"]
+            try {
+                const parsed = JSON.parse(value);
+
+                if (Array.isArray(parsed)) {
+                    return parsed
+                        .map(String)
+                        .map((item) => item.trim())
+                        .filter(Boolean);
+                }
+            } catch {
+                // Not JSON, continue with comma-separated handling.
+            }
+
+            // Handles: 4,5,8,9
+            return value
+                .split(',')
+                .map((item) => item.replace(/[\[\]"]/g, '').trim())
+                .filter(Boolean);
+        }
+
+        return [];
     };
 
     return (
@@ -117,7 +163,7 @@ export default function EditLead({ lead, sources: propSources, products: propPro
                                 value={data.subject}
                                 onChange={(e) => setData('subject', e.target.value)}
                                 placeholder={t('Enter Subject')}
-                                
+
                             />
                             <InputError message={errors.subject} />
                         </div>
@@ -229,6 +275,27 @@ export default function EditLead({ lead, sources: propSources, products: propPro
                         />
                         <InputError message={errors.products} />
                     </div>
+                </div>
+                <div>
+                    <Label htmlFor="labels" className="mb-2">
+                        <Tag className="inline-block mr-2 h-4 w-4 text-purple-600" />
+                        {t('Labels')}</Label>
+                    <MultiSelectEnhanced
+                        options={Array.isArray(labelOptions)
+                            ? labelOptions.map((label: any) => ({
+                                value: String(label.id),
+                                label: String(label.name ?? ''),
+                            }))
+                            : Object.entries(labelOptions || {}).map(([id, label]: [string, any]) => ({
+                                value: String(label?.id ?? id),
+                                label: String(label?.name ?? label ?? ''),
+                            }))}
+                        value={Array.isArray(data.labels) ? data.labels.map(String) : []}
+                        onValueChange={(values) => setData('labels', values)}
+                        placeholder={t('Select Labels')}
+                        searchable={true}
+                    />
+                    <InputError message={errors.labels} />
                 </div>
 
                 <div>

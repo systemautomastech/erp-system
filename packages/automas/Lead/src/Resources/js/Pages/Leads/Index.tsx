@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit as EditIcon, Trash2, Eye, Users as UsersIcon, Download, FileImage, Tag, MoreVertical, Calendar, Kanban, List, ShoppingCart, Globe, CheckSquare } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Eye, Users as UsersIcon, Download, FileImage, Tag, MoreVertical, Calendar, Kanban, List, ShoppingCart, Globe, CheckSquare, Table, Phone } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -35,7 +35,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 export default function Index() {
     const { t } = useTranslation();
-    const { leads, auth, users, pipelines, stages, labels, sources, products, currentPipelineId } = usePage<LeadsIndexProps>().props;
+    const { leads, auth, users, pipelines, stages, labels, sources, products, currentPipelineId, pbxModuleActive } = usePage<LeadsIndexProps>().props;
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<LeadFilters>({
@@ -440,6 +440,33 @@ export default function Index() {
         );
     };
 
+    const handleDialerCall = (lead: Lead) => {
+        const phone = lead.phone?.toString().trim();
+
+        if (!phone) {
+            window.alert(t('No phone number available for this lead.'));
+            return;
+        }
+
+        if (!pbxModuleActive) {
+            window.alert(t('PBX is not available for this workspace.'));
+            return;
+        }
+
+        const dialerCaller = (window as Window & typeof globalThis & {
+            CTI_PHONE_CALL?: (number: string, context?: { module?: string; record_id?: number | string }) => void;
+        }).CTI_PHONE_CALL;
+
+        if (typeof dialerCaller === 'function') {
+            dialerCaller(phone, { module: 'Lead', record_id: lead.id });
+            return;
+        }
+
+        window.dispatchEvent(new CustomEvent('cti:make-call', {
+            detail: { number: phone }
+        }));
+    };
+
     const tableColumns = [
         {
             key: 'name',
@@ -539,6 +566,19 @@ export default function Index() {
                 <div className="flex gap-1">
                     <TooltipProvider>
 
+                        {auth.user?.permissions?.includes('use dialer') && pbxModuleActive && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="sm" onClick={() => void handleDialerCall(lead)} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
+                                        <Phone className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{t('Click to Call')}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+
                         {auth.user?.permissions?.includes('edit-leads') && (
                             <ConvertToDeal
                                 lead={lead}
@@ -547,7 +587,8 @@ export default function Index() {
                                 buttonClassName={lead.is_converted ? "h-8 w-8 p-0 text-gray-400 hover:text-gray-500" : "h-8 w-8 p-0 text-yellow-600 hover:text-yellow-700"}
                             />
                         )}
-                        {auth.user?.permissions?.includes('edit-leads') && (
+
+                        {/* {auth.user?.permissions?.includes('edit-leads') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
                                     <Button variant="ghost" size="sm" onClick={() => setLabelingItem(lead)} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
@@ -558,7 +599,7 @@ export default function Index() {
                                     <p>{t('Label')}</p>
                                 </TooltipContent>
                             </Tooltip>
-                        )}
+                        )} */}
                         {auth.user?.permissions?.includes('view-leads') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
@@ -677,6 +718,25 @@ export default function Index() {
                                     </TooltipContent>
                                 </Tooltip>
                             </>
+                        )}
+                        {auth.user?.permissions?.includes('create-leads') && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() =>
+                                            router.get(route('lead.leads.import.index'))
+                                        }
+                                    >
+                                        <Table className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+
+                                <TooltipContent>
+                                    <p>{t('Bulk Import')}</p>
+                                </TooltipContent>
+                            </Tooltip>
                         )}
                         {auth.user?.permissions?.includes('create-leads') && (
                             <Tooltip delayDuration={0}>

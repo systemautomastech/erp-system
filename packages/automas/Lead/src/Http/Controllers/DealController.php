@@ -58,7 +58,7 @@ class DealController extends Controller
             // Get user's default pipeline or first available pipeline
             $usr = Auth::user();
             $defaultPipelineId = null;
-            
+
             if ($usr->default_pipeline) {
                 $pipeline = Pipeline::where('created_by', creatorId())
                     ->where('id', $usr->default_pipeline)
@@ -80,18 +80,18 @@ class DealController extends Controller
                     if (Auth::user()->can('manage-any-deals')) {
                         $q->where('created_by', creatorId());
                     } elseif (Auth::user()->can('manage-own-deals')) {
-                        $q->where(function($subQ) {
+                        $q->where(function ($subQ) {
                             $subQ->where('creator_id', Auth::id())
-                                 ->orWhereHas('userDeals', function($dealQ) {
-                                     $dealQ->where('user_id', Auth::id());
-                                 });
+                                ->orWhereHas('userDeals', function ($dealQ) {
+                                    $dealQ->where('user_id', Auth::id());
+                                });
                         });
                     } else {
                         $q->whereRaw('1 = 0');
                     }
                 })
                 ->when(request('name'), fn($q) => $q->where('name', 'like', '%' . request('name') . '%'))
-                ->when(request('pipeline_id') && request('pipeline_id') !== '', fn($q) => $q->where('pipeline_id', request('pipeline_id')), function($q) use ($defaultPipelineId) {
+                ->when(request('pipeline_id') && request('pipeline_id') !== '', fn($q) => $q->where('pipeline_id', request('pipeline_id')), function ($q) use ($defaultPipelineId) {
                     // If no pipeline_id in request, use default pipeline
                     if ($defaultPipelineId) {
                         $q->where('pipeline_id', $defaultPipelineId);
@@ -202,7 +202,7 @@ class DealController extends Controller
                     );
 
                     $message = EmailTemplate::sendEmailTemplate('Deal Assign', $allRecipients, $emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
+                    if ($message['is_success'] == false && !empty($message['error'])) {
                         return back()
                             ->with('success', __('The deal has been created successfully.'))
                             ->with('error', $message['error']);
@@ -218,40 +218,44 @@ class DealController extends Controller
     public function show(Deal $deal)
     {
         if (Auth::user()->can('view-deals') && $deal->created_by == creatorId()) {
-                $deal = Deal::with([
-                    'pipeline',
-                    'stage',
-                    'creator',
-                    'tasks',
-                    'userDeals' => function ($query) {
-                        $query->with('user:id,name,avatar');
-                    },
-                    'emails',
-                    'discussions.creator:id,name,avatar',
-                    'calls',
-                    'files',
-                    'activities.user:id,name',
-                    'clientDeals.client:id,name,avatar'
-                ])->find($deal->id);
+            $deal = Deal::with([
+                'pipeline',
+                'stage',
+                'creator',
+                'tasks',
+                'userDeals' => function ($query) {
+                    $query->with('user:id,name,avatar');
+                },
+                'emails',
+                'discussions.creator:id,name,avatar',
+                'calls',
+                'files',
+                'activities.user:id,name',
+                'clientDeals.client:id,name,avatar'
+            ])->find($deal->id);
 
-                $assignedUserIds = $deal->userDeals->pluck('user_id')->toArray();
-                $availableUsers = User::where('created_by', creatorId())
-                    ->whereNotIn('id', $assignedUserIds)
-                    ->get(['id', 'name']);
-                $availableProducts = module_is_active('ProductService') ? ProductServiceItem::where('created_by', creatorId())->get(['id', 'name']) : [];
-                $availableSources = Source::where('created_by', creatorId())->get(['id', 'name']);
-                $assignedClientIds = $deal->clientDeals->pluck('client_id')->toArray();
-                $availableClients = User::where('created_by', creatorId())
-                    ->where('type', 'client')
-                    ->whereNotIn('id', $assignedClientIds)
-                    ->get(['id', 'name']);
-                return Inertia::render('Lead/Deals/Show', [
-                    'deal' => $deal,
-                    'availableUsers' => $availableUsers,
-                    'availableProducts' => $availableProducts,
-                    'availableSources' => $availableSources,
-                    'availableClients' => $availableClients,
-                ]);
+            $assignedUserIds = $deal->userDeals->pluck('user_id')->toArray();
+            $availableUsers = User::where('created_by', creatorId())
+                ->whereNotIn('id', $assignedUserIds)
+                ->get(['id', 'name']);
+            $availableProducts = module_is_active('ProductService') ? ProductServiceItem::where('created_by', creatorId())->get(['id', 'name']) : [];
+            $availableSources = Source::where('created_by', creatorId())->get(['id', 'name']);
+            $assignedClientIds = $deal->clientDeals->pluck('client_id')->toArray();
+            $availableClients = User::where('created_by', creatorId())
+                ->where('type', 'client')
+                ->whereNotIn('id', $assignedClientIds)
+                ->get(['id', 'name']);
+
+            $labels = Label::with('pipeline')->where('created_by', creatorId())->select('id', 'name', 'color', 'pipeline_id')->get();
+
+            return Inertia::render('Lead/Deals/Show', [
+                'deal' => $deal,
+                'availableUsers' => $availableUsers,
+                'availableProducts' => $availableProducts,
+                'availableSources' => $availableSources,
+                'availableClients' => $availableClients,
+                'labels' => $labels,
+            ]);
         } else {
             return back()->with('error', __('Permission denied'));
         }
@@ -261,6 +265,8 @@ class DealController extends Controller
     {
         if (Auth::user()->can('edit-deals')) {
             $validated = $request->validated();
+
+            dd($validated);
             $deal->name        = $validated['name'];
             $deal->price       = $validated['price'];
             $deal->pipeline_id = $validated['pipeline_id'];
@@ -295,28 +301,42 @@ class DealController extends Controller
     {
         try {
             if (Auth::user()->can('delete-deals') && $deal->created_by == creatorId()) {
-                    DestroyDeal::dispatch($deal);
+                DestroyDeal::dispatch($deal);
 
-                    DealDiscussion::where('deal_id', '=', $deal->id)->delete();
-                    $dealfiles = DealFile::where('deal_id', '=', $deal->id)->get();
-                    foreach ($dealfiles as $dealfile) {
+                DealDiscussion::where('deal_id', '=', $deal->id)->delete();
+                $dealfiles = DealFile::where('deal_id', '=', $deal->id)->get();
+                foreach ($dealfiles as $dealfile) {
 
-                        delete_file($dealfile->file_path);
-                        $dealfile->delete();
-                    }
-                    ClientDeal::where('deal_id', '=', $deal->id)->delete();
-                    UserDeal::where('deal_id', '=', $deal->id)->delete();
-                    DealTask::where('deal_id', '=', $deal->id)->delete();
-                    DealActivityLog::where('deal_id', '=', $deal->id)->delete();
-                    $lead = Lead::where(['is_converted' => $deal->id])->update(['is_converted' => 0]);
+                    delete_file($dealfile->file_path);
+                    $dealfile->delete();
+                }
+                ClientDeal::where('deal_id', '=', $deal->id)->delete();
+                UserDeal::where('deal_id', '=', $deal->id)->delete();
+                DealTask::where('deal_id', '=', $deal->id)->delete();
+                DealActivityLog::where('deal_id', '=', $deal->id)->delete();
+                $lead = Lead::where(['is_converted' => $deal->id])->update(['is_converted' => 0]);
 
-                    $deal->delete();
-                    return back()->with('success', __('The deal has been deleted.'));
+                $deal->delete();
+                return back()->with('success', __('The deal has been deleted.'));
             } else {
                 return back()->with('error', __('Permission denied'));
             }
         } catch (\Exception $e) {
             return back()->with('error', __('Deal not found'));
+        }
+    }
+
+    public function updateNotes(Request $request, $id)
+    {
+        if (Auth::user()->can('edit-deals')) {
+            $deal = Deal::find($id);
+            if ($deal->created_by == creatorId()) {
+                $deal->notes = $request->notes;
+                $deal->save();
+                return redirect()->back()->with('success', __('The notes are updated successfully.'));
+            }
+        } else {
+            return redirect()->back()->with('error', __('Permission denied'));
         }
     }
 
@@ -331,7 +351,7 @@ class DealController extends Controller
                     $deal->labels = $request->labels;
                 }
                 $deal->save();
-                return redirect()->route('lead.deals.index')->with('success', __('The label details are updated successfully.'));
+                return redirect()->back()->with('success', __('The label details are updated successfully.'));
             }
         } else {
             return redirect()->back()->with('error', __('Permission denied'));
@@ -362,7 +382,7 @@ class DealController extends Controller
                 ];
                 if (!empty($emailData)) {
                     $message = EmailTemplate::sendEmailTemplate('Deal Assign', $users, $emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
+                    if ($message['is_success'] == false && !empty($message['error'])) {
                         return back()
                             ->with('success', __('Users have been updated successfully.'))
                             ->with('error', $message['error']);
@@ -403,7 +423,7 @@ class DealController extends Controller
             $deal->save();
             DealAddProduct::dispatch($request, $deal);
             $objProduct = [];
-            if(Module_is_active('ProductService')){
+            if (Module_is_active('ProductService')) {
                 $objProduct = ProductServiceItem::whereIN('id', $uniqueIds)->get()->pluck('name', 'id')->toArray();
             }
 
@@ -430,9 +450,9 @@ class DealController extends Controller
 
             $products = module_is_active('ProductService')
                 ? ProductServiceItem::where('created_by', creatorId())
-                    ->when(!empty($assignedIds), fn($q) => $q->whereNotIn('id', $assignedIds))
-                    ->select('id', 'name')
-                    ->get()
+                ->when(!empty($assignedIds), fn($q) => $q->whereNotIn('id', $assignedIds))
+                ->select('id', 'name')
+                ->get()
                 : collect([]);
 
             return response()->json($products);
@@ -475,7 +495,7 @@ class DealController extends Controller
                 ]
             );
             return back()->with('success', __('The sources have been assigned successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -489,7 +509,7 @@ class DealController extends Controller
             $deal->save();
             DestroyDealSource::dispatch($deal);
             return back()->with('success', __('The source has been deleted.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -527,15 +547,15 @@ class DealController extends Controller
 
                 // Send Email
                 $message = EmailTemplate::sendEmailTemplate('Deal Emails', $lead_users, $emailData);
-              
-                if($message['is_success'] == false && !empty($message['error'])) {
+
+                if ($message['is_success'] == false && !empty($message['error'])) {
                     return back()
                         ->with('success', __('The email has been created successfully.'))
                         ->with('error', $message['error']);
                 }
             }
             return back()->with('success', __('The email has been created successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -554,7 +574,7 @@ class DealController extends Controller
             DealAddDiscussion::dispatch($request, $deal);
 
             return back()->with('success', __('The discussion has been created successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -583,7 +603,7 @@ class DealController extends Controller
                 ];
                 if (!empty($emailData)) {
                     $message = EmailTemplate::sendEmailTemplate('Deal Assign', $clients, $emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
+                    if ($message['is_success'] == false && !empty($message['error'])) {
                         return back()
                             ->with('success', __('The clients have been assigned successfully.'))
                             ->with('error', $message['error']);
@@ -701,7 +721,7 @@ class DealController extends Controller
             ]);
 
             return back()->with('success', __('Files have been uploaded successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -716,7 +736,7 @@ class DealController extends Controller
             }
 
             return back()->with('success', __('The file has been deleted.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -750,14 +770,14 @@ class DealController extends Controller
                     if (company_setting('Deal Move') == 'on') {
                         $emailData = [
                             'deal_name'      => $deal->name,
-                            'deal_pipeline'  => $deal->pipeline->name, 
+                            'deal_pipeline'  => $deal->pipeline->name,
                             'deal_status'    => $deal->status,
                             'deal_price'     => $deal->price,
                             'deal_old_stage' => $oldStage->name,
                             'deal_new_stage' => $newStage->name,
                         ];
                         $message = EmailTemplate::sendEmailTemplate('Deal Move', $usrs, $emailData);
-                        if($message['is_success'] == false && !empty($message['error'])) {
+                        if ($message['is_success'] == false && !empty($message['error'])) {
                             return back()
                                 ->with('success', __('The deal moved successfully.'))
                                 ->with('error', $message['error']);
@@ -786,7 +806,7 @@ class DealController extends Controller
             $deal->status = $request->deal_status;
             $deal->save();
             return back()->with('success', __('The deal status updated successfully.'));
-        }else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }

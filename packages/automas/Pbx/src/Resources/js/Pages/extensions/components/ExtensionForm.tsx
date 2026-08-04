@@ -180,19 +180,15 @@ export default function ExtensionForm({
                                     )}
                                     disabled={disabled}
                                 >
-                                    <span className="flex flex-col items-start">
-                                        <span>
-                                            {user.name}
+                                    {user.name}
+                                    <br />
+                                    {user.email && (
+                                        <span className="text-xs text-muted-foreground">
+                                            {
+                                                user.email
+                                            }
                                         </span>
-
-                                        {user.email && (
-                                            <span className="text-xs text-muted-foreground">
-                                                {
-                                                    user.email
-                                                }
-                                            </span>
-                                        )}
-                                    </span>
+                                    )}
                                 </SelectItem>
                             );
                         })}
@@ -238,7 +234,7 @@ export default function ExtensionForm({
                         />
                     </SelectTrigger>
 
-                    <SelectContent  searchable>
+                    <SelectContent searchable>
                         {extensionOptions.map(
                             (extension) => (
                                 <SelectItem
@@ -310,11 +306,11 @@ export default function ExtensionForm({
                     placeholder={
                         isEditing
                             ? t(
-                                  'Leave blank to keep current',
-                              )
+                                'Leave blank to keep current',
+                            )
                             : t(
-                                  'Auto-generated if empty',
-                              )
+                                'Auto-generated if empty',
+                            )
                     }
                     minLength={6}
                     maxLength={100}

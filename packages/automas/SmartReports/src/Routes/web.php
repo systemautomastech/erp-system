@@ -14,6 +14,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:SmartReports'])->
     Route::get('/smart-reports/sales-invoice-report', [SmartReportController::class, 'salesInvoiceReport'])->name('smart-reports.sales-invoice.report');
     Route::get('/smart-reports/purchase-invoice-report', [SmartReportController::class, 'purchaseInvoiceReport'])->name('smart-reports.purchase-invoice.report');
     Route::get('/smart-reports/deal-pipeline-report', [SmartReportController::class, 'dealPipelineReport'])->name('smart-reports.deal-pipeline.report');
+    Route::get('/smart-reports/lead-report', [SmartReportController::class, 'leadReport'])->name('smart-reports.lead.report');
     Route::get('/smart-reports/product-stock-report', [SmartReportController::class, 'productStockReport'])->name('smart-reports.product-stock.report');
     Route::get('/smart-reports/project-progress-report', [SmartReportController::class, 'projectProgressReport'])->name('smart-reports.project-progress.report');
     // API Routes (JSON)
@@ -45,6 +46,11 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:SmartReports'])->
     Route::prefix('smart-reports/deal-pipeline')->name('smart-reports.deal-pipeline.')->group(function () {
         Route::get('/filter-options', [SmartReportGenerateController::class, 'getDealPipelineFilterOptions'])->name('filter-options');
         Route::post('/generate', [SmartReportGenerateController::class, 'generateDealPipelineReport'])->name('generate');
+    });
+
+    Route::prefix('smart-reports/lead')->name('smart-reports.lead.')->group(function () {
+        Route::get('/filter-options', [SmartReportGenerateController::class, 'getLeadFilterOptions'])->name('filter-options');
+        Route::post('/generate', [SmartReportGenerateController::class, 'generateLeadReport'])->name('generate');
     });
 
     Route::prefix('smart-reports/product-stock')->name('smart-reports.product-stock.')->group(function () {

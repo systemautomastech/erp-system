@@ -11,6 +11,7 @@ use Automas\Lead\Http\Controllers\LeadStageController;
 use Automas\Lead\Http\Controllers\PipelineController;
 use Illuminate\Support\Facades\Route;
 use Automas\Lead\Http\Controllers\DashboardController;
+use Automas\Lead\Http\Controllers\LeadImportController;
 use Automas\Lead\Http\Controllers\ReportController;
 
 Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(function () {
@@ -50,7 +51,28 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
 
     Route::get('crm/leads/existing-clients', [LeadController::class, 'getExistingClients'])->name('lead.leads.existing-clients');
     Route::post('crm/leads/save-default-pipeline', [LeadController::class, 'saveDefaultPipeline'])->name('lead.leads.save-default-pipeline');
+
+    Route::get('leads/import', [LeadImportController::class, 'index'])->name('lead.leads.import.index');
+    Route::post('leads/import/upload', [LeadImportController::class, 'upload'])->name('lead.leads.import.upload');
+    Route::get('leads/import/{leadImport:uuid}/preview', [LeadImportController::class, 'preview'])->name('lead.leads.import.preview');
+    Route::post('leads/import/{leadImport:uuid}/mapping', [LeadImportController::class, 'storeMapping'])->name('lead.leads.import.mapping.store');
+    Route::get('leads/import/{leadImport:uuid}/settings', [LeadImportController::class, 'settings'])->name('lead.leads.import.settings');
+    Route::post('leads/import/{leadImport:uuid}/settings', [LeadImportController::class, 'storeSettings'])->name('lead.leads.import.settings.store');
+    Route::get(
+        'leads/import/{leadImport:uuid}/review',
+        [LeadImportController::class, 'review']
+    )->name('lead.leads.import.review');
+    Route::post(
+        'leads/import/{leadImport:uuid}/start',
+        [LeadImportController::class, 'start']
+    )->name('lead.leads.import.start');
+    Route::get(
+    'leads/import/{leadImport:uuid}/progress',
+    [LeadImportController::class, 'progress']
+)->name('lead.leads.import.progress');
+
     Route::resource('crm/leads', LeadController::class)->names('lead.leads');
+    Route::put('crm/leads/{lead}/notes', [LeadController::class, 'updateNotes'])->name('lead.leads.update-notes');
     Route::post('crm/leads/order', [LeadController::class, 'order'])->name('lead.leads.order');
     Route::patch('crm/leads/{lead}/labels', [LeadController::class, 'updateLabels'])->name('lead.leads.update-labels');
     Route::get('crm/leads/{lead}/available-users', [LeadController::class, 'getAvailableUsers'])->name('lead.leads.available-users');
@@ -76,6 +98,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
     Route::get('crm/stages/{pipeline}', [LeadController::class, 'getStagesByPipeline'])->name('lead.stages.by-pipeline');
 
     Route::resource('crm/deals', DealController::class)->names('lead.deals');
+    Route::put('crm/deals/{deal}/notes', [DealController::class, 'updateNotes'])->name('lead.deals.update-notes');
     Route::post('crm/deals/save-default-pipeline', [DealController::class, 'saveDefaultPipeline'])->name('lead.deals.save-default-pipeline');
     Route::post('crm/deals/order', [DealController::class, 'order'])->name('lead.deals.order');
     Route::post('crm/deals/{deal}/change-status', [DealController::class, 'changeStatus'])->name('lead.deals.change-status');

@@ -95,7 +95,7 @@ class PbxExtensionController extends Controller
         if (!$setting) {
             return redirect()
                 ->route('pbx.settings.index')
-                ->with('error',__('Configure PBX settings before managing extensions.'));
+                ->with('error', __('Configure PBX settings before managing extensions.'));
         }
 
         if (!$this->canAddExtension($creatorId)) {
@@ -159,7 +159,8 @@ class PbxExtensionController extends Controller
             );
     }
 
-    public function edit(PbxExtension $extension): Response|RedirectResponse {
+    public function edit(PbxExtension $extension): Response|RedirectResponse
+    {
         if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
@@ -205,10 +206,8 @@ class PbxExtensionController extends Controller
         ]);
     }
 
-    public function update(
-        Request $request,
-        PbxExtension $extension
-    ): RedirectResponse {
+    public function update(Request $request, PbxExtension $extension): RedirectResponse
+    {
         if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
@@ -246,9 +245,8 @@ class PbxExtensionController extends Controller
             );
     }
 
-    public function destroy(
-        PbxExtension $extension
-    ): RedirectResponse {
+    public function destroy(PbxExtension $extension): RedirectResponse
+    {
         if (!Auth::user()->can('manage extensions')) {
             return redirect()
                 ->back()
@@ -267,11 +265,8 @@ class PbxExtensionController extends Controller
             );
     }
 
-    protected function validateExtension(
-        Request $request,
-        int $creatorId,
-        ?int $ignoreId = null
-    ): array {
+    protected function validateExtension(Request $request, int $creatorId, ?int $ignoreId = null): array
+    {
         return $request->validate([
             'user_id' => [
                 'required',
@@ -318,9 +313,8 @@ class PbxExtensionController extends Controller
         ]);
     }
 
-    protected function canAddExtension(
-        int $creatorId
-    ): bool {
+    protected function canAddExtension(int $creatorId): bool
+    {
         $setting = PbxSetting::query()
             ->forCreator($creatorId)
             ->first();
@@ -336,9 +330,8 @@ class PbxExtensionController extends Controller
         return $extensionCount < (int) $setting->max_extensions;
     }
 
-    protected function authorizeWorkspace(
-        PbxExtension $extension
-    ): void {
+    protected function authorizeWorkspace(PbxExtension $extension): void
+    {
         if (
             (int) $extension->created_by !==
             (int) creatorId()
@@ -347,10 +340,8 @@ class PbxExtensionController extends Controller
         }
     }
 
-    protected function getAvailableUsers(
-        int $creatorId,
-        ?int $currentUserId = null
-    ) {
+    protected function getAvailableUsers(int $creatorId, ?int $currentUserId = null)
+    {
         $assignedUserIds = PbxExtension::query()
             ->forCreator($creatorId)
             ->when(
@@ -364,16 +355,9 @@ class PbxExtensionController extends Controller
             ->pluck('user_id');
 
         return User::query()
-            ->select([
-                'id',
-                'name',
-                'email',
-            ])
+            ->select(['id', 'name', 'email'])->emp(['vendor', 'client'])
             ->where('created_by', $creatorId)
-            ->where(function ($query) use (
-                $assignedUserIds,
-                $currentUserId
-            ) {
+            ->where(function ($query) use ($assignedUserIds, $currentUserId) {
                 $query->whereNotIn('id', $assignedUserIds);
 
                 if ($currentUserId) {
@@ -384,10 +368,8 @@ class PbxExtensionController extends Controller
             ->get();
     }
 
-    protected function getAssignedUserIds(
-        int $creatorId,
-        ?int $ignoreExtensionId = null
-    ): array {
+    protected function getAssignedUserIds(int $creatorId, ?int $ignoreExtensionId = null): array
+    {
         return PbxExtension::query()
             ->forCreator($creatorId)
             ->when(

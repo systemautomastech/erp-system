@@ -10,6 +10,7 @@ use Automas\SmartReports\Services\ReportGenerators\LeaveReportGenerator;
 use Automas\SmartReports\Services\ReportGenerators\SalesInvoiceReportGenerator;
 use Automas\SmartReports\Services\ReportGenerators\PurchaseInvoiceReportGenerator;
 use Automas\SmartReports\Services\ReportGenerators\DealPipelineReportGenerator;
+use Automas\SmartReports\Services\ReportGenerators\LeadReportGenerator;
 use Automas\SmartReports\Services\ReportGenerators\ProductStockReportGenerator;
 use Automas\SmartReports\Services\ReportGenerators\ProjectProgressReportGenerator;
 
@@ -23,6 +24,7 @@ class SmartReportGenerateController extends Controller
     private function salesInvoice()      { return new SalesInvoiceReportGenerator(); }
     private function purchaseInvoice()   { return new PurchaseInvoiceReportGenerator(); }
     private function dealPipeline()      { return new DealPipelineReportGenerator(); }
+    private function lead()              { return new LeadReportGenerator(); }
     private function productStock()      { return new ProductStockReportGenerator(); }
     private function projectProgress()   { return new ProjectProgressReportGenerator(); }
 
@@ -123,6 +125,19 @@ class SmartReportGenerateController extends Controller
     {
         $filters = $request->only(['pipeline_ids', 'stage_ids', 'status', 'client_ids']);
         return $this->generate($this->dealPipeline(), $filters, $request);
+    }
+
+    // ── Lead ─────────────────────────────────────────────────────────────────
+
+    public function getLeadFilterOptions()
+    {
+        return $this->filterOptions($this->lead());
+    }
+
+    public function generateLeadReport(GenerateReportRequest $request)
+    {
+        $filters = $request->only(['pipeline_ids', 'stage_ids', 'user_ids', 'source_ids', 'label_ids', 'status', 'date_from', 'date_to']);
+        return $this->generate($this->lead(), $filters, $request);
     }
 
     // ── Product Stock ─────────────────────────────────────────────────────────

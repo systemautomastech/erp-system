@@ -307,7 +307,7 @@ export default function General({ lead }: GeneralProps) {
                     <Button
                         type="button"
                         disabled={notesProcessing}
-                        onClick={() => putNotes(route('lead.leads.update', lead.id), { preserveState: false })}
+                        onClick={() => putNotes(route('lead.leads.update-notes', lead.id), { preserveState: false })}
                     >
                         {notesProcessing ? t('Saving...') : t('Save')}
                     </Button>

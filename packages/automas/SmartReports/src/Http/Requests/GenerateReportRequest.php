@@ -21,8 +21,6 @@ class GenerateReportRequest extends FormRequest
         ]);
 
         return [
-            'start_date'       => ($dateOptional ? 'nullable' : 'required') . '|date',
-            'end_date'         => ($dateOptional ? 'nullable' : 'required') . '|date|after_or_equal:start_date',
             'employee_ids'     => 'nullable|array',
             'employee_ids.*'   => 'integer',
             'department_ids'   => 'nullable|array',
@@ -44,6 +42,14 @@ class GenerateReportRequest extends FormRequest
             'pipeline_ids.*'   => 'integer',
             'stage_ids'        => 'nullable|array',
             'stage_ids.*'      => 'integer',
+            'user_ids'         => 'nullable|array',
+            'user_ids.*'       => 'integer',
+            'source_ids'       => 'nullable|array',
+            'source_ids.*'     => 'integer',
+            'label_ids'        => 'nullable|array',
+            'label_ids.*'      => 'integer',
+            'date_from'        => 'nullable|date',
+            'date_to'          => 'nullable|date|after_or_equal:date_from',
             'client_ids'       => 'nullable|array',
             'client_ids.*'     => 'integer',
         ];
