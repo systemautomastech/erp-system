@@ -106,13 +106,13 @@ export default function Create() {
         setSections(updatedSections);
 
         // Form data sync
-        setData(
-            'proposal_content',
-            updatedSections.map((item) => ({
-                content: item.content,
-                order: item.order,
-            }))
-        );
+        // setData(
+        //     'proposal_content',
+        //     updatedSections.map((item) => ({
+        //         content: item.content,
+        //         order: item.order,
+        //     }))
+        // );
     };
 
     const handleDragEnd = () => {
