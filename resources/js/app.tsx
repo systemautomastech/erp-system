@@ -14,7 +14,7 @@ import { Toaster } from "sonner";
 
 import { ThemeProvider } from "@/components/theme-provider";
 
-import WebPhone from "../../packages/automas/Pbx/src/Resources/js/Pages/dialer/components/WebPhone";
+// import WebPhone from "../../packages/automas/Pbx/src/Resources/js/Pages/dialer/components/WebPhone";
 
 window.Dialer = {
     api: {
@@ -276,7 +276,7 @@ createInertiaApp({
                 <Suspense fallback={null}>
                     <App {...props} />
 
-                    {showDialer && <WebPhone />}
+                    {/* {showDialer && <WebPhone />} */}
                 </Suspense>
 
                 <Toaster

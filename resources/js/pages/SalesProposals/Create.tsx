@@ -18,11 +18,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package } from 'lucide-react';
+import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface CreateProps {
-    customers: Array<{id: number; name: string; email: string}>;
-    warehouses: Array<{id: number; name: string; address: string}>;
+    customers: Array<{ id: number; name: string; email: string }>;
+    warehouses: Array<{ id: number; name: string; address: string }>;
     [key: string]: any;
 }
 
@@ -31,8 +33,94 @@ export default function Create() {
     const { customers, warehouses } = usePage<CreateProps>().props;
     const [availableProducts, setAvailableProducts] = useState([]);
 
+    // Custom Proposal Text Sections (Moved from setup page)
+    const [sections, setSections] = useState([
+        {
+            id: 'sec-1',
+            content: '',
+            order: 1,
+            isExpanded: true,
+        },
+    ]);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+    // const handleAddSection = () => {
+    //     const newSection = {
+    //         id: `sec-${Date.now()}`,
+    //         title: '',
+    //         description: '',
+    //         isExpanded: true,
+    //     };
+    //     setSections([...sections, newSection]);
+    // };
+
+    const handleAddSection = () => {
+        setSections([
+            ...sections,
+            {
+                id: `sec-${Date.now()}`,
+                content: '',
+                order: sections.length + 1,
+                isExpanded: true,
+            },
+        ]);
+    };
+
+    const handleRemoveSection = (id: string) => {
+        const updated = sections.filter((sec) => sec.id !== id);
+
+        updated.forEach((item, index) => {
+            item.order = index + 1;
+        });
+
+        setSections(updated);
+    };
+
+    const toggleSectionExpand = (id: string) => {
+        setSections(
+            sections.map((sec) =>
+                sec.id === id ? { ...sec, isExpanded: !sec.isExpanded } : sec
+            )
+        );
+    };
+
+    const handleDragStart = (index: number) => {
+        setDraggedIndex(index);
+    };
+
+    const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+        const updatedSections = [...sections];
+
+        const [draggedItem] = updatedSections.splice(draggedIndex, 1);
+        updatedSections.splice(targetIndex, 0, draggedItem);
+
+        // Order update
+        updatedSections.forEach((item, index) => {
+            item.order = index + 1;
+        });
+
+        setDraggedIndex(targetIndex);
+        setSections(updatedSections);
+
+        // Form data sync
+        setData(
+            'proposal_content',
+            updatedSections.map((item) => ({
+                content: item.content,
+                order: item.order,
+            }))
+        );
+    };
+
+    const handleDragEnd = () => {
+        setDraggedIndex(null);
+    };
+
     useFlashMessages();
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, transform } = useForm({
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
         customer_id: '',
@@ -49,7 +137,8 @@ export default function Create() {
             tax_percentage: 0,
             tax_amount: 0,
             total_amount: 0
-        }] as SalesInvoiceItem[]
+        }] as SalesInvoiceItem[],
+        proposal_content: []
     });
 
     // Get custom fields using useFormFields hook
@@ -116,6 +205,15 @@ export default function Create() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        transform((formData) => ({
+            ...formData,
+            proposal_content: sections.map((item, index) => ({
+                content: item.content,
+                order: index + 1,
+            })),
+        }));
+
         post(route('sales-proposals.store'));
     };
 
@@ -124,8 +222,8 @@ export default function Create() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Sales Proposal'), url: route('sales-proposals.index')},
-                {label: t('Create Sales Proposal')}
+                { label: t('Sales Proposal'), url: route('sales-proposals.index') },
+                { label: t('Create Sales Proposal') }
             ]}
             pageTitle={t('Create Sales Proposal')}
         >
@@ -321,6 +419,133 @@ export default function Create() {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Proposal Dynamic Content Sections */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <FileText className="h-5 w-5" />
+                                        {t('Proposal Contents')}
+                                    </CardTitle>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        {t('Add custom text blocks (e.g. Introduction, Scope of Work).')}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    onClick={handleAddSection}
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    {t('Add Section')}
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {sections.map((section, index) => (
+                                <Card
+                                    key={section.id}
+                                    draggable
+                                    onDragStart={() => handleDragStart(index)}
+                                    onDragOver={(e) => handleDragOver(e, index)}
+                                    onDragEnd={handleDragEnd}
+                                    className={`transition-all border ${draggedIndex === index ? 'opacity-50 border-dashed border-primary' : ''
+                                        }`}
+                                >
+                                    <Collapsible
+                                        open={section.isExpanded}
+                                        onOpenChange={() => toggleSectionExpand(section.id)}
+                                    >
+                                        <div className="p-4 flex items-center justify-between select-none">
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <div
+                                                    className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground"
+                                                    title={t('Drag to reorder')}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <GripVertical className="h-5 w-5" />
+                                                </div>
+
+                                                <div className="flex items-center gap-2 font-medium text-base">
+                                                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                                                    <span>
+                                                        {section.content
+                                                            ? section.content.replace(/<[^>]+>/g, '').slice(0, 30)
+                                                            : `${t('Section')} ${index + 1}`}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-1">
+                                                <CollapsibleTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                        title={section.isExpanded ? t('Fold box') : t('Unfold box')}
+                                                    >
+                                                        {section.isExpanded ? (
+                                                            <ChevronDown className="h-4 w-4" />
+                                                        ) : (
+                                                            <ChevronRight className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </CollapsibleTrigger>
+
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleRemoveSection(section.id);
+                                                    }}
+                                                    title={t('Remove section')}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <CollapsibleContent>
+                                            <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                                                <div className="space-y-2">
+                                                    {/* <Label>{t('Description / Content')}</Label> */}
+                                                    {/* <RichTextEditor
+                                                        content={data.proposal_content}
+                                                        onChange={(content) => setData('proposal_content', content)}
+                                                        placeholder={t('Enter section detailed content with formatting...')}
+                                                    /> */}
+                                                    <RichTextEditor
+                                                        content={section.content}
+                                                        onChange={(content) => {
+                                                            const updated = [...sections];
+                                                            updated[index].content = content;
+
+                                                            setSections(updated);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </CollapsibleContent>
+                                    </Collapsible>
+                                </Card>
+                            ))}
+
+                            <div className="flex justify-start pt-2">
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddSection} className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    {t('Add Another Section')}
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>

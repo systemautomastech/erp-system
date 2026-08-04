@@ -33,7 +33,7 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
 
     return (
         <AuthenticatedLayout
-            breadcrumbs={[{label: t('CRM')}]}
+            breadcrumbs={[{ label: t('CRM') }]}
             pageTitle={t('CRM Dashboard')}
         >
             <Head title={t('Lead')} />
@@ -75,6 +75,153 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-orange-800">{stats?.total_clients || 0}</div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* seconds row */}
+                {/* Second Row */}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card
+                        className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.visit(route('lead.deals.index'))}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-teal-700">
+                                {t('Total Deals')}
+                            </CardTitle>
+                            <Rocket className="h-5 w-5 text-teal-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-teal-800">
+                                {stats?.total_deals || 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.visit(route('lead.leads.index'))}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-pink-700">
+                                {t('Total Leads')}
+                            </CardTitle>
+                            <TrendingUp className="h-5 w-5 text-pink-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-pink-800">
+                                {stats?.total_leads || 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.visit(route('users.index'))}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-indigo-700">
+                                {t('Total Users')}
+                            </CardTitle>
+                            <Users className="h-5 w-5 text-indigo-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-indigo-800">
+                                {stats?.total_users || 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.get(route('users.index'), { type: 'client' })}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-amber-700">
+                                {t('Total Clients')}
+                            </CardTitle>
+                            <Users className="h-5 w-5 text-amber-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-amber-800">
+                                {stats?.total_clients || 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* third row */}
+
+                {/* Third Row */}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card
+                        className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.visit(route('lead.deals.index'))}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-red-700">
+                                {t('Total Deals')}
+                            </CardTitle>
+                            <Rocket className="h-5 w-5 text-red-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-red-800">
+                                {stats?.total_deals || 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.visit(route('lead.leads.index'))}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-cyan-700">
+                                {t('Total Leads')}
+                            </CardTitle>
+                            <TrendingUp className="h-5 w-5 text-cyan-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-cyan-800">
+                                {stats?.total_leads || 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="bg-gradient-to-br from-lime-50 to-lime-100 border-lime-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.visit(route('users.index'))}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-lime-700">
+                                {t('Total Users')}
+                            </CardTitle>
+                            <Users className="h-5 w-5 text-lime-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-lime-800">
+                                {stats?.total_users || 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="bg-gradient-to-br from-violet-50 to-violet-100 border-violet-200 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.get(route('users.index'), { type: 'client' })}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-violet-700">
+                                {t('Total Clients')}
+                            </CardTitle>
+                            <Users className="h-5 w-5 text-violet-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-violet-800">
+                                {stats?.total_clients || 0}
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

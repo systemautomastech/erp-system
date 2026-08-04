@@ -30,6 +30,10 @@ class StoreSalesProposalRequest extends FormRequest
             'items.*.taxes' => 'nullable|array',
             'items.*.taxes.*.tax_name' => 'required_with:items.*.taxes|string',
             'items.*.taxes.*.tax_rate' => 'required_with:items.*.taxes|numeric|min:0',
+
+            'proposal_content' => 'nullable|array',
+            'proposal_content.*.content' => 'required|string',
+            'proposal_content.*.order' => 'required|integer',
         ];
     }
 
@@ -40,7 +44,9 @@ class StoreSalesProposalRequest extends FormRequest
             'items.required' => __('At least one item is required.'),
             'items.*.product_id.min' => __('Please select a product for each item.'),
             'items.*.quantity.min' => __('Quantity must be at least 1.'),
-            'items.*.unit_price.min' => __('Unit price must be 0 or greater.')
+            'items.*.unit_price.min' => __('Unit price must be 0 or greater.'),
+            'proposal_content.array' => __('Proposal content must be a valid array.'),
+            'proposal_content.*.string' => __('Each proposal content must be valid text.'),
         ];
     }
 }

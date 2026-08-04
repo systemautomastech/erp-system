@@ -89,7 +89,7 @@
     "Enable": "Enable",
     "Enable Landing Page": "Enable Landing Page",
     "Enabled": "Enabled",
-    "Enter VAT \/ GST Number": "Enter VAT \/ GST Number",
+    "Enter VAT / GST Number": "Enter VAT / GST Number",
     "Favicon": "Favicon",
     "Favorites": "Favorites",
     "Files": "Files",
@@ -933,7 +933,7 @@
     "Enable Registration": "Enable Registration",
     "Enable logging must be true or false.": "Enable logging must be true or false.",
     "Enable logging setting is required.": "Enable logging setting is required.",
-    "Enter bank transfer instructions. Use <br\/> for line breaks.": "Enter bank transfer instructions. Use <br\/> for line breaks.",
+    "Enter bank transfer instructions. Use <br/> for line breaks.": "Enter bank transfer instructions. Use <br/> for line breaks.",
     "Enter company email": "Enter company email",
     "Enter directory name...": "Enter directory name...",
     "Enter discount value": "Enter discount value",
@@ -1363,7 +1363,7 @@
     "Theme color must not exceed 50 characters.": "Theme color must not exceed 50 characters.",
     "Theme mode must be a valid string.": "Theme mode must be a valid string.",
     "Theme mode must not exceed 50 characters.": "Theme mode must not exceed 50 characters.",
-    "These instructions will be shown to customers. You can use <br\/> tags for line breaks.": "These instructions will be shown to customers. You can use <br\/> tags for line breaks.",
+    "These instructions will be shown to customers. You can use <br/> tags for line breaks.": "These instructions will be shown to customers. You can use <br/> tags for line breaks.",
     "This coupon code already exists.": "This coupon code already exists.",
     "This coupon has not been used yet.": "This coupon has not been used yet.",
     "This installer will guide you through the setup process for your application.": "This installer will guide you through the setup process for your application.",
@@ -1706,5 +1706,7 @@
     "Your plan has expired. Please renew your subscription": "Your plan has expired. Please renew your subscription",
     "Your trial has expired. Please subscribe to a plan": "Your trial has expired. Please subscribe to a plan",
     "add-ons": "add-ons",
-    "record(s)": "record(s)"
+    "record(s)": "record(s)",
+    "Proposal content must be a valid array.": "Proposal content must be a valid array.",
+    "Each proposal content must be valid text.": "Each proposal content must be valid text."
 }

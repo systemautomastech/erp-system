@@ -163,6 +163,8 @@ class SalesProposalController extends Controller
 
     public function store(StoreSalesProposalRequest $request)
     {
+        dd($request->all());
+
         if(Auth::user()->can('create-sales-proposals')){
 
             $totals = $this->calculateTotals($request->items);
@@ -511,7 +513,7 @@ class SalesProposalController extends Controller
             }
 
             SentSalesProposal::dispatch($salesProposal);
-             
+
             if(company_setting('Proposal Sent') == 'on') {
                 $emailData = [
                     'proposal_number' => $salesProposal->proposal_number ?? null,
@@ -543,7 +545,7 @@ class SalesProposalController extends Controller
                 return back()->with('error', __('Only sent proposals can be accepted.'));
             }
             AcceptSalesProposal::dispatch($salesProposal);
-                
+
             if(company_setting('Proposal Approved') == 'on') {
 
                 $companyEmail = company_setting('company_email', $salesProposal->created_by) ?: $proposalCreator?->email;
@@ -579,11 +581,11 @@ class SalesProposalController extends Controller
             }
 
             RejectSalesProposal::dispatch($salesProposal);
-           
+
             if(company_setting('Proposal Approved') == 'on') {
 
                 $companyEmail = company_setting('company_email', $salesProposal->created_by) ?: $proposalCreator?->email;
-               
+
                 $emailData = [
                     'proposal_number' => $salesProposal->proposal_number ?? null,
                     'sales_customer_name' => $salesProposal->customer->name ?? null,
