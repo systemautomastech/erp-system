@@ -102,22 +102,43 @@ class PbxSettingsController extends Controller
     }
 
 
-    public function ringtone()
+    public function ringtone(Request $request)
     {
         $user = Auth::user();
+        $disk = Storage::disk('public');
 
-        $path = 'sounds/ringtone.mp3';
+        $tenantId = $user->creatorId();
 
-        if (!Storage::disk('public')->exists($path)) {
-            abort(404);
+        $userPath =
+            "sounds/ringtones/users/{$user->id}/ringtone.mp3";
+
+        $tenantPath =
+            "sounds/ringtones/tenants/{$tenantId}/ringtone.mp3";
+
+        $defaultPath =
+            'sounds/ringtones/default.mp3';
+
+        $path = match (true) {
+            $disk->exists($userPath) => $userPath,
+            $disk->exists($tenantPath) => $tenantPath,
+            $disk->exists($defaultPath) => $defaultPath,
+            default => abort(404, 'Ringtone not found.'),
+        };
+
+        $absolutePath = $disk->path($path);
+        $etag = hash_file('sha256', $absolutePath);
+
+        if (
+            $request->header('If-None-Match') === "\"{$etag}\""
+        ) {
+            return response('', 304);
         }
 
-        return response()->file(
-            Storage::disk('public')->path($path),
-            [
-                'Content-Type' => 'audio/mpeg',
-                'Cache-Control' => 'private, max-age=0',
-            ]
-        );
+        return response()->file($absolutePath, [
+            'Content-Type' => 'audio/mpeg',
+            'Cache-Control' =>
+            'private, max-age=86400, must-revalidate',
+            'ETag' => "\"{$etag}\"",
+        ]);
     }
 }

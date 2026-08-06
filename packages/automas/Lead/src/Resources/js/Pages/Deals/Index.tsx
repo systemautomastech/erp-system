@@ -33,7 +33,7 @@ import { usePageButtons } from '@/hooks/usePageButtons';
 
 export default function Index() {
     const { t } = useTranslation();
-    const { deals, auth, pipelines, stages, groups, users, sources, products, permissions } = usePage<DealsIndexProps>().props;
+    const { deals, auth, pipelines, stages, groups, users, sources, products, permissions, pbxModuleActive } = usePage<DealsIndexProps>().props;
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<DealFilters>({
@@ -134,6 +134,52 @@ export default function Index() {
                 router.reload({ only: ['deals'] });
             }
         });
+    };
+
+    const handleDialerCall = (deal: Deal) => {
+        let phone = deal.phone?.toString().trim();
+
+        if (phone) {
+            phone = phone.replace(/\D/g, '');
+
+            if (phone.length === 10 && phone.startsWith('1')) {
+                phone = `0${phone}`;
+            }
+        }
+
+        if (!phone) {
+            window.alert(t('No phone number available for this deal.'));
+            return;
+        }
+
+        if (!pbxModuleActive) {
+            window.alert(t('PBX is not available for this workspace.'));
+            return;
+        }
+
+        const dialerCaller = (window as Window & typeof globalThis & {
+            CTI_PHONE_CALL?: (
+                number: string,
+                context?: {
+                    module?: string;
+                    record_id?: number | string;
+                }
+            ) => void;
+        }).CTI_PHONE_CALL;
+
+        if (typeof dialerCaller === 'function') {
+            dialerCaller(phone, {
+                module: 'Deal',
+                record_id: deal.id,
+            });
+            return;
+        }
+
+        window.dispatchEvent(
+            new CustomEvent('cti:make-call', {
+                detail: { number: phone },
+            })
+        );
     };
 
     const getKanbanData = () => {
@@ -523,10 +569,10 @@ export default function Index() {
             render: (_: any, deal: Deal) => (
                 <div className="flex gap-1">
                     <TooltipProvider>
-                        {auth.user?.permissions?.includes('use dialer') && (
+                        {auth.user?.permissions?.includes('use dialer') && pbxModuleActive && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="sm" onClick={() => callDeal(deal)} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
+                                    <Button variant="ghost" size="sm" onClick={() => void handleDialerCall(deal)} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
                                         <Phone className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>

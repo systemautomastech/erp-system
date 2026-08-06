@@ -438,7 +438,15 @@ export default function Index() {
     };
 
     const handleDialerCall = (lead: Lead) => {
-        const phone = lead.phone?.toString().trim();
+        let phone = lead.phone?.toString().trim();
+
+        if (phone) {
+            phone = phone.replace(/\D/g, '');
+
+            if (phone.length === 10 && phone.startsWith('1')) {
+                phone = `0${phone}`;
+            }
+        }
 
         if (!phone) {
             window.alert(t('No phone number available for this lead.'));
@@ -451,17 +459,28 @@ export default function Index() {
         }
 
         const dialerCaller = (window as Window & typeof globalThis & {
-            CTI_PHONE_CALL?: (number: string, context?: { module?: string; record_id?: number | string }) => void;
+            CTI_PHONE_CALL?: (
+                number: string,
+                context?: {
+                    module?: string;
+                    record_id?: number | string;
+                }
+            ) => void;
         }).CTI_PHONE_CALL;
 
         if (typeof dialerCaller === 'function') {
-            dialerCaller(phone, { module: 'Lead', record_id: lead.id });
+            dialerCaller(phone, {
+                module: 'Lead',
+                record_id: lead.id,
+            });
             return;
         }
 
-        window.dispatchEvent(new CustomEvent('cti:make-call', {
-            detail: { number: phone }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('cti:make-call', {
+                detail: { number: phone },
+            })
+        );
     };
 
     const tableColumns = [

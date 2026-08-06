@@ -1,15 +1,26 @@
 /node_modules
 /public/hot
-/public/build
 /public/storage
-/storage/*.key
-/storage/installed
+
+# Ignore everything in storage
+/storage/*
+
+# Allow storage/app
+!/storage/app/
+
+# Ignore everything inside storage/app
+/storage/app/*
+
+# Keep these two folders
+!/storage/app/samples/
+!/storage/app/samples/**
+
+!/storage/app/sounds/
+!/storage/app/sounds/**
+
+
 /vendor
-/public/uploads
-/uploads
 .env
-.env.backup
-.env.production.local
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml

@@ -119,6 +119,7 @@ class DealController extends Controller
                 'products' => $products,
                 'labels' => $labels,
                 'currentPipelineId' => request('pipeline_id') ?: $defaultPipelineId,
+                'pbxModuleActive' => module_is_active('Pbx'),
             ]);
         } else {
             return back()->with('error', __('Permission denied'));
@@ -266,7 +267,6 @@ class DealController extends Controller
         if (Auth::user()->can('edit-deals')) {
             $validated = $request->validated();
 
-            dd($validated);
             $deal->name        = $validated['name'];
             $deal->price       = $validated['price'];
             $deal->pipeline_id = $validated['pipeline_id'];
