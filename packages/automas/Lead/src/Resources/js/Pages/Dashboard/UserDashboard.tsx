@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import AuthenticatedLayout from "@/layouts/authenticated-layout";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Rocket, Calendar, Clock, Target, CheckCircle } from 'lucide-react';
+import { TrendingUp, Rocket, Calendar, Clock, Target, CheckCircle, BarChart3, CalendarDays, Award, Phone, Trophy, XCircle, Flame, PhoneCall, PhoneIncoming } from 'lucide-react';
 import CalendarView from '@/components/calendar-view';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
@@ -15,6 +15,18 @@ interface UserDashboardProps {
         assigned_deals: number;
         completed_tasks: number;
         pending_tasks: number;
+        todayLeads?: number;
+        yesterdayLeads?: number;
+        monthlyLeads?: number;
+        totalLeads?: number;
+        convertedDeals?: number;
+        activeDeals?: number;
+        wonDeals?: number;
+        lostDeals?: number;
+        todayCalls?: number;
+        yesterdayCalls?: number;
+        monthlyCalls?: number;
+        totalCalls?: number;
     };
     recentDeals?: any[];
     recentLeads?: any[];
@@ -25,51 +37,133 @@ interface UserDashboardProps {
 function UserDashboard({ message, stats, recentDeals, recentLeads, calendarEvents, taskStatusChart }: UserDashboardProps) {
     const { t } = useTranslation();
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-    
+
     return (
         <AuthenticatedLayout
-            breadcrumbs={[{label: t('Dashboard')}]}
+            breadcrumbs={[{ label: t('Dashboard') }]}
             pageTitle={t('User Dashboard')}
         >
             <Head title={t('User Dashboard')} />
-            
+
             <div className="space-y-6">
                 {/* Summary Cards */}
+
+                {/* Lead Stats Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-md transition-shadow">
+                    <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-blue-700">{t('Assigned Deals')}</CardTitle>
-                            <Rocket className="h-5 w-5 text-blue-600" />
+                            <CardTitle className="text-sm font-medium text-teal-700">{t('Today Assigned Lead')}</CardTitle>
+                            <Target className="h-5 w-5 text-teal-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-blue-800">{stats?.assigned_deals || 0}</div>
+                            <div className="text-2xl font-bold text-teal-800">{stats?.todayLeads || 0}</div>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-md transition-shadow">
+                    <Card className="bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200 hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-green-700">{t('Assigned Leads')}</CardTitle>
-                            <TrendingUp className="h-5 w-5 text-green-600" />
+                            <CardTitle className="text-sm font-medium text-pink-700">{t('Yesterday Lead')}</CardTitle>
+                            <Clock className="h-5 w-5 text-pink-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-800">{stats?.assigned_leads || 0}</div>
+                            <div className="text-2xl font-bold text-pink-800">{stats?.yesterdayLeads || 0}</div>
                         </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-purple-700">{t('Completed Tasks')}</CardTitle>
-                            <CheckCircle className="h-5 w-5 text-purple-600" />
+                            <CardTitle className="text-sm font-medium text-purple-700">{t('Monthly Lead')}</CardTitle>
+                            <Award className="h-5 w-5 text-purple-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-purple-800">{stats?.completed_tasks || 0}</div>
+                            <div className="text-2xl font-bold text-purple-800">{stats?.monthlyLeads || 0}</div>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-md transition-shadow">
+                    <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-orange-700">{t('Pending Tasks')}</CardTitle>
-                            <Target className="h-5 w-5 text-orange-600" />
+                            <CardTitle className="text-sm font-medium text-indigo-700">{t('Total Lead')}</CardTitle>
+                            <TrendingUp className="h-5 w-5 text-indigo-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-orange-800">{stats?.pending_tasks || 0}</div>
+                            <div className="text-2xl font-bold text-indigo-800">{stats?.totalLeads || 0}</div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Deal Stats Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-blue-700">{t('Converted Deals')}</CardTitle>
+                            <Rocket className="h-5 w-5 text-blue-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-blue-800">{stats?.convertedDeals || 0}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-amber-700">{t('Active Deals')}</CardTitle>
+                            <Flame className="h-5 w-5 text-amber-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-amber-800">{stats?.activeDeals || 0}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-emerald-700">{t('Won Deals')}</CardTitle>
+                            <Trophy className="h-5 w-5 text-emerald-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-emerald-800">{stats?.wonDeals || 0}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-rose-50 to-rose-100 border-rose-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-rose-700">{t('Lost Deals')}</CardTitle>
+                            <XCircle className="h-5 w-5 text-rose-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-rose-800">{stats?.lostDeals || 0}</div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Call Stats Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-red-700">{t('Today Call')}</CardTitle>
+                            <PhoneCall className="h-5 w-5 text-red-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-red-800">{stats?.todayCalls || 0}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-cyan-700">{t('Yesterday Call')}</CardTitle>
+                            <PhoneIncoming className="h-5 w-5 text-cyan-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-cyan-800">{stats?.yesterdayCalls || 0}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-lime-50 to-lime-100 border-lime-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-lime-700">{t('Monthly Calls')}</CardTitle>
+                            <CalendarDays className="h-5 w-5 text-lime-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-lime-800">{stats?.monthlyCalls || 0}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-violet-50 to-violet-100 border-violet-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-medium text-violet-700">{t('Total Call')}</CardTitle>
+                            <Phone className="h-5 w-5 text-violet-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-violet-800">{stats?.totalCalls || 0}</div>
                         </CardContent>
                     </Card>
                 </div>
@@ -162,7 +256,7 @@ function UserDashboard({ message, stats, recentDeals, recentLeads, calendarEvent
                                     <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                                         <span className="text-sm font-medium text-orange-700">{t('Completion Rate')}</span>
                                         <span className="text-lg font-bold text-orange-800">
-                                            {((stats?.completed_tasks || 0) + (stats?.pending_tasks || 0)) > 0 
+                                            {((stats?.completed_tasks || 0) + (stats?.pending_tasks || 0)) > 0
                                                 ? Math.round(((stats?.completed_tasks || 0) / ((stats?.completed_tasks || 0) + (stats?.pending_tasks || 0))) * 100)
                                                 : 0}%
                                         </span>

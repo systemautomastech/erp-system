@@ -3,10 +3,6 @@
 namespace Automas\Lead\Http\Controllers;
 
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
 use Automas\Lead\Models\ClientDeal;
 use Automas\Lead\Models\Deal;
 use Automas\Lead\Models\DealCall;
@@ -14,11 +10,14 @@ use Automas\Lead\Models\DealStage;
 use Automas\Lead\Models\DealTask;
 use Automas\Lead\Models\Lead;
 use Automas\Lead\Models\LeadCall;
-use Automas\Lead\Models\LeadItem;
 use Automas\Lead\Models\LeadTask;
 use Automas\Lead\Models\Pipeline;
 use Automas\Lead\Models\UserDeal;
 use Automas\Lead\Models\UserLead;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
@@ -44,21 +43,25 @@ class DashboardController extends Controller
             $monthlyDeals = (clone $deal)->whereMonth('created_at', now()->month)->count();
             $totalDeals = (clone $deal)->count();
 
-
             // Leads stats
-            $leads = Lead::where('created_by', creatorId());
+            $leads = Lead::where('created_by', creatorId())->with('calls');
             $todayLeads = (clone $leads)->whereDate('created_at', now()->toDateString())->count();
             $yesterdayLeads = (clone $leads)->whereDate('created_at', now()->subDay()->toDateString())->count();
             $monthlyLeads = (clone $leads)->whereMonth('created_at', now()->month)->count();
             $totalLeads = (clone $leads)->count();
 
             // Call stats
-            $todayCalls     = DealCall::whereDate('created_at', now()->toDateString())->count();
-            $yesterdayCalls = DealCall::whereDate('created_at', now()->subDays(1)->toDateString())->count();
-            $monthlyCalls     = DealCall::whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
-                ->count();
-            $totalCalls = DealCall::count();
+            $dealCalls = DealCall::whereHas('deal', function ($q) {
+                $q->where('created_by', creatorId());
+            });
+            $leadCalls = LeadCall::whereHas('lead', function ($q) {
+                $q->where('created_by', creatorId());
+            });
+
+            $todayCalls = (clone $dealCalls)->whereDate('created_at', today())->count() + (clone $leadCalls)->whereDate('created_at', today())->count();
+            $yesterdayCalls = (clone $dealCalls)->whereDate('created_at', today()->subDay())->count() + (clone $leadCalls)->whereDate('created_at', today()->subDay())->count();
+            $monthlyCalls = (clone $dealCalls)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count() + (clone $leadCalls)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count();
+            $totalCalls = (clone $dealCalls)->count() + (clone $leadCalls)->count();
 
             // Recent deals
             $recentDeals = $deal
@@ -90,7 +93,7 @@ class DashboardController extends Controller
                             'status' => $task->status ? 'completed' : 'pending',
                             'name' => $dealItem->name,
                             'color' => $task->status ? '#10b981' : '#f59e0b',
-                            'type' => 'Deal Task'
+                            'type' => 'Deal Task',
                         ];
                     }
                 }
@@ -108,7 +111,7 @@ class DashboardController extends Controller
                             'status' => $task->status ? 'completed' : 'pending',
                             'name' => $leadItem->name,
                             'color' => $task->status ? '#10b981' : '#3b82f6',
-                            'type' => 'Lead Task'
+                            'type' => 'Lead Task',
                         ];
                     }
                 }
@@ -125,7 +128,7 @@ class DashboardController extends Controller
                             'status' => $task->status ? 'completed' : 'pending',
                             'name' => $clientDeal->deal->name,
                             'color' => $task->status ? '#10b981' : '#f59e0b',
-                            'type' => 'Deal Task'
+                            'type' => 'Deal Task',
                         ];
                     }
                 }
@@ -143,7 +146,7 @@ class DashboardController extends Controller
                             'status' => $task->status ? 'completed' : 'pending',
                             'name' => $userDeal->deal->name,
                             'color' => $task->status ? '#10b981' : '#f59e0b',
-                            'type' => 'Deal Task'
+                            'type' => 'Deal Task',
                         ];
                     }
                 }
@@ -161,7 +164,7 @@ class DashboardController extends Controller
                             'status' => $task->status ? 'completed' : 'pending',
                             'name' => $userLead->lead->name,
                             'color' => $task->status ? '#10b981' : '#3b82f6',
-                            'type' => 'Lead Task'
+                            'type' => 'Lead Task',
                         ];
                     }
                 }
@@ -176,14 +179,14 @@ class DashboardController extends Controller
             if ($totalDealCalls > 0) {
                 $dealCallsChart[] = [
                     'name' => 'Deal Calls',
-                    'value' => $totalDealCalls
+                    'value' => $totalDealCalls,
                 ];
             }
 
             if ($totalLeadCalls > 0) {
                 $dealCallsChart[] = [
                     'name' => 'Lead Calls',
-                    'value' => $totalLeadCalls
+                    'value' => $totalLeadCalls,
                 ];
             }
 
@@ -202,30 +205,12 @@ class DashboardController extends Controller
 
                 $dealStageChart[] = [
                     'name' => $stage->name,
-                    'deals' => $dealCount
+                    'deals' => $dealCount,
                 ];
             }
 
             $pipelines = Pipeline::where('created_by', creatorId())->get(['id', 'name']);
 
-            // $stats = [
-            //     'todayDeals' => $todayDeals,
-            //     'yesterdayDeals' => $yesterdayDeals,
-            //     'monthDeals' => $monthlyDeals,
-            //     'totalDeals' => $totalDeals,
-
-            //     'todayLeads' => $todayLead,
-            //     'yesterdayLeads' => $yesterdayLead,
-            //     'monthLeads' => $monthlyLead,
-            //     'totalLeads' => $totalLead,
-
-            //     'todayCalls' => $todayCalls,
-            //     'yesterdayCalls' => $yesterdayCalls,
-            //     'monthCalls' => $monthlyCalls,
-            //     'totalCalls' => $totalCalls
-            // ];
-
-            // dd($stats);
             return Inertia::render('Lead/Dashboard/CompanyDashboard', [
                 'stats' => [
                     'todayDeals' => $todayDeals,
@@ -241,7 +226,7 @@ class DashboardController extends Controller
                     'todayCalls' => $todayCalls,
                     'yesterdayCalls' => $yesterdayCalls,
                     'monthCalls' => $monthlyCalls,
-                    'totalCalls' => $totalCalls
+                    'totalCalls' => $totalCalls,
                 ],
 
                 'recentDeals' => $recentDeals,
@@ -250,9 +235,10 @@ class DashboardController extends Controller
                 'dealCallsChart' => $dealCallsChart,
                 'dealStageChart' => $dealStageChart,
                 'pipelines' => $pipelines,
-                'message' => __('Lead Dashboard - Manage your leads and deals efficiently.')
+                'message' => __('Lead Dashboard - Manage your leads and deals efficiently.'),
             ]);
         }
+
         return back()->with('error', __('Permission denied'));
     }
 
@@ -281,7 +267,7 @@ class DashboardController extends Controller
         $dealStatusChart = [
             ['name' => 'Active', 'value' => $activeDealCount],
             ['name' => 'Won', 'value' => $wonDealCount],
-            ['name' => 'Loss', 'value' => $lossDealCount]
+            ['name' => 'Loss', 'value' => $lossDealCount],
         ];
 
         // Calendar events from assigned deal tasks and lead tasks
@@ -298,7 +284,7 @@ class DashboardController extends Controller
                     'status' => $task->status ? 'completed' : 'pending',
                     'name' => $clientDeal->deal->name,
                     'color' => $task->status ? '#10b981' : '#f59e0b',
-                    'type' => 'Deal Task'
+                    'type' => 'Deal Task',
                 ];
             }
         }
@@ -313,7 +299,7 @@ class DashboardController extends Controller
             'recentDeals' => $recentDeals,
             'calendarEvents' => $calendarEvents,
             'dealStatusChart' => $dealStatusChart,
-            'message' => __('Client Dashboard - View your assigned deals.')
+            'message' => __('Client Dashboard - View your assigned deals.'),
         ]);
     }
 
@@ -321,23 +307,44 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
+        // leads, deals, calls
+
         // Get assigned deals and leads for user
         $assignedDealIds = UserDeal::where('user_id', $user->id)->pluck('deal_id');
         $assignedLeadIds = UserLead::where('user_id', $user->id)->pluck('lead_id');
 
-        $assignedDeals = Deal::whereIn('id', $assignedDealIds)->count();
-        $assignedLeads = Lead::whereIn('id', $assignedLeadIds)->count();
+        // Lead stats (assigned to user)
+        $assignedLeads = Lead::whereIn('id', $assignedLeadIds);
+        $todayLeads = (clone $assignedLeads)->whereDate('created_at', now()->toDateString())->count();
+        $yesterdayLeads = (clone $assignedLeads)->whereDate('created_at', now()->subDay()->toDateString())->count();
+        $monthlyLeads = (clone $assignedLeads)->whereMonth('created_at', now()->month)->count();
+        $totalLeads = (clone $assignedLeads)->count();
+
+        // Deal stats (assigned to user)
+        $assignedDeals = Deal::whereIn('id', $assignedDealIds);
+        $convertedDeals = (clone $assignedLeads)->where('is_converted', '>', 0)->count();
+        $activeDeals = (clone $assignedDeals)->where('status', 'Active')->count();
+        $wonDeals = (clone $assignedDeals)->where('status', 'Won')->count();
+        $lostDeals = (clone $assignedDeals)->where('status', 'Loss')->count();
+
+        // Call stats (calls for assigned deals/leads or created by user)
+        $dealCalls = DealCall::whereIn('deal_id', $assignedDealIds);
+        $leadCalls = LeadCall::whereIn('lead_id', $assignedLeadIds);
+        $todayCalls = (clone $dealCalls)->whereDate('created_at', today())->count() + (clone $leadCalls)->whereDate('created_at', today())->count();
+        $yesterdayCalls = (clone $dealCalls)->whereDate('created_at', today()->subDay())->count() + (clone $leadCalls)->whereDate('created_at', today()->subDay())->count();
+        $monthlyCalls = (clone $dealCalls)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count() + (clone $leadCalls)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count();
+        $totalCalls = (clone $dealCalls)->count() + (clone $leadCalls)->count();
 
         // Task statistics
         $completedTasks = DealTask::whereIn('deal_id', $assignedDealIds)
             ->where('status', 1)->count() +
             LeadTask::whereIn('lead_id', $assignedLeadIds)
-            ->where('status', 1)->count();
+                ->where('status', 1)->count();
 
         $pendingTasks = DealTask::whereIn('deal_id', $assignedDealIds)
             ->where('status', 0)->count() +
             LeadTask::whereIn('lead_id', $assignedLeadIds)
-            ->where('status', 0)->count();
+                ->where('status', 0)->count();
 
         // Recent assigned deals
         $recentDeals = Deal::whereIn('id', $assignedDealIds)
@@ -368,7 +375,7 @@ class DashboardController extends Controller
                     'status' => $task->status ? 'completed' : 'pending',
                     'name' => $userDeal->deal->name,
                     'color' => $task->status ? '#10b981' : '#f59e0b',
-                    'type' => 'Deal Task'
+                    'type' => 'Deal Task',
                 ];
             }
         }
@@ -386,7 +393,7 @@ class DashboardController extends Controller
                     'status' => $task->status ? 'completed' : 'pending',
                     'name' => $userLead->lead->name,
                     'color' => $task->status ? '#10b981' : '#3b82f6',
-                    'type' => 'Lead Task'
+                    'type' => 'Lead Task',
                 ];
             }
         }
@@ -397,22 +404,31 @@ class DashboardController extends Controller
         // Task status chart
         $taskStatusChart = [
             ['name' => 'Completed', 'value' => $completedTasks],
-            ['name' => 'Pending', 'value' => $pendingTasks]
+            ['name' => 'Pending', 'value' => $pendingTasks],
         ];
 
         return Inertia::render('Lead/Dashboard/UserDashboard', [
             'stats' => [
-                'assigned_deals' => $assignedDeals,
-                'assigned_leads' => $assignedLeads,
-                'completed_tasks' => $completedTasks,
-                'pending_tasks' => $pendingTasks,
-                'total_amount' => $totalAmount,
+                'todayLeads' => $todayLeads,
+                'yesterdayLeads' => $yesterdayLeads,
+                'monthlyLeads' => $monthlyLeads,
+                'totalLeads' => $totalLeads,
+
+                'convertedDeals' => $convertedDeals,
+                'activeDeals' => $activeDeals,
+                'wonDeals' => $wonDeals,
+                'lostDeals' => $lostDeals,
+
+                'todayCalls' => $todayCalls,
+                'yesterdayCalls' => $yesterdayCalls,
+                'monthlyCalls' => $monthlyCalls,
+                'totalCalls' => $totalCalls,
             ],
             'recentDeals' => $recentDeals,
             'recentLeads' => $recentLeads,
             'calendarEvents' => $calendarEvents,
             'taskStatusChart' => $taskStatusChart,
-            'message' => __('User Dashboard - View your assigned leads and deals.')
+            'message' => __('User Dashboard - View your assigned leads and deals.'),
         ]);
     }
 }

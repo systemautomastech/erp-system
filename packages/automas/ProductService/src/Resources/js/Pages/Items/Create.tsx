@@ -349,7 +349,7 @@ export default function Create() {
                                     </div>
                                 </TabsContent>
 
-                                <TabsContent value="media" className="space-y-6 mt-6">
+                                <TabsContent value="media" className="space-y-6 mt-6"> 
                                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                         <div>
                                             <MediaPicker
