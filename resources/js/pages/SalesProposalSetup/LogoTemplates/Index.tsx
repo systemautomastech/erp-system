@@ -39,7 +39,7 @@ export default function LogoTemplates() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Logo Upload */}
                 <div className="space-y-3">
-                    <Label>{t('Proposal Header Logo')}</Label>
+                    <Label>{t('Header Logo')}</Label>
                     <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center gap-3 min-h-[160px]">
                         {logoPreview ? (
                             <div className="relative group w-full flex justify-center">
@@ -77,7 +77,7 @@ export default function LogoTemplates() {
 
                 {/* PDF Background Image */}
                 <div className="space-y-3">
-                    <Label>{t('PDF Template Background Image')}</Label>
+                    <Label>{t('Template Background Image')}</Label>
                     <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center gap-3 min-h-[160px]">
                         {bgPreview ? (
                             <div className="relative group w-full flex justify-center">

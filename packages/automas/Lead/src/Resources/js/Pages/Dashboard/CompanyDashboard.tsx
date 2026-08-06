@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import AuthenticatedLayout from "@/layouts/authenticated-layout";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, TrendingUp, BarChart3, Rocket, Calendar, Clock, CalendarDays, Phone, Target, Award } from 'lucide-react';
+import { Users, TrendingUp, BarChart3, Rocket, Calendar, Clock, CalendarDays, Phone, Target, Award, PhoneCall, PhoneIncoming, Layers } from 'lucide-react';
 import CalendarView from '@/components/calendar-view';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDate } from '@/utils/helpers';
@@ -12,12 +12,18 @@ import { formatDate } from '@/utils/helpers';
 interface LeadProps {
     message: string;
     stats?: {
-        total_leads: number;
-        total_deals: number;
-        total_users: number;
-        total_clients: number;
-        converted_leads: number;
-        won_deals: number;
+        todayDeals: number;
+        yesterdayDeals: number;
+        monthDeals: number;
+        totalDeals: number;
+        todayLeads: number;
+        yesterdayLeads: number;
+        monthLeads: number;
+        totalLeads: number;
+        todayCalls: number;
+        yesterdayCalls: number;
+        monthCalls: number;
+        totalCalls: number;
     };
     recentDeals?: any[];
     recentLeads?: any[];
@@ -53,7 +59,7 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.visit(route('lead.leads.index'))}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-green-700">{t('Yesterday Deal')}</CardTitle>
-                            <Calendar className="h-5 w-5 text-green-600" />
+                            <Clock className="h-5 w-5 text-green-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-green-800">{stats?.yesterdayDeals || 0}</div>
@@ -70,8 +76,8 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     </Card>
                     <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.get(route('users.index'), { type: 'client' })}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-orange-700">{t('Total')}</CardTitle>
-                            <BarChart3 className="h-5 w-5 text-orange-600" />
+                            <CardTitle className="text-sm font-medium text-orange-700">{t('Total Deals')}</CardTitle>
+                            <Layers className="h-5 w-5 text-orange-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-orange-800">{stats?.totalDeals || 0}</div>
@@ -116,34 +122,34 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     </Card>
 
                     <Card
-                        className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer"
+                        className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-md transition-shadow cursor-pointer"
                         onClick={() => router.visit(route('lead.leads.index'))}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-indigo-700">
+                            <CardTitle className="text-sm font-medium text-purple-700">
                                 {t('Monthly Lead')}
                             </CardTitle>
-                            <Award className="h-5 w-5 text-indigo-600" />
+                            <Award className="h-5 w-5 text-purple-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-indigo-800">
+                            <div className="text-2xl font-bold text-purple-800">
                                 {stats?.monthlyLeads || 0}
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card
-                        className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 hover:shadow-md transition-shadow cursor-pointer"
+                        className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer"
                         onClick={() => router.get(route('users.index'), { type: 'client' })}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                            <CardTitle className="text-sm font-medium text-amber-700">
-                                {t('Total')}
+                            <CardTitle className="text-sm font-medium text-indigo-700">
+                                {t('Total Leads')}
                             </CardTitle>
-                            <BarChart3 className="h-5 w-5 text-amber-600" />
+                            <TrendingUp className="h-5 w-5 text-indigo-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-amber-800">
+                            <div className="text-2xl font-bold text-indigo-800">
                                 {stats?.totalLeads || 0}
                             </div>
                         </CardContent>
@@ -160,7 +166,7 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                             <CardTitle className="text-sm font-medium text-red-700">
                                 {t('Today Call')}
                             </CardTitle>
-                            <Phone className="h-5 w-5 text-red-600" />
+                            <PhoneCall className="h-5 w-5 text-red-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-red-800">
@@ -177,7 +183,7 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                             <CardTitle className="text-sm font-medium text-cyan-700">
                                 {t('Yesterday Call')}
                             </CardTitle>
-                            <Clock className="h-5 w-5 text-cyan-600" />
+                            <PhoneIncoming className="h-5 w-5 text-cyan-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-cyan-800">
@@ -194,7 +200,7 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                             <CardTitle className="text-sm font-medium text-lime-700">
                                 {t('Monthly Calls')}
                             </CardTitle>
-                            <Users className="h-5 w-5 text-lime-600" />
+                            <CalendarDays className="h-5 w-5 text-lime-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-lime-800">
@@ -209,9 +215,9 @@ export default function CompanyDashboard({ message, stats, recentDeals, recentLe
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-sm font-medium text-violet-700">
-                                {t('Total')}
+                                {t('Total Calls')}
                             </CardTitle>
-                            <BarChart3 className="h-5 w-5 text-violet-600" />
+                            <Phone className="h-5 w-5 text-violet-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-violet-800">
