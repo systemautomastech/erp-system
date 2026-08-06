@@ -1,23 +1,5 @@
 /node_modules
-/public/hot
 /public/storage
-
-# Ignore everything in storage
-/storage/*
-
-# Allow storage/app
-!/storage/app/
-
-# Ignore everything inside storage/app
-/storage/app/*
-
-# Keep these two folders
-!/storage/app/samples/
-!/storage/app/samples/**
-
-!/storage/app/sounds/
-!/storage/app/sounds/**
-
 
 /vendor
 .env
