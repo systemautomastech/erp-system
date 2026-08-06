@@ -14,7 +14,7 @@ import { Toaster } from "sonner";
 
 import { ThemeProvider } from "@/components/theme-provider";
 
-// import WebPhone from "../../packages/automas/Pbx/src/Resources/js/Pages/dialer/components/WebPhone";
+import WebPhone from "../../packages/automas/Pbx/src/Resources/js/Pages/dialer/components/WebPhone";
 
 window.Dialer = {
     api: {
@@ -194,26 +194,23 @@ createInertiaApp({
 
     resolve: (name) => {
         const allPages = {
-            ...import.meta.glob(
-                "./pages/**/*.tsx",
-            ),
+            ...import.meta.glob("./pages/**/*.tsx"),
 
-            ...import.meta.glob(
+            ...import.meta.glob([
                 "../../packages/automas/*/src/Resources/js/Pages/**/*.tsx",
-            ),
+
+                // Do not treat reusable components as Inertia pages
+                "!../../packages/automas/*/src/Resources/js/Pages/**/components/**/*.tsx",
+            ]),
         };
 
-        const applicationPagePath =
-            `./pages/${name}.tsx`;
+        const applicationPagePath = `./pages/${name}.tsx`;
 
         if (allPages[applicationPagePath]) {
-            return allPages[
-                applicationPagePath
-            ]();
+            return allPages[applicationPagePath]();
         }
 
-        const [packageName, ...pagePath] =
-            name.split("/");
+        const [packageName, ...pagePath] = name.split("/");
 
         const packagePagePath =
             `../../packages/automas/${packageName}` +
@@ -224,11 +221,9 @@ createInertiaApp({
             return allPages[packagePagePath]();
         }
 
-        throw new Error(
-            `Page not found: ${name}`,
-        );
+        throw new Error(`Page not found: ${name}`);
     },
-
+    
     setup({ el, App, props }) {
         /*
          * Keeps compatibility with existing code that reads
@@ -249,22 +244,16 @@ createInertiaApp({
                 };
             };
 
-        const user =
-            initialPageProps.auth?.user;
+        type AuthUser = {
+            type?: string;
+            permissions?: string[];
+        };
 
-        const permissions =
-            user?.permissions ?? [];
+        const authUser = initialPageProps.auth?.user as AuthUser | undefined;
 
-        /*
-         * Show only for authenticated users.
-         *
-         * If permission checking is required, replace this with:
-         *
-         * const showDialer =
-         *     Boolean(user) &&
-         *     permissions.includes("use dialer");
-         */
-        const showDialer = Boolean(user);
+        const showDialer =
+            authUser?.type !== 'company' &&
+            authUser?.permissions?.includes('use dialer');
 
         root.render(
             <ThemeProvider
@@ -276,7 +265,7 @@ createInertiaApp({
                 <Suspense fallback={null}>
                     <App {...props} />
 
-                    {/* {showDialer && <WebPhone />} */}
+                    {showDialer && <WebPhone />}
                 </Suspense>
 
                 <Toaster
