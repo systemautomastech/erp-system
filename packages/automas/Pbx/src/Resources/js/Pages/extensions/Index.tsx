@@ -124,14 +124,16 @@ export default function Index() {
 
     useFlashMessages();
 
+    const canCreate =
+        permissions.includes('create extensions') ||
+        permissions.length === 0;
+
     const canEdit =
         permissions.includes('edit extensions') ||
-        permissions.includes('manage extensions') ||
         permissions.length === 0;
 
     const canDelete =
         permissions.includes('delete extensions') ||
-        permissions.includes('manage extensions') ||
         permissions.length === 0;
 
     const {
@@ -333,7 +335,7 @@ export default function Index() {
             pageTitle={t('Manage Extensions')}
             pageActions={
                 <div className="flex items-center gap-2">
-                    {setting && (
+                    {setting && (canCreate) && (
                         <>
                             <span className="hidden rounded-md border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground sm:inline-flex">
                                 {t('Range')}: {setting.extension_start}–
@@ -374,7 +376,7 @@ export default function Index() {
                         </TooltipProvider>
                     )}
 
-                    {canCreateExtension && (
+                    {canCreateExtension && (canCreate) && (
                         <TooltipProvider>
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>

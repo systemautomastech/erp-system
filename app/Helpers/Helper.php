@@ -115,7 +115,7 @@ if (!function_exists('company_setting')) {
 if (!function_exists('getFilePath')) {
     function getFilePath($path)
     {
-       return url('/storage/app/public/' . $path);
+       return url('/storage/app/' . $path);
     }
 }
 

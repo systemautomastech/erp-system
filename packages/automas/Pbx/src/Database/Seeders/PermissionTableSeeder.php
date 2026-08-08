@@ -16,18 +16,22 @@ class PermissionTableSeeder extends Seeder
         Artisan::call('cache:clear');
 
         $permission = [
-            ['name' => 'manage settings', 'module' => 'pbx', 'label' => 'Manage All Settings'],
+            ['name' => 'manage pbx', 'module' => 'pbx', 'label' => 'Manage PBX'],
 
-            ['name' => 'manage extensions', 'module' => 'pbx', 'label' => 'Manage All Extension'],
-            ['name' => 'view extensions', 'module' => 'pbx', 'label' => 'View Extension'],
-            ['name' => 'create extensions', 'module' => 'pbx', 'label' => 'Create Extension'],
-            ['name' => 'edit extensions', 'module' => 'pbx', 'label' => 'Edit Extension'],
-            ['name' => 'delete extensions', 'module' => 'pbx', 'label' => 'Delete Extension'],
+            ['name' => 'manage extensions', 'module' => 'pbx', 'label' => 'Manage Extensions'],
+            ['name' => 'view all extensions', 'module' => 'pbx', 'label' => 'View All Extensions'],
+            ['name' => 'view own extensions', 'module' => 'pbx', 'label' => 'View Own Extensions'],
+            ['name' => 'create extensions', 'module' => 'pbx', 'label' => 'Create Extensions'],
+            ['name' => 'edit extensions', 'module' => 'pbx', 'label' => 'Edit Extensions'],
+            ['name' => 'delete extensions', 'module' => 'pbx', 'label' => 'Delete Extensions'],
 
-            ['name' => 'manage pbx', 'module' => 'pbx', 'label' => 'manage pbx'],
+            ['name' => 'manage settings', 'module' => 'pbx', 'label' => 'Manage Settings'],
+            ['name' => 'manage dialer settings', 'module' => 'pbx', 'label' => 'Manage Dialer Settings'],
 
-            ['name' => 'view call logs', 'module' => 'pbx', 'label' => 'View All Logs'],
-            ['name' => 'delete call logs', 'module' => 'pbx', 'label' => 'Delete Logs'],
+            ['name' => 'manage call logs', 'module' => 'pbx', 'label' => 'Manage Call Logs'],
+            ['name' => 'view all call logs', 'module' => 'pbx', 'label' => 'View All Call Logs'],
+            ['name' => 'view own call logs', 'module' => 'pbx', 'label' => 'View Own Call Logs'],
+            ['name' => 'delete call logs', 'module' => 'pbx', 'label' => 'Delete Call Logs'],
 
             ['name' => 'use dialer', 'module' => 'pbx', 'label' => 'Use Dialer'],
         ];
@@ -40,7 +44,7 @@ class PermissionTableSeeder extends Seeder
                 [
                     'module' => $perm['module'],
                     'label' => $perm['label'],
-                    'add_on' => 'Lead',
+                    'add_on' => 'Pbx',
                     'created_at' => now(),
                     'updated_at' => now()
                 ]

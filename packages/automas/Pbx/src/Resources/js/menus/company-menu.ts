@@ -13,25 +13,25 @@ export const pbxCompanyMenu = (t: (key: string) => string) => [
     {
         title: t('PBX'),
         icon: PhoneCall,
-        permission: '',
+        permission: 'manage pbx',
         order: 265,
         children: [
             {
                 title: t('Extensions'),
                 icon: Users,
-                permission: '',
+                permission: 'manage extensions',
                 href: route('pbx.extensions.index'),
             },
             {
                 title: t('Call Logs'),
                 icon: FileCheck,
-                permission: '',
+                permission: 'manage call logs',
                 href: route('pbx.call-logs.index'),
             },
             {
-                title: t('PBX Settings'),
+                title: t('System Setup'),
                 icon: Settings,
-                permission: '',
+                permission: 'manage settings',
                 href: route('pbx.settings.index'),
             },
         ],

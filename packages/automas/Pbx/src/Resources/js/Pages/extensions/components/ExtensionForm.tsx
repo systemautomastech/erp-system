@@ -30,6 +30,7 @@ export interface ExtensionFormData {
     caller_id: string;
     sip_secret: string;
     is_active: boolean;
+    canEditUser?: boolean;
 }
 
 interface ExtensionFormErrors {
@@ -79,6 +80,7 @@ export default function ExtensionForm({
     assignedUserIds = [],
     assignedExtensions = [],
     isEditing = false,
+    canEditUser = true,
 }: ExtensionFormProps) {
     const { t } = useTranslation();
 
@@ -141,13 +143,16 @@ export default function ExtensionForm({
                     value={
                         data.user_id
                             ? String(data.user_id)
-                            : undefined
+                            : ''
                     }
                     onValueChange={(value) =>
                         setData(
                             'user_id',
                             Number(value),
                         )
+                    }
+                    disabled={
+                        isEditing && !canEditUser
                     }
                 >
                     <SelectTrigger

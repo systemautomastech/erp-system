@@ -1,5 +1,10 @@
 import type { FormEvent } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import {
+    Head,
+    Link,
+    useForm,
+    usePage,
+} from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { LoaderCircle, Save } from 'lucide-react';
 
@@ -28,12 +33,20 @@ interface PbxExtension {
     is_active: boolean | number;
 }
 
+interface AuthUser {
+    permissions?: string[];
+}
+
 interface EditProps {
     extension: PbxExtension;
     users: ExtensionUser[];
     setting: PbxSetting;
     assignedUserIds: number[];
     assignedExtensions: string[];
+    auth?: {
+        user?: AuthUser;
+    };
+    [key: string]: any;
 }
 
 export default function Edit({
@@ -44,6 +57,14 @@ export default function Edit({
     assignedExtensions,
 }: EditProps) {
     const { t } = useTranslation();
+
+    const { auth } = usePage<EditProps>().props;
+
+    const permissions = auth?.user?.permissions ?? [];
+
+    const canViewAllExtensions =
+        permissions.includes('view all extensions') ||
+        permissions.length === 0;
 
     const {
         data,
@@ -65,7 +86,10 @@ export default function Edit({
         event.preventDefault();
 
         put(
-            route('pbx.extensions.update', extension.id),
+            route(
+                'pbx.extensions.update',
+                extension.id,
+            ),
             {
                 preserveScroll: true,
             },
@@ -81,7 +105,9 @@ export default function Edit({
                 },
                 {
                     label: t('Extensions'),
-                    href: route('pbx.extensions.index'),
+                    href: route(
+                        'pbx.extensions.index',
+                    ),
                 },
                 {
                     label: t('Edit Extension'),
@@ -99,7 +125,9 @@ export default function Edit({
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                             <CardTitle>
-                                {t('Setup User with Extension')}
+                                {t(
+                                    'Setup User with Extension',
+                                )}
                             </CardTitle>
 
                             <p className="mt-1 text-sm text-muted-foreground">
@@ -116,8 +144,12 @@ export default function Edit({
 
                             <Switch
                                 id="extension-active"
-                                checked={data.is_active}
-                                onCheckedChange={(checked) =>
+                                checked={
+                                    data.is_active
+                                }
+                                onCheckedChange={(
+                                    checked,
+                                ) =>
                                     setData(
                                         'is_active',
                                         checked,
@@ -141,6 +173,9 @@ export default function Edit({
                                 assignedExtensions
                             }
                             isEditing
+                            canEditUser={
+                                canViewAllExtensions
+                            }
                         />
 
                         <div className="flex justify-end gap-3 border-t pt-6">
@@ -165,7 +200,9 @@ export default function Edit({
                                 {processing ? (
                                     <>
                                         <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                                        {t('Updating...')}
+                                        {t(
+                                            'Updating...',
+                                        )}
                                     </>
                                 ) : (
                                     <>
