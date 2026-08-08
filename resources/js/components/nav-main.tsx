@@ -52,12 +52,12 @@ export function NavMain({ items = [], searchQuery = "" }: { items: NavItem[], se
         <SidebarGroup>
             <SidebarMenu>
                 {filteredItems.map((item) => {
-                  const itemPath = item.href ? new URL(item.href, window.location.origin).pathname : '';
-                  const isActive = !!(itemPath && isUrlActive(itemPath));
+                    const itemPath = item.href ? new URL(item.href, window.location.origin).pathname : '';
+                    const isActive = !!(itemPath && isUrlActive(itemPath));
 
-                  // Check if any child is active for parent menus
-                  const hasActiveChild = item.children ? isChildActive(item.children) : false;
-                  const shouldBeActive = isActive || hasActiveChild;
+                    // Check if any child is active for parent menus
+                    const hasActiveChild = item.children ? isChildActive(item.children) : false;
+                    const shouldBeActive = isActive || hasActiveChild;
                     if (item.children && item.children.length > 0) {
                         return (
                             <SidebarMenuItem key={item.title}>
@@ -192,7 +192,7 @@ export function NavMain({ items = [], searchQuery = "" }: { items: NavItem[], se
                             <SidebarMenuButton
                                 asChild
                                 isActive={shouldBeActive}
-                tooltip={item.title}
+                                tooltip={item.title}
                             >
                                 <Link href={item.href!}>
                                     {item.icon && <item.icon />}

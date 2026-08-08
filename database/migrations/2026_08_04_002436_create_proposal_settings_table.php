@@ -13,15 +13,15 @@ return new class extends Migration {
         Schema::create('proposal_settings', function (Blueprint $table) {
             $table->id();
             $table->string('proposal_prefix')->default('PRO');
-            $table->integer('proposal_starting_number')->default(1);
-            $table->integer('default_validity_days')->default(30);
-            $table->string('logo_image');
-            $table->string('background_image');
-            $table->string('bill_footer');
-            $table->longtext('default_terms');
-            // $table->foreignId('creator_id')->constrained('users')->cascadeOnDelete();
-            // $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
+            $table->unsignedInteger('proposal_starting_number')->default(1);
+            $table->unsignedSmallInteger('default_validity_days')->default(30);
+            $table->string('logo_image')->nullable();
+            $table->string('background_image')->nullable();
+            $table->text('default_terms')->nullable();
+            $table->foreignId('creator_id')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
+
+            $table->unique('creator_id');
         });
     }
 
@@ -33,3 +33,4 @@ return new class extends Migration {
         Schema::dropIfExists('proposal_settings');
     }
 };
+

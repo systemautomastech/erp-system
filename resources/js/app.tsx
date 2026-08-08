@@ -223,7 +223,7 @@ createInertiaApp({
 
         throw new Error(`Page not found: ${name}`);
     },
-    
+
     setup({ el, App, props }) {
         /*
          * Keeps compatibility with existing code that reads
