@@ -12,17 +12,22 @@ interface GeneralSettingsProps {
         proposal_prefix?: string;
         proposal_starting_number?: number | string;
         default_validity_days?: number | string;
+        template_color?: string;
     } | null;
 }
 
 export default function GeneralSettings({ settings }: GeneralSettingsProps) {
     const { t } = useTranslation();
 
+    // Preset color swatches
+    const presetColors = ['#E9591C', '#2563EB', '#059669', '#7C3AED', '#DC2626', '#111827'];
+
     // 1. Setup form state matching proposal_settings database columns
     const { data, setData, post, put, processing, errors } = useForm({
         proposal_prefix: settings?.proposal_prefix ?? 'PROP-',
         proposal_starting_number: settings?.proposal_starting_number?.toString() ?? '1001',
         default_validity_days: settings?.default_validity_days?.toString() ?? '30',
+        template_color: settings?.template_color ?? '#E9591C',
     });
 
     // 2. Submit form data to backend route
@@ -104,6 +109,46 @@ export default function GeneralSettings({ settings }: GeneralSettingsProps) {
                     />
                     {errors.default_validity_days && (
                         <p className="text-xs text-destructive">{errors.default_validity_days}</p>
+                    )}
+                </div>
+
+                {/* Template Accent Color Setting */}
+                <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="template_color">{t('Template Color')}</Label>
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="color"
+                            id="template_color_picker"
+                            value={data.template_color || '#E9591C'}
+                            onChange={(e) => setData('template_color', e.target.value)}
+                            className="h-10 w-12 rounded cursor-pointer border border-input p-1 bg-background"
+                        />
+                        <Input
+                            id="template_color"
+                            type="text"
+                            value={data.template_color || '#E9591C'}
+                            onChange={(e) => setData('template_color', e.target.value)}
+                            placeholder="#E9591C"
+                            className="w-36 h-10 font-mono text-sm uppercase"
+                        />
+                        <div className="flex items-center gap-1.5 ml-2">
+                            {presetColors.map((color) => (
+                                <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setData('template_color', color)}
+                                    className={`h-7 w-7 rounded-full border transition-all ${data.template_color?.toLowerCase() === color.toLowerCase() ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {t('This color will be used for cover page topbar gradients, geometric SVG shapes, watermarks, divider lines, and accent badges.')}
+                    </p>
+                    {errors.template_color && (
+                        <p className="text-xs text-destructive">{errors.template_color}</p>
                     )}
                 </div>
             </div>

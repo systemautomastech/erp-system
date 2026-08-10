@@ -10,16 +10,20 @@ return new class extends Migration {
      */
     public function up(): void
     {
+        Schema::dropIfExists('proposal_default_pages');
+
         Schema::create('proposal_default_pages', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->longText('content');
+            $table->longText('content')->nullable();
+            $table->string('page_type')->default('general');
+            $table->string('background_image')->nullable();
+            $table->unsignedInteger('sort_order')->default(1);
             $table->boolean('is_active')->default(true);
-            $table->unsignedInteger('order')->default(1);
-            $table->foreignId('creator_id')->constrained('users');
+            $table->foreignId('creator_id')->constrained('users')->onDelete('cascade');
             $table->timestamps();
 
-            $table->unique(['creator_id', 'order']);
+            $table->unique(['creator_id', 'sort_order']);
         });
     }
 

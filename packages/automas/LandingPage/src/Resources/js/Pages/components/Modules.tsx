@@ -1,300 +1,361 @@
-import { useState } from 'react';
-import { ChevronDown, Monitor } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ArrowRight, ChevronLeft, ChevronRight, Layout, Landmark, Users as HrmIcon, Contact, ShoppingCart, Package, Layers, CheckCircle2, Sparkles } from 'lucide-react';
 import { getImagePath } from '@/utils/helpers';
 
 interface ModulesProps {
     settings?: any;
 }
 
-const MODULES_VARIANTS = {
-    modules1: {
-        section: 'bg-white py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center max-w-3xl mx-auto',
-        layout: 'tabs'
-    },
-    modules2: {
-        section: 'bg-gray-50 py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center',
-        layout: 'cards'
-    },
-    modules3: {
-        section: 'bg-white py-20',
-        container: 'max-w-5xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center',
-        layout: 'accordion'
-    },
-    modules4: {
-        section: 'bg-gray-900 py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-white mb-6 text-center',
-        subtitle: 'text-lg text-gray-300 mb-16 text-center',
-        layout: 'slider'
-    },
-    modules5: {
-        section: 'bg-white py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center',
-        layout: 'grid'
-    }
-};
-
 export default function Modules({ settings }: ModulesProps) {
     const { t } = useTranslation();
+    const trackRef = useRef<HTMLDivElement>(null);
+
     const sectionData = settings?.config_sections?.sections?.modules || {};
-    const variant = sectionData.variant || 'modules1';
-    const config = MODULES_VARIANTS[variant as keyof typeof MODULES_VARIANTS] || MODULES_VARIANTS.modules1;
-     
-    // Check if modules section is enabled
-    const isModulesEnabled = settings?.config_sections?.section_visibility?.modules !== false;
-    
-    // If modules is disabled, don't render anything
-    if (!isModulesEnabled) {
-        return null;
-    }
-    
-    const title = sectionData.title;
-    const subtitle = sectionData.subtitle;
-    const colors = settings?.config_sections?.colors || { primary: '#10b981', secondary: '#059669', accent: '#f59e0b' };
-    const [activeTab, setActiveTab] = useState(0);
-    const [openAccordion, setOpenAccordion] = useState(0);
-    const [currentSlide, setCurrentSlide] = useState(0);
-    
-    const defaultModules = [
-        { 
-            key: 'taskly', 
-            label: 'Project', 
-            title: 'Project Management System', 
-            description: 'Organize and track projects efficiently with comprehensive project management tools. Manage tasks, milestones, and deadlines with team collaboration in one centralized platform. Track progress with Gantt charts and Kanban boards, assign tasks and set priorities, monitor project timelines and deliverables, and generate detailed project reports. Perfect for teams of any size.', 
-            image: '' 
+
+    const colors = settings?.config_sections?.colors || {
+        primary: 'var(--color-primary, #130774)',
+        secondary: 'var(--color-secondary, #0b55b7)',
+        accent: 'var(--color-accent, #130674)'
+    };
+    const primaryColor = colors.primary || 'var(--color-primary)';
+    const secondaryColor = colors.secondary || 'var(--color-secondary)';
+
+    const sectionTitle = sectionData.title || 'Complete Business Solutions';
+    const sectionSubtitle = sectionData.subtitle || 'Discover our comprehensive modules designed to streamline every aspect of your business operations.';
+
+    const defaultModulesList = [
+        {
+            key: 'taskly',
+            label: 'Project',
+            title: 'Project Management System',
+            description: 'Organize and track projects efficiently with comprehensive project management tools. Manage tasks, milestones, and deadlines with team collaboration in one centralized platform.',
+            highlights: ['Gantt Charts & Kanban Boards', 'Task Priority & Deadline Tracking', 'Team Collaboration & Timesheets', 'Comprehensive Project Reports'],
+            image: '/packages/automas/LandingPage/src/marketplace/image1.png'
         },
-        { 
-            key: 'account', 
-            label: 'Accounting', 
-            title: 'Complete Accounting & Financial Management', 
-            description: 'Streamline your financial operations with our comprehensive accounting system. Manage invoices, bills, and payments, track income and expenses, perform bank account reconciliation, and generate detailed financial reports. Professional invoice generation, vendor and customer management, tax calculations and compliance, with real-time financial analytics.', 
-            image: '' 
+        {
+            key: 'account',
+            label: 'Accounting',
+            title: 'Complete Accounting & Financial Management',
+            description: 'Streamline your financial operations with our comprehensive accounting system. Manage invoices, bills, and payments, track income and expenses, perform bank account reconciliation.',
+            highlights: ['Invoice & Bill Management', 'Bank Account Reconciliation', 'Tax Calculations & Compliance', 'Real-time Financial Analytics'],
+            image: '/packages/automas/LandingPage/src/marketplace/image2.png'
         },
-        { 
-            key: 'hrm', 
-            label: 'HRM', 
-            title: 'Human Resource Management System', 
-            description: 'Complete employee management solution for modern businesses. Manage employee records and profiles, attendance and leave management, payroll processing and automation, and performance evaluations. Handle department and designation management, recruitment process handling, employee benefits management, and comprehensive HR reporting.', 
-            image: '' 
+        {
+            key: 'hrm',
+            label: 'HRM',
+            title: 'Human Resource Management System',
+            description: 'Complete employee management solution for modern businesses. Manage employee records and profiles, attendance and leave management, payroll processing and automation.',
+            highlights: ['Employee Profile Management', 'Attendance & Leave Tracking', 'Automated Payroll Processing', 'Performance Evaluation'],
+            image: '/packages/automas/LandingPage/src/marketplace/image3.png'
         },
-        { 
-            key: 'lead', 
-            label: 'CRM', 
-            title: 'Customer Relationship Management', 
-            description: 'Build stronger customer relationships and boost sales with our powerful CRM system. Manage leads and contacts, track sales pipeline, handle deal and opportunity management, and monitor customer interaction tracking. Automate follow-ups, analyze sales performance, forecast revenue, and maintain customer communication history.', 
-            image: '' 
+        {
+            key: 'lead',
+            label: 'CRM',
+            title: 'Customer Relationship Management',
+            description: 'Build stronger customer relationships and boost sales with our powerful CRM system. Manage leads and contacts, track sales pipeline, handle deal and opportunity management.',
+            highlights: ['Lead & Pipeline Tracking', 'Customer Contact History', 'Deal Stage Automation', 'Sales Performance Insights'],
+            image: '/packages/automas/LandingPage/src/marketplace/image4.png'
         },
-        { 
-            key: 'pos', 
-            label: 'POS', 
-            title: 'Point of Sale System', 
-            description: 'Fast, reliable point-of-sale solution for retail and service businesses. Process transactions quickly, manage inventory in real-time, handle multiple payment methods, and generate instant receipts. Track product stock, support barcode scanning, handle returns and exchanges, and generate comprehensive sales reports.', 
-            image: '' 
+        {
+            key: 'pos',
+            label: 'POS',
+            title: 'Point of Sale System',
+            description: 'Fast, reliable point-of-sale solution for retail and service businesses. Process transactions quickly, manage inventory in real-time, handle multiple payment methods.',
+            highlights: ['Quick Checkout & Barcode Scan', 'Real-Time Inventory Sync', 'Multiple Payment Gateways', 'Daily Sales & Cash Reports'],
+            image: '/packages/automas/LandingPage/src/marketplace/image5.png'
         },
-        { 
-            key: 'productservice', 
-            label: 'Product & Service', 
-            title: 'Product & Service Management', 
-            description: 'Efficiently manage your complete products and services catalog. Organize product categories, manage inventory levels, implement pricing strategies and variations, and handle product attributes. Manage stock across multiple locations, set up automated reorder points, track product performance, and maintain detailed product specifications.', 
-            image: '' 
+        {
+            key: 'productservice',
+            label: 'Product & Service',
+            title: 'Product & Service Management',
+            description: 'Efficiently manage your complete products and services catalog. Organize product categories, manage inventory levels, implement pricing strategies and variations.',
+            highlights: ['Catalog & Category Organization', 'Multi-Warehouse Stock Control', 'Product Variant Management', 'Purchase & Reorder Alerts'],
+            image: '/packages/automas/LandingPage/src/marketplace/image6.png'
         }
     ];
-    
-    const modules = sectionData.modules?.length > 0 ? sectionData.modules : defaultModules;
 
-    const renderTabs = () => (
-        <div>
-            <div className="flex flex-wrap justify-center mb-12 border-b">
-                {modules.map((module: any, index: number) => (
-                    <button
-                        key={index}
-                        onClick={() => setActiveTab(index)}
-                        className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
-                            activeTab === index
-                                ? 'text-white rounded-t-lg'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                        }`}
-                        style={activeTab === index ? { backgroundColor: colors.primary, borderColor: colors.primary } : {}}
-                    >
-                        {module.label}
-                    </button>
-                ))}
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                <div>
-                    <h3 className="text-2xl font-bold text-slate-900 mb-4">{modules[activeTab]?.title}</h3>
-                    <div className="text-gray-600 text-lg">{modules[activeTab]?.description}</div>
-                </div>
-                <div className="bg-gray-100 rounded-lg h-80 flex items-center justify-center overflow-hidden">
-                    {modules[activeTab]?.image ? (
-                        <img src={modules[activeTab].image.startsWith('http') ? modules[activeTab].image : getImagePath(modules[activeTab].image)} alt={modules[activeTab].title} className="w-full h-full object-cover" />
-                    ) : (
-                        <Monitor className="h-16 w-16 text-gray-400" />
-                    )}
-                </div>
-            </div>
-        </div>
-    );
+    const modulesList: any[] = (sectionData.modules && sectionData.modules.length > 0)
+        ? sectionData.modules
+        : defaultModulesList;
 
-    const renderCards = () => (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {modules.map((module: any, index: number) => (
-                <div key={index} className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-                    <div className="h-48 bg-gray-100 rounded-lg mb-6 flex items-center justify-center overflow-hidden">
-                        {module.image ? (
-                            <img src={module.image.startsWith('http') ? module.image : getImagePath(module.image)} alt={module.title} className="w-full h-full object-cover" />
-                        ) : (
-                            <Monitor className="h-12 w-12 text-gray-400" />
-                        )}
-                    </div>
-                    <h3 className="text-xl font-semibold text-slate-900 mb-3">{module.title}</h3>
-                    <div className="text-slate-700">{module.description}</div>
-                </div>
-            ))}
-        </div>
-    );
+    const [activeIdx, setActiveIdx] = useState<number>(0);
+    const [isAutoPlay, setIsAutoPlay] = useState<boolean>(true);
 
-    const renderAccordion = () => (
-        <div className="space-y-6 max-w-4xl mx-auto">
-            {modules.map((module: any, index: number) => (
-                <div key={index} className="bg-white border border-gray-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                    <button
-                        onClick={() => setOpenAccordion(openAccordion === index ? -1 : index)}
-                        className="w-full px-8 py-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
-                        style={{ backgroundColor: openAccordion === index ? `${colors.primary}08` : 'transparent' }}
-                    >
-                        <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${colors.primary}15` }}>
-                                <Monitor className="h-6 w-6" style={{ color: colors.primary }} />
-                            </div>
-                            <div>
-                                <span className="font-bold text-slate-900 text-lg">{module.label}</span>
-                                <p className="text-sm text-gray-500 mt-1">{module.description?.substring(0, 60)}...</p>
-                            </div>
-                        </div>
-                        <ChevronDown className={`h-6 w-6 text-gray-400 transition-transform duration-300 ${openAccordion === index ? 'rotate-180' : ''}`} style={{ color: openAccordion === index ? colors.primary : undefined }} />
-                    </button>
-                    {openAccordion === index && (
-                        <div className="px-8 pb-8 bg-gray-50">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center pt-6">
-                                <div className="space-y-4">
-                                    <h3 className="text-2xl font-bold text-slate-900">{module.title}</h3>
-                                    <div className="text-slate-700 leading-relaxed">{module.description}</div>
-                                </div>
-                                <div className="h-64 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden shadow-inner">
-                                    {module.image ? (
-                                        <img src={module.image.startsWith('http') ? module.image : getImagePath(module.image)} alt={module.title} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="text-center">
-                                            <Monitor className="h-16 w-16 text-gray-400 mx-auto mb-2" />
-                                            <p className="text-gray-500 text-sm">{t('Module Preview')}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            ))}
-        </div>
-    );
-
-    const renderSlider = () => (
-        <div className="relative">
-            <div className="overflow-hidden rounded-xl">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-gray-800 p-12 rounded-xl">
-                    <div>
-                        <h3 className="text-2xl font-bold text-white mb-4">{modules[currentSlide]?.title}</h3>
-                        <div className="text-gray-300 text-lg mb-6">{modules[currentSlide]?.description}</div>
-                        <div className="flex space-x-2">
-                            {modules.map((_: any, index: number) => (
-                                <button
-                                    key={index}
-                                    onClick={() => setCurrentSlide(index)}
-                                    className={`w-3 h-3 rounded-full transition-colors ${
-                                        currentSlide === index ? 'bg-white' : 'bg-gray-600'
-                                    }`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                    <div className="h-80 bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                        {modules[currentSlide]?.image ? (
-                            <img src={modules[currentSlide].image.startsWith('http') ? modules[currentSlide].image : getImagePath(modules[currentSlide].image)} alt={modules[currentSlide].title} className="w-full h-full object-cover" />
-                        ) : (
-                            <Monitor className="h-16 w-16 text-gray-400" />
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderGrid = () => (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {modules.map((module: any, index: number) => (
-                <div key={index} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-gray-200 group relative overflow-hidden">
-                    <div className="p-8">
-                        <div className="flex items-start space-x-6">
-                            <div className="flex-shrink-0 relative">
-                                <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden">
-                                    {module.image ? (
-                                        <img src={module.image.startsWith('http') ? module.image : getImagePath(module.image)} alt={module.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                                    ) : (
-                                        <Monitor className="h-10 w-10 text-gray-400" />
-                                    )}
-                                </div>
-                                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: colors.primary }}>
-                                    {index + 1}
-                                </div>
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-gray-700 transition-colors">{module.title}</h3>
-                                <div className="text-slate-700 leading-relaxed mb-4">{module.description}</div>
-                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>
-                                    {module.label}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="absolute bottom-0 left-0 h-1 w-0 group-hover:w-full transition-all duration-300" style={{ backgroundColor: colors.primary }}></div>
-                </div>
-            ))}
-        </div>
-    );
-
-    const renderContent = () => {
-        switch (config.layout) {
-            case 'cards':
-                return renderCards();
-            case 'accordion':
-                return renderAccordion();
-            case 'slider':
-                return renderSlider();
-            case 'grid':
-                return renderGrid();
-            default:
-                return renderTabs();
+    const getModuleIcon = (key: string) => {
+        switch (key) {
+            case 'taskly': return Layout;
+            case 'account': return Landmark;
+            case 'hrm': return HrmIcon;
+            case 'lead': return Contact;
+            case 'pos': return ShoppingCart;
+            case 'productservice': return Package;
+            default: return Layers;
         }
     };
 
+    const nextSlide = () => {
+        setActiveIdx((prev) => (prev + 1) % modulesList.length);
+    };
+
+    const prevSlide = () => {
+        setActiveIdx((prev) => (prev - 1 + modulesList.length) % modulesList.length);
+    };
+
+    useEffect(() => {
+        if (!isAutoPlay) return;
+        const timer = setInterval(() => {
+            nextSlide();
+        }, 6000);
+        return () => clearInterval(timer);
+    }, [isAutoPlay, modulesList.length]);
+
     return (
-        <section className={config.section}>
-            <div className={config.container}>
-                <h2 className={config.title}>{title}</h2>
-                <p className={config.subtitle}>{subtitle}</p>
-                {renderContent()}
+        <section id="modules" className="relative py-20 lg:py-28 bg-slate-50 text-slate-900 overflow-hidden select-none">
+            {/* Background Orbs */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-100/80 via-slate-50 to-white pointer-events-none" />
+            <div
+                className="absolute w-[600px] h-[600px] rounded-full blur-[140px] top-1/4 -left-40 pointer-events-none opacity-10"
+                style={{ backgroundColor: primaryColor }}
+            />
+            <div
+                className="absolute w-[500px] h-[500px] rounded-full blur-[140px] bottom-10 -right-30 pointer-events-none opacity-10"
+                style={{ backgroundColor: secondaryColor }}
+            />
+
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Header */}
+                <div className="text-center max-w-3xl mx-auto mb-10 lg:mb-14">
+                    <span
+                        className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full border border-slate-200/80 mb-4 shadow-2xs"
+                        style={{ backgroundColor: `${primaryColor}12`, color: primaryColor }}
+                    >
+                        <Layers className="w-3.5 h-3.5" />
+                        {t('Business Modules')}
+                    </span>
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight leading-tight mb-4">
+                        {t(sectionTitle)}
+                    </h2>
+                    {sectionSubtitle && (
+                        <p className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed">
+                            {t(sectionSubtitle)}
+                        </p>
+                    )}
+                </div>
+
+                {/* Centered Category Pill Tabs */}
+                <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-12 lg:mb-16">
+                    {modulesList.map((mod: any, idx: number) => {
+                        const isActive = idx === activeIdx;
+                        const ModIcon = getModuleIcon(mod.key);
+                        return (
+                            <button
+                                key={mod.key || idx}
+                                onClick={() => {
+                                    setActiveIdx(idx);
+                                    setIsAutoPlay(false);
+                                }}
+                                style={isActive ? { backgroundColor: primaryColor, color: '#ffffff' } : {}}
+                                className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center gap-2.5 ${isActive
+                                    ? 'shadow-xl shadow-primary/20 scale-105 ring-2 ring-primary/20'
+                                    : 'bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-100 hover:text-slate-900 shadow-2xs'
+                                    }`}
+                            >
+                                <ModIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                                <span>{t(mod.label || mod.title)}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Slider Wrapper */}
+            <div
+                className="relative z-10 w-full"
+                onMouseEnter={() => setIsAutoPlay(false)}
+                onMouseLeave={() => setIsAutoPlay(true)}
+            >
+                {/* Floating Outside Arrow Buttons */}
+                <button
+                    onClick={prevSlide}
+                    aria-label="Previous Module"
+                    className="absolute left-3 sm:left-6 lg:left-12 top-1/2 -translate-y-1/2 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/95 text-slate-800 border border-slate-200/90 shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 cursor-pointer group"
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = primaryColor;
+                        e.currentTarget.style.color = '#ffffff';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+                        e.currentTarget.style.color = '#1e293b';
+                    }}
+                >
+                    <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7 transition-transform group-hover:-translate-x-0.5" />
+                </button>
+
+                <button
+                    onClick={nextSlide}
+                    aria-label="Next Module"
+                    className="absolute right-3 sm:right-6 lg:right-12 top-1/2 -translate-y-1/2 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/95 text-slate-800 border border-slate-200/90 shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 cursor-pointer group"
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = primaryColor;
+                        e.currentTarget.style.color = '#ffffff';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+                        e.currentTarget.style.color = '#1e293b';
+                    }}
+                >
+                    <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 transition-transform group-hover:translate-x-0.5" />
+                </button>
+
+                {/* 3D Carousel Track Centered on Screen */}
+                <div className="py-4 overflow-hidden w-full">
+                    <div
+                        ref={trackRef}
+                        className="flex items-center gap-6 sm:gap-8 transition-transform duration-700 ease-out"
+                        style={{
+                            transform: `translateX(calc(50vw - ${(activeIdx * 920) + 460}px))`
+                        }}
+                    >
+                        {modulesList.map((mod: any, idx: number) => {
+                            const isActive = idx === activeIdx;
+                            const IconComponent = getModuleIcon(mod.key);
+                            const imageUrl = mod.image ? getImagePath(mod.image) : null;
+
+                            return (
+                                <div
+                                    key={mod.key || idx}
+                                    onClick={() => {
+                                        if (!isActive) {
+                                            setActiveIdx(idx);
+                                            setIsAutoPlay(false);
+                                        }
+                                    }}
+                                    className={`w-[88vw] sm:w-[75vw] lg:w-[880px] shrink-0 transition-all duration-700 ease-out ${isActive
+                                        ? 'scale-100 opacity-100 z-20 shadow-2xl'
+                                        : 'scale-90 opacity-40 hover:opacity-75 cursor-pointer z-10 filter blur-[0.3px]'
+                                        }`}
+                                >
+                                    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl shadow-slate-200/80">
+                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+
+                                            {/* Left Info Column */}
+                                            <div className="lg:col-span-6 space-y-5 lg:space-y-6">
+
+                                                {/* Module Badge & Index */}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100/90 text-slate-800 border border-slate-200">
+                                                        <IconComponent className="w-4 h-4 text-slate-700" />
+                                                        <span>{t(mod.label || 'Module')}</span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-400 bg-slate-100/80 px-3 py-1.5 rounded-lg border border-slate-200/60">
+                                                        <span style={{ color: primaryColor }} className="text-sm">0{idx + 1}</span>
+                                                        <span>/</span>
+                                                        <span>0{modulesList.length}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Title & Description */}
+                                                <div className="space-y-3">
+                                                    <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-2xl sm:text-3xl font-bold text-slate-900 leading-tight tracking-tight">
+                                                        {t(mod.title)}
+                                                    </h3>
+                                                    <p className="text-slate-600 text-sm leading-relaxed font-normal">
+                                                        {t(mod.description)}
+                                                    </p>
+                                                </div>
+
+                                                {/* Feature Highlights Grid */}
+                                                {mod.highlights && mod.highlights.length > 0 && (
+                                                    <div className="space-y-2.5 pt-1">
+                                                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                                            {t('Key Capabilities')}
+                                                        </div>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                                            {mod.highlights.map((h: string, i: number) => (
+                                                                <div key={i} className="flex items-center gap-2 text-xs text-slate-700 font-medium bg-slate-50/80 p-2 rounded-xl border border-slate-100">
+                                                                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                                                    <span>{t(h)}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* CTA Action Button */}
+                                                <div className="pt-2">
+                                                    <a
+                                                        href={route('register')}
+                                                        style={{ backgroundColor: primaryColor }}
+                                                        className="px-6 py-3 rounded-xl text-xs sm:text-sm font-semibold text-white inline-flex items-center gap-2 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-105 hover:opacity-95"
+                                                    >
+                                                        <span>{t(`Explore ${mod.label || 'Module'}`)}</span>
+                                                        <ArrowRight className="w-4 h-4" />
+                                                    </a>
+                                                </div>
+
+                                            </div>
+
+                                            {/* Right Full Dashboard Image Frame */}
+                                            <div className="lg:col-span-6">
+                                                <div className="relative bg-slate-950 rounded-2xl p-3 border border-slate-800 shadow-2xl overflow-hidden group">
+                                                    {/* Browser Header Bar */}
+                                                    <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-800/80 px-2">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                                        </div>
+                                                        <div className="bg-slate-900 text-slate-400 text-[11px] font-mono px-3 py-0.5 rounded-full border border-slate-800 truncate max-w-[240px]">
+                                                            automas-erp.com / {mod.key || 'module'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Screenshot Image Container */}
+                                                    <div className="relative overflow-hidden rounded-xl bg-slate-900">
+                                                        {imageUrl ? (
+                                                            <img
+                                                                src={imageUrl}
+                                                                alt={t(mod.title)}
+                                                                className="w-full h-[240px] sm:h-[300px] lg:h-[350px] object-cover rounded-xl transition-all duration-700 group-hover:scale-102"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-[240px] sm:h-[300px] lg:h-[350px] bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-2">
+                                                                <IconComponent className="w-12 h-12 stroke-[1.5]" />
+                                                                <span className="text-xs font-mono">{t('Module Dashboard Preview')}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Pagination Indicator Dots */}
+                <div className="flex items-center justify-center gap-2.5 mt-8">
+                    {modulesList.map((_, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => {
+                                setActiveIdx(idx);
+                                setIsAutoPlay(false);
+                            }}
+                            aria-label={`Go to slide ${idx + 1}`}
+                            className={`h-2.5 rounded-full transition-all duration-300 ${idx === activeIdx
+                                ? 'w-10 bg-slate-900'
+                                : 'w-2.5 bg-slate-300 hover:bg-slate-400'
+                                }`}
+                        />
+                    ))}
+                </div>
             </div>
         </section>
     );

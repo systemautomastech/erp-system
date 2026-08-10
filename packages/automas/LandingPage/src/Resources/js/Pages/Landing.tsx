@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { getAdminSetting, getImagePath } from '@/utils/helpers';
 import CookieConsent from "@/components/cookie-consent";
@@ -12,6 +13,8 @@ import CTA from './components/CTA';
 import Footer from './components/Footer';
 
 interface LandingProps {
+    plans?: any[];
+    activeModules?: any[];
     settings?: {
         company_name?: string;
         contact_email?: string;
@@ -26,10 +29,75 @@ interface LandingProps {
     };
 }
 
-export default function Landing({ settings }: LandingProps) {
+export default function Landing({ settings, plans, activeModules }: LandingProps) {
     const { adminAllSetting } = usePage().props as any;
     const favicon = getAdminSetting('favicon');
     const faviconUrl = favicon ? getImagePath(favicon) : null;
+
+    useEffect(() => {
+        const initGSAP = () => {
+            const windowGsap = (window as any).gsap;
+            const windowScrollTrigger = (window as any).ScrollTrigger;
+
+            if (windowGsap) {
+                if (windowScrollTrigger) {
+                    windowGsap.registerPlugin(windowScrollTrigger);
+                }
+
+                // Hero Entrance Animation Timeline
+                const heroTl = windowGsap.timeline({ defaults: { ease: 'power3.out' } });
+
+                heroTl.fromTo('.gsap-hero-title',
+                    { y: 35, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.9, delay: 0.2 }
+                )
+                .fromTo('.gsap-hero-subtitle',
+                    { y: 25, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.8 },
+                    '-=0.6'
+                )
+                .fromTo('.gsap-hero-cta',
+                    { y: 20, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.7 },
+                    '-=0.5'
+                )
+                .fromTo('.gsap-hero-stage',
+                    { y: 45, opacity: 0, scale: 0.97 },
+                    { y: 0, opacity: 1, scale: 1, duration: 1 },
+                    '-=0.4'
+                );
+
+                // ScrollTrigger Card Animations
+                if (windowScrollTrigger) {
+                    const cards = windowGsap.utils.toArray('.gsap-card-reveal');
+                    cards.forEach((card: any) => {
+                        windowGsap.fromTo(card,
+                            { y: 40, opacity: 0 },
+                            {
+                                y: 0,
+                                opacity: 1,
+                                duration: 0.8,
+                                ease: 'power3.out',
+                                scrollTrigger: {
+                                    trigger: card,
+                                    start: 'top 85%',
+                                    toggleActions: 'play none none none'
+                                }
+                            }
+                        );
+                    });
+                }
+            }
+        };
+
+        // Try initializing immediately or after script load delay
+        if ((window as any).gsap) {
+            initGSAP();
+        } else {
+            const timer = setTimeout(initGSAP, 400);
+            return () => clearTimeout(timer);
+        }
+    }, []);
 
     const isSectionVisible = (key: string) =>
         settings?.config_sections?.section_visibility?.[key] !== false;
@@ -47,15 +115,36 @@ export default function Landing({ settings }: LandingProps) {
             case 'modules':  return <Modules key={sectionKey} settings={settings} />;
             case 'benefits': return <Benefits key={sectionKey} settings={settings} />;
             case 'gallery':  return <Gallery key={sectionKey} settings={settings} />;
-            case 'cta':      return <CTA key={sectionKey} settings={settings} />;
+            case 'cta':      return <CTA key={sectionKey} settings={settings} plans={plans} activeModules={activeModules} />;
             case 'footer':   return <Footer key={sectionKey} settings={settings} />;
             default:         return null;
         }
     };
 
+    const colorScheme = settings?.config_sections?.colors || {
+        primary: '#130774',
+        secondary: '#0b55b7',
+        accent: '#130674'
+    };
+
     return (
-        <div className="min-h-screen bg-white">
+        <div 
+            className="min-h-screen bg-white font-['Plus_Jakarta_Sans',sans-serif]"
+            style={{
+                '--color-primary': colorScheme.primary || '#130774',
+                '--color-secondary': colorScheme.secondary || '#0b55b7',
+                '--color-accent': colorScheme.accent || '#130674',
+            } as React.CSSProperties}
+        >
             <Head title={`${settings?.company_name || 'Automas ERP'} - All-in-One Business Management Solution`}>
+                <link rel="preconnect" href="https://fonts.googleapis.com" />
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet" />
+                
+                {/* GSAP & ScrollTrigger CDN */}
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+                
                 {faviconUrl && <link rel="icon" type="image/x-icon" href={faviconUrl} />}
             </Head>
             

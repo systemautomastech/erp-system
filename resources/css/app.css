@@ -1,3 +1,5 @@
+@import './quotation-cover.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -74,70 +76,71 @@
 
     /* Global Dark Mode Fixes */
     .dark {
+
         /* Card header/footer specific fixes */
         .bg-gray-50\/50 {
             background-color: rgba(31, 41, 55, 0.5) !important;
         }
-        
+
         .bg-gray-50\/30 {
             background-color: rgba(31, 41, 55, 0.3) !important;
         }
-        
+
         .bg-blue-50\/30 {
             background-color: rgba(31, 41, 55, 0.3) !important;
         }
-        
+
         /* Standard background overrides */
         .bg-gray-50 {
             background-color: rgb(31, 41, 55) !important;
         }
-        
+
         .bg-gray-100 {
             background-color: rgb(55, 65, 81) !important;
         }
-        
+
         /* Text color overrides */
         .text-gray-500 {
             color: rgb(156, 163, 175) !important;
         }
-        
+
         .text-gray-600 {
             color: rgb(209, 213, 219) !important;
         }
-        
+
         .text-gray-700 {
             color: rgb(229, 231, 235) !important;
         }
-        
+
         .text-gray-900 {
             color: rgb(243, 244, 246) !important;
         }
-        
+
         /* Badge color overrides */
         .bg-green-100 {
             background-color: rgb(22, 101, 52) !important;
         }
-        
+
         .text-green-800 {
             color: rgb(187, 247, 208) !important;
         }
-        
+
         .bg-blue-100 {
             background-color: rgb(30, 58, 138) !important;
         }
-        
+
         .text-blue-700 {
             color: rgb(219, 234, 254) !important;
         }
-        
+
         .text-blue-800 {
             color: rgb(191, 219, 254) !important;
         }
-        
+
         .bg-red-100 {
             background-color: rgb(127, 29, 29) !important;
         }
-        
+
         .text-red-800 {
             color: rgb(254, 202, 202) !important;
         }

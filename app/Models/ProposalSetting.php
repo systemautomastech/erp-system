@@ -12,6 +12,7 @@ class ProposalSetting extends Model
         'default_validity_days',
         'logo_image',
         'background_image',
+        'template_color',
         'default_terms',
         'creator_id',
         'created_by',

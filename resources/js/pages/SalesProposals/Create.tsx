@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
@@ -16,54 +16,190 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, X } from 'lucide-react';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
+import ProposalPreviewModal from './components/ProposalPreviewModal';
+import TariffDetailsTable, { ProposalTariffRow } from './components/TariffDetailsTable';
+import ChargeItemsTable from './components/ChargeItemsTable';
+
+interface ProposalDefaultPage {
+    id: number;
+    title: string;
+    content: string;
+    page_type?: string;
+    background_image?: string;
+    sort_order: number;
+}
 
 interface CreateProps {
     customers: Array<{ id: number; name: string; email: string }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
+    defaultPages?: ProposalDefaultPage[];
+    defaultTerms?: string | null;
     [key: string]: any;
 }
 
 export default function Create() {
     const { t } = useTranslation();
-    const { customers, warehouses } = usePage<CreateProps>().props;
+    const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<CreateProps>().props;
     const [availableProducts, setAvailableProducts] = useState([]);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-    // Custom Proposal Text Sections (Moved from setup page)
-    const [sections, setSections] = useState([
-        {
-            id: 'sec-1',
-            content: '',
-            order: 1,
-            isExpanded: true,
-        },
-    ]);
+    // Initialize proposal sections (auto pre-populating Front Page if available)
+    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
+        if (defaultPages && defaultPages.length > 0) {
+            const frontPage = defaultPages.find((p) => p.page_type === 'front-page' || p.title?.toLowerCase().includes('front') || p.title?.toLowerCase().includes('cover'));
+            if (frontPage) {
+                return [
+                    {
+                        id: `sec-${frontPage.id}-${Date.now()}`,
+                        title: frontPage.title,
+                        content: frontPage.content || '',
+                        page_type: 'front-page',
+                        background_image: frontPage.background_image || '',
+                        order: 1,
+                        isExpanded: true,
+                    },
+                ];
+            }
+        }
+        return [];
+    });
+
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-    // const handleAddSection = () => {
-    //     const newSection = {
-    //         id: `sec-${Date.now()}`,
-    //         title: '',
-    //         description: '',
-    //         isExpanded: true,
-    //     };
-    //     setSections([...sections, newSection]);
-    // };
+    const handleInsertDefaultPage = (defaultPage: ProposalDefaultPage) => {
+        const isFront = defaultPage.page_type === 'front-page' || defaultPage.title?.toLowerCase().includes('front') || defaultPage.title?.toLowerCase().includes('cover');
+        const isAlreadyAdded = sections.some(
+            (sec) => sec.id === `sec-${defaultPage.id}` || (isFront && (sec.page_type === 'front-page' || sec.title?.toLowerCase().includes('front') || sec.title?.toLowerCase().includes('cover'))) || sec.title.trim().toLowerCase() === defaultPage.title.trim().toLowerCase()
+        );
 
-    const handleAddSection = () => {
-        setSections([
-            ...sections,
+        if (isAlreadyAdded) {
+            const updated = sections.filter(
+                (sec) => !(sec.id === `sec-${defaultPage.id}` || (isFront && (sec.page_type === 'front-page' || sec.title?.toLowerCase().includes('front') || sec.title?.toLowerCase().includes('cover'))) || sec.title.trim().toLowerCase() === defaultPage.title.trim().toLowerCase())
+            );
+            updated.forEach((item, index) => {
+                item.order = index + 1;
+            });
+            setSections(updated);
+        } else {
+            setSections((prev) => [
+                ...prev,
+                {
+                    id: `sec-${defaultPage.id}-${Date.now()}`,
+                    title: defaultPage.title,
+                    content: defaultPage.content,
+                    page_type: isFront ? 'front-page' : (defaultPage.page_type || 'general'),
+                    background_image: defaultPage.background_image,
+                    order: prev.length + 1,
+                    isExpanded: true,
+                },
+            ]);
+        }
+    };
+
+    const handleAddBlankSection = () => {
+        setSections((prev) => [
+            ...prev,
             {
                 id: `sec-${Date.now()}`,
+                title: `${t('Section')} ${prev.length + 1}`,
                 content: '',
-                order: sections.length + 1,
+                order: prev.length + 1,
                 isExpanded: true,
             },
         ]);
+    };
+
+    // Terms Sections state
+    const [termSections, setTermSections] = useState<Array<{ id: string; title: string; content: string; order: number; isExpanded: boolean }>>([]);
+    const [draggedTermIndex, setDraggedTermIndex] = useState<number | null>(null);
+
+    const handleInsertDefaultTerms = () => {
+        const defaultTitle = t('Default Terms & Conditions');
+        const isAlreadyAdded = termSections.some(
+            (tSec) => tSec.title.trim().toLowerCase() === defaultTitle.trim().toLowerCase()
+        );
+
+        if (isAlreadyAdded) {
+            const updated = termSections.filter(
+                (tSec) => tSec.title.trim().toLowerCase() !== defaultTitle.trim().toLowerCase()
+            );
+            updated.forEach((item, index) => {
+                item.order = index + 1;
+            });
+            setTermSections(updated);
+        } else {
+            const termsToInsert = defaultTerms || '<h2>Terms & Conditions</h2><p>1. Proposal is valid for 30 days from issuance.<br/>2. Payment terms: 50% deposit upon acceptance, 50% on project completion.</p>';
+            setTermSections((prev) => [
+                ...prev,
+                {
+                    id: `term-${Date.now()}`,
+                    title: defaultTitle,
+                    content: termsToInsert,
+                    order: prev.length + 1,
+                    isExpanded: true,
+                },
+            ]);
+        }
+    };
+
+    const handleAddBlankTerm = () => {
+        setTermSections((prev) => [
+            ...prev,
+            {
+                id: `term-${Date.now()}`,
+                title: `${t('Term')} ${prev.length + 1}`,
+                content: '',
+                order: prev.length + 1,
+                isExpanded: true,
+            },
+        ]);
+    };
+
+    const handleRemoveTermSection = (id: string) => {
+        const updated = termSections.filter((term) => term.id !== id);
+        updated.forEach((item, index) => {
+            item.order = index + 1;
+        });
+        setTermSections(updated);
+    };
+
+    const toggleTermExpand = (id: string) => {
+        setTermSections(
+            termSections.map((term) =>
+                term.id === id ? { ...term, isExpanded: !term.isExpanded } : term
+            )
+        );
+    };
+
+    const handleTermDragStart = (index: number) => {
+        setDraggedTermIndex(index);
+    };
+
+    const handleTermDragOver = (e: React.DragEvent, targetIndex: number) => {
+        e.preventDefault();
+        if (draggedTermIndex === null || draggedTermIndex === targetIndex) return;
+
+        const updated = [...termSections];
+        const [draggedItem] = updated.splice(draggedTermIndex, 1);
+        updated.splice(targetIndex, 0, draggedItem);
+
+        updated.forEach((item, index) => {
+            item.order = index + 1;
+        });
+
+        setDraggedTermIndex(targetIndex);
+        setTermSections(updated);
+    };
+
+    const handleTermDragEnd = () => {
+        setDraggedTermIndex(null);
     };
 
     const handleRemoveSection = (id: string) => {
@@ -104,15 +240,6 @@ export default function Create() {
 
         setDraggedIndex(targetIndex);
         setSections(updatedSections);
-
-        // Form data sync
-        // setData(
-        //     'proposal_content',
-        //     updatedSections.map((item) => ({
-        //         content: item.content,
-        //         order: item.order,
-        //     }))
-        // );
     };
 
     const handleDragEnd = () => {
@@ -121,6 +248,9 @@ export default function Create() {
 
     useFlashMessages();
     const { data, setData, post, processing, errors, transform } = useForm({
+        proposal_id: '',
+        reference: '',
+        subject: '',
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
         customer_id: '',
@@ -130,6 +260,8 @@ export default function Create() {
         notes: '',
         items: [{
             product_id: 0,
+            section: 'general',
+            product_type: 'product',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
@@ -138,8 +270,12 @@ export default function Create() {
             tax_amount: 0,
             total_amount: 0
         }] as SalesInvoiceItem[],
-        proposal_content: []
+        proposal_content: [],
+        tariffs: [] as ProposalTariffRow[],
     });
+
+    // Selected Customer Details
+    const selectedCustomer = customers?.find((c) => String(c.id) === String(data.customer_id));
 
     // Get custom fields using useFormFields hook
     const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal' }, setData, errors, 'create', t);
@@ -163,6 +299,8 @@ export default function Create() {
         // Reset items when warehouse changes
         setData('items', [{
             product_id: 0,
+            section: 'general',
+            product_type: 'product',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
@@ -173,34 +311,24 @@ export default function Create() {
         }]);
     };
 
-    const handleTypeChange = async (type: string) => {
+    const handleTypeChange = (type: string) => {
         setData('type', type);
-
         if (type === 'service') {
-            try {
-                const response = await fetch(route('sales-proposals.services'));
-                const services = await response.json();
-                setAvailableProducts(services);
-            } catch (error) {
-                console.error('Failed to fetch services:', error);
-                setAvailableProducts([]);
-            }
-        } else {
-            setAvailableProducts([]);
-            setData('warehouse_id', '');
+            fetchServices();
+        } else if (data.warehouse_id) {
+            handleWarehouseChange(data.warehouse_id);
         }
+    };
 
-        // Reset items when type changes
-        setData('items', [{
-            product_id: 0,
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }]);
+    const fetchServices = async () => {
+        try {
+            const response = await fetch(route('sales-proposals.services'));
+            const services = await response.json();
+            setAvailableProducts(services);
+        } catch (error) {
+            console.error('Failed to fetch services:', error);
+            setAvailableProducts([]);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -209,8 +337,13 @@ export default function Create() {
         transform((formData) => ({
             ...formData,
             proposal_content: sections.map((item, index) => ({
+                title: item.title,
                 content: item.content,
                 order: index + 1,
+            })),
+            tariffs: (formData.tariffs || []).map((t, idx) => ({
+                ...t,
+                sort_order: idx + 1,
             })),
         }));
 
@@ -223,7 +356,7 @@ export default function Create() {
         <AuthenticatedLayout
             breadcrumbs={[
                 { label: t('Sales Proposal'), url: route('sales-proposals.index') },
-                { label: t('Create Sales Proposal') }
+                { label: t('Create') }
             ]}
             pageTitle={t('Create Sales Proposal')}
         >
@@ -252,7 +385,30 @@ export default function Create() {
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
+                            <div className="flex flex-col md:flex-row gap-4 border-b pb-4 items-start">
+                                <div className="w-full md:w-64 shrink-0">
+                                    <Label htmlFor="proposal_number">{t('Proposal Number')}</Label>
+                                    <Input
+                                        id="proposal_number"
+                                        value={`${proposalSetting?.proposal_prefix || 'PROP-'}${proposalSetting?.proposal_starting_number || '1001'}-${data.invoice_date || new Date().toISOString().split('T')[0]}`}
+                                        readOnly
+                                        className="bg-muted cursor-not-allowed font-mono text-xs"
+                                    />
+                                </div>
+
+                                <div className="w-full flex-1">
+                                    <Label htmlFor="subject">{t('Subject')}</Label>
+                                    <Input
+                                        id="subject"
+                                        value={data.subject}
+                                        onChange={(e) => setData('subject', e.target.value)}
+                                        placeholder={t('e.g., Quotation for IP PABX Service')}
+                                    />
+                                    <InputError message={errors.subject} />
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <div>
                                     <Label htmlFor="invoice_date" required>
@@ -297,6 +453,56 @@ export default function Create() {
                                         </SelectContent>
                                     </Select>
                                     <InputError message={errors.customer_id} />
+
+                                    {selectedCustomer && (
+                                        <div className="mt-2.5 border border-slate-200 rounded-xl p-3 bg-slate-50/90 shadow-2xs w-full max-w-sm sm:max-w-md">
+                                            <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/80">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                                                        <User className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h5 className="font-bold text-slate-900 text-xs truncate leading-tight">{selectedCustomer.name}</h5>
+                                                        <div className="text-[11px] text-slate-400 font-normal truncate">{selectedCustomer.email || '-'} | {selectedCustomer.mobile_no || selectedCustomer.phone || '-'}</div>
+                                                    </div>
+                                                </div>
+
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 h-6 px-2 text-[11px] font-semibold gap-1 shrink-0"
+                                                    onClick={() => setData('customer_id', '')}
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                    {t('Remove')}
+                                                </Button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                                                <div className="col-span-2">
+                                                    <span className="text-slate-500 font-medium">{t('Address')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.address || selectedCustomer.billing_address || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('Division')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.division || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('District')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.district || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('Upazila')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.upazila || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('Zip Code')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.zip_code || selectedCustomer.zipcode || '-'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {data.type === 'product' && (
@@ -308,10 +514,10 @@ export default function Create() {
                                             <SelectTrigger>
                                                 <SelectValue placeholder={t('Select Warehouse')} />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent searchable>
                                                 {warehouses?.map((warehouse) => (
                                                     <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                        {warehouse.name} - {warehouse.address}
+                                                        {warehouse.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -320,257 +526,521 @@ export default function Create() {
                                     </div>
                                 )}
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div>
-                                    <Label htmlFor="payment_terms">
-                                        {t('Payment Terms')}
-                                    </Label>
-                                    <Input
-                                        id="payment_terms"
-                                        value={data.payment_terms}
-                                        onChange={(e) => setData('payment_terms', e.target.value)}
-                                        placeholder={t('e.g., Net 30')}
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="notes">
-                                        {t('Notes')}
-                                    </Label>
-                                    <Textarea
-                                        id="notes"
-                                        value={data.notes}
-                                        onChange={(e) => setData('notes', e.target.value)}
-                                        rows={2}
-                                        placeholder={t('Additional notes...')}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Custom Fields */}
-                            {customFields && customFields.length > 0 && (
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
-                                    {customFields.map(field => field.component)}
-                                </div>
-                            )}
                         </CardContent>
                     </Card>
 
+                    {/* 1. One-Time Charge (OTC) Card */}
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Package className="h-5 w-5" />
-                                    {t('Sales Proposal Items')}
-                                </CardTitle>
-                                <Button
-                                    type="button"
-                                    onClick={() => {
-                                        const newItem = {
-                                            product_id: 0,
-                                            quantity: 1,
-                                            unit_price: 0,
-                                            discount_percentage: 0,
-                                            discount_amount: 0,
-                                            tax_percentage: 0,
-                                            tax_amount: 0,
-                                            total_amount: 0
-                                        };
-                                        setData('items', [...data.items, newItem]);
-                                    }}
-                                    variant="default"
-                                    size="sm"
-                                >
-                                    + {t('Add Item')}
-                                </Button>
-                            </div>
+                            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                <FileText className="h-5 w-5" />
+                                {t('One-Time Charges (OTC)')}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <InvoiceItemsTable
-                                items={data.items}
-                                onChange={(items) => setData('items', items)}
-                                errors={errors}
+                                items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
-                                showAddButton={false}
-                                invoiceType={data.type}
+                                onChange={(updatedOtcItems) => {
+                                    const formattedOtc = updatedOtcItems.map(i => ({ ...i, section: 'otc' }));
+                                    const mrcItems = data.items.filter(i => i.section === 'mrc');
+                                    setData('items', [...formattedOtc, ...mrcItems]);
+                                }}
+                                invoiceType={data.type as 'product' | 'service'}
+                                errors={errors}
                             />
-
-                            <div className="mt-6 flex justify-end">
-                                <div className="w-80 bg-muted/30 rounded-lg p-4">
-                                    <h3 className="font-semibold mb-3">{t('Proposal Summary')}</h3>
-                                    <div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">{t('Subtotal')}</span>
-                                            <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">{t('Discount')}</span>
-                                            <span className="font-medium text-red-600">-{formatCurrency(totals.discountAmount)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">{t('Tax')}</span>
-                                            <span className="font-medium">{formatCurrency(totals.taxAmount)}</span>
-                                        </div>
-                                        <Separator className="my-2" />
-                                        <div className="flex justify-between">
-                                            <span className="font-semibold">{t('Total')}</span>
-                                            <span className="font-bold text-lg">{formatCurrency(totals.total)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
 
-                    {/* Proposal Dynamic Content Sections */}
+                    {/* 2. Monthly Recurring Charge (MRC) Card */}
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                <FileText className="h-5 w-5" />
+                                {t('Monthly Recurring Charges (MRC)')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <InvoiceItemsTable
+                                items={data.items.filter(i => i.section === 'mrc')}
+                                products={availableProducts}
+                                onChange={(updatedMrcItems) => {
+                                    const formattedMrc = updatedMrcItems.map(i => ({ ...i, section: 'mrc' }));
+                                    const otcItems = data.items.filter(i => i.section !== 'mrc');
+                                    setData('items', [...otcItems, ...formattedMrc]);
+                                }}
+                                invoiceType={data.type as 'product' | 'service'}
+                                errors={errors}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* 4. Tariff Details Table Card */}
+
+                    {/* Tariff Details Table Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <FileText className="h-5 w-5" />
+                                {t('Tariff Details')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <TariffDetailsTable
+                                tariffs={data.tariffs || []}
+                                onChange={(updatedTariffs) => setData('tariffs', updatedTariffs)}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* Default Pages & Proposal Text Sections */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div>
                                     <CardTitle className="flex items-center gap-2 text-lg">
                                         <FileText className="h-5 w-5" />
-                                        {t('Proposal Contents')}
+                                        {t('Default Pages')}
                                     </CardTitle>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        {t('Add custom text blocks (e.g. Introduction, Scope of Work).')}
-                                    </p>
                                 </div>
                                 <Button
                                     type="button"
-                                    onClick={handleAddSection}
+                                    onClick={handleAddBlankSection}
                                     variant="outline"
                                     size="sm"
-                                    className="gap-2"
+                                    className="gap-2 h-9 text-xs"
                                 >
                                     <Plus className="h-4 w-4" />
-                                    {t('Add Section')}
+                                    {t('Add New Page')}
                                 </Button>
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            {sections.map((section, index) => (
-                                <Card
-                                    key={section.id}
-                                    draggable
-                                    onDragStart={() => handleDragStart(index)}
-                                    onDragOver={(e) => handleDragOver(e, index)}
-                                    onDragEnd={handleDragEnd}
-                                    className={`transition-all border ${draggedIndex === index ? 'opacity-50 border-dashed border-primary' : ''
-                                        }`}
-                                >
-                                    <Collapsible
-                                        open={section.isExpanded}
-                                        onOpenChange={() => toggleSectionExpand(section.id)}
-                                    >
-                                        <div className="p-4 flex items-center justify-between select-none">
-                                            <div className="flex items-center gap-3 flex-1">
-                                                <div
-                                                    className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground"
-                                                    title={t('Drag to reorder')}
-                                                    onClick={(e) => e.stopPropagation()}
+                        <CardContent className="space-y-6">
+                            {/* Default Page Template Cards */}
+                            {defaultPages && defaultPages.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                        {t('Existing Pages')}
+                                    </Label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {defaultPages.map((page) => {
+                                            const isInserted = sections.some((s) => s.title.toLowerCase() === page.title.toLowerCase());
+                                            return (
+                                                <Card
+                                                    key={page.id}
+                                                    onClick={() => handleInsertDefaultPage(page)}
+                                                    className={cn(
+                                                        "cursor-pointer transition-all hover:border-primary/80 hover:shadow-xs group relative p-3 border rounded-lg flex items-center justify-between gap-2 select-none",
+                                                        isInserted ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card"
+                                                    )}
                                                 >
-                                                    <GripVertical className="h-5 w-5" />
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0">
+                                                            {page.sort_order || page.order}
+                                                        </span>
+                                                        <span className="text-xs font-medium truncate">{page.title}</span>
+                                                    </div>
+                                                    {isInserted ? (
+                                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-600 dark:text-green-400 gap-1 shrink-0 border border-green-500/20">
+                                                            <Check className="h-3 w-3" />
+                                                            {t('Added')}
+                                                        </Badge>
+                                                    ) : (
+                                                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 opacity-60 group-hover:opacity-100 shrink-0">
+                                                            <Plus className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Section Cards List */}
+                            <div className="space-y-4 pt-2">
+                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    {t('Proposal Content Sections')}
+                                </Label>
+                                {sections.length === 0 ? (
+                                    <div className="border border-dashed rounded-lg p-8 text-center text-muted-foreground space-y-2 bg-muted/20">
+                                        <FileText className="h-8 w-8 mx-auto text-muted-foreground/60" />
+                                        <p className="text-sm font-medium">{t('No pages added to this proposal yet.')}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('Click on an existing page card above or click "+ Add New Page" to add sections to your proposal.')}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    sections.map((section, index) => (
+                                        <Card
+                                            key={section.id}
+                                            draggable
+                                            onDragStart={() => handleDragStart(index)}
+                                            onDragOver={(e) => handleDragOver(e, index)}
+                                            onDragEnd={handleDragEnd}
+                                            className={`transition-all border ${draggedIndex === index ? 'opacity-50 border-dashed border-primary' : ''}`}
+                                        >
+                                            <Collapsible
+                                                open={section.isExpanded}
+                                                onOpenChange={() => toggleSectionExpand(section.id)}
+                                            >
+                                                <div className="p-4 flex items-center justify-between select-none">
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div
+                                                            className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground shrink-0"
+                                                            title={t('Drag to reorder')}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <GripVertical className="h-5 w-5" />
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2 font-medium text-base min-w-0 flex-1">
+                                                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                                                            <span className="truncate">
+                                                                {section.title || `${t('Section')} ${index + 1}`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <CollapsibleTrigger asChild>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                                title={section.isExpanded ? t('Fold box') : t('Unfold box')}
+                                                            >
+                                                                {section.isExpanded ? (
+                                                                    <ChevronDown className="h-4 w-4" />
+                                                                ) : (
+                                                                    <ChevronRight className="h-4 w-4" />
+                                                                )}
+                                                            </Button>
+                                                        </CollapsibleTrigger>
+
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleRemoveSection(section.id);
+                                                            }}
+                                                            title={t('Remove section')}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-2 font-medium text-base">
-                                                    <FileText className="h-4 w-4 text-primary shrink-0" />
-                                                    <span>
-                                                        {section.content
-                                                            ? section.content.replace(/<[^>]+>/g, '').slice(0, 30)
-                                                            : `${t('Section')} ${index + 1}`}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                                <CollapsibleContent>
+                                                    <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                                                        <div className="space-y-2">
+                                                            {(section.page_type !== 'front-page') ?
+                                                                (
+                                                                    <><Label htmlFor={`sec-title-${section.id}`}>{t('Section Title')}</Label>
+                                                                        <Input
+                                                                            id={`sec-title-${section.id}`}
+                                                                            value={section.title}
+                                                                            onChange={(e) => {
+                                                                                const updated = [...sections];
+                                                                                updated[index].title = e.target.value;
+                                                                                setSections(updated);
+                                                                            }}
+                                                                            placeholder={t('e.g., Introduction')}
+                                                                        /></>
+                                                                ) : (<span>{section.title}</span>)}
 
-                                            <div className="flex items-center gap-1">
-                                                <CollapsibleTrigger asChild>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                        title={section.isExpanded ? t('Fold box') : t('Unfold box')}
-                                                    >
-                                                        {section.isExpanded ? (
-                                                            <ChevronDown className="h-4 w-4" />
+                                                        </div>
+
+                                                        {(section.page_type === 'front-page' || section.is_front_page || section.title?.toLowerCase().includes('front page') || section.title?.toLowerCase().includes('cover')) ? (
+                                                            <div className="space-y-2 pt-1">
+                                                            </div>
                                                         ) : (
-                                                            <ChevronRight className="h-4 w-4" />
+                                                            <div className="space-y-2">
+                                                                <Label>{t('Section Content')}</Label>
+                                                                <RichTextEditor
+                                                                    content={section.content}
+                                                                    onChange={(content) => {
+                                                                        const updated = [...sections];
+                                                                        updated[index].content = content;
+                                                                        setSections(updated);
+                                                                    }}
+                                                                    placeholder={t('Enter section content...')}
+                                                                />
+                                                            </div>
                                                         )}
-                                                    </Button>
-                                                </CollapsibleTrigger>
+                                                    </div>
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        </Card>
+                                    ))
+                                )}
 
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleRemoveSection(section.id);
-                                                    }}
-                                                    title={t('Remove section')}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        <CollapsibleContent>
-                                            <div className="px-4 pb-4 space-y-4 border-t pt-4">
-                                                <div className="space-y-2">
-                                                    {/* <Label>{t('Description / Content')}</Label> */}
-                                                    {/* <RichTextEditor
-                                                        content={data.proposal_content}
-                                                        onChange={(content) => setData('proposal_content', content)}
-                                                        placeholder={t('Enter section detailed content with formatting...')}
-                                                    /> */}
-                                                    <RichTextEditor
-                                                        content={section.content}
-                                                        onChange={(content) => {
-                                                            const updated = [...sections];
-                                                            updated[index].content = content;
-
-                                                            setSections(updated);
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </CollapsibleContent>
-                                    </Collapsible>
-                                </Card>
-                            ))}
-
-                            <div className="flex justify-start pt-2">
-                                <Button type="button" variant="outline" size="sm" onClick={handleAddSection} className="gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    {t('Add Another Section')}
-                                </Button>
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                                    <Button type="button" variant="outline" size="sm" onClick={handleAddBlankSection} className="gap-2 h-9 text-xs">
+                                        <Plus className="h-4 w-4" />
+                                        {t('Add New Page')}
+                                    </Button>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-muted-foreground">
-                            {data.items.length} {t('items added')}
-                        </div>
-                        <div className="flex gap-3">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => window.history.back()}
-                            >
-                                {t('Cancel')}
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={processing || data.items.length === 0}
-                            >
-                                {processing ? t('Creating...') : t('Create')}
-                            </Button>
-                        </div>
+                    {/* Terms & Conditions Section */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <FileText className="h-5 w-5" />
+                                        {t('Terms & Conditions')}
+                                    </CardTitle>
+                                </div>
+                                <Button
+                                    type="button"
+                                    onClick={handleAddBlankTerm}
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 h-9 text-xs"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    {t('Add New Term')}
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {/* Existing Terms Template Cards */}
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    {t('Existing Terms')}
+                                </Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {(() => {
+                                        const isTermsInserted = termSections.some((tSec) => tSec.title.toLowerCase() === t('Default Terms & Conditions').toLowerCase());
+                                        return (
+                                            <Card
+                                                onClick={handleInsertDefaultTerms}
+                                                className={cn(
+                                                    "cursor-pointer transition-all hover:border-primary/80 hover:shadow-xs group relative p-3 border rounded-lg flex items-center justify-between gap-2 select-none",
+                                                    isTermsInserted ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0">
+                                                        1
+                                                    </span>
+                                                    <span className="text-xs font-medium truncate">{t('Default Terms & Conditions')}</span>
+                                                </div>
+                                                {isTermsInserted ? (
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-600 dark:text-green-400 gap-1 shrink-0 border border-green-500/20">
+                                                        <Check className="h-3 w-3" />
+                                                        {t('Added')}
+                                                    </Badge>
+                                                ) : (
+                                                    <Button type="button" size="icon" variant="ghost" className="h-6 w-6 opacity-60 group-hover:opacity-100 shrink-0">
+                                                        <Plus className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
+                                            </Card>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+
+                            {/* Term Section Cards List */}
+                            <div className="space-y-4 pt-2">
+                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    {t('Proposal Terms Sections')}
+                                </Label>
+                                {termSections.length === 0 ? (
+                                    <div className="border border-dashed rounded-lg p-8 text-center text-muted-foreground space-y-2 bg-muted/20">
+                                        <FileText className="h-8 w-8 mx-auto text-muted-foreground/60" />
+                                        <p className="text-sm font-medium">{t('No terms added to this proposal yet.')}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('Click on an existing terms card above or click "+ Add New Term" to add terms to your proposal.')}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    termSections.map((term, index) => (
+                                        <Card
+                                            key={term.id}
+                                            draggable
+                                            onDragStart={() => handleTermDragStart(index)}
+                                            onDragOver={(e) => handleTermDragOver(e, index)}
+                                            onDragEnd={handleTermDragEnd}
+                                            className={`transition-all border ${draggedTermIndex === index ? 'opacity-50 border-dashed border-primary' : ''}`}
+                                        >
+                                            <Collapsible
+                                                open={term.isExpanded}
+                                                onOpenChange={() => toggleTermExpand(term.id)}
+                                            >
+                                                <div className="p-4 flex items-center justify-between select-none">
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div
+                                                            className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground shrink-0"
+                                                            title={t('Drag to reorder')}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <GripVertical className="h-5 w-5" />
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2 font-medium text-base min-w-0 flex-1">
+                                                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                                                            <span className="truncate">
+                                                                {term.title || `${t('Term')} ${index + 1}`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <CollapsibleTrigger asChild>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                                title={term.isExpanded ? t('Fold box') : t('Unfold box')}
+                                                            >
+                                                                {term.isExpanded ? (
+                                                                    <ChevronDown className="h-4 w-4" />
+                                                                ) : (
+                                                                    <ChevronRight className="h-4 w-4" />
+                                                                )}
+                                                            </Button>
+                                                        </CollapsibleTrigger>
+
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleRemoveTermSection(term.id);
+                                                            }}
+                                                            title={t('Remove term section')}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                <CollapsibleContent>
+                                                    <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor={`term-title-${term.id}`}>{t('Term Title')}</Label>
+                                                            <Input
+                                                                id={`term-title-${term.id}`}
+                                                                value={term.title}
+                                                                onChange={(e) => {
+                                                                    const updated = [...termSections];
+                                                                    updated[index].title = e.target.value;
+                                                                    setTermSections(updated);
+                                                                }}
+                                                                placeholder={t('e.g., Payment Terms')}
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label>{t('Term Content')}</Label>
+                                                            <RichTextEditor
+                                                                content={term.content}
+                                                                onChange={(content) => {
+                                                                    const updated = [...termSections];
+                                                                    updated[index].content = content;
+                                                                    setTermSections(updated);
+                                                                }}
+                                                                placeholder={t('Enter term content...')}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        </Card>
+                                    ))
+                                )}
+
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                                    <Button type="button" variant="outline" size="sm" onClick={handleAddBlankTerm} className="gap-2 h-9 text-xs">
+                                        <Plus className="h-4 w-4" />
+                                        {t('Add New Term')}
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Additional Notes Section */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">{t('Notes')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div>
+                                <Textarea
+                                    id="notes"
+                                    value={data.notes}
+                                    onChange={(e) => setData('notes', e.target.value)}
+                                    placeholder={t('Enter additional notes...')}
+                                    rows={4}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Custom Fields */}
+                    {Array.isArray(customFields) && customFields.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{t('Custom Fields')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {customFields.map((field: any) => (
+                                    <div key={field.id}>{field.component}</div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    <div className="flex items-center justify-end gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => window.history.back()}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setIsPreviewOpen(true)}
+                            className="gap-2"
+                        >
+                            <Eye className="h-4 w-4" />
+                            {t('Preview')}
+                        </Button>
+                        <Button type="submit" disabled={processing}>
+                            {t('Create')}
+                        </Button>
                     </div>
                 </form>
+
+                <ProposalPreviewModal
+                    isOpen={isPreviewOpen}
+                    onClose={() => setIsPreviewOpen(false)}
+                    formData={data}
+                    sections={sections}
+                    termSections={termSections}
+                    customers={customers}
+                    warehouses={warehouses}
+                    availableProducts={availableProducts}
+                    totals={totals}
+                    proposalSetting={proposalSetting}
+                    tariffs={data.tariffs}
+                />
             </div>
         </AuthenticatedLayout>
     );

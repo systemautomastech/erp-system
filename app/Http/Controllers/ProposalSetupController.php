@@ -31,8 +31,25 @@ class ProposalSetupController extends Controller
 
     public function defaultPages()
     {
+        // Ensure a fixed Front Page exists for creator with page_type = 'front-page'
+        $frontPage = ProposalDefaultPage::where('creator_id', Auth::id())
+            ->where('page_type', 'front-page')
+            ->first();
+
+        if (!$frontPage) {
+            ProposalDefaultPage::create([
+                'title' => 'Front Page',
+                'content' => '<h1>Sales Proposal Cover Page</h1><p>Welcome to our proposal. Prepared specifically for your business.</p>',
+                'page_type' => 'front-page',
+                'is_active' => true,
+                'sort_order' => 1,
+                'creator_id' => Auth::id(),
+            ]);
+        }
+
         $defaultPages = ProposalDefaultPage::where('creator_id', Auth::id())
-            ->orderBy('order')
+            ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
+            ->orderBy('sort_order')
             ->get();
 
         return Inertia::render('SalesProposalSetup/Index', [
@@ -60,6 +77,7 @@ class ProposalSetupController extends Controller
             'proposal_prefix' => $existing?->proposal_prefix ?? 'PRO',
             'proposal_starting_number' => $existing?->proposal_starting_number ?? 1,
             'default_validity_days' => $existing?->default_validity_days ?? 30,
+            'template_color' => $existing?->template_color ?? '#E9591C',
         ], $validatedData);
 
         ProposalSetting::updateOrCreate(
@@ -75,8 +93,11 @@ class ProposalSetupController extends Controller
         $validated = $request->validated();
         ProposalDefaultPage::create(array_merge($validated, [
             'creator_id' => Auth::id(),
+            'page_type' => $request->input('page_type', 'general'),
+            'content' => $request->input('content', ''),
+            'background_image' => $request->input('background_image'),
             'is_active' => $request->boolean('is_active', true),
-            'order' => $request->input('order', 1),
+            'sort_order' => $request->input('sort_order', 1),
         ]));
 
         return redirect()->back()->with('success', __('Default page created successfully.'));
@@ -86,6 +107,10 @@ class ProposalSetupController extends Controller
     {
         $validated = $request->validated();
         $defaultPage->update(array_merge($validated, [
+            'page_type' => $request->input('page_type', $defaultPage->page_type),
+            'content' => $request->has('content') ? $request->input('content', '') : $defaultPage->content,
+            'background_image' => $request->has('background_image') ? $request->input('background_image') : $defaultPage->background_image,
+            'sort_order' => $request->input('sort_order', $defaultPage->sort_order),
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $defaultPage->is_active,
         ]));
 
@@ -94,6 +119,10 @@ class ProposalSetupController extends Controller
 
     public function destroyDefaultPage(ProposalDefaultPage $defaultPage)
     {
+        if ($defaultPage->page_type === 'front-page') {
+            return redirect()->back()->with('error', __('The Front Page is fixed and cannot be deleted.'));
+        }
+
         $defaultPage->delete();
 
         return redirect()->back()->with('success', __('Default page deleted successfully.'));

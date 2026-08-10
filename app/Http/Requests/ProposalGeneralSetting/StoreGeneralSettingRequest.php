@@ -29,6 +29,7 @@ class StoreGeneralSettingRequest extends FormRequest
             'default_validity_days' => 'sometimes|required|integer|min:1|max:365',
             'logo_image' => 'nullable|string',
             'background_image' => 'nullable|string',
+            'template_color' => 'nullable|string|max:20',
             'default_terms' => 'nullable|string',
             'creator_id' => ['nullable', 'exists:users,id', Rule::unique('proposal_settings', 'creator_id')],
         ];

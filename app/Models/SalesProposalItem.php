@@ -11,6 +11,8 @@ class SalesProposalItem extends Model
     protected $fillable = [
         'proposal_id',
         'product_id',
+        'section',
+        'product_type',
         'quantity',
         'unit_price',
         'discount_percentage',

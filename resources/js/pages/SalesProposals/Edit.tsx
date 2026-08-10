@@ -16,7 +16,10 @@ import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package } from 'lucide-react';
+import { CalendarDays, Package, Eye, FileText, User, X } from 'lucide-react';
+import ProposalPreviewModal from './components/ProposalPreviewModal';
+import TariffDetailsTable, { ProposalTariffRow } from './components/TariffDetailsTable';
+import ChargeItemsTable from './components/ChargeItemsTable';
 
 interface SalesProposal {
     id: number;
@@ -28,19 +31,21 @@ interface SalesProposal {
     payment_terms?: string;
     notes?: string;
     items: any[];
+    tariffs?: any[];
 }
 
 interface EditProps {
     proposal: SalesProposal;
-    customers: Array<{id: number; name: string; email: string}>;
-    warehouses: Array<{id: number; name: string; address: string}>;
+    customers: Array<{ id: number; name: string; email: string }>;
+    warehouses: Array<{ id: number; name: string; address: string }>;
     [key: string]: any;
 }
 
 export default function Edit() {
     const { t } = useTranslation();
-    const { proposal, customers, warehouses } = usePage<EditProps>().props;
+    const { proposal, customers, warehouses, proposalSetting } = usePage<EditProps>().props;
     const [availableProducts, setAvailableProducts] = useState([]);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     useFlashMessages();
     const { data, setData, put, processing, errors } = useForm({
@@ -63,15 +68,16 @@ export default function Edit() {
                 taxes: item.taxes || [],
                 discount_amount: calculations.discountAmount,
                 tax_amount: calculations.taxAmount,
-                total_amount: calculations.totalAmount
-            };
-        })
-    });
+                tariffs: (proposal.tariffs || []) as ProposalTariffRow[],
+            });
 
-    // Get custom fields using useFormFields hook
-    const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal', id: proposal.id }, setData, errors, 'edit', t);
+        // Selected Customer Details
+        const selectedCustomer = customers?.find((c) => String(c.id) === String(data.customer_id));
 
-    useEffect(() => {
+        // Get custom fields using useFormFields hook
+        const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal', id: proposal.id }, setData, errors, 'edit', t);
+
+        useEffect(() => {
         if (data.type === 'product' && data.warehouse_id) {
             handleWarehouseChange(data.warehouse_id);
         } else if (data.type === 'service') {
@@ -117,8 +123,8 @@ export default function Edit() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Sales Proposals'), url: route('sales-proposals.index')},
-                {label: t('Edit Proposal')}
+                { label: t('Sales Proposals'), url: route('sales-proposals.index') },
+                { label: t('Edit Proposal') }
             ]}
             pageTitle={t('Edit Proposal')}
         >
@@ -178,6 +184,56 @@ export default function Edit() {
                                         </SelectContent>
                                     </Select>
                                     <InputError message={errors.customer_id} />
+
+                                    {selectedCustomer && (
+                                        <div className="mt-2.5 border border-slate-200 rounded-xl p-3 bg-slate-50/90 shadow-2xs w-full max-w-sm sm:max-w-md">
+                                            <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/80">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                                                        <User className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h5 className="font-bold text-slate-900 text-xs truncate leading-tight">{selectedCustomer.name}</h5>
+                                                        <div className="text-[11px] text-slate-400 font-normal truncate">{selectedCustomer.email || '-'} | {selectedCustomer.mobile_no || selectedCustomer.phone || '-'}</div>
+                                                    </div>
+                                                </div>
+
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 h-6 px-2 text-[11px] font-semibold gap-1 shrink-0"
+                                                    onClick={() => setData('customer_id', '')}
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                    {t('Remove')}
+                                                </Button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                                                <div className="col-span-2">
+                                                    <span className="text-slate-500 font-medium">{t('Address')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.address || selectedCustomer.billing_address || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('Division')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.division || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('District')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.district || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('Upazila')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.upazila || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500 font-medium">{t('Zip Code')}: </span>
+                                                    <span className="text-slate-800 font-medium">{selectedCustomer.zip_code || selectedCustomer.zipcode || '-'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {data.type === 'product' && (
@@ -238,43 +294,49 @@ export default function Edit() {
                         </CardContent>
                     </Card>
 
+                    {/* 1. One-Time Charge (OTC) Card */}
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Package className="h-5 w-5" />
-                                    {t('Proposal Items')}
-                                </CardTitle>
-                                <Button
-                                    type="button"
-                                    onClick={() => {
-                                        const newItem = {
-                                            product_id: 0,
-                                            quantity: 1,
-                                            unit_price: 0,
-                                            discount_percentage: 0,
-                                            discount_amount: 0,
-                                            tax_percentage: 0,
-                                            tax_amount: 0,
-                                            total_amount: 0,
-                                            taxes: []
-                                        };
-                                        setData('items', [...data.items, newItem]);
-                                    }}
-                                    variant="default"
-                                    size="sm"
-                                >
-                                    + {t('Add Item')}
-                                </Button>
-                            </div>
+                            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                <FileText className="h-5 w-5 text-purple-600" />
+                                {t('One-Time Charges (OTC)')}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <InvoiceItemsTable
-                                items={data.items}
-                                onChange={(items) => setData('items', items)}
+                                items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
+                                onChange={(updatedOtcItems) => {
+                                    const formattedOtc = updatedOtcItems.map(i => ({ ...i, section: 'otc' }));
+                                    const mrcItems = data.items.filter(i => i.section === 'mrc');
+                                    setData('items', [...formattedOtc, ...mrcItems]);
+                                }}
                                 errors={errors}
                                 products={availableProducts}
-                                showAddButton={false}
+                                showAddButton={true}
+                                invoiceType={data.type}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* 2. Monthly Recurring Charge (MRC) Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                <FileText className="h-5 w-5" />
+                                {t('Monthly Recurring Charges (MRC)')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <InvoiceItemsTable
+                                items={data.items.filter(i => i.section === 'mrc')}
+                                onChange={(updatedMrcItems) => {
+                                    const formattedMrc = updatedMrcItems.map(i => ({ ...i, section: 'mrc' }));
+                                    const otcItems = data.items.filter(i => i.section !== 'mrc');
+                                    setData('items', [...otcItems, ...formattedMrc]);
+                                }}
+                                errors={errors}
+                                products={availableProducts}
+                                showAddButton={true}
                                 invoiceType={data.type}
                             />
 
@@ -305,6 +367,22 @@ export default function Edit() {
                         </CardContent>
                     </Card>
 
+                    {/* Tariff Details Table Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <FileText className="h-5 w-5" />
+                                {t('Tariff Details')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <TariffDetailsTable
+                                tariffs={data.tariffs || []}
+                                onChange={(updatedTariffs) => setData('tariffs', updatedTariffs)}
+                            />
+                        </CardContent>
+                    </Card>
+
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-muted-foreground">
                             {data.items.length} {t('items added')}
@@ -318,6 +396,15 @@ export default function Edit() {
                                 {t('Cancel')}
                             </Button>
                             <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setIsPreviewOpen(true)}
+                                className="gap-2"
+                            >
+                                <Eye className="h-4 w-4" />
+                                {t('Full Preview')}
+                            </Button>
+                            <Button
                                 type="submit"
                                 disabled={processing || data.items.length === 0}
                             >
@@ -326,6 +413,26 @@ export default function Edit() {
                         </div>
                     </div>
                 </form>
+
+                <ProposalPreviewModal
+                    isOpen={isPreviewOpen}
+                    onClose={() => setIsPreviewOpen(false)}
+                    formData={{
+                        ...data,
+                        proposal_number: proposal.id ? `PROP-${proposal.id}` : undefined,
+                    }}
+                    customers={customers}
+                    warehouses={warehouses}
+                    availableProducts={availableProducts}
+                    totals={{
+                        subtotal: totals.subtotal,
+                        tax_amount: totals.taxAmount,
+                        discount_amount: totals.discountAmount,
+                        total_amount: totals.total,
+                    }}
+                    proposalSetting={proposalSetting}
+                    tariffs={data.tariffs}
+                />
             </div>
         </AuthenticatedLayout>
     );

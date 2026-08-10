@@ -9,8 +9,10 @@ class ProposalDefaultPage extends Model
     protected $fillable = [
         'title',
         'content',
+        'page_type',
+        'background_image',
+        'sort_order',
         'is_active',
-        'order',
         'creator_id',
     ];
 }

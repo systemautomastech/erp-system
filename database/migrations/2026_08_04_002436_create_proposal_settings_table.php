@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->unsignedSmallInteger('default_validity_days')->default(30);
             $table->string('logo_image')->nullable();
             $table->string('background_image')->nullable();
+            $table->string('template_color')->default('#E9591C')->nullable();
             $table->text('default_terms')->nullable();
             $table->foreignId('creator_id')->constrained('users')->cascadeOnDelete();
             $table->timestamps();

@@ -37,13 +37,15 @@ class StoreDefaultPageRequest extends FormRequest
     {
         return [
             'title' => 'required|string|max:255',
-            'content' => 'required|string',
+            'content' => 'nullable|string',
+            'page_type' => 'sometimes|string',
+            'background_image' => 'nullable|string',
             'is_active' => 'sometimes|boolean',
-            'order' => [
+            'sort_order' => [
                 'sometimes',
                 'integer',
                 'min:1',
-                Rule::unique('proposal_default_pages', 'order')->where(fn ($query) => $query->where('creator_id', auth()->id())),
+                Rule::unique('proposal_default_pages', 'sort_order')->where(fn ($query) => $query->where('creator_id', auth()->id())),
             ],
             'creator_id' => 'nullable|exists:users,id',
         ];
@@ -58,12 +60,11 @@ class StoreDefaultPageRequest extends FormRequest
             'title.required' => __('The page title field is required.'),
             'title.string' => __('The page title must be a valid string.'),
             'title.max' => __('The page title may not be greater than 255 characters.'),
-            'content.required' => __('The page content field is required.'),
             'content.string' => __('The page content must be a valid string.'),
             'is_active.boolean' => __('The active status must be active or inactive.'),
-            'order.integer' => __('The order must be an integer.'),
-            'order.min' => __('The order must be at least 1.'),
-            'order.unique' => __('Duplicate sort order, please use a different order.'),
+            'sort_order.integer' => __('The sort order must be an integer.'),
+            'sort_order.min' => __('The sort order must be at least 1.'),
+            'sort_order.unique' => __('Duplicate sort order, please use a different order.'),
         ];
     }
 }

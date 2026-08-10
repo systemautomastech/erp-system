@@ -9,9 +9,12 @@ use App\Events\DestroySalesProposal;
 use App\Events\RejectSalesProposal;
 use App\Events\SentSalesProposal;
 use App\Events\UpdateSalesProposal;
+use App\Models\ProposalDefaultPage;
+use App\Models\ProposalSetting;
 use App\Models\SalesProposal;
 use App\Models\SalesProposalItem;
 use App\Models\SalesProposalItemTax;
+use App\Models\SalesProposalTariff;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\SalesInvoiceItemTax;
@@ -30,13 +33,13 @@ class SalesProposalController extends Controller
 {
     private function checkProposalAccess(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('manage-any-sales-proposals')) {
+        if (Auth::user()->can('manage-any-sales-proposals')) {
             return true;
-        } elseif(Auth::user()->can('manage-own-sales-proposals')) {
-            if($salesProposal->creator_id != Auth::id() && $salesProposal->customer_id != Auth::id()) {
+        } elseif (Auth::user()->can('manage-own-sales-proposals')) {
+            if ($salesProposal->creator_id != Auth::id() && $salesProposal->customer_id != Auth::id()) {
                 return false;
             }
-            if($salesProposal->creator_id != Auth::id() && Auth::user()->type == 'client' && $salesProposal->status == 'draft') {
+            if ($salesProposal->creator_id != Auth::id() && Auth::user()->type == 'client' && $salesProposal->status == 'draft') {
                 return false;
             }
             return true;
@@ -45,15 +48,15 @@ class SalesProposalController extends Controller
     }
     public function index(Request $request)
     {
-        if(Auth::user()->can('manage-sales-proposals')){
+        if (Auth::user()->can('manage-sales-proposals')) {
             $baseQuery = SalesProposal::with(['customer', 'items'])
-                ->where(function($q) {
-                    if(Auth::user()->can('manage-any-sales-proposals')) {
+                ->where(function ($q) {
+                    if (Auth::user()->can('manage-any-sales-proposals')) {
                         $q->where('created_by', creatorId());
-                    } elseif(Auth::user()->can('manage-own-sales-proposals')) {
-                        $q->where('creator_id', Auth::id())->orWhere('customer_id',Auth::id());
-                        if(Auth::user()->type == 'client') {
-                            $q->where('status','!=', 'draft');
+                    } elseif (Auth::user()->can('manage-own-sales-proposals')) {
+                        $q->where('creator_id', Auth::id())->orWhere('customer_id', Auth::id());
+                        if (Auth::user()->type == 'client') {
+                            $q->where('status', '!=', 'draft');
                         }
                     } else {
                         $q->whereRaw('1 = 0');
@@ -64,7 +67,11 @@ class SalesProposalController extends Controller
                 $baseQuery->where('customer_id', $request->customer_id);
             }
             if ($request->search) {
-                $baseQuery->where('proposal_number', 'like', '%' . $request->search . '%');
+                $baseQuery->where(function ($q) use ($request) {
+                    $q->where('proposal_number', 'like', '%' . $request->search . '%')
+                        ->orWhere('reference', 'like', '%' . $request->search . '%')
+                        ->orWhere('subject', 'like', '%' . $request->search . '%');
+                });
             }
             if ($request->date_range) {
                 $dates = explode(' - ', $request->date_range);
@@ -91,13 +98,13 @@ class SalesProposalController extends Controller
             }
             // Accepted proposals already converted to an invoice are a closed loop, not pending work,
             // so the board column tracks only the ones still awaiting conversion.
-            $stats['accepted_active_count'] = (clone $baseQuery)->where('status', 'accepted')->where('converted_to_invoice', false)->count();
+            $stats['accepted_active_count'] = (clone $baseQuery)->where('status', 'accepted')->whereNull('converted_to_invoice')->count();
 
             $query = clone $baseQuery;
             if ($request->status) {
                 if ($request->status === 'expired') {
                     $query->where('due_date', '<', now())
-                          ->whereNotIn('status', ['accepted', 'rejected']);
+                        ->whereNotIn('status', ['accepted', 'rejected']);
                 } else {
                     $query->where('status', $request->status);
                 }
@@ -105,7 +112,7 @@ class SalesProposalController extends Controller
 
             $sortField = $request->get('sort', 'created_at');
             $sortDirection = $request->get('direction', 'desc');
-            $allowedSortFields = ['proposal_number', 'proposal_date', 'due_date', 'subtotal', 'tax_amount', 'total_amount', 'status', 'created_at'];
+            $allowedSortFields = ['proposal_number', 'reference', 'subject', 'proposal_date', 'due_date', 'subtotal', 'tax_amount', 'total_amount', 'status', 'created_at'];
             if (!in_array($sortField, $allowedSortFields)) {
                 $sortField = 'created_at';
             }
@@ -124,7 +131,7 @@ class SalesProposalController extends Controller
                 foreach (['draft', 'sent', 'accepted', 'rejected'] as $status) {
                     $columnQuery = (clone $baseQuery)->where('status', $status);
                     if ($status === 'accepted') {
-                        $columnQuery->where('converted_to_invoice', false);
+                        $columnQuery->whereNull('converted_to_invoice');
                     }
                     $boardData[$status] = $columnQuery
                         ->orderBy('created_at', 'desc')
@@ -147,30 +154,39 @@ class SalesProposalController extends Controller
 
     public function create()
     {
-        if(Auth::user()->can('create-sales-proposals')){
-            $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+        if (Auth::user()->can('create-sales-proposals')) {
+            $customers = User::where('type', 'client')->where('created_by', creatorId())->get();
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
+            $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
+                ->where('is_active', true)
+                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
+                ->orderBy('sort_order')
+                ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
+            $proposalSetting = ProposalSetting::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))->first();
 
             return Inertia::render('SalesProposals/Create', [
                 'customers' => $customers,
-                'warehouses' => $warehouses
+                'warehouses' => $warehouses,
+                'defaultPages' => $defaultPages,
+                'defaultTerms' => $proposalSetting ? $proposalSetting->default_terms : null,
+                'proposalSetting' => $proposalSetting,
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function store(StoreSalesProposalRequest $request)
     {
-        dd($request->all());
-
-        if(Auth::user()->can('create-sales-proposals')){
+        if (Auth::user()->can('create-sales-proposals')) {
 
             $totals = $this->calculateTotals($request->items);
 
             $proposal = new SalesProposal();
-            $proposal->proposal_date = $request->invoice_date;
+            $proposal->proposal_number = SalesProposal::generateProposalNumber($request->invoice_date ?? $request->proposal_date);
+            $proposal->reference = $request->reference;
+            $proposal->subject = $request->subject;
+            $proposal->proposal_date = $request->invoice_date ?? $request->proposal_date;
             $proposal->due_date = $request->due_date;
             $proposal->customer_id = $request->customer_id;
             $proposal->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
@@ -186,6 +202,7 @@ class SalesProposalController extends Controller
             $proposal->save();
 
             $this->createProposalItems($proposal->id, $request->items);
+            $this->saveProposalTariffs($proposal->id, $request->tariffs);
             try {
                 CreateSalesProposal::dispatch($request, $proposal);
             } catch (\Throwable $th) {
@@ -193,34 +210,32 @@ class SalesProposalController extends Controller
             }
 
             return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal has been created successfully.'));
-        }
-        else{
+        } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
     }
 
     public function show(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('view-sales-proposals') && $salesProposal->created_by == creatorId()){
-            if(!$this->checkProposalAccess($salesProposal)) {
+        if (Auth::user()->can('view-sales-proposals') && $salesProposal->created_by == creatorId()) {
+            if (!$this->checkProposalAccess($salesProposal)) {
                 return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
             }
 
-            $salesProposal->load(['customer', 'items.product', 'items.taxes', 'warehouse']);
+            $salesProposal->load(['customer', 'items.product', 'items.taxes', 'warehouse', 'tariffs']);
 
             return Inertia::render('SalesProposals/View', [
                 'proposal' => $salesProposal
             ]);
-        }
-        else{
+        } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
     }
 
     public function edit(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('edit-sales-proposals') && $salesProposal->created_by == creatorId()){
-            if(!$this->checkProposalAccess($salesProposal)) {
+        if (Auth::user()->can('edit-sales-proposals') && $salesProposal->created_by == creatorId()) {
+            if (!$this->checkProposalAccess($salesProposal)) {
                 return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
             }
 
@@ -228,24 +243,26 @@ class SalesProposalController extends Controller
                 return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
             }
 
-            $salesProposal->load(['items.taxes']);
-            $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+            $salesProposal->load(['items.taxes', 'tariffs']);
+            $customers = User::where('type', 'client')->where('created_by', creatorId())->get();
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
+
+            $proposalSetting = ProposalSetting::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))->first();
 
             return Inertia::render('SalesProposals/Edit', [
                 'proposal' => $salesProposal,
                 'customers' => $customers,
-                'warehouses' => $warehouses
+                'warehouses' => $warehouses,
+                'proposalSetting' => $proposalSetting,
             ]);
-        }
-        else{
+        } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
     }
 
     public function update(UpdateSalesProposalRequest $request, SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('edit-sales-proposals') && $salesProposal->created_by == creatorId()){
+        if (Auth::user()->can('edit-sales-proposals') && $salesProposal->created_by == creatorId()) {
             if ($salesProposal->converted_to_invoice) {
                 return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
             }
@@ -266,20 +283,20 @@ class SalesProposalController extends Controller
 
             $salesProposal->items()->delete();
             $this->createProposalItems($salesProposal->id, $request->items);
+            $this->saveProposalTariffs($salesProposal->id, $request->tariffs);
 
             // Dispatch event for packages to handle their fields
             UpdateSalesProposal::dispatch($request, $salesProposal);
 
             return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal details are updated successfully.'));
-        }
-        else{
+        } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
     }
 
     public function destroy(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('delete-sales-proposals')){
+        if (Auth::user()->can('delete-sales-proposals')) {
             if ($salesProposal->converted_to_invoice) {
                 return back()->withErrors(['error' => __('Cannot delete converted proposal.')]);
             }
@@ -290,15 +307,14 @@ class SalesProposalController extends Controller
             $salesProposal->delete();
 
             return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal has been deleted.'));
-        }
-        else{
+        } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
     }
 
     public function convertToInvoice(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('convert-sales-proposals') && $salesProposal->created_by == creatorId()){
+        if (Auth::user()->can('convert-sales-proposals') && $salesProposal->created_by == creatorId()) {
             if ($salesProposal->status !== 'accepted') {
                 return back()->with('error', __('Only accepted proposals can be converted to invoice.'));
             }
@@ -396,6 +412,8 @@ class SalesProposalController extends Controller
             $item = new SalesProposalItem();
             $item->proposal_id = $proposalId;
             $item->product_id = $itemData['product_id'];
+            $item->section = $itemData['section'] ?? 'general';
+            $item->product_type = $itemData['product_type'] ?? 'product';
             $item->quantity = $itemData['quantity'];
             $item->unit_price = $itemData['unit_price'];
             $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
@@ -414,9 +432,29 @@ class SalesProposalController extends Controller
         }
     }
 
+    private function saveProposalTariffs($proposalId, $tariffs)
+    {
+        SalesProposalTariff::where('proposal_id', $proposalId)->delete();
+        if (is_array($tariffs)) {
+            foreach ($tariffs as $index => $tariffData) {
+                if (!empty($tariffData['particulars']) || !empty($tariffData['brand'])) {
+                    SalesProposalTariff::create([
+                        'proposal_id' => $proposalId,
+                        'particulars' => $tariffData['particulars'] ?? null,
+                        'tariff_per_min' => $tariffData['tariff_per_min'] ?? 0,
+                        'brand' => $tariffData['brand'] ?? null,
+                        'qty' => $tariffData['qty'] ?? 1,
+                        'pulse_per_min' => $tariffData['pulse_per_min'] ?? null,
+                        'sort_order' => $tariffData['sort_order'] ?? ($index + 1),
+                    ]);
+                }
+            }
+        }
+    }
+
     public function getWarehouseProducts(Request $request)
     {
-        if(Auth::user()->can('create-sales-proposals') || Auth::user()->can('edit-sales-proposals')){
+        if (Auth::user()->can('create-sales-proposals') || Auth::user()->can('edit-sales-proposals')) {
             $warehouseId = $request->warehouse_id;
 
             if (!$warehouseId) {
@@ -425,13 +463,15 @@ class SalesProposalController extends Controller
             $products = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
                 ->where('created_by', creatorId())
-                ->whereHas('warehouseStocks', function($q) use ($warehouseId) {
+                ->whereHas('warehouseStocks', function ($q) use ($warehouseId) {
                     $q->where('warehouse_id', $warehouseId)
-                      ->where('quantity', '>', 0);
+                        ->where('quantity', '>', 0);
                 })
-                ->with(['warehouseStocks' => function($q) use ($warehouseId) {
-                    $q->where('warehouse_id', $warehouseId);
-                }])
+                ->with([
+                    'warehouseStocks' => function ($q) use ($warehouseId) {
+                        $q->where('warehouse_id', $warehouseId);
+                    }
+                ])
                 ->get()
                 ->map(function ($product) {
                     $stock = $product->warehouseStocks->first();
@@ -453,15 +493,14 @@ class SalesProposalController extends Controller
                     ];
                 });
             return response()->json($products);
-        }
-        else{
+        } else {
             return response()->json([], 403);
         }
     }
 
     public function getServices(Request $request)
     {
-        if(Auth::user()->can('create-sales-proposals') || Auth::user()->can('edit-sales-proposals')){
+        if (Auth::user()->can('create-sales-proposals') || Auth::user()->can('edit-sales-proposals')) {
             $services = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
                 ->where('type', 'service')
@@ -485,36 +524,34 @@ class SalesProposalController extends Controller
                     ];
                 });
             return response()->json($services);
-        }
-        else{
+        } else {
             return response()->json([], 403);
         }
     }
 
     public function print(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('print-sales-proposals')){
+        if (Auth::user()->can('print-sales-proposals')) {
             $salesProposal->load(['customer', 'items.product', 'items.taxes', 'warehouse']);
 
             return Inertia::render('SalesProposals/Print', [
                 'proposal' => $salesProposal
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function sent(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('sent-sales-proposals') && $salesProposal->created_by == creatorId()){
+        if (Auth::user()->can('sent-sales-proposals') && $salesProposal->created_by == creatorId()) {
             if ($salesProposal->status !== 'draft') {
                 return back()->with('error', __('Only draft proposals can be sent.'));
             }
 
             SentSalesProposal::dispatch($salesProposal);
 
-            if(company_setting('Proposal Sent') == 'on') {
+            if (company_setting('Proposal Sent') == 'on') {
                 $emailData = [
                     'proposal_number' => $salesProposal->proposal_number ?? null,
                     'sales_customer_name' => $salesProposal->customer->name ?? null,
@@ -522,7 +559,7 @@ class SalesProposalController extends Controller
                     'discount_amount' => $salesProposal->discount_amount ?? null,
                 ];
                 $message = EmailTemplate::sendEmailTemplate('Proposal Sent', [$salesProposal->customer->email], $emailData);
-                if($message['is_success'] == false && !empty($message['error'])) {
+                if ($message['is_success'] == false && !empty($message['error'])) {
                     return back()
                         ->with('success', __('Proposal sent successfully.'))
                         ->with('error', $message['error']);
@@ -532,21 +569,20 @@ class SalesProposalController extends Controller
             $salesProposal->update(['status' => 'sent']);
 
             return back()->with('success', __('Proposal sent successfully.'));
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function accept(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('accept-sales-proposals') && $salesProposal->created_by == creatorId()){
+        if (Auth::user()->can('accept-sales-proposals') && $salesProposal->created_by == creatorId()) {
             if ($salesProposal->status !== 'sent') {
                 return back()->with('error', __('Only sent proposals can be accepted.'));
             }
             AcceptSalesProposal::dispatch($salesProposal);
 
-            if(company_setting('Proposal Approved') == 'on') {
+            if (company_setting('Proposal Approved') == 'on') {
 
                 $companyEmail = company_setting('company_email', $salesProposal->created_by) ?: $proposalCreator?->email;
                 $emailData = [
@@ -557,7 +593,7 @@ class SalesProposalController extends Controller
                     'status' => 'Accepted',
                 ];
                 $message = EmailTemplate::sendEmailTemplate('Proposal Approved', [$companyEmail], $emailData);
-                if($message['is_success'] == false && !empty($message['error'])) {
+                if ($message['is_success'] == false && !empty($message['error'])) {
                     return back()
                         ->with('success', __('Proposal accepted successfully.'))
                         ->with('error', $message['error']);
@@ -567,22 +603,21 @@ class SalesProposalController extends Controller
             $salesProposal->update(['status' => 'accepted']);
 
             return back()->with('success', __('Proposal accepted successfully.'));
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function reject(SalesProposal $salesProposal)
     {
-        if(Auth::user()->can('reject-sales-proposals') && $salesProposal->created_by == creatorId()){
+        if (Auth::user()->can('reject-sales-proposals') && $salesProposal->created_by == creatorId()) {
             if ($salesProposal->status !== 'sent') {
                 return back()->with('error', __('Only sent proposals can be rejected.'));
             }
 
             RejectSalesProposal::dispatch($salesProposal);
 
-            if(company_setting('Proposal Approved') == 'on') {
+            if (company_setting('Proposal Approved') == 'on') {
 
                 $companyEmail = company_setting('company_email', $salesProposal->created_by) ?: $proposalCreator?->email;
 
@@ -594,7 +629,7 @@ class SalesProposalController extends Controller
                     'status' => 'Rejected',
                 ];
                 $message = EmailTemplate::sendEmailTemplate('Proposal Approved', [$companyEmail], $emailData);
-                if($message['is_success'] == false && !empty($message['error'])) {
+                if ($message['is_success'] == false && !empty($message['error'])) {
                     return back()
                         ->with('success', __('Proposal rejected successfully.'))
                         ->with('error', $message['error']);
@@ -604,8 +639,7 @@ class SalesProposalController extends Controller
             $salesProposal->update(['status' => 'rejected']);
 
             return back()->with('success', __('Proposal rejected successfully.'));
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
