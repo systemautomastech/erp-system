@@ -56,6 +56,7 @@ export default function Edit() {
         type: proposal.type || 'product',
         payment_terms: proposal.payment_terms || '',
         notes: proposal.notes || '',
+        tariffs: (proposal.tariffs || []) as ProposalTariffRow[],
         items: (proposal.items || []).map(item => {
             const calculations = calculateLineItemAmounts(
                 item.quantity,
@@ -68,11 +69,12 @@ export default function Edit() {
                 taxes: item.taxes || [],
                 discount_amount: calculations.discountAmount,
                 tax_amount: calculations.taxAmount,
-                tariffs: (proposal.tariffs || []) as ProposalTariffRow[],
-            });
+            };
+        }),
+    });
 
         // Selected Customer Details
-        const selectedCustomer = customers?.find((c) => String(c.id) === String(data.customer_id));
+        const selectedCustomer: any = customers?.find((c: any) => String(c.id) === String(data.customer_id));
 
         // Get custom fields using useFormFields hook
         const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal', id: proposal.id }, setData, errors, 'edit', t);

@@ -275,7 +275,7 @@ export default function Create() {
     });
 
     // Selected Customer Details
-    const selectedCustomer = customers?.find((c) => String(c.id) === String(data.customer_id));
+    const selectedCustomer: any = customers?.find((c: any) => String(c.id) === String(data.customer_id));
 
     // Get custom fields using useFormFields hook
     const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal' }, setData, errors, 'create', t);
@@ -636,7 +636,7 @@ export default function Create() {
                                                 >
                                                     <div className="flex items-center gap-2 min-w-0">
                                                         <span className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0">
-                                                            {page.sort_order || page.order}
+                                                            {page.sort_order || (page as any).order}
                                                         </span>
                                                         <span className="text-xs font-medium truncate">{page.title}</span>
                                                     </div>
@@ -755,7 +755,7 @@ export default function Create() {
 
                                                         </div>
 
-                                                        {(section.page_type === 'front-page' || section.is_front_page || section.title?.toLowerCase().includes('front page') || section.title?.toLowerCase().includes('cover')) ? (
+                                                        {((section as any).page_type === 'front-page' || (section as any).is_front_page || section.title?.toLowerCase().includes('front page') || section.title?.toLowerCase().includes('cover')) ? (
                                                             <div className="space-y-2 pt-1">
                                                             </div>
                                                         ) : (

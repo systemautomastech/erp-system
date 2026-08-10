@@ -110,7 +110,7 @@ export default function ProposalPreviewModal({
         }
         : {};
 
-    const templateColor = proposalSetting?.template_color || '#E9591C';
+    const templateColor = (proposalSetting as any)?.template_color || '#E9591C';
 
     const customer = customers.find((c) => c.id.toString() === formData.customer_id?.toString());
     const warehouse = warehouses.find((w) => w.id.toString() === formData.warehouse_id?.toString());
@@ -300,7 +300,7 @@ export default function ProposalPreviewModal({
                                         </div>
 
                                         <h1 className="quotation-cover__title mb-2">
-                                            {formData.subject || 'Subject'}
+                                            {(formData as any).subject || 'Subject'}
                                         </h1>
 
                                         <div className="text-lg text-slate-500 font-semibold mb-3">
@@ -324,7 +324,7 @@ export default function ProposalPreviewModal({
                                                     {customer?.name || t('Client Name')}
                                                 </h2>
                                                 <p className="text-slate-600 text-xs mb-0">
-                                                    {customer?.address || customer?.email || t('Client Address')}
+                                                    {(customer as any)?.address || customer?.email || t('Client Address')}
                                                 </p>
                                             </div>
                                         </div>
@@ -361,11 +361,11 @@ export default function ProposalPreviewModal({
                                     <div className="quotation-cover__footer flex justify-between items-end gap-3 text-slate-600">
                                         <div>
                                             <strong className="text-slate-900">{t('Prepared by')}:</strong>{' '}
-                                            {formData.creator_name || getCompanySetting('company_name') || t('Creator Name')}
+                                            {(formData as any).creator_name || getCompanySetting('company_name') || t('Creator Name')}
                                         </div>
                                         <div className="text-right">
                                             <strong className="text-slate-900">{t('Subject')}:</strong>{' '}
-                                            {formData.subject || formData.subject || t('Subject')}
+                                            {(formData as any).subject || t('Subject')}
                                         </div>
                                     </div>
                                 </div>
@@ -454,7 +454,7 @@ export default function ProposalPreviewModal({
                                         <h2 className="text-2xl font-extrabold text-slate-900 tracking-wider">{t('SALES PROPOSAL')}</h2>
                                     </div>
                                     <p className="text-base font-semibold text-slate-700">
-                                        #{formData.proposal_id || formData.proposal_number || 'DRAFT'}
+                                        #{(formData as any).proposal_id || formData.proposal_number || 'DRAFT'}
                                     </p>
                                     <div className="text-xs text-slate-600 pt-2 space-y-1">
                                         <p><span className="font-semibold text-slate-700">{t('Date')}:</span> {formData.invoice_date ? formatDate(formData.invoice_date) : '-'}</p>
