@@ -25,7 +25,7 @@ class NotificationsTableSeeder extends Seeder
             'assign-extension',
         ];
         foreach ($notifications as $key => $n) {
-            $ntfy = Notification::where('action', $n)->where('type', 'mail')->where('module', 'Lead')->count();
+            $ntfy = Notification::where('action', $n)->where('type', 'mail')->where('module', 'PBX')->count();
             if ($ntfy == 0) {
                 $new = new Notification();
                 $new->action = $n;

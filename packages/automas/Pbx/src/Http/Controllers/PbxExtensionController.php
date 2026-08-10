@@ -19,8 +19,23 @@ class PbxExtensionController extends Controller
 {
     public function index(Request $request)
     {
+        $user = Auth::user();
+
+        if (!$user->can('manage extensions')) {
+            return redirect()
+                ->back()
+                ->with('error', __('Permission denied.'));
+        }
+
         $query = PbxExtension::query()
             ->with('user');
+
+        if ($user->can('view all extensions')) {
+            $creatorId = (int) creatorId();
+            $query->where('created_by', $creatorId);
+        } elseif ($user->can('view own extensions')) {
+            $query->where('user_id', $user->id);
+        }
 
         if ($request->filled('search')) {
             $search = $request->string('search')->toString();
@@ -70,11 +85,13 @@ class PbxExtensionController extends Controller
 
         $setting = PbxSetting::query()->first();
 
+        $canCreateExtension = $setting !== null
+            && $extensions->total() < (int) $setting->max_extensions;
+
         return Inertia::render('Pbx/extensions/Index', [
             'extensions' => $extensions,
             'setting' => $setting,
-            'canCreateExtension' => $setting !== null
-                && $extensions->total() < (int) $setting->max_extensions,
+            'canCreateExtension' => $canCreateExtension,
         ]);
     }
 
