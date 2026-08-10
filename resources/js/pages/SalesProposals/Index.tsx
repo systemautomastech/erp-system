@@ -80,7 +80,7 @@ const STATUS_COLUMNS = [
 export default function Index() {
     const { t } = useTranslation();
     const { proposals, auth, customers, stats, boardData } = usePage<{
-        proposals: { data: SalesProposal[]; [key: string]: any };
+        proposals: { data: SalesProposal[];[key: string]: any };
         auth: { user: { permissions: string[] } };
         customers: { id: number; name: string; email: string }[];
         stats: ProposalStats;
@@ -103,7 +103,8 @@ export default function Index() {
     const [perPage] = useState(urlParams.get('per_page') || '10');
     const [sortField, setSortField] = useState(urlParams.get('sort') || '');
     const [sortDirection, setSortDirection] = useState(urlParams.get('direction') || 'desc');
-    const [viewMode, setViewMode] = useState<'board' | 'list'>(urlParams.get('view') as 'board' | 'list' || 'board');
+
+    const [viewMode, setViewMode] = useState<'board' | 'list'>(urlParams.get('view') as 'board' | 'list' || 'list');
     const [showFilters, setShowFilters] = useState(false);
     const [convertState, setConvertState] = useState({ isOpen: false, proposalId: null as number | null });
 
@@ -165,9 +166,9 @@ export default function Index() {
         if (view === 'board') {
             setFilters({ search: '', status: '', customer_id: '', date_range: '' });
             setShowFilters(false);
-            navigate({});
+            navigate({ view: 'board' });
         } else {
-            navigate({ ...filters, per_page: perPage, view });
+            navigate({ ...filters, per_page: perPage, view: 'list' });
         }
     };
 
@@ -387,7 +388,7 @@ export default function Index() {
         <TooltipProvider>
             <AuthenticatedLayout
                 breadcrumbs={[
-                    {label: t('Sales Proposals')}
+                    { label: t('Sales Proposals') }
                 ]}
                 pageTitle={t('Manage Proposal')}
                 pageActions={
@@ -416,357 +417,357 @@ export default function Index() {
                         )}
                     </div>
                 }
-        >
-            <Head title="Sales Proposals" />
+            >
+                <Head title="Sales Proposals" />
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-                {statCards.map((card) => {
-                    const Icon = card.icon;
-                    const isActive = card.key !== '' && filters.status === card.key;
-                    return (
-                        <button
-                            key={card.label}
-                            type="button"
-                            onClick={() => card.key ? filterByStatus(card.key) : showAllProposals()}
-                            className={cn(
-                                'group text-left rounded-lg border bg-white p-3 transition-shadow hover:shadow-md',
-                                isActive ? 'border-primary ring-1 ring-primary' : 'border-gray-200'
-                            )}
-                        >
-                            <div className="flex items-center justify-between">
-                                <span className={cn(
-                                    'relative h-8 w-8 rounded-md flex items-center justify-center transition-transform duration-200 group-hover:scale-110',
-                                    card.iconClass
-                                )}>
-                                    {card.key === 'expired' && card.value > 0 && (
-                                        <span className="absolute inset-0 rounded-md bg-orange-400/40 animate-ping" />
-                                    )}
-                                    <Icon className={cn('h-4 w-4 relative', card.key === 'expired' && card.value > 0 && 'animate-pulse')} />
-                                </span>
-                                <span className="text-xl font-bold text-gray-900">{card.value}</span>
-                            </div>
-                            <p className="text-xs font-medium text-gray-600 mt-2">{card.label}</p>
-                            <p className="text-xs text-gray-400 truncate">{card.sub}</p>
-                        </button>
-                    );
-                })}
-            </div>
-
-            <Card className="shadow-sm">
-                <CardContent className="p-6 border-b bg-gray-50/50">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 max-w-md">
-                            <SearchInput
-                                value={filters.search}
-                                onChange={(value) => setFilters({...filters, search: value})}
-                                onSearch={handleFilter}
-                                placeholder={t('Search proposals...')}
-                            />
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex flex-row items-center border rounded-md">
-                                <Button
-                                    variant={viewMode === 'board' ? 'default' : 'ghost'}
-                                    size="sm"
-                                    onClick={() => handleViewChange('board')}
-                                    className="rounded-r-none"
-                                >
-                                    <Columns3 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                                    size="sm"
-                                    onClick={() => handleViewChange('list')}
-                                    className="rounded-l-none"
-                                >
-                                    <List className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            {viewMode === 'list' && (
-                                <>
-                                    <PerPageSelector
-                                        routeName="sales-proposals.index"
-                                        filters={{...filters, view: viewMode}}
-                                    />
-                                    <div className="relative">
-                                        <FilterButton
-                                            showFilters={showFilters}
-                                            onToggle={() => setShowFilters(!showFilters)}
-                                        />
-                                        {(() => {
-                                            const activeFilters = [filters.customer_id, filters.date_range, filters.status].filter(Boolean).length;
-                                            return activeFilters > 0 ? (
-                                                <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                                                    {activeFilters}
-                                                </span>
-                                            ) : null;
-                                        })()}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-
-                {viewMode === 'list' && showFilters && (
-                    <CardContent className="p-6 bg-blue-50/30 border-b">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:grid-cols-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer')}</label>
-                                <Select value={filters.customer_id} onValueChange={(value) => setFilters({...filters, customer_id: value})}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('All Customers')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {customers?.map((customer) => (
-                                            <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                {customer.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Range')}</label>
-                                <DateRangePicker
-                                    value={filters.date_range}
-                                    onChange={(value) => setFilters({...filters, date_range: value})}
-                                    placeholder={t('Select date range')}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
-                                <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('All Status')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="draft">{t('Draft')}</SelectItem>
-                                        <SelectItem value="sent">{t('Sent')}</SelectItem>
-                                        <SelectItem value="accepted">{t('Accepted')}</SelectItem>
-                                        <SelectItem value="rejected">{t('Rejected')}</SelectItem>
-                                        <SelectItem value="expired">{t('Expired')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
-                                <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                )}
-
-                <CardContent className="p-0">
-                    {viewMode === 'list' ? (
-                        <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
-                            <div className="min-w-[1000px]">
-                                <DataTable
-                                    data={proposals?.data || []}
-                                    columns={tableColumns}
-                                    onSort={handleSort}
-                                    sortKey={sortField}
-                                    sortDirection={sortDirection as 'asc' | 'desc'}
-                                    className="rounded-none"
-                                    emptyState={
-                                        <NoRecordsFound
-                                            icon={FileText}
-                                            title="No sales proposals found"
-                                            description="Get started by creating your first sales proposal."
-                                            hasFilters={hasActiveFilters}
-                                            onClearFilters={clearFilters}
-                                            createPermission="create-sales-proposals"
-                                            onCreateClick={() => router.visit(route('sales-proposals.create'))}
-                                            createButtonText="Create Sales Proposal"
-                                            className="h-auto"
-                                        />
-                                    }
-                                />
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="p-4">
-                            {(stats?.total_count ?? 0) > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {STATUS_COLUMNS.map((column) => {
-                                        const items = boardData?.[column.key] || [];
-                                        const statKey = column.key === 'accepted' ? 'accepted_active_count' : `${column.key}_count`;
-                                        const totalForColumn = (stats as any)?.[statKey] ?? items.length;
-                                        const hasMore = totalForColumn > items.length;
-                                        return (
-                                            <div key={column.key} className="bg-gray-50/60 border border-gray-200 rounded-lg">
-                                                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={cn('h-2 w-2 rounded-full', column.dot)} />
-                                                        <h3 className="text-sm font-semibold text-gray-800">{t(column.label)}</h3>
-                                                        <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium', column.chip)}>
-                                                            {totalForColumn}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => filterByStatus(column.key)}
-                                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                                    >
-                                                        {t('View all')}
-                                                    </button>
-                                                </div>
-                                                {hasMore && (
-                                                    <p className="text-xs text-gray-400 px-3 pt-2">
-                                                        {t('Showing latest')} {items.length} {t('of')} {totalForColumn}
-                                                    </p>
-                                                )}
-                                                <div className="space-y-2 p-2 min-h-[100px] max-h-[calc(100vh-380px)] overflow-y-auto">
-                                                    {items.map((proposal) => {
-                                                        const initial = (proposal.customer?.name || '?').charAt(0).toUpperCase();
-                                                        return (
-                                                            <Card key={proposal.id} className="border border-gray-200 rounded-lg bg-white hover:shadow-md hover:border-gray-300 transition-all">
-                                                                <div className="p-3">
-                                                                    <div className="flex items-start justify-between gap-2">
-                                                                        {auth.user?.permissions?.includes('view-sales-proposals') ? (
-                                                                            <h4 className="font-semibold text-sm text-blue-600 hover:text-blue-700 cursor-pointer truncate" onClick={() => router.get(route('sales-proposals.show', proposal.id))}>
-                                                                                {proposal.proposal_number}
-                                                                            </h4>
-                                                                        ) : (
-                                                                            <h4 className="font-semibold text-sm text-gray-900 truncate">{proposal.proposal_number}</h4>
-                                                                        )}
-                                                                        <span className="text-sm font-bold text-gray-900 shrink-0">{formatCurrency(proposal.total_amount)}</span>
-                                                                    </div>
-
-                                                                    <div className="flex items-center gap-1.5 mt-2.5">
-                                                                        <Avatar className="h-5 w-5 shrink-0">
-                                                                            {proposal.customer?.avatar && (
-                                                                                <AvatarImage src={getImagePath(proposal.customer.avatar)} alt={proposal.customer.name} />
-                                                                            )}
-                                                                            <AvatarFallback className="bg-gray-100 text-gray-600 text-[10px] font-semibold">
-                                                                                {initial}
-                                                                            </AvatarFallback>
-                                                                        </Avatar>
-                                                                        <span className="text-xs text-gray-600 truncate" title={proposal.customer?.email || ''}>{proposal.customer?.name || '-'}</span>
-                                                                    </div>
-
-                                                                    <div className="flex items-center gap-3 flex-wrap mt-2 text-[11px] text-gray-500">
-                                                                        <span className="flex items-center gap-1">
-                                                                            <CalendarDays className="h-3 w-3" /> {formatDate(proposal.proposal_date)}
-                                                                        </span>
-                                                                        {!!proposal.items?.length && (
-                                                                            <span className="flex items-center gap-1">
-                                                                                <Package className="h-3 w-3" /> {proposal.items.length} {proposal.items.length === 1 ? t('item') : t('items')}
-                                                                            </span>
-                                                                        )}
-                                                                        {proposal.payment_terms && (
-                                                                            <span className="flex items-center gap-1 truncate">
-                                                                                <CreditCard className="h-3 w-3" /> {proposal.payment_terms}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-
-                                                                    <div className="flex items-center justify-between mt-2">
-                                                                        <span className="text-xs text-gray-400">{t('Due')} {formatDate(proposal.due_date)}</span>
-                                                                        <div className="flex items-center gap-1">
-                                                                            {proposal.display_status === 'overdue' && (
-                                                                                <span className="flex items-center gap-1 text-[10px] font-medium text-red-600">
-                                                                                    <AlertTriangle className="h-3 w-3" /> {t('Overdue')}
-                                                                                </span>
-                                                                            )}
-                                                                            {proposal.converted_to_invoice && (
-                                                                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
-                                                                                    {t('Invoiced')}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {proposal.status === 'draft' && (() => {
-                                                                        const daysSinceCreated = differenceInDays(new Date(), new Date(proposal.created_at));
-                                                                        if (daysSinceCreated < 3) return null;
-                                                                        return (
-                                                                            <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200">
-                                                                                <span className="flex items-center gap-1 text-[11px] text-amber-700">
-                                                                                    <Lightbulb className="h-3 w-3 shrink-0" />
-                                                                                    {t('Drafted')} {daysSinceCreated}{t('d ago')} — {t('send it?')}
-                                                                                </span>
-                                                                                {auth.user?.permissions?.includes('sent-sales-proposals') && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => router.post(route('sales-proposals.sent', proposal.id))}
-                                                                                        className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline shrink-0"
-                                                                                    >
-                                                                                        {t('Send now')}
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-
-                                                                    {proposal.status === 'accepted' && !proposal.converted_to_invoice && (() => {
-                                                                        const daysSinceAccepted = differenceInDays(new Date(), new Date(proposal.updated_at));
-                                                                        if (daysSinceAccepted < 2) return null;
-                                                                        return (
-                                                                            <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-green-50 border border-green-200">
-                                                                                <span className="flex items-center gap-1 text-[11px] text-green-700">
-                                                                                    <Clock className="h-3 w-3 shrink-0" />
-                                                                                    {t('Accepted')} {daysSinceAccepted}{t('d ago')} — {t('convert to invoice?')}
-                                                                                </span>
-                                                                                {auth.user?.permissions?.includes('convert-sales-proposals') && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => openConvertDialog(proposal.id)}
-                                                                                        className="text-[11px] font-semibold text-green-700 hover:text-green-900 underline shrink-0"
-                                                                                    >
-                                                                                        {t('Convert now')}
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-
-                                                                    {canSeeActions && (
-                                                                        <div className="flex items-center justify-end gap-0.5 mt-2.5 pt-2.5 border-t border-gray-100">
-                                                                            {renderActions(proposal)}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </Card>
-                                                        );
-                                                    })}
-
-                                                    {items.length === 0 && (
-                                                        <div className="text-center py-8 text-gray-400 border border-dashed rounded-lg">
-                                                            <p className="text-xs">{t('No proposals')}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                    {statCards.map((card) => {
+                        const Icon = card.icon;
+                        const isActive = card.key !== '' && filters.status === card.key;
+                        return (
+                            <button
+                                key={card.label}
+                                type="button"
+                                onClick={() => card.key ? filterByStatus(card.key) : showAllProposals()}
+                                className={cn(
+                                    'group text-left rounded-lg border bg-white p-3 transition-shadow hover:shadow-md',
+                                    isActive ? 'border-primary ring-1 ring-primary' : 'border-gray-200'
+                                )}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className={cn(
+                                        'relative h-8 w-8 rounded-md flex items-center justify-center transition-transform duration-200 group-hover:scale-110',
+                                        card.iconClass
+                                    )}>
+                                        {card.key === 'expired' && card.value > 0 && (
+                                            <span className="absolute inset-0 rounded-md bg-orange-400/40 animate-ping" />
+                                        )}
+                                        <Icon className={cn('h-4 w-4 relative', card.key === 'expired' && card.value > 0 && 'animate-pulse')} />
+                                    </span>
+                                    <span className="text-xl font-bold text-gray-900">{card.value}</span>
                                 </div>
-                            ) : (
-                                <NoRecordsFound
-                                    icon={FileText}
-                                    title="No sales proposals found"
-                                    description="Get started by creating your first sales proposal."
-                                    hasFilters={hasActiveFilters}
-                                    onClearFilters={clearFilters}
-                                    createPermission="create-sales-proposals"
-                                    onCreateClick={() => router.visit(route('sales-proposals.create'))}
-                                    createButtonText="Create Sales Proposal"
-                                />
-                            )}
-                        </div>
-                    )}
-                </CardContent>
+                                <p className="text-xs font-medium text-gray-600 mt-2">{card.label}</p>
+                                <p className="text-xs text-gray-400 truncate">{card.sub}</p>
+                            </button>
+                        );
+                    })}
+                </div>
 
-                {viewMode === 'list' && (
-                    <CardContent className="px-4 py-2 border-t bg-gray-50/30">
-                        <Pagination
-                            data={{...proposals, ...proposals.meta}}
-                            routeName="sales-proposals.index"
-                            filters={{...filters, per_page: perPage, view: viewMode}}
-                        />
+                <Card className="shadow-sm">
+                    <CardContent className="p-6 border-b bg-gray-50/50">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 max-w-md">
+                                <SearchInput
+                                    value={filters.search}
+                                    onChange={(value) => setFilters({ ...filters, search: value })}
+                                    onSearch={handleFilter}
+                                    placeholder={t('Search proposals...')}
+                                />
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-row items-center border rounded-md">
+                                    <Button
+                                        variant={viewMode === 'board' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => handleViewChange('board')}
+                                        className="rounded-r-none"
+                                    >
+                                        <Columns3 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === 'list' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => handleViewChange('list')}
+                                        className="rounded-l-none"
+                                    >
+                                        <List className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                {viewMode === 'list' && (
+                                    <>
+                                        <PerPageSelector
+                                            routeName="sales-proposals.index"
+                                            filters={{ ...filters, view: viewMode }}
+                                        />
+                                        <div className="relative">
+                                            <FilterButton
+                                                showFilters={showFilters}
+                                                onToggle={() => setShowFilters(!showFilters)}
+                                            />
+                                            {(() => {
+                                                const activeFilters = [filters.customer_id, filters.date_range, filters.status].filter(Boolean).length;
+                                                return activeFilters > 0 ? (
+                                                    <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                                        {activeFilters}
+                                                    </span>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </CardContent>
-                )}
-            </Card>
+
+                    {viewMode === 'list' && showFilters && (
+                        <CardContent className="p-6 bg-blue-50/30 border-b">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:grid-cols-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer')}</label>
+                                    <Select value={filters.customer_id} onValueChange={(value) => setFilters({ ...filters, customer_id: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('All Customers')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {customers?.map((customer) => (
+                                                <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                    {customer.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Range')}</label>
+                                    <DateRangePicker
+                                        value={filters.date_range}
+                                        onChange={(value) => setFilters({ ...filters, date_range: value })}
+                                        placeholder={t('Select date range')}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
+                                    <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('All Status')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="draft">{t('Draft')}</SelectItem>
+                                            <SelectItem value="sent">{t('Sent')}</SelectItem>
+                                            <SelectItem value="accepted">{t('Accepted')}</SelectItem>
+                                            <SelectItem value="rejected">{t('Rejected')}</SelectItem>
+                                            <SelectItem value="expired">{t('Expired')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-end gap-2">
+                                    <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
+                                    <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    )}
+
+                    <CardContent className="p-0">
+                        {viewMode === 'list' ? (
+                            <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
+                                <div className="min-w-[1000px]">
+                                    <DataTable
+                                        data={proposals?.data || []}
+                                        columns={tableColumns}
+                                        onSort={handleSort}
+                                        sortKey={sortField}
+                                        sortDirection={sortDirection as 'asc' | 'desc'}
+                                        className="rounded-none"
+                                        emptyState={
+                                            <NoRecordsFound
+                                                icon={FileText}
+                                                title="No sales proposals found"
+                                                description="Get started by creating your first sales proposal."
+                                                hasFilters={hasActiveFilters}
+                                                onClearFilters={clearFilters}
+                                                createPermission="create-sales-proposals"
+                                                onCreateClick={() => router.visit(route('sales-proposals.create'))}
+                                                createButtonText="Create Sales Proposal"
+                                                className="h-auto"
+                                            />
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-4">
+                                {(stats?.total_count ?? 0) > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {STATUS_COLUMNS.map((column) => {
+                                            const items = boardData?.[column.key] || [];
+                                            const statKey = column.key === 'accepted' ? 'accepted_active_count' : `${column.key}_count`;
+                                            const totalForColumn = (stats as any)?.[statKey] ?? items.length;
+                                            const hasMore = totalForColumn > items.length;
+                                            return (
+                                                <div key={column.key} className="bg-gray-50/60 border border-gray-200 rounded-lg">
+                                                    <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={cn('h-2 w-2 rounded-full', column.dot)} />
+                                                            <h3 className="text-sm font-semibold text-gray-800">{t(column.label)}</h3>
+                                                            <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium', column.chip)}>
+                                                                {totalForColumn}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => filterByStatus(column.key)}
+                                                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                                        >
+                                                            {t('View all')}
+                                                        </button>
+                                                    </div>
+                                                    {hasMore && (
+                                                        <p className="text-xs text-gray-400 px-3 pt-2">
+                                                            {t('Showing latest')} {items.length} {t('of')} {totalForColumn}
+                                                        </p>
+                                                    )}
+                                                    <div className="space-y-2 p-2 min-h-[100px] max-h-[calc(100vh-380px)] overflow-y-auto">
+                                                        {items.map((proposal) => {
+                                                            const initial = (proposal.customer?.name || '?').charAt(0).toUpperCase();
+                                                            return (
+                                                                <Card key={proposal.id} className="border border-gray-200 rounded-lg bg-white hover:shadow-md hover:border-gray-300 transition-all">
+                                                                    <div className="p-3">
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            {auth.user?.permissions?.includes('view-sales-proposals') ? (
+                                                                                <h4 className="font-semibold text-sm text-blue-600 hover:text-blue-700 cursor-pointer truncate" onClick={() => router.get(route('sales-proposals.show', proposal.id))}>
+                                                                                    {proposal.proposal_number}
+                                                                                </h4>
+                                                                            ) : (
+                                                                                <h4 className="font-semibold text-sm text-gray-900 truncate">{proposal.proposal_number}</h4>
+                                                                            )}
+                                                                            <span className="text-sm font-bold text-gray-900 shrink-0">{formatCurrency(proposal.total_amount)}</span>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-1.5 mt-2.5">
+                                                                            <Avatar className="h-5 w-5 shrink-0">
+                                                                                {proposal.customer?.avatar && (
+                                                                                    <AvatarImage src={getImagePath(proposal.customer.avatar)} alt={proposal.customer.name} />
+                                                                                )}
+                                                                                <AvatarFallback className="bg-gray-100 text-gray-600 text-[10px] font-semibold">
+                                                                                    {initial}
+                                                                                </AvatarFallback>
+                                                                            </Avatar>
+                                                                            <span className="text-xs text-gray-600 truncate" title={proposal.customer?.email || ''}>{proposal.customer?.name || '-'}</span>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-3 flex-wrap mt-2 text-[11px] text-gray-500">
+                                                                            <span className="flex items-center gap-1">
+                                                                                <CalendarDays className="h-3 w-3" /> {formatDate(proposal.proposal_date)}
+                                                                            </span>
+                                                                            {!!proposal.items?.length && (
+                                                                                <span className="flex items-center gap-1">
+                                                                                    <Package className="h-3 w-3" /> {proposal.items.length} {proposal.items.length === 1 ? t('item') : t('items')}
+                                                                                </span>
+                                                                            )}
+                                                                            {proposal.payment_terms && (
+                                                                                <span className="flex items-center gap-1 truncate">
+                                                                                    <CreditCard className="h-3 w-3" /> {proposal.payment_terms}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="flex items-center justify-between mt-2">
+                                                                            <span className="text-xs text-gray-400">{t('Due')} {formatDate(proposal.due_date)}</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                {proposal.display_status === 'overdue' && (
+                                                                                    <span className="flex items-center gap-1 text-[10px] font-medium text-red-600">
+                                                                                        <AlertTriangle className="h-3 w-3" /> {t('Overdue')}
+                                                                                    </span>
+                                                                                )}
+                                                                                {proposal.converted_to_invoice && (
+                                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                                                                                        {t('Invoiced')}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {proposal.status === 'draft' && (() => {
+                                                                            const daysSinceCreated = differenceInDays(new Date(), new Date(proposal.created_at));
+                                                                            if (daysSinceCreated < 3) return null;
+                                                                            return (
+                                                                                <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200">
+                                                                                    <span className="flex items-center gap-1 text-[11px] text-amber-700">
+                                                                                        <Lightbulb className="h-3 w-3 shrink-0" />
+                                                                                        {t('Drafted')} {daysSinceCreated}{t('d ago')} — {t('send it?')}
+                                                                                    </span>
+                                                                                    {auth.user?.permissions?.includes('sent-sales-proposals') && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => router.post(route('sales-proposals.sent', proposal.id))}
+                                                                                            className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline shrink-0"
+                                                                                        >
+                                                                                            {t('Send now')}
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+
+                                                                        {proposal.status === 'accepted' && !proposal.converted_to_invoice && (() => {
+                                                                            const daysSinceAccepted = differenceInDays(new Date(), new Date(proposal.updated_at));
+                                                                            if (daysSinceAccepted < 2) return null;
+                                                                            return (
+                                                                                <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-green-50 border border-green-200">
+                                                                                    <span className="flex items-center gap-1 text-[11px] text-green-700">
+                                                                                        <Clock className="h-3 w-3 shrink-0" />
+                                                                                        {t('Accepted')} {daysSinceAccepted}{t('d ago')} — {t('convert to invoice?')}
+                                                                                    </span>
+                                                                                    {auth.user?.permissions?.includes('convert-sales-proposals') && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => openConvertDialog(proposal.id)}
+                                                                                            className="text-[11px] font-semibold text-green-700 hover:text-green-900 underline shrink-0"
+                                                                                        >
+                                                                                            {t('Convert now')}
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+
+                                                                        {canSeeActions && (
+                                                                            <div className="flex items-center justify-end gap-0.5 mt-2.5 pt-2.5 border-t border-gray-100">
+                                                                                {renderActions(proposal)}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </Card>
+                                                            );
+                                                        })}
+
+                                                        {items.length === 0 && (
+                                                            <div className="text-center py-8 text-gray-400 border border-dashed rounded-lg">
+                                                                <p className="text-xs">{t('No proposals')}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <NoRecordsFound
+                                        icon={FileText}
+                                        title="No sales proposals found"
+                                        description="Get started by creating your first sales proposal."
+                                        hasFilters={hasActiveFilters}
+                                        onClearFilters={clearFilters}
+                                        createPermission="create-sales-proposals"
+                                        onCreateClick={() => router.visit(route('sales-proposals.create'))}
+                                        createButtonText="Create Sales Proposal"
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+
+                    {viewMode === 'list' && (
+                        <CardContent className="px-4 py-2 border-t bg-gray-50/30">
+                            <Pagination
+                                data={{ ...proposals, ...proposals.meta }}
+                                routeName="sales-proposals.index"
+                                filters={{ ...filters, per_page: perPage, view: viewMode }}
+                            />
+                        </CardContent>
+                    )}
+                </Card>
 
                 <ConfirmationDialog
                     open={deleteState.isOpen}

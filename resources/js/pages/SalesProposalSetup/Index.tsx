@@ -11,42 +11,39 @@ import LogoTemplates from './LogoTemplates/Index';
 import DefaultTermConditions from './DefaultTermConditions/Index';
 import DefaultPages from './DefaultPages/Index';
 
-interface Props {
-    activeTab: SetupTabKey;
+interface ProposalSettingData {
+    id?: number;
+    proposal_prefix?: string;
+    proposal_starting_number?: number | string;
+    default_validity_days?: number | string;
+    logo_image?: string;
+    background_image?: string;
+    default_terms?: string;
 }
 
-export default function Index({ activeTab }: Props) {
+interface Props {
+    activeTab: SetupTabKey;
+    settings?: ProposalSettingData | null;
+    defaultPages?: any[];
+}
+
+export default function Index({ activeTab, settings, defaultPages = [] }: Props) {
     const { t } = useTranslation();
 
-    const handleSave = (e: React.FormEvent) => {
-        e.preventDefault();
-        toast.success(t('Proposal System Setup saved successfully'));
+    const tabComponents: Record<SetupTabKey, React.ReactNode> = {
+        'general-settings': <GeneralSettings settings={settings} />,
+        'logo-template': <LogoTemplates settings={settings} />,
+        'default-terms': <DefaultTermConditions settings={settings} />,
+        'default-pages': <DefaultPages defaultPages={defaultPages} />,
     };
-
-    const renderTabContent = () => {
-        switch (activeTab) {
-            case 'general-settings':
-                return <GeneralSettings />;
-            case 'template-branding':
-                return <LogoTemplates />;
-            case 'default-terms':
-                return <DefaultTermConditions />;
-            case 'default-pages':
-                return <DefaultPages />;
-            default:
-                return null;
-        }
-    };
-
-    const showSaveButton = activeTab !== 'default-pages';
 
     // Dynamic breadcrumbs based on active tab
     const getBreadcrumbLabel = () => {
         switch (activeTab) {
             case 'general-settings':
                 return t('General Settings');
-            case 'template-branding':
-                return t('Logo & Template BG');
+            case 'logo-template':
+                return t('Logo & Template');
             case 'default-terms':
                 return t('Default Terms & Conditions');
             case 'default-pages':
@@ -72,18 +69,7 @@ export default function Index({ activeTab }: Props) {
                 <div className="flex-1">
                     <Card className="shadow-sm">
                         <CardContent className="p-6">
-                            <form onSubmit={handleSave} className="space-y-6">
-                                {renderTabContent()}
-
-                                {showSaveButton && (
-                                    <div className="flex justify-end pt-4 border-t">
-                                        <Button type="submit" size="sm" className="gap-2">
-                                            <Save className="h-4 w-4" />
-                                            {t('Save Settings')}
-                                        </Button>
-                                    </div>
-                                )}
-                            </form>
+                            {tabComponents[activeTab]}
                         </CardContent>
                     </Card>
                 </div>

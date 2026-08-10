@@ -9,8 +9,15 @@ import { Color } from '@tiptap/extension-color'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Button } from './button'
 import { cn } from '@/lib/utils'
-import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, Quote, Undo, Redo, Link as LinkIcon, Palette } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, Quote, Undo, Redo, Link as LinkIcon, Palette, Heading1, Heading2, Heading3 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './select'
 
 interface RichTextEditorProps {
   content?: string
@@ -41,6 +48,9 @@ export function RichTextEditor({
           keepMarks: true,
           keepAttributes: false,
         },
+        heading: {
+          levels: [1, 2, 3, 4],
+        },
         strike: false,
         link: false,
       }),
@@ -63,7 +73,7 @@ export function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        class: 'focus:outline-none min-h-[120px] p-3 prose prose-sm max-w-none [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:my-1',
+        class: 'focus:outline-none min-h-[120px] p-3 prose prose-sm max-w-none [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:my-1 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-1',
       },
     },
     editable: !disabled,
@@ -71,9 +81,70 @@ export function RichTextEditor({
 
   if (!editor) return null
 
+  const getHeadingValue = () => {
+    if (editor.isActive('heading', { level: 1 })) return 'h1';
+    if (editor.isActive('heading', { level: 2 })) return 'h2';
+    if (editor.isActive('heading', { level: 3 })) return 'h3';
+    return 'p';
+  };
+
   return (
     <div className={cn('border rounded-md', className)}>
-      <div className="border-b p-2 flex flex-wrap gap-1">
+      <div className="border-b p-2 flex flex-wrap items-center gap-1">
+        {/* Heading Dropdown */}
+        <Select
+          value={getHeadingValue()}
+          onValueChange={(val) => {
+            if (val === 'h1') editor.chain().focus().setHeading({ level: 1 }).run();
+            else if (val === 'h2') editor.chain().focus().setHeading({ level: 2 }).run();
+            else if (val === 'h3') editor.chain().focus().setHeading({ level: 3 }).run();
+            else editor.chain().focus().setParagraph().run();
+          }}
+        >
+          <SelectTrigger className="h-8 w-[125px] text-xs">
+            <SelectValue placeholder={t('Paragraph')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="p">{t('Paragraph')}</SelectItem>
+            <SelectItem value="h1">{t('Heading 1')}</SelectItem>
+            <SelectItem value="h2">{t('Heading 2')}</SelectItem>
+            <SelectItem value="h3">{t('Heading 3')}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Quick Heading Buttons */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          className={editor.isActive('heading', { level: 1 }) ? 'bg-muted font-bold' : ''}
+          title={t('Heading 1')}
+        >
+          <Heading1 className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          className={editor.isActive('heading', { level: 2 }) ? 'bg-muted font-bold' : ''}
+          title={t('Heading 2')}
+        >
+          <Heading2 className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          className={editor.isActive('heading', { level: 3 }) ? 'bg-muted font-bold' : ''}
+          title={t('Heading 3')}
+        >
+          <Heading3 className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-border mx-1" />
         <Button
           type="button"
           variant="ghost"
@@ -235,7 +306,7 @@ export function RichTextEditor({
           <Redo className="h-4 w-4" />
         </Button>
       </div>
-      <div className="prose prose-sm max-w-none [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:my-1 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer hover:[&_a]:text-blue-800">
+      <div className="prose prose-sm max-w-none [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:my-1 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer hover:[&_a]:text-blue-800 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-1">
         <EditorContent 
           editor={editor} 
           placeholder={placeholder || t('Start typing...')}

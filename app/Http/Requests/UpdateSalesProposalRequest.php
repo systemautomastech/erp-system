@@ -23,6 +23,8 @@ class UpdateSalesProposalRequest extends FormRequest
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer|min:1',
+            'items.*.section' => 'nullable|string|max:50',
+            'items.*.product_type' => 'nullable|string|max:50',
             'items.*.quantity' => 'nullable|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
@@ -30,6 +32,14 @@ class UpdateSalesProposalRequest extends FormRequest
             'items.*.taxes' => 'nullable|array',
             'items.*.taxes.*.tax_name' => 'required_with:items.*.taxes|string',
             'items.*.taxes.*.tax_rate' => 'required_with:items.*.taxes|numeric|min:0',
+
+            'tariffs' => 'nullable|array',
+            'tariffs.*.particulars' => 'nullable|string',
+            'tariffs.*.tariff_per_min' => 'nullable|numeric|min:0',
+            'tariffs.*.brand' => 'nullable|string',
+            'tariffs.*.qty' => 'nullable|numeric|min:0',
+            'tariffs.*.pulse_per_min' => 'nullable|string',
+            'tariffs.*.sort_order' => 'nullable|integer',
         ];
     }
 

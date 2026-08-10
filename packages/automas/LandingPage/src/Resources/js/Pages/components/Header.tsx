@@ -1,5 +1,5 @@
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { Menu, X, ShieldCheck, Layers } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { getAdminSetting, getImagePath } from '@/utils/helpers';
 import { useTranslation } from 'react-i18next';
@@ -9,308 +9,152 @@ interface HeaderProps {
     settings?: any;
 }
 
-const HEADER_VARIANTS = {
-    header1: {
-        nav: 'bg-white border-b border-gray-200 sticky top-0 z-50',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        wrapper: 'flex justify-between items-center h-16 [direction:ltr]',
-        logo: 'text-2xl font-bold',
-        desktop: 'hidden md:flex items-center gap-2',
-        mobile: 'md:hidden text-gray-600 p-2 transition-colors',
-        mobileMenu: 'md:hidden bg-white border-t'
-    },
-    header2: {
-        nav: 'bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        wrapper: 'flex flex-col items-center py-6 gap-6',
-        logo: 'text-3xl font-bold',
-        desktop: 'flex items-center gap-2 bg-gray-50 px-6 py-3 rounded-full',
-        mobile: 'md:hidden text-gray-600 p-2 transition-colors absolute top-4 end-4 hover:bg-gray-100 rounded-lg',
-        mobileMenu: 'md:hidden bg-white border-t w-full shadow-lg'
-    },
-    header3: {
-        nav: 'bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50',
-        container: 'max-w-6xl mx-auto px-6 sm:px-8 lg:px-10',
-        wrapper: 'flex justify-between items-center h-14 py-2 [direction:ltr]',
-        logo: 'text-xl font-bold',
-        desktop: 'hidden md:flex items-center gap-2',
-        mobile: 'md:hidden text-gray-600 p-2 transition-colors hover:bg-gray-100 rounded-md',
-        mobileMenu: 'md:hidden bg-white/95 backdrop-blur-md border-t'
-    },
-    header4: {
-        nav: 'bg-black/20 backdrop-blur-md absolute top-0 left-0 right-0 z-50 border-b border-white/10',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        wrapper: 'flex justify-between items-center h-20 py-4 [direction:ltr]',
-        logo: 'text-2xl font-bold text-white drop-shadow-lg',
-        desktop: 'hidden md:flex items-center gap-2',
-        mobile: 'md:hidden text-white p-2 transition-colors hover:bg-white/10 rounded-lg',
-        mobileMenu: 'md:hidden bg-black/90 backdrop-blur-md border-t border-white/10'
-    },
-    header5: {
-        nav: 'sticky top-0 z-50 shadow-xl',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        wrapper: 'flex justify-between items-center h-20 py-4 [direction:ltr]',
-        logo: 'text-2xl font-bold text-white drop-shadow-lg',
-        desktop: 'hidden md:flex items-center gap-2',
-        mobile: 'md:hidden text-white p-2 transition-colors hover:bg-white/10 rounded-lg',
-        mobileMenu: 'md:hidden border-t border-white/20'
-    }
-};
-
 export default function Header({ settings }: HeaderProps) {
     const sectionData = settings?.config_sections?.sections?.header || {};
+    const colors = settings?.config_sections?.colors || {
+        primary: 'var(--color-primary, #130774)',
+        secondary: 'var(--color-secondary, #0b55b7)',
+        accent: 'var(--color-accent, #130674)'
+    };
+    const primaryColor = colors.primary || 'var(--color-primary)';
     const { t } = useTranslation();
-    const variant = sectionData.variant || 'header1';
-    const config = HEADER_VARIANTS[variant as keyof typeof HEADER_VARIANTS] || HEADER_VARIANTS.header1;
 
-    const companyName = sectionData.company_name || settings?.company_name || 'Automas ERP';
+    const companyName = sectionData.company_name || settings?.company_name || 'Automas';
+    const ctaText = sectionData.cta_text || 'Start Free Trial';
     const isAuthenticated = settings?.is_authenticated;
-    const ctaText = isAuthenticated ? 'Dashboard' : (sectionData.cta_text || 'Get Started');
-    const colors = settings?.config_sections?.colors || { primary: '#10b981', secondary: '#059669', accent: '#f59e0b' };
+
+    const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const logoKey = 'logo_dark';
     const logoPath = getAdminSetting(logoKey);
     const logoUrl = logoPath ? getImagePath(logoPath) : null;
 
-    // Use dynamic navigation items from settings or empty array
-    const navigationItems = sectionData.navigation_items || [];
+    useEffect(() => {
+        const handleScroll = () => setScrolled(window.scrollY > 20);
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const navigationItems = sectionData.navigation_items || [
+        { text: 'Features', href: '#features' },
+        { text: 'Modules', href: '#modules' },
+        { text: 'Pricing', href: '#pricing' },
+        { text: 'Demo', href: '#demo' },
+        { text: 'About', href: '#about' },
+    ];
 
     const renderNavItems = (isMobile = false) => {
-        const isTransparentOrGradient = variant === 'header4' || variant === 'header5';
-        const textColor = isTransparentOrGradient ? 'text-white' : 'text-slate-700';
-        const hoverBg = variant === 'header2' ? 'hover:bg-white hover:shadow-sm' : variant === 'header3' ? 'hover:bg-gray-50' : isTransparentOrGradient ? 'hover:bg-white/10' : 'hover:bg-gray-50';
+        return navigationItems.map((item: any, idx: number) => {
+            const href = item.href?.startsWith('/page/') 
+                ? route('custom-page.show', item.href.replace('/page/', '')) 
+                : item.href;
 
-        return navigationItems.map((item) => {
-            const href = item.href?.startsWith('/page/') ? route('custom-page.show', item.href.replace('/page/', '')) : item.href;
+            const className = isMobile
+                ? 'block py-2.5 text-base font-medium text-slate-600 hover:text-primary transition-colors'
+                : 'text-sm font-medium text-slate-600 hover:text-primary transition-colors';
+
             return item.target === '_blank' ? (
-                <a
-                    key={item.text}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={isMobile
-                        ? `block px-4 py-3 text-base font-medium ${textColor} ${hoverBg} rounded-lg transition-all`
-                        : `${textColor} px-4 py-2 text-sm font-medium ${hoverBg} rounded-lg transition-all duration-200`
-                    }
-                    style={!isMobile ? { '--hover-color': isTransparentOrGradient ? 'white' : colors.primary } as React.CSSProperties : {}}
-                    onMouseEnter={!isMobile ? (e) => {
-                        if (!isTransparentOrGradient) {
-                            e.currentTarget.style.color = colors.primary;
-                        }
-                    } : undefined}
-                    onMouseLeave={!isMobile ? (e) => e.currentTarget.style.color = '' : undefined}
-                >
-                    {item.text}
+                <a key={idx} href={href} target="_blank" rel="noopener noreferrer" className={className}>
+                    {t(item.text)}
                 </a>
             ) : (
-                <Link
-                    key={item.text}
-                    href={href}
-                    className={isMobile
-                        ? `block px-4 py-3 text-base font-medium ${textColor} ${hoverBg} rounded-lg transition-all`
-                        : `${textColor} px-4 py-2 text-sm font-medium ${hoverBg} rounded-lg transition-all duration-200`
-                    }
-                    style={!isMobile ? { '--hover-color': isTransparentOrGradient ? 'white' : colors.primary } as React.CSSProperties : {}}
-                    onMouseEnter={!isMobile ? (e) => {
-                        if (!isTransparentOrGradient) {
-                            e.currentTarget.style.color = colors.primary;
-                        }
-                    } : undefined}
-                    onMouseLeave={!isMobile ? (e) => e.currentTarget.style.color = '' : undefined}
-                >
-                    {item.text}
+                <Link key={idx} href={href} className={className} onClick={() => isMobile && setMobileMenuOpen(false)}>
+                    {t(item.text)}
                 </Link>
             );
         });
     };
 
-    const renderCTAButtons = (isMobile = false) => {
-        const enableRegistration = settings?.enable_registration !== false;
-
-        if (isAuthenticated) {
-            return (
-                <button
-                    onClick={() => router.visit(route('dashboard'))}
-                    className={`text-white rounded-md font-medium transition-colors ${
-                        isMobile ? 'px-4 py-2 text-sm w-full' :
-                        variant === 'header3' ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'
-                    }`}
-                    style={{ backgroundColor: colors.primary }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.secondary}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.primary}
-                >
-                    {t('Dashboard')}
-                </button>
-            );
-        }
-
-        if (enableRegistration) {
-            return (
-                <div className={`flex ${isMobile ? 'flex-col gap-2' : 'gap-2'}`}>
-                    <button
-                        onClick={() => router.visit(route('login'))}
-                        className={`border rounded-md font-medium transition-colors ${
-                            isMobile ? 'px-4 py-2 text-sm w-full' :
-                            variant === 'header3' ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'
-                        }`}
-                        style={{ borderColor: colors.primary, color: colors.primary }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = colors.primary;
-                            e.currentTarget.style.color = 'white';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                            e.currentTarget.style.color = colors.primary;
-                        }}
-                    >
-                        {t('Sign In')}
-                    </button>
-                    <button
-                        onClick={() => router.visit(route('register'))}
-                        className={`text-white rounded-md font-medium transition-colors ${
-                            isMobile ? 'px-4 py-2 text-sm w-full' :
-                            variant === 'header3' ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'
-                        }`}
-                        style={{ backgroundColor: colors.primary }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.secondary}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.primary}
-                    >
-                        {ctaText}
-                    </button>
-                </div>
-            );
-        }
-
-        return (
-            <button
-                onClick={() => router.visit(route('login'))}
-                className={`text-white rounded-md font-medium transition-colors ${
-                    isMobile ? 'px-4 py-2 text-sm w-full' :
-                    variant === 'header3' ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'
-                }`}
-                style={{ backgroundColor: colors.primary }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.secondary}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.primary}
-            >
-                {t('Sign In')}
-            </button>
-        );
-    };
-
-    const getGradientStyle = () => {
-        if (variant === 'header5') {
-            return {
-                background: `linear-gradient(to right, ${colors.primary}, ${colors.secondary}, ${colors.accent})`
-            };
-        }
-        return {};
-    };
-
-    const getMobileMenuStyle = () => {
-        if (variant === 'header5') {
-            return {
-                background: `linear-gradient(to right, ${colors.primary}, ${colors.secondary})`
-            };
-        }
-        return {};
-    };
-
     return (
-        <nav className={`${config.nav} relative`} style={getGradientStyle()}>
-            <div className={config.container}>
-                <div className={config.wrapper}>
-                    <Link href={route('landing.page')} className={config.logo} style={{ color: colors.primary }}>
+        <nav id="navbar" className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+            scrolled ? 'bg-white/80 backdrop-blur-xl border-b border-slate-200/80 shadow-xs' : 'bg-transparent'
+        }`}>
+            <div className="max-w-7xl mx-auto px-6 lg:px-8">
+                <div className="flex items-center justify-between h-20">
+                    
+                    {/* Logo */}
+                    <Link href={route('landing.page')} className="flex items-center gap-3 group">
                         {logoUrl ? (
-                            <img src={logoUrl} alt={companyName} className="w-auto max-w-24 object-contain" />
+                            <img src={logoUrl} alt={companyName} className="h-10 w-auto max-w-40 object-contain" />
                         ) : (
-                            companyName
+                            <>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300" style={{ backgroundColor: primaryColor }}>
+                                    <Layers className="w-5 h-5 text-white" />
+                                </div>
+                                <span className="font-bold text-xl text-slate-900 tracking-tight">
+                                    {companyName}
+                                </span>
+                            </>
                         )}
                     </Link>
 
-                    <div className={config.desktop}>
+                    {/* Navigation Links from settings */}
+                    <div className="hidden md:flex items-center gap-8">
                         {renderNavItems()}
+
                         {sectionData?.enable_addon_link !== false && (
-                        <Link
-                            href={route("addons.page")}
-                            className={`px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
-                                variant === 'header4' || variant === 'header5'
-                                    ? 'text-white hover:bg-white/10'
-                                    : variant === 'header2'
-                                        ? 'text-slate-700 hover:bg-white hover:shadow-sm'
-                                        : 'text-slate-700 hover:bg-slate-50'
-                            }`}
-                            onMouseEnter={(e) => {
-                                if (variant !== 'header4' && variant !== 'header5') {
-                                    e.currentTarget.style.color = colors.primary;
-                                }
-                            }}
-                            onMouseLeave={(e) => e.currentTarget.style.color = ''}
-                        >
-                            {t('Add-Ons')}
-                        </Link>
+                            <Link href={route('addons.page')} className="text-sm font-medium text-slate-600 hover:opacity-80 transition-colors">
+                                {t('Add-Ons')}
+                            </Link>
                         )}
+
                         {sectionData?.enable_pricing_link !== false && (
-                            <Link
-                                href={route("pricing.page")}
-                                className={`px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
-                                    variant === 'header4' || variant === 'header5'
-                                        ? 'text-white hover:bg-white/10'
-                                        : variant === 'header2'
-                                            ? 'text-slate-700 hover:bg-white hover:shadow-sm'
-                                            : 'text-slate-700 hover:bg-slate-50'
-                                }`}
-                                onMouseEnter={(e) => {
-                                    if (variant !== 'header4' && variant !== 'header5') {
-                                        e.currentTarget.style.color = colors.primary;
-                                    }
-                                }}
-                                onMouseLeave={(e) => e.currentTarget.style.color = ''}
-                            >
+                            <Link href={route('pricing.page')} className="text-sm font-medium text-slate-600 hover:opacity-80 transition-colors">
                                 {t('Pricing')}
                             </Link>
                         )}
-                        {renderCTAButtons()}
-                        <div className="w-px h-5 bg-gray-200 mx-2" />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="hidden md:flex items-center gap-4">
+                        {isAuthenticated ? (
+                            <button
+                                onClick={() => router.visit(route('dashboard'))}
+                                style={{ backgroundColor: primaryColor }}
+                                className="px-5 py-2.5 rounded-full text-sm font-semibold text-white transition-all shadow-md flex items-center gap-2 hover:opacity-90"
+                            >
+                                <ShieldCheck className="w-4 h-4" />
+                                {t('Dashboard')}
+                            </button>
+                        ) : (
+                            <>
+                                <a href={route('login')} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+                                    {t('Login')}
+                                </a>
+                                <a href={route('register')} style={{ backgroundColor: primaryColor }} className="px-5 py-2.5 rounded-full text-sm font-semibold text-white transition-all shadow-md hover:opacity-90">
+                                    {t(ctaText)}
+                                </a>
+                            </>
+                        )}
                         <LanguageSwitcher />
                     </div>
 
+                    {/* Mobile Toggle */}
                     <button
-                        className={config.mobile}
-                        onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
-                        onMouseLeave={(e) => e.currentTarget.style.color = ''}
+                        className="md:hidden p-2 text-slate-600 hover:text-slate-900"
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        aria-label="Toggle navigation"
                     >
-                        {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                        {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                     </button>
                 </div>
             </div>
 
+            {/* Mobile Menu */}
             {mobileMenuOpen && (
-                <div className={config.mobileMenu} style={getMobileMenuStyle()}>
-                    <div className="px-2 pt-2 pb-3 space-y-1">
-                        {renderNavItems(true)}
-                        <div className="px-3 py-2 space-y-2">
-                            {sectionData?.enable_addon_link !== false && (
-                                <Link
-                                    href={route("addons.page")}
-                                    className="block px-3 py-2 text-base font-medium text-slate-700"
-                                >
-                                    {t('Addons')}
-                                </Link>
-                            )}
-                            {sectionData?.enable_pricing_link !== false && (
-                                <Link
-                                    href={route("pricing.page")}
-                                    className="block px-3 py-2 text-base font-medium text-slate-700"
-                                >
-                                    {t('Pricing')}
-                                </Link>
-                            )}
-                            {renderCTAButtons(true)}
-                            <div className="pt-1">
-                                <LanguageSwitcher />
-                            </div>
+                <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-xl px-6 py-5 space-y-3">
+                    {renderNavItems(true)}
+                    <div className="pt-3 border-t border-slate-200 flex flex-col gap-3">
+                        <a href={route('login')} className="text-slate-600 font-medium py-2">
+                            {t('Login')}
+                        </a>
+                        <a href={route('register')} style={{ backgroundColor: primaryColor }} className="px-5 py-2.5 rounded-full text-sm font-semibold text-white text-center shadow-md">
+                            {t(ctaText)}
+                        </a>
+                        <div className="pt-2 flex items-center justify-between">
+                            <span className="text-xs font-medium text-slate-500">{t('Language')}</span>
+                            <LanguageSwitcher />
                         </div>
                     </div>
                 </div>

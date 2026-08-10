@@ -170,7 +170,7 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('notification-templates/{notificationTemplate}/language/{lang}', [NotificationTemplateController::class, 'getLanguageContent'])->name('notification-templates.language-content');
     Route::put('notification-templates/{notificationTemplate}', [NotificationTemplateController::class, 'update'])->name('notification-templates.update');
 
-     // Proposal Routes
+    // Proposal Routes
     Route::resource('sales-proposals', SalesProposalController::class);
     Route::get('sales-proposals/{salesProposal}/print', [SalesProposalController::class, 'print'])->name('sales-proposals.print');
     Route::post('sales-proposals/{salesProposal}/sent', [SalesProposalController::class, 'sent'])->name('sales-proposals.sent');
@@ -182,9 +182,15 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
 
     // Proposal Setup
     Route::get('sales-proposal/general-settings', [ProposalSetupController::class, 'generalSettings'])->name('proposal-setup.general-settings');
-    Route::get('sales-proposal/template-branding', [ProposalSetupController::class, 'templateBranding'])->name('proposal-setup.template-branding');
+    Route::post('sales-proposal/general-settings', [ProposalSetupController::class, 'storeGeneralSettings'])->name('proposal-setup.general-settings.store');
+    Route::match(['put', 'patch'], 'sales-proposal/general-settings/{proposalSetting?}', [ProposalSetupController::class, 'updateGeneralSettings'])->name('proposal-setup.general-settings.update');
+
+    Route::get('sales-proposal/logo-template', [ProposalSetupController::class, 'logoTemplate'])->name('proposal-setup.logo-template');
     Route::get('sales-proposal/default-terms', [ProposalSetupController::class, 'defaultTerms'])->name('proposal-setup.default-terms');
     Route::get('sales-proposal/default-pages', [ProposalSetupController::class, 'defaultPages'])->name('proposal-setup.default-pages');
+    Route::post('sales-proposal/default-pages', [ProposalSetupController::class, 'storeDefaultPage'])->name('proposal-setup.default-pages.store');
+    Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'updateDefaultPage'])->name('proposal-setup.default-pages.update');
+    Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'destroyDefaultPage'])->name('proposal-setup.default-pages.destroy');
 
     // Route::post('sales-proposal/setup', [SalesProposalSetupController::class, 'store'])->name('sales-proposal.setup.store');
 
@@ -238,6 +244,6 @@ Route::post('/cookie-consent-log', [SettingController::class, 'logCookieConsent'
 Route::any('/meta/callback', [MetaController::class, 'handleWebhook'])->name('meta.callback');
 
 
-require __DIR__.'/installer.php';
-require __DIR__.'/updater.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/installer.php';
+require __DIR__ . '/updater.php';
+require __DIR__ . '/auth.php';

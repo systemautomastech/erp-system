@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-export type SetupTabKey = 'general-settings' | 'template-branding' | 'default-terms' | 'default-pages';
+export type SetupTabKey = 'general-settings' | 'logo-template' | 'default-terms' | 'default-pages';
 
 interface SidebarItem {
     key: SetupTabKey;
@@ -34,10 +34,10 @@ export default function SetupSidebar({ activeTab }: SetupSidebarProps) {
             route: route('proposal-setup.general-settings'),
         },
         {
-            key: 'template-branding',
+            key: 'logo-template',
             label: t('Logo & Template'),
             icon: ImageIcon,
-            route: route('proposal-setup.template-branding'),
+            route: route('proposal-setup.logo-template'),
         },
         {
             key: 'default-terms',

@@ -1,209 +1,298 @@
-import { ArrowRight } from 'lucide-react';
-import { getImagePath } from '@/utils/helpers';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Check, ArrowRight, Star } from 'lucide-react';
+import { formatAdminCurrency } from '@/utils/helpers';
 
 interface CTAProps {
     settings?: any;
+    plans?: any[];
+    activeModules?: any[];
 }
 
-const CTA_VARIANTS = {
-    cta1: {
-        section: 'py-20',
-        container: 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center',
-        title: 'text-3xl md:text-4xl font-bold text-white mb-6',
-        subtitle: 'text-xl text-white/90 mb-8',
-        buttons: 'flex flex-col sm:flex-row gap-4 justify-center',
-        layout: 'centered'
-    },
-    cta2: {
-        section: 'bg-white py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6',
-        subtitle: 'text-xl text-slate-700 mb-8',
-        buttons: 'flex flex-col sm:flex-row gap-4',
-        layout: 'split'
-    },
-    cta3: {
-        section: 'bg-gray-50 py-20',
-        container: 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6',
-        subtitle: 'text-lg text-slate-700 mb-8',
-        buttons: 'flex flex-col sm:flex-row gap-4 justify-center',
-        layout: 'card'
-    },
-    cta4: {
-        section: 'py-20',
-        container: 'max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center',
-        title: 'text-4xl md:text-5xl font-bold text-white mb-6',
-        subtitle: 'text-xl text-white/90 mb-10',
-        buttons: 'flex flex-col sm:flex-row gap-6 justify-center',
-        layout: 'gradient'
-    },
-    cta5: {
-        section: 'bg-gradient-to-b from-gray-50 to-white py-20 border-t border-gray-100',
-        container: 'max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 text-center',
-        title: 'text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-6',
-        subtitle: 'text-base md:text-lg text-slate-700 mb-8',
-        buttons: 'flex flex-col sm:flex-row gap-4 justify-center items-center',
-        layout: 'minimal'
-    }
-};
-
-export default function CTA({ settings }: CTAProps) {
+export default function CTA({ settings, plans: propPlans = [], activeModules = [] }: CTAProps) {
     const { t } = useTranslation();
     const sectionData = settings?.config_sections?.sections?.cta || {};
-    const variant = sectionData.variant || 'cta1';
-    const config = CTA_VARIANTS[variant as keyof typeof CTA_VARIANTS] || CTA_VARIANTS.cta1;
-    
-    const title = sectionData.title;
-    const subtitle = sectionData.subtitle;
-    const primaryButton = sectionData.primary_button ;
-    const secondaryButton = sectionData.secondary_button;
-    const colors = settings?.config_sections?.colors || { primary: '#10b981', secondary: '#059669', accent: '#f59e0b' };
-
-    const getBackgroundStyle = () => {
-        if (config.layout === 'centered') {
-            return { backgroundColor: colors.primary };
-        }
-        if (config.layout === 'gradient') {
-            return { 
-                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 50%, ${colors.accent} 100%)`,
-                backgroundAttachment: 'fixed'
-            };
-        }
-        return {};
+    const pricingSettings = settings?.config_sections?.sections?.pricing || {};
+    const colors = settings?.config_sections?.colors || {
+        primary: 'var(--color-primary, #130774)',
+        secondary: 'var(--color-secondary, #0b55b7)',
+        accent: 'var(--color-accent, #130674)'
     };
+    const primaryColor = colors.primary || 'var(--color-primary)';
+    const secondaryColor = colors.secondary || 'var(--color-secondary)';
 
-    const renderButtons = () => {
-        const primaryLink = sectionData.primary_button_link || '#';
-        const secondaryLink = sectionData.secondary_button_link || '#';
-        
-        return (
-            <div className={config.buttons}>
-                <a 
-                    href={primaryLink}
-                    className={`inline-flex items-center justify-center text-white px-8 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg ${
-                        config.layout === 'minimal' 
-                            ? 'text-base px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5' 
-                            : config.layout === 'card'
-                                ? 'text-base px-10 py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1'
-                                : 'text-lg'
-                    } ${config.layout === 'split' ? 'shadow-lg hover:shadow-xl' : 'bg-white/20 hover:bg-white/30 backdrop-blur-sm'}`}
-                    style={{ 
-                        backgroundColor: config.layout === 'split' || config.layout === 'minimal' || config.layout === 'card' ? colors.primary : undefined,
-                        boxShadow: config.layout === 'minimal' || config.layout === 'card' ? `0 4px 14px 0 ${colors.primary}40` : undefined
-                    }}
-                >
-                    {primaryButton}
-                    <ArrowRight className={`ms-2 ${config.layout === 'minimal' || config.layout === 'card' ? 'h-5 w-5' : 'h-5 w-5'}`} />
-                </a>
-                <a 
-                    href={secondaryLink}
-                    className={`inline-flex items-center justify-center border-2 px-8 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105 ${
-                        config.layout === 'minimal' 
-                            ? 'text-base px-8 py-3.5 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-lg shadow-sm hover:shadow-md transform hover:-translate-y-0.5' 
-                            : config.layout === 'card'
-                                ? 'text-base px-10 py-4 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-xl shadow-sm hover:shadow-lg transform hover:-translate-y-1'
-                                : config.layout === 'split'
-                                    ? 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400 shadow-md hover:shadow-lg'
-                                    : 'border-white text-white hover:bg-white hover:text-gray-900 backdrop-blur-sm'
-                    }`}
-                >
-                    {secondaryButton}
-                </a>
-            </div>
-        );
-    };
+    const [priceType, setPriceType] = useState(pricingSettings.default_price_type || 'monthly');
 
-    if (config.layout === 'split') {
-        return (
-            <section className={config.section}>
-                <div className={config.container}>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                        <div>
-                            <h2 className={config.title}>{title}</h2>
-                            <p className={config.subtitle}>{subtitle}</p>
-                            {renderButtons()}
-                        </div>
-                        <div className="relative overflow-hidden rounded-xl shadow-2xl">
-                            {sectionData.image ? (
-                                <img 
-                                    src={sectionData.image.startsWith('http') ? sectionData.image : getImagePath(sectionData.image)}
-                                    alt="CTA Image"
-                                    className="w-full h-80 object-cover"
-                                />
-                            ) : (
-                                <div className="bg-gradient-to-br from-gray-100 to-gray-200 h-80 flex items-center justify-center">
-                                    <div className="text-center">
-                                        <div className="w-16 h-16 bg-gray-300 rounded-full mx-auto mb-4 flex items-center justify-center">
-                                            <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                        </div>
-                                        <p className="text-slate-500 font-medium">{t('Upload CTA Image')}</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </section>
-        );
-    }
+    const title = sectionData.title || 'Ready to Transform Your Business?';
+    const subtitle = sectionData.subtitle || 'Join thousands of businesses already using Automas ERP to streamline operations, cut overhead costs, and accelerate growth.';
+    const primaryButtonText = sectionData.primary_button || 'Start Free Trial';
+    const secondaryButtonText = sectionData.secondary_button || 'Talk to Sales';
 
-    if (config.layout === 'card') {
-        return (
-            <section className={config.section}>
-                <div className={config.container}>
-                    <div className="bg-white p-8 md:p-12 lg:p-16 rounded-2xl shadow-xl text-center border border-gray-200/50 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-br from-gray-50/80 via-white to-gray-50/80"></div>
-                        <div className="relative z-10 space-y-8">
-                            <div className="space-y-6">
-                                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{
-                                    backgroundColor: `${colors.primary}15`,
-                                    border: `2px solid ${colors.primary}25`
-                                }}>
-                                    <svg className="w-8 h-8" style={{ color: colors.primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 leading-tight">{title}</h2>
-                                    <p className="text-base md:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">{subtitle}</p>
-                                </div>
-                            </div>
-                            <div className="pt-4">
-                                {renderButtons()}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        );
-    }
+    // System database plans
+    const hasSystemPlans = propPlans && propPlans.length > 0;
 
-    if (config.layout === 'minimal') {
-        return (
-            <section className={config.section}>
-                <div className={config.container}>
-                    <div className="w-16 h-1 mx-auto mb-6 rounded-full" style={{ backgroundColor: colors.primary }}></div>
-                    <h2 className={`${config.title} leading-tight tracking-tight`}>{title}</h2>
-                    <p className={`${config.subtitle} max-w-2xl mx-auto leading-relaxed`}>{subtitle}</p>
-                    {renderButtons()}
-                </div>
-            </section>
-        );
-    }
+    const mostPopularPlanId = hasSystemPlans
+        ? propPlans.reduce((prev, current) =>
+            (current.orders_count || 0) > (prev.orders_count || 0) ? current : prev
+          ).id
+        : null;
+
+    const defaultPlans = [
+        {
+            name: 'Basic Plan',
+            price: '$29',
+            desc: 'The basics for your business — for one workspace.',
+            features: ['1 user', 'Core modules', '5GB storage', 'Email support'],
+            buttonText: 'Get Started',
+            featured: false,
+        },
+        {
+            name: 'Pro Plan',
+            price: '$199',
+            desc: 'All six modules, built for a growing enterprise team.',
+            features: ['5 users', 'All six modules', '50GB storage', 'Priority support', 'Custom subdomain'],
+            buttonText: 'Start Free Trial',
+            featured: true,
+        },
+        {
+            name: 'Enterprise Custom',
+            price: "Let's talk",
+            desc: 'Need something specific? Custom scope & dedicated assistance.',
+            features: ['50+ users', 'Premium integrations', '500GB storage', 'Dedicated manager'],
+            buttonText: 'Contact Now',
+            featured: false,
+        }
+    ];
 
     return (
-        <section className={config.section} style={getBackgroundStyle()}>
-            {config.layout === 'gradient' && (
-                <div className="absolute inset-0 bg-black/20"></div>
-            )}
-            <div className={`${config.container} relative z-10`}>
-                <h2 className={config.title}>{title}</h2>
-                <p className={config.subtitle}>{subtitle}</p>
-                {renderButtons()}
+        <section className="py-24 bg-slate-50" id="pricing">
+            <div className="max-w-7xl mx-auto px-6 lg:px-8">
+                
+                {/* Header from settings */}
+                <div className="text-center max-w-2xl mx-auto mb-12">
+                    <span className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full border border-slate-200 mb-4" style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}>
+                        {t('Flexible Subscriptions')}
+                    </span>
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
+                        {pricingSettings.title || t('Choose Your Pricing Plan')}
+                    </h2>
+                    {pricingSettings.subtitle && (
+                        <p className="mt-4 text-base text-slate-500 font-normal">
+                            {t(pricingSettings.subtitle)}
+                        </p>
+                    )}
+                </div>
+
+                {/* Monthly/Yearly Toggle for System Plans */}
+                {hasSystemPlans && (
+                    <div className="flex items-center justify-center mb-12">
+                        <div className="bg-slate-200/70 p-1.5 rounded-full flex items-center gap-1 shadow-inner">
+                            <button
+                                onClick={() => setPriceType('monthly')}
+                                style={priceType === 'monthly' ? { backgroundColor: '#ffffff', color: '#0f172a' } : {}}
+                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
+                                    priceType === 'monthly'
+                                        ? 'shadow-md'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                {t('Monthly Billing')}
+                            </button>
+                            <button
+                                onClick={() => setPriceType('yearly')}
+                                style={priceType === 'yearly' ? { backgroundColor: '#ffffff', color: '#0f172a' } : {}}
+                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
+                                    priceType === 'yearly'
+                                        ? 'shadow-md'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                {t('Yearly Billing')}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* System Database Plans or Settings Plans Grid */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch mb-24">
+                    {hasSystemPlans ? (
+                        propPlans.map((plan: any) => {
+                            const isFeatured = plan.id === mostPopularPlanId && propPlans.length > 1;
+                            const isFree = plan.free_plan;
+                            const priceAmount = priceType === 'monthly' ? plan.package_price_monthly : plan.package_price_yearly;
+                            const formattedPrice = isFree ? t('Free') : formatAdminCurrency(priceAmount);
+                            const userText = plan.number_of_users === -1 ? t('Unlimited users') : `${plan.number_of_users} ${t('users')}`;
+                            const storageText = `${Math.round(plan.storage_limit / (1024 * 1024))} ${t('GB storage')}`;
+
+                            return (
+                                <div
+                                    key={plan.id}
+                                    style={isFeatured ? { borderColor: primaryColor } : {}}
+                                    className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${
+                                        isFeatured
+                                            ? 'bg-[#0A1E42] text-white shadow-2xl ring-2 relative md:-translate-y-3'
+                                            : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
+                                    }`}
+                                >
+                                    {isFeatured && (
+                                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1" style={{ backgroundColor: primaryColor }}>
+                                            <Star className="w-3 h-3 fill-current" />
+                                            {t('Most Popular')}
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-bold mb-2">
+                                            {t(plan.name)}
+                                        </h3>
+
+                                        {plan.description && (
+                                            <p className={`text-xs leading-relaxed mb-6 ${isFeatured ? 'text-slate-300' : 'text-slate-500'}`}>
+                                                {t(plan.description)}
+                                            </p>
+                                        )}
+
+                                        <div className="mb-6">
+                                            <span className="text-4xl font-extrabold tracking-tight">{formattedPrice}</span>
+                                            {!isFree && (
+                                                <span className={`text-xs ml-1 font-semibold ${isFeatured ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    /{priceType === 'monthly' ? 'mo' : 'yr'}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <ul className="space-y-3 mb-8 text-sm font-medium">
+                                            <li className="flex items-center gap-3">
+                                                <Check className="w-4 h-4" style={{ color: isFeatured ? '#93c5fd' : primaryColor }} />
+                                                <span>{userText}</span>
+                                            </li>
+                                            <li className="flex items-center gap-3">
+                                                <Check className="w-4 h-4" style={{ color: isFeatured ? '#93c5fd' : primaryColor }} />
+                                                <span>{storageText}</span>
+                                            </li>
+                                            {plan.trial && (
+                                                <li className="flex items-center gap-3">
+                                                    <Check className="w-4 h-4 text-emerald-500" />
+                                                    <span className="text-emerald-500 font-semibold">{plan.trial_days} {t('Days Trial')}</span>
+                                                </li>
+                                            )}
+                                            {activeModules.map((module: any) => {
+                                                const isEnabled = plan.modules?.includes(module.module);
+                                                if (!isEnabled) return null;
+                                                return (
+                                                    <li key={module.module} className="flex items-center gap-3">
+                                                        <Check className="w-4 h-4" style={{ color: isFeatured ? '#93c5fd' : primaryColor }} />
+                                                        <span>{t(module.alias)}</span>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+
+                                    <a
+                                        href={route('register')}
+                                        style={isFeatured ? { backgroundColor: primaryColor } : {}}
+                                        className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${
+                                            isFeatured
+                                                ? 'text-white hover:opacity-90'
+                                                : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
+                                        }`}
+                                    >
+                                        {t('Select Plan')}
+                                    </a>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        (sectionData.plans && sectionData.plans.length > 0 ? sectionData.plans : defaultPlans).map((plan: any, idx: number) => (
+                            <div
+                                key={idx}
+                                style={plan.featured ? { borderColor: primaryColor } : {}}
+                                className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${
+                                    plan.featured
+                                        ? 'bg-[#0A1E42] text-white shadow-xl ring-2 relative md:-translate-y-3'
+                                        : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
+                                }`}
+                            >
+                                {plan.featured && (
+                                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm" style={{ backgroundColor: primaryColor }}>
+                                        {t('Most Popular')}
+                                    </div>
+                                )}
+
+                                <div>
+                                    <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-xl font-bold mb-2">
+                                        {t(plan.name)}
+                                    </h3>
+
+                                    <p className={`text-xs leading-relaxed mb-6 ${plan.featured ? 'text-slate-300' : 'text-slate-500'}`}>
+                                        {t(plan.desc || plan.description)}
+                                    </p>
+
+                                    <div className="mb-6">
+                                        <span className="text-4xl font-extrabold tracking-tight">{t(plan.price)}</span>
+                                        {plan.price !== "Let's talk" && (
+                                            <span className={`text-xs ml-1 ${plan.featured ? 'text-slate-400' : 'text-slate-500'}`}>/month</span>
+                                        )}
+                                    </div>
+
+                                    <ul className="space-y-3 mb-8 text-sm font-medium">
+                                        {(plan.features || []).map((feat: string, fIdx: number) => (
+                                            <li key={fIdx} className="flex items-center gap-3">
+                                                <Check className="w-4 h-4" style={{ color: plan.featured ? '#93c5fd' : primaryColor }} />
+                                                <span>{t(feat)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+
+                                <a
+                                    href={route('register')}
+                                    style={plan.featured ? { backgroundColor: primaryColor } : {}}
+                                    className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${
+                                        plan.featured
+                                            ? 'text-white hover:opacity-90'
+                                            : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
+                                    }`}
+                                >
+                                    {t(plan.buttonText || 'Get Started')}
+                                </a>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* Clean, Enterprise Dark Blue Container */}
+                <div className="bg-[#0A1E42] text-white rounded-3xl p-10 md:p-16 text-center border border-[#122A52] shadow-2xl relative overflow-hidden">
+                    <div className="relative z-10 max-w-2xl mx-auto space-y-6">
+                        <h2 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight">
+                            {t(title)}
+                        </h2>
+
+                        <p className="text-slate-300 text-base sm:text-lg leading-relaxed font-normal">
+                            {t(subtitle)}
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                            <a
+                                href={route('register')}
+                                style={{ backgroundColor: primaryColor }}
+                                className="px-8 py-3.5 rounded-xl text-base font-semibold text-white transition-all shadow-md inline-flex items-center justify-center gap-2 w-full sm:w-auto hover:opacity-90"
+                            >
+                                <span>{t(primaryButtonText)}</span>
+                                <ArrowRight className="w-4 h-4" />
+                            </a>
+
+                            <a
+                                href="#contact"
+                                className="px-8 py-3.5 rounded-xl text-base font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/15 transition-all w-full sm:w-auto"
+                            >
+                                {t(secondaryButtonText)}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </section>
     );
