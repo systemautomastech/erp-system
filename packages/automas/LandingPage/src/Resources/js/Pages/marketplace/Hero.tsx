@@ -4,190 +4,127 @@ import { useTranslation } from 'react-i18next';
 
 interface MarketplaceHeroProps {
     settings?: any;
+    matchedPackage?: any;
     title?: string;
     subtitle?: string;
     primaryButton?: string;
     secondaryButton?: string;
 }
 
-const HERO_VARIANTS = {
-    hero1: {
-        section: 'bg-white py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight',
-        subtitle: 'text-xl text-gray-600 mb-8 leading-relaxed',
-        buttons: 'flex flex-col sm:flex-row gap-4',
-        primaryBtn: 'text-white px-8 py-3 rounded-lg text-lg font-medium flex items-center transition-all duration-300 shadow-lg hover:shadow-xl',
-        secondaryBtn: 'border-2 border-gray-300 text-gray-700 px-8 py-3 rounded-lg text-lg font-medium hover:bg-gray-50 transition-all duration-300',
-        layout: 'right-split',
-        showImage: true
-    },
-    hero2: {
-        section: 'bg-white py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-4xl md:text-5xl font-bold text-gray-900 mb-6',
-        subtitle: 'text-xl text-gray-600 mb-8',
-        buttons: 'flex flex-col sm:flex-row gap-4 justify-center',
-        primaryBtn: 'text-white px-8 py-3 rounded-md text-lg font-medium flex items-center justify-center transition-colors',
-        secondaryBtn: 'border border-gray-300 text-gray-700 px-8 py-3 rounded-md text-lg font-medium hover:bg-gray-50',
-        layout: 'split',
-        showImage: true
-    },
-    hero3: {
-        section: 'relative bg-gray-900 py-32 md:py-40 overflow-hidden',
-        container: 'relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white z-10',
-        title: 'text-4xl md:text-6xl lg:text-7xl font-bold mb-8 leading-tight drop-shadow-2xl',
-        subtitle: 'text-xl md:text-2xl mb-12 max-w-4xl mx-auto opacity-95 leading-relaxed',
-        buttons: 'flex flex-col sm:flex-row gap-6 justify-center items-center',
-        primaryBtn: 'text-white px-10 py-4 rounded-2xl text-lg font-semibold flex items-center justify-center transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 backdrop-blur-sm',
-        secondaryBtn: 'border-2 border-white/30 text-white px-10 py-4 rounded-2xl text-lg font-semibold hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm',
-        layout: 'background',
-        showImage: false
-    },
-    hero4: {
-        section: 'bg-white py-16 md:py-20 border-b border-gray-100',
-        container: 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center',
-        title: 'text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-6 leading-tight tracking-tight',
-        subtitle: 'text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed font-medium',
-        buttons: 'flex flex-col sm:flex-row gap-3 justify-center items-center',
-        primaryBtn: 'text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md',
-        secondaryBtn: 'text-gray-600 px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:border-gray-300',
-        layout: 'minimal',
-        showImage: false
-    }
-};
-
-export default function MarketplaceHero({ settings, title: propTitle, subtitle: propSubtitle, primaryButton, secondaryButton }: MarketplaceHeroProps) {
+export default function MarketplaceHero({ settings, matchedPackage, title: propTitle, subtitle: propSubtitle, primaryButton, secondaryButton }: MarketplaceHeroProps) {
     const { t } = useTranslation();
     const sectionData = settings?.config_sections?.sections?.hero || {};
-    const variant = sectionData.variant || 'hero1';
-    const config = HERO_VARIANTS[variant as keyof typeof HERO_VARIANTS] || HERO_VARIANTS.hero1;
-    const title = propTitle || sectionData.title || 'Discover Premium Business Packages';
-    const subtitle = propSubtitle || sectionData.subtitle || 'Extend your Automas ERP with powerful premium modules. From advanced CRM to specialized industry solutions.';
-    const primaryButtonText = primaryButton || sectionData.primary_button_text || 'Browse Packages';
-    const primaryButtonLink = sectionData.primary_button_link || '#packages';
-    const secondaryButtonText = secondaryButton || sectionData.secondary_button_text || 'View Categories';
-    const secondaryButtonLink = sectionData.secondary_button_link || '#categories';
-    const heroImage = sectionData.image;
-    const colors = { primary: 'var(--color-primary)', secondary: 'var(--color-secondary)', accent: 'var(--color-accent)' };
 
-    const renderTitle = () => {
-        const highlightText = sectionData.highlight_text;
-        if (highlightText && title?.includes(highlightText)) {
-            const titleParts = title.split(highlightText);
-            return (
-                <>
-                    {titleParts[0]}
-                    <span style={{ color: colors.primary }}>{highlightText}</span>
-                    {titleParts[1]}
-                </>
-            );
-        }
-        return title;
+    const packageName = matchedPackage?.alias || matchedPackage?.name || propTitle || sectionData.title || 'AI Business Advisor';
+    const packageDesc = matchedPackage?.description || propSubtitle || sectionData.subtitle || 'Unlock powerful AI-driven insights to make data-driven business decisions. The AI Business Advisor analyzes your organizational metrics across financial, team, sales, project, and operational dimensions to provide actionable recommendations for continuous business improvement.';
+    const packageImage = matchedPackage?.image || sectionData.image;
+    const packageImageUrl = packageImage ? getImagePath(packageImage) : null;
+
+    const colors = {
+        primary: 'var(--color-primary, #130774)',
+        secondary: 'var(--color-secondary, #0b55b7)',
+        accent: 'var(--color-accent, #130674)'
     };
-
-    const renderButtons = () => (
-        <div className={config.buttons}>
-            <button
-                className={config.primaryBtn}
-                style={{ backgroundColor: colors.primary }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.secondary}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.primary}
-                onClick={() => window.location.href = primaryButtonLink}
-            >
-                {primaryButtonText}
-                {config.layout !== 'minimal' && <ArrowRight className="ms-3 h-6 w-6" />}
-            </button>
-            <button
-                className={config.secondaryBtn}
-                onClick={() => window.location.href = secondaryButtonLink}
-            >
-                {secondaryButtonText}
-            </button>
-        </div>
-    );
-
-    const renderBackgroundImage = () => {
-        if (config.layout !== 'background') return null;
-        return (
-            <>
-                {heroImage && (
-                    <div className="absolute inset-0">
-                        <img src={getImagePath(heroImage)} alt="Hero Background" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
-                    </div>
-                )}
-                {!heroImage && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black"></div>
-                )}
-                <div className="absolute inset-0">
-                    <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
-                    <div className="absolute bottom-20 right-20 w-48 h-48 bg-white/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-                    <div className="absolute top-1/2 left-1/3 w-24 h-24 bg-white/10 rounded-full blur-2xl animate-pulse delay-500"></div>
-                </div>
-            </>
-        );
-    };
-
-    const renderImage = () => {
-        if (!config.showImage || config.layout === 'background') return null;
-
-        return (
-            <div className={`bg-gray-100 rounded-xl ${config.layout === 'split' || config.layout === 'right-split' ? 'h-80' : 'h-52 mt-12'} flex items-center justify-center overflow-hidden shadow-lg`}>
-                {heroImage ? (
-                    <img src={getImagePath(heroImage)} alt="Hero" className="w-full h-full object-contain" />
-                ) : (
-                    <span className="text-gray-500">{t('Hero Image')}</span>
-                )}
-            </div>
-        );
-    };
-
-    const renderContent = () => (
-        <div className={config.layout === 'split' || config.layout === 'right-split' ? '' : 'w-full text-center'}>
-            <h1 className={config.title}>
-                {renderTitle()}
-            </h1>
-            <p className={config.subtitle}>
-                {subtitle}
-            </p>
-            {renderButtons()}
-        </div>
-    );
 
     return (
-        <section className={config.section}>
-            {renderBackgroundImage()}
-            <div className={config.container}>
-                {config.layout === 'split' || config.layout === 'right-split' ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                        {config.layout === 'right-split' ? (
-                            <>
-                                {renderImage()}
-                                {renderContent()}
-                            </>
-                        ) : (
-                            <>
-                                {renderContent()}
-                                {renderImage()}
-                            </>
-                        )}
-                    </div>
-                ) : config.layout === 'background' ? (
-                    <div className="relative">
-                        {renderContent()}
-                        <div className="absolute inset-0 pointer-events-none">
-                            <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white rounded-full animate-ping"></div>
-                            <div className="absolute top-3/4 right-1/4 w-1 h-1 bg-white/70 rounded-full animate-ping delay-700"></div>
-                            <div className="absolute top-1/2 right-1/3 w-1.5 h-1.5 bg-white/50 rounded-full animate-ping delay-1000"></div>
+        <section className="relative flex items-center justify-center overflow-hidden pt-28 pb-16 lg:pt-32 lg:pb-20 bg-slate-50/70 font-['Plus_Jakarta_Sans',sans-serif]">
+            <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
+                <div className="grid lg:grid-cols-2 gap-12 lg:gap-14 items-center">
+
+                    {/* Left Column Content */}
+                    <div className="text-center lg:text-left order-2 lg:order-1">
+
+                        {/* Category Badge */}
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full border border-slate-200 mb-6 bg-white shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-slate-700">{matchedPackage?.module ? `${matchedPackage.module} Module` : t('Addon Module')}</span>
                         </div>
+
+                        {/* Package Title */}
+                        <h1 className="text-4xl sm:text-5xl lg:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight leading-[1.15]">
+                            {t(packageName)}
+                        </h1>
+
+                        {/* Package Subtitle */}
+                        <p className="text-base sm:text-lg text-slate-600 leading-relaxed mb-10 max-w-xl mx-auto lg:mx-0 font-normal">
+                            {t(packageDesc)}
+                        </p>
+
+                        {/* CTA Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6">
+                            <a
+                                href={route('register')}
+                                style={{ backgroundColor: colors.primary }}
+                                className="px-8 py-4 rounded-full text-base font-semibold text-white inline-flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:scale-95 hover:opacity-95"
+                            >
+                                <span>{t(`Install ${packageName}`)}</span>
+                                <ArrowRight className="w-4 h-4" />
+                            </a>
+
+                            <a
+                                href="#details"
+                                className="px-8 py-4 rounded-full text-base font-semibold text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:shadow-lg transition-all inline-flex items-center justify-center gap-2"
+                            >
+                                <span>{t('Learn More')}</span>
+                            </a>
+                        </div>
+
                     </div>
-                ) : (
-                    <>
-                        {renderContent()}
-                        {renderImage()}
-                    </>
-                )}
+
+                    {/* Right Column Dashboard Visual Frame */}
+                    <div className="relative order-1 lg:order-2">
+                        <div className="relative z-10 bg-white rounded-2xl shadow-xl shadow-slate-300/50 border border-slate-100 overflow-hidden">
+                            <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
+
+                                {/* Browser Chrome Header */}
+                                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-white">
+                                    <div className="flex gap-1.5">
+                                        <div className="w-3 h-3 rounded-full bg-rose-400" />
+                                        <div className="w-3 h-3 rounded-full bg-amber-400" />
+                                        <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                                    </div>
+                                    <div className="flex-1 mx-4">
+                                        <div className="bg-slate-100 rounded-md px-3 py-1 text-xs text-slate-400 text-center font-mono">
+                                            {import.meta.env.VITE_APP_URL || 'automas.com.bd'}/marketplace
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Dashboard Image or Visual Placeholder */}
+                                {packageImageUrl ? (
+                                    <div className="relative overflow-hidden bg-slate-100">
+                                        <img
+                                            src={packageImageUrl}
+                                            alt={packageName}
+                                            className="w-full h-auto object-cover max-h-[440px] rounded-b-xl shadow-inner transition-transform duration-500 hover:scale-[1.01]"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="p-8 sm:p-10 text-center bg-gradient-to-b from-slate-50 to-white min-h-[320px] flex flex-col items-center justify-center">
+                                        <div className="w-20 h-20 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-5 font-bold text-3xl shadow-sm">
+                                            ⚡
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-slate-900 mb-2">{packageName}</h3>
+                                        <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">{t('Official Automas ERP Enterprise Module. Built for high reliability and seamless workflow integration.')}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Floating Compatibility Badge Top Right */}
+                        <div className="absolute -top-4 right-2 sm:-top-5 sm:-right-4 bg-white rounded-xl p-3 sm:p-4 shadow-xl shadow-slate-200/60 border border-slate-100 z-20 flex items-center gap-3">
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-lg">
+                                ⚡
+                            </div>
+                            <div>
+                                <div className="text-[10px] sm:text-xs text-slate-400 font-medium">{t('Addon Modules')}</div>
+                                <div className="text-xs sm:text-sm font-bold text-slate-900">100% Compatible</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
             </div>
         </section>
     );
