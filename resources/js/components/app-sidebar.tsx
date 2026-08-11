@@ -133,7 +133,9 @@ export function AppSidebar({
 
         <div className="px-2 group-data-[collapsible=icon]:px-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden rtl:left-auto rtl:right-2.5" />
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 group-data-[collapsible=icon]:hidden rtl:left-auto rtl:right-2.5" style={{
+              color: "black",
+            }} />
 
             <SidebarInput
               type="search"
@@ -155,7 +157,11 @@ export function AppSidebar({
               onChange={(event) =>
                 setSearchQuery(event.target.value)
               }
-              className="rounded-lg border-sidebar-border pl-8 focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary group-data-[collapsible=icon]:hidden rtl:pl-2 rtl:pr-8"
+              className="rounded-lg border-sidebar-border pl-8 focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary group-data-[collapsible=icon]:hidden rtl:pl-2 rtl:pr-8" style={{
+                backgroundColor: "white",
+                color: "black",
+                borderColor: "var(--sidebar-input-border)",
+              }}
             />
           </div>
         </div>
