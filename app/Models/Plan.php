@@ -28,6 +28,8 @@ class Plan extends Model
         'price_per_storage_monthly',
         'price_per_storage_yearly',
         'trial',
+        'is_most_popular',
+        'sort_order',
         'trial_days',
         'created_by',
     ];
@@ -45,6 +47,8 @@ class Plan extends Model
         'storage_limit' => 'integer',
         'price_per_storage_monthly' => 'decimal:2',
         'price_per_storage_yearly' => 'decimal:2',
+        'is_most_popular' => 'boolean',
+        'sort_order' => 'integer',
     ];
 
     public function creator(): BelongsTo

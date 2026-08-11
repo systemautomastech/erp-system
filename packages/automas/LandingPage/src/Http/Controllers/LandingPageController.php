@@ -39,10 +39,11 @@ class LandingPageController extends Controller
         $settingsData['enable_registration'] = $enableRegistration === 'on';
         $settingsData['is_authenticated'] = $request->user() !== null;
 
-        // Get active plans from the main app
+        // Get active plans from the main app ordered by sort_order
         $plans = Plan::where('status', true)
             ->where('custom_plan', false)
             ->withCount('orders')
+            ->orderBy('sort_order', 'asc')
             ->get();
 
         // Get active modules/addons
@@ -70,6 +71,8 @@ class LandingPageController extends Controller
                     'free_plan' => $plan->free_plan,
                     'trial' => $plan->trial,
                     'trial_days' => $plan->trial_days,
+                    'is_most_popular' => (bool)$plan->is_most_popular,
+                    'sort_order' => $plan->sort_order,
                     'orders_count' => $plan->orders_count
                 ];
             }),

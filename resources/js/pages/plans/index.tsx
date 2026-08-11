@@ -34,6 +34,8 @@ interface Plan {
     storage_limit: number;
     price_per_storage_monthly: number;
     price_per_storage_yearly: number;
+    is_most_popular?: boolean;
+    sort_order?: number;
 
     trial: boolean;
     trial_days: number;
@@ -56,7 +58,7 @@ interface Props {
     customDesignPackageEnabled: boolean;
 }
 
-export default function PlansIndex({ plans, canCreate, activeModules, bankTransferEnabled,bankTransferInstructions, userTrialInfo, createPackageEnabled, customDesignPackageEnabled }: Props) {
+export default function PlansIndex({ plans, canCreate, activeModules, bankTransferEnabled, bankTransferInstructions, userTrialInfo, createPackageEnabled, customDesignPackageEnabled }: Props) {
     const { t } = useTranslation();
     const [subscriptionType, setSubscriptionType] = useState<'pre-package' | 'usage'>('pre-package');
     const { auth } = usePage().props as any;
@@ -114,11 +116,16 @@ export default function PlansIndex({ plans, canCreate, activeModules, bankTransf
     });
 
     // Find the plan with the highest order count for "Most Popular" badge
-    const mostPopularPlanId = activePlans.length > 0
-        ? activePlans.reduce((prev, current) =>
-            (current.orders_count || 0) > (prev.orders_count || 0) ? current : prev
-          ).id
-        : null;
+    const selectedMostPopularPlan = activePlans.find(plan => plan.is_most_popular);
+    const mostPopularPlanId = selectedMostPopularPlan
+        ? selectedMostPopularPlan.id
+        : activePlans.length > 0
+            ? activePlans.reduce((prev, current) =>
+                (current.orders_count || 0) > (prev.orders_count || 0) ? current : prev
+              ).id
+            : null;
+
+    const sortedActivePlans = [...activePlans].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
     const hasModule = (plan: Plan, moduleObj: { module: string; alias: string; image: string; }) => {
         return Array.isArray(plan.modules) ? plan.modules.includes(moduleObj.module) : false;
@@ -519,7 +526,7 @@ export default function PlansIndex({ plans, canCreate, activeModules, bankTransf
                             </div>
 
                             {/* Plan Header Cards */}
-                            {activePlans.map((plan, index) => (
+                            {sortedActivePlans.map((plan, index) => (
                                 <div key={plan.id} className={`relative rounded-2xl p-6 border-2 ${
                                     plan.id === mostPopularPlanId && activePlans.length > 1
                                         ? 'bg-white dark:bg-gray-800 border-primary ring-2 ring-primary/20'
@@ -640,7 +647,7 @@ export default function PlansIndex({ plans, canCreate, activeModules, bankTransf
                                     </div>
 
                                     {/* Plan Feature Cards */}
-                                    {activePlans.map((plan) => {
+                                    {sortedActivePlans.map((plan) => {
                                         const enabledAddOns = allModules.filter(module => hasModule(plan, module));
                                         const totalAddOns = allModules.length;
 

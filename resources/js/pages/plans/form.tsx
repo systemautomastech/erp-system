@@ -29,6 +29,8 @@ interface Plan {
     price_per_user_monthly: number;
     price_per_user_yearly: number;
     storage_limit: number;
+    is_most_popular?: boolean;
+    sort_order?: number;
 
     trial: boolean;
     trial_days: number;
@@ -75,6 +77,8 @@ function PlanForm({ plan, activeModules, isEdit = false, userSubscriptionInfo }:
 
         trial: plan?.trial ?? false,
         trial_days: plan?.trial_days || 0,
+        is_most_popular: plan?.is_most_popular ?? false,
+        sort_order: plan?.sort_order ?? 0,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -128,6 +132,19 @@ function PlanForm({ plan, activeModules, isEdit = false, userSubscriptionInfo }:
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs">{t('Free')}</Label>
                                 <Switch checked={data.free_plan} onCheckedChange={(checked) => setData('free_plan', checked)} />
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <Label className="text-xs">{t('Most Popular')}</Label>
+                                <Switch checked={data.is_most_popular} onCheckedChange={(checked) => setData('is_most_popular', checked)} />
+                            </div>
+                            <div>
+                                <Label className="text-xs">{t('Sort Order')}</Label>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    value={data.sort_order ?? 0}
+                                    onChange={(e) => setData('sort_order', parseInt(e.target.value) || 0)}
+                                />
                             </div>
                         </CardContent>
                     </Card>

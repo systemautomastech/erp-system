@@ -198,13 +198,13 @@ export default function Modules({ settings }: ModulesProps) {
                 </button>
 
                 {/* 3D Carousel Track Centered on Screen */}
-                <div className="py-4 overflow-x-auto no-scrollbar w-full sm:overflow-hidden">
+                <div className="py-4 overflow-hidden w-full">
                     <div
                         ref={trackRef}
-                        className="flex items-center gap-4 sm:gap-8 transition-transform duration-700 ease-out px-4 sm:px-0"
+                        className="flex items-center transition-transform duration-700 ease-out"
                         style={{
-                            transform: typeof window !== 'undefined' && window.innerWidth < 640
-                                ? `translateX(-${activeIdx * 88}vw)`
+                            transform: typeof window !== 'undefined' && window.innerWidth < 1024
+                                ? `translateX(-${activeIdx * 100}%)`
                                 : `translateX(calc(50vw - ${(activeIdx * 920) + 460}px))`
                         }}
                     >
@@ -222,9 +222,9 @@ export default function Modules({ settings }: ModulesProps) {
                                             setIsAutoPlay(false);
                                         }
                                     }}
-                                    className={`w-[88vw] sm:w-[75vw] lg:w-[900px] shrink-0 transition-all duration-700 ease-out ${isActive
+                                    className={`w-full lg:w-[900px] shrink-0 px-4 sm:px-6 transition-all duration-700 ease-out ${isActive
                                         ? 'scale-100 opacity-100 z-20'
-                                        : 'scale-95 sm:scale-90 opacity-60 sm:opacity-40 hover:opacity-75 cursor-pointer z-10'
+                                        : 'scale-95 lg:scale-90 opacity-0 lg:opacity-40 hover:opacity-75 cursor-pointer z-10'
                                         }`}
                                 >
                                     <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 lg:p-8">
@@ -310,7 +310,7 @@ export default function Modules({ settings }: ModulesProps) {
                                                             <img
                                                                 src={imageUrl}
                                                                 alt={t(mod.title)}
-                                                                className="w-full h-[200px] sm:h-[300px] lg:h-[200px] object-cover rounded-xl transition-all duration-700 group-hover:scale-102"
+                                                                className="w-full h-[200px] sm:h-[300px] lg:h-[200px] object-fill rounded-xl transition-all duration-700 group-hover:scale-102"
                                                             />
                                                         ) : (
                                                             <div className="w-full h-[200px] sm:h-[300px] lg:h-[350px] bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-2">

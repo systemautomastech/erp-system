@@ -36,7 +36,8 @@ class PlanController extends Controller
                 ->withCount(['orders' => function ($query) {
                     $query->where('payment_status', 'succeeded');
                 }])
-                ->latest()
+                ->orderBy('sort_order', 'asc')
+                ->orderBy('created_at', 'desc')
                 ->get();
 
             // Get enabled addons with details
@@ -132,6 +133,11 @@ class PlanController extends Controller
     {
         if (Auth::user()->can('create-plans') && Auth::user()->hasRole('superadmin')) {
             $validated = $request->validated();
+
+            if ($request->boolean('is_most_popular', false)) {
+                Plan::where('is_most_popular', true)->update(['is_most_popular' => false]);
+            }
+
             $plan = new Plan();
             $plan->name = $validated['name'];
             $plan->description = $validated['description'];
@@ -146,6 +152,8 @@ class PlanController extends Controller
             $plan->trial_days = $validated['trial_days'] ?? 0;
             $plan->created_by = creatorId();
             $plan->custom_plan = !Auth::user()->hasRole('superadmin');
+            $plan->is_most_popular = $request->boolean('is_most_popular', false);
+            $plan->sort_order = $request->input('sort_order', 0);
             $plan->save();
 
             return redirect()->route('plans.index')
@@ -219,6 +227,10 @@ class PlanController extends Controller
         if (Auth::user()->can('edit-plans') && Auth::user()->hasRole('superadmin')) {
             $validated = $request->validated();
 
+            if ($request->boolean('is_most_popular', false)) {
+                Plan::where('is_most_popular', true)->where('id', '<>', $plan->id)->update(['is_most_popular' => false]);
+            }
+
             if ($plan->custom_plan) {
                 $plan->package_price_yearly = $validated['package_price_yearly'];
                 $plan->package_price_monthly = $validated['package_price_monthly'];
@@ -240,6 +252,8 @@ class PlanController extends Controller
                 $plan->trial_days = $validated['trial_days'] ?? 0;
             }
 
+            $plan->is_most_popular = $request->boolean('is_most_popular', false);
+            $plan->sort_order = $request->input('sort_order', 0);
             $plan->save();
 
             return redirect()->route('plans.index')->with('success', __('The plan details are updated successfully.'));
