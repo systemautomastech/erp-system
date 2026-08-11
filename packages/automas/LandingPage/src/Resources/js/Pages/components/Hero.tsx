@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePage } from '@inertiajs/react';
 import { ArrowRight, PlayCircle, ShieldCheck, CreditCard, Zap, TrendingUp, Users } from 'lucide-react';
 import { getImagePath } from '@/utils/helpers';
 
@@ -8,6 +9,8 @@ interface HeroProps {
 }
 
 export default function Hero({ settings }: HeroProps) {
+    const { props } = usePage();
+    const appUrl = (props as any).baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
     const { t } = useTranslation();
     const sectionData = settings?.config_sections?.sections?.hero || {};
 
@@ -59,7 +62,7 @@ export default function Hero({ settings }: HeroProps) {
     const renderTitle = () => {
         const titlePrefix = sectionData.title_prefix || 'Transform Your Business with';
         return (
-            <h1 className="gsap-hero-title font-['Plus_Jakarta_Sans',sans-serif] text-4xl sm:text-5xl lg:text-5xl font-bold leading-[1.15] mb-6 tracking-tight">
+            <h1 className="gsap-hero-title font-['Plus_Jakarta_Sans',sans-serif] text-4xl sm:text-5xl lg:text-5xl font-bold mb-6 tracking-tight" style={{ lineHeight: '1.2' }}>
                 <span style={{ color: primaryColor }}>
                     {t(titlePrefix)}{' '}
                 </span>
@@ -75,25 +78,18 @@ export default function Hero({ settings }: HeroProps) {
     };
 
     return (
-        <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 bg-slate-50">
-            {/* Background Orbs & Effects */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-100/50 via-slate-50 to-slate-50" />
-            <div className="absolute w-[500px] h-[500px] rounded-full blur-3xl top-10 -left-32 pointer-events-none" style={{ backgroundColor: primaryColor, opacity: 0.15 }} />
-            <div className="absolute w-[400px] h-[400px] rounded-full blur-3xl bottom-10 -right-20 pointer-events-none" style={{ backgroundColor: secondaryColor, opacity: 0.15 }} />
-
-            <div className="absolute inset-0 opacity-[0.4]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.15) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
-
-            <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-20">
+        <section className="relative flex items-center justify-center overflow-hidden pt-20 pb-4 lg:pt-20 lg:pb-16 bg-transparent">
+            <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-4 lg:py-16">
                 <div className="grid lg:grid-cols-2 gap-10 items-center">
 
-                    {/* Left Column Content */}
-                    <div className="text-center lg:text-left">
+                    {/* Left Column Content (Second on mobile, First on desktop) */}
+                    <div className="text-center lg:text-left order-2 lg:order-1">
 
                         {/* Rotating Title */}
                         {renderTitle()}
 
                         {/* Subtitle from settings */}
-                        <p className="gsap-hero-subtitle text-base sm:text-lg text-slate-500 leading-relaxed mb-10 max-w-xl mx-auto lg:mx-0 font-normal -ml-20">
+                        <p className="gsap-hero-subtitle text-base sm:text-lg text-slate-500 leading-relaxed mb-10 max-w-xl mx-auto lg:mx-0 font-normal">
                             {t(subtitle)}
                         </p>
 
@@ -119,12 +115,12 @@ export default function Hero({ settings }: HeroProps) {
 
                     </div>
 
-                    {/* Right Column Dashboard Visual & Floating Cards */}
-                    <div className="gsap-hero-stage relative hidden lg:block">
+                    {/* Right Column Dashboard Visual (First on mobile, Second on desktop) */}
+                    <div className="gsap-hero-stage relative mt-10 lg:mt-0 order-1 lg:order-2">
                         <div className="relative z-10">
 
                             {/* Main Dashboard Card */}
-                            <div className="bg-white rounded-2xl p-4 shadow-2xl shadow-slate-300/50 border border-slate-100">
+                            <div className="bg-white rounded-2xl shadow-lg shadow-slate-300/50 border border-slate-100">
                                 <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
 
                                     {/* Browser Chrome Header */}
@@ -136,7 +132,7 @@ export default function Hero({ settings }: HeroProps) {
                                         </div>
                                         <div className="flex-1 mx-4">
                                             <div className="bg-slate-100 rounded-md px-3 py-1 text-xs text-slate-400 text-center font-mono">
-                                                app.automas-erp.com
+                                                {import.meta.env.VITE_APP_URL || 'automas.com.bd'}
                                             </div>
                                         </div>
                                     </div>
@@ -199,27 +195,27 @@ export default function Hero({ settings }: HeroProps) {
                             </div>
 
                             {/* Floating Card Top Right */}
-                            <div className="absolute -top-6 -right-6 bg-white rounded-xl p-4 shadow-xl shadow-slate-200/50 border border-slate-100">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                        <TrendingUp className="w-5 h-5 text-emerald-600" />
+                            <div className="absolute -top-4 right-2 sm:-top-6 sm:-right-6 bg-white rounded-xl p-3 sm:p-4 shadow-xl shadow-slate-200/50 border border-slate-100 z-20">
+                                <div className="flex items-center gap-2.5 sm:gap-3">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                                     </div>
                                     <div>
-                                        <div className="text-xs text-slate-400">{t('Growth')}</div>
-                                        <div className="text-sm font-bold text-slate-900">+24.5%</div>
+                                        <div className="text-[10px] sm:text-xs text-slate-400">{t('Growth')}</div>
+                                        <div className="text-xs sm:text-sm font-bold text-slate-900">+24.5%</div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Floating Card Bottom Left */}
-                            <div className="absolute -bottom-4 -left-6 bg-white rounded-xl p-4 shadow-xl shadow-slate-200/50 border border-slate-100">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                                        <Users className="w-5 h-5" style={{ color: primaryColor }} />
+                            <div className="absolute -bottom-4 left-2 sm:-left-6 bg-white rounded-xl p-3 sm:p-4 shadow-xl shadow-slate-200/50 border border-slate-100 z-20">
+                                <div className="flex items-center gap-2.5 sm:gap-3">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                                        <Users className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: primaryColor }} />
                                     </div>
                                     <div>
-                                        <div className="text-xs text-slate-400">{t('New Users')}</div>
-                                        <div className="text-sm font-bold text-slate-900">+128 today</div>
+                                        <div className="text-[10px] sm:text-xs text-slate-400">{t('New Users')}</div>
+                                        <div className="text-xs sm:text-sm font-bold text-slate-900">+128 today</div>
                                     </div>
                                 </div>
                             </div>

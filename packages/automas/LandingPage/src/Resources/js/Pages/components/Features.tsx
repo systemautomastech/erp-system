@@ -1,14 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { 
-    Folder, 
-    Calculator, 
-    UserCheck, 
-    Contact, 
-    ShoppingBag, 
-    Package, 
-    Layers, 
-    BarChart3, 
-    Shield, 
+import {
+    Folder,
+    Calculator,
+    UserCheck,
+    Contact,
+    ShoppingBag,
+    Package,
+    Layers,
+    BarChart3,
+    Shield,
     Settings,
     FileText,
     CheckSquare
@@ -34,7 +34,7 @@ export default function Features({ settings }: FeaturesProps) {
 
     const getFeatureIcon = (iconName?: string, idx: number = 0) => {
         if (!iconName) return defaultIcons[idx % defaultIcons.length];
-        
+
         const name = String(iconName).toLowerCase().replace(/[\s\-_]/g, '');
         switch (name) {
             case 'folder':
@@ -137,12 +137,12 @@ export default function Features({ settings }: FeaturesProps) {
         : defaultFeatureCards;
 
     return (
-        <section id="features" className="py-24 bg-slate-50">
+        <section id="features" className="py-6 lg:py-24 bg-transparent">
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
-                
+
                 {/* Header from settings */}
                 <div className="text-center max-w-2xl mx-auto mb-16 gsap-card-reveal">
-                    <span 
+                    <span
                         className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full mb-4 shadow-2xs"
                         style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}
                     >
@@ -158,8 +158,8 @@ export default function Features({ settings }: FeaturesProps) {
                     )}
                 </div>
 
-                {/* 6 Cards Grid with Selected Settings Icons */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* 6 Cards Grid with Selected Settings Icons (2 columns on mobile) */}
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                     {featureCards.map((item: any, idx: number) => {
                         const fallbackCard = defaultFeatureCards[idx % defaultFeatureCards.length];
                         const cardBg = item.bg || fallbackCard.bg;
@@ -170,30 +170,32 @@ export default function Features({ settings }: FeaturesProps) {
                         return (
                             <div
                                 key={idx}
-                                className="gsap-card-reveal rounded-2xl border border-slate-200/80 p-8 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl group"
+                                className="gsap-card-reveal rounded-xl sm:rounded-2xl border border-slate-200/80 p-3.5 sm:p-8 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl group flex flex-col justify-between h-full min-h-[160px] sm:min-h-[220px]"
                                 style={{ backgroundColor: cardBg }}
                             >
-                                <div className="flex items-center justify-between mb-6">
-                                    <div
-                                        className="w-12 h-12 rounded-xl text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300"
-                                        style={{ backgroundColor: cardColor }}
-                                    >
-                                        <IconComponent className="w-6 h-6 stroke-[2]" />
+                                <div>
+                                    <div className="flex items-center justify-between mb-3 sm:mb-6">
+                                        <div
+                                            className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300"
+                                            style={{ backgroundColor: cardColor }}
+                                        >
+                                            <IconComponent className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2]" />
+                                        </div>
+                                        {cardBadge && (
+                                            <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] sm:text-xs font-bold bg-white/80 border border-slate-200/60 text-slate-700 shadow-2xs">
+                                                {t(cardBadge)}
+                                            </span>
+                                        )}
                                     </div>
-                                    {cardBadge && (
-                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/80 border border-slate-200/60 text-slate-700 shadow-2xs">
-                                            {t(cardBadge)}
-                                        </span>
-                                    )}
+
+                                    <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-sm sm:text-xl font-bold text-slate-900 mb-1.5 sm:mb-3 line-clamp-2">
+                                        {t(item.title)}
+                                    </h3>
+
+                                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal line-clamp-3 sm:line-clamp-none">
+                                        {t(item.description || item.desc)}
+                                    </p>
                                 </div>
-
-                                <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-xl font-bold text-slate-900 mb-3">
-                                    {t(item.title)}
-                                </h3>
-
-                                <p className="text-sm text-slate-600 leading-relaxed font-normal">
-                                    {t(item.description || item.desc)}
-                                </p>
                             </div>
                         );
                     })}

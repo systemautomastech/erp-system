@@ -28,14 +28,21 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
     const primaryButtonText = sectionData.primary_button || 'Start Free Trial';
     const secondaryButtonText = sectionData.secondary_button || 'Talk to Sales';
 
-    // System database plans
+    // System database plans sorted by sort_order position
     const hasSystemPlans = propPlans && propPlans.length > 0;
+    const sortedPlans = hasSystemPlans
+        ? propPlans.slice().sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        : [];
 
-    const mostPopularPlanId = hasSystemPlans
-        ? propPlans.reduce((prev, current) =>
-            (current.orders_count || 0) > (prev.orders_count || 0) ? current : prev
-          ).id
+    // Check DB field is_most_popular or fallback to highest order count
+    const featuredPlan = hasSystemPlans
+        ? (sortedPlans.find((p: any) => p.is_most_popular || p.is_popular || p.most_popular || p.popular) ||
+            sortedPlans.reduce((prev: any, current: any) =>
+                (current.orders_count || 0) > (prev.orders_count || 0) ? current : prev
+            ))
         : null;
+
+    const mostPopularPlanId = featuredPlan ? featuredPlan.id : null;
 
     const defaultPlans = [
         {
@@ -65,9 +72,9 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
     ];
 
     return (
-        <section className="py-24 bg-slate-50" id="pricing">
+        <section className="relative py-6 lg:py-24 bg-transparent overflow-hidden" id="pricing">
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
-                
+
                 {/* Header from settings */}
                 <div className="text-center max-w-2xl mx-auto mb-12">
                     <span className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full border border-slate-200 mb-4" style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}>
@@ -90,22 +97,20 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                             <button
                                 onClick={() => setPriceType('monthly')}
                                 style={priceType === 'monthly' ? { backgroundColor: '#ffffff', color: '#0f172a' } : {}}
-                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-                                    priceType === 'monthly'
+                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${priceType === 'monthly'
                                         ? 'shadow-md'
                                         : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 {t('Monthly Billing')}
                             </button>
                             <button
                                 onClick={() => setPriceType('yearly')}
                                 style={priceType === 'yearly' ? { backgroundColor: '#ffffff', color: '#0f172a' } : {}}
-                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-                                    priceType === 'yearly'
+                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${priceType === 'yearly'
                                         ? 'shadow-md'
                                         : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 {t('Yearly Billing')}
                             </button>
@@ -116,7 +121,7 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                 {/* System Database Plans or Settings Plans Grid */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch mb-24">
                     {hasSystemPlans ? (
-                        propPlans.map((plan: any) => {
+                        sortedPlans.map((plan: any) => {
                             const isFeatured = plan.id === mostPopularPlanId && propPlans.length > 1;
                             const isFree = plan.free_plan;
                             const priceAmount = priceType === 'monthly' ? plan.package_price_monthly : plan.package_price_yearly;
@@ -128,11 +133,10 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                                 <div
                                     key={plan.id}
                                     style={isFeatured ? { borderColor: primaryColor } : {}}
-                                    className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${
-                                        isFeatured
+                                    className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${isFeatured
                                             ? 'bg-[#0A1E42] text-white shadow-2xl ring-2 relative md:-translate-y-3'
                                             : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
-                                    }`}
+                                        }`}
                                 >
                                     {isFeatured && (
                                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1" style={{ backgroundColor: primaryColor }}>
@@ -163,26 +167,120 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
 
                                         <ul className="space-y-3 mb-8 text-sm font-medium">
                                             <li className="flex items-center gap-3">
-                                                <Check className="w-4 h-4" style={{ color: isFeatured ? '#93c5fd' : primaryColor }} />
+                                                <Check className="w-4 h-4 shrink-0 text-emerald-500" />
                                                 <span>{userText}</span>
                                             </li>
                                             <li className="flex items-center gap-3">
-                                                <Check className="w-4 h-4" style={{ color: isFeatured ? '#93c5fd' : primaryColor }} />
+                                                <Check className="w-4 h-4 shrink-0 text-emerald-500" />
                                                 <span>{storageText}</span>
                                             </li>
                                             {plan.trial && (
                                                 <li className="flex items-center gap-3">
-                                                    <Check className="w-4 h-4 text-emerald-500" />
+                                                    <Check className="w-4 h-4 shrink-0 text-emerald-500" />
                                                     <span className="text-emerald-500 font-semibold">{plan.trial_days} {t('Days Trial')}</span>
                                                 </li>
                                             )}
-                                            {activeModules.map((module: any) => {
-                                                const isEnabled = plan.modules?.includes(module.module);
-                                                if (!isEnabled) return null;
+
+                                            {/* Render sorted modules: Enabled green checks first, Disabled red crosses last */}
+                                            {activeModules
+                                                .slice()
+                                                .sort((a: any, b: any) => {
+                                                    const aEnabled = plan.modules?.includes(a.module) ? 1 : 0;
+                                                    const bEnabled = plan.modules?.includes(b.module) ? 1 : 0;
+                                                    return bEnabled - aEnabled; // Enabled (1) first, Disabled (0) last
+                                                })
+                                                .map((module: any) => {
+                                                    const isEnabled = plan.modules?.includes(module.module);
+                                                    return (
+                                                        <li 
+                                                            key={module.module} 
+                                                            className={`flex items-center gap-3 ${!isEnabled ? (isFeatured ? 'text-slate-400/70' : 'text-slate-400 opacity-60') : ''}`}
+                                                        >
+                                                            {isEnabled ? (
+                                                                <Check className="w-4 h-4 shrink-0 text-emerald-500" />
+                                                            ) : (
+                                                                <span className="w-4 h-4 shrink-0 font-bold text-rose-500 text-center flex items-center justify-center">✕</span>
+                                                            )}
+                                                            <span className={!isEnabled ? 'line-through' : ''}>
+                                                                {t(module.alias)}
+                                                            </span>
+                                                        </li>
+                                                    );
+                                                })}
+
+                                            {!plan.trial && (
+                                                <li className="flex items-center gap-3 text-slate-400 opacity-60 pt-1 border-t border-slate-100/10">
+                                                    <span className="w-4 h-4 shrink-0 font-bold text-rose-500 text-center flex items-center justify-center">✕</span>
+                                                    <span className="line-through">{t('No Trial Period')}</span>
+                                                </li>
+                                            )}
+                                        </ul>
+                                    </div>
+
+                                    <a
+                                        href={route('register')}
+                                        style={isFeatured ? { backgroundColor: primaryColor } : {}}
+                                        className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${isFeatured
+                                                ? 'text-white hover:opacity-90'
+                                                : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
+                                            }`}
+                                    >
+                                        {t('Select Plan')}
+                                    </a>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        (sectionData.plans && sectionData.plans.length > 0 ? sectionData.plans : defaultPlans).map((plan: any, idx: number) => {
+                            const isFeatured = plan.featured;
+                            return (
+                                <div
+                                    key={idx}
+                                    style={isFeatured ? { borderColor: primaryColor } : {}}
+                                    className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${isFeatured
+                                            ? 'bg-[#0A1E42] text-white shadow-xl ring-2 relative md:-translate-y-3'
+                                            : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
+                                        }`}
+                                >
+                                    {isFeatured && (
+                                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1" style={{ backgroundColor: primaryColor }}>
+                                            <Star className="w-3 h-3 fill-current" />
+                                            {t('Most Popular')}
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-xl font-bold mb-2">
+                                            {t(plan.name)}
+                                        </h3>
+
+                                        <p className={`text-xs leading-relaxed mb-6 ${isFeatured ? 'text-slate-300' : 'text-slate-500'}`}>
+                                            {t(plan.desc || plan.description)}
+                                        </p>
+
+                                        <div className="mb-6">
+                                            <span className="text-4xl font-extrabold tracking-tight">{t(plan.price)}</span>
+                                            {plan.price !== "Let's talk" && (
+                                                <span className={`text-xs ml-1 ${isFeatured ? 'text-slate-400' : 'text-slate-500'}`}>/month</span>
+                                            )}
+                                        </div>
+
+                                        <ul className="space-y-3 mb-8 text-sm font-medium">
+                                            {(plan.features || []).map((feat: any, fIdx: number) => {
+                                                const isObject = typeof feat === 'object';
+                                                const featText = isObject ? feat.text : feat;
+                                                const isAvailable = isObject ? feat.available !== false : true;
+
                                                 return (
-                                                    <li key={module.module} className="flex items-center gap-3">
-                                                        <Check className="w-4 h-4" style={{ color: isFeatured ? '#93c5fd' : primaryColor }} />
-                                                        <span>{t(module.alias)}</span>
+                                                    <li key={fIdx} className={`flex items-center gap-3 ${!isAvailable ? 'text-slate-400 opacity-60' : ''}`}>
+                                                        {isAvailable ? (
+                                                            <Check className="w-4 h-4 shrink-0 text-emerald-500" />
+                                                        ) : (
+                                                            <span className="w-4 h-4 shrink-0 font-bold text-rose-500 text-center flex items-center justify-center">✕</span>
+                                                        )}
+                                                        <span className={!isAvailable ? 'line-through' : ''}>
+                                                            {t(featText)}
+                                                        </span>
                                                     </li>
                                                 );
                                             })}
@@ -192,73 +290,16 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                                     <a
                                         href={route('register')}
                                         style={isFeatured ? { backgroundColor: primaryColor } : {}}
-                                        className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${
-                                            isFeatured
+                                        className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${isFeatured
                                                 ? 'text-white hover:opacity-90'
                                                 : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
-                                        }`}
+                                            }`}
                                     >
-                                        {t('Select Plan')}
+                                        {t(plan.buttonText || 'Get Started')}
                                     </a>
                                 </div>
                             );
                         })
-                    ) : (
-                        (sectionData.plans && sectionData.plans.length > 0 ? sectionData.plans : defaultPlans).map((plan: any, idx: number) => (
-                            <div
-                                key={idx}
-                                style={plan.featured ? { borderColor: primaryColor } : {}}
-                                className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${
-                                    plan.featured
-                                        ? 'bg-[#0A1E42] text-white shadow-xl ring-2 relative md:-translate-y-3'
-                                        : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
-                                }`}
-                            >
-                                {plan.featured && (
-                                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm" style={{ backgroundColor: primaryColor }}>
-                                        {t('Most Popular')}
-                                    </div>
-                                )}
-
-                                <div>
-                                    <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-xl font-bold mb-2">
-                                        {t(plan.name)}
-                                    </h3>
-
-                                    <p className={`text-xs leading-relaxed mb-6 ${plan.featured ? 'text-slate-300' : 'text-slate-500'}`}>
-                                        {t(plan.desc || plan.description)}
-                                    </p>
-
-                                    <div className="mb-6">
-                                        <span className="text-4xl font-extrabold tracking-tight">{t(plan.price)}</span>
-                                        {plan.price !== "Let's talk" && (
-                                            <span className={`text-xs ml-1 ${plan.featured ? 'text-slate-400' : 'text-slate-500'}`}>/month</span>
-                                        )}
-                                    </div>
-
-                                    <ul className="space-y-3 mb-8 text-sm font-medium">
-                                        {(plan.features || []).map((feat: string, fIdx: number) => (
-                                            <li key={fIdx} className="flex items-center gap-3">
-                                                <Check className="w-4 h-4" style={{ color: plan.featured ? '#93c5fd' : primaryColor }} />
-                                                <span>{t(feat)}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-
-                                <a
-                                    href={route('register')}
-                                    style={plan.featured ? { backgroundColor: primaryColor } : {}}
-                                    className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${
-                                        plan.featured
-                                            ? 'text-white hover:opacity-90'
-                                            : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
-                                    }`}
-                                >
-                                    {t(plan.buttonText || 'Get Started')}
-                                </a>
-                            </div>
-                        ))
                     )}
                 </div>
 

@@ -46,8 +46,8 @@ export default function Header({ settings }: HeaderProps) {
 
     const renderNavItems = (isMobile = false) => {
         return navigationItems.map((item: any, idx: number) => {
-            const href = item.href?.startsWith('/page/') 
-                ? route('custom-page.show', item.href.replace('/page/', '')) 
+            const href = item.href?.startsWith('/page/')
+                ? route('custom-page.show', item.href.replace('/page/', ''))
                 : item.href;
 
             const className = isMobile
@@ -67,12 +67,11 @@ export default function Header({ settings }: HeaderProps) {
     };
 
     return (
-        <nav id="navbar" className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-            scrolled ? 'bg-white/80 backdrop-blur-xl border-b border-slate-200/80 shadow-xs' : 'bg-transparent'
-        }`}>
+        <nav id="navbar" className={`absolute md:fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'bg-white/80 md:backdrop-blur-xl border-b border-slate-200/80 shadow-xs' : 'bg-transparent'
+            }`}>
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
-                    
+
                     {/* Logo */}
                     <Link href={route('landing.page')} className="flex items-center gap-3 group">
                         {logoUrl ? (
@@ -89,8 +88,8 @@ export default function Header({ settings }: HeaderProps) {
                         )}
                     </Link>
 
-                    {/* Navigation Links from settings */}
-                    <div className="hidden md:flex items-center gap-8">
+                    {/* Navigation Links from settings - Desktop only (>=1024px) */}
+                    <div className="hidden lg:flex items-center gap-8">
                         {renderNavItems()}
 
                         {sectionData?.enable_addon_link !== false && (
@@ -106,8 +105,8 @@ export default function Header({ settings }: HeaderProps) {
                         )}
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="hidden md:flex items-center gap-4">
+                    {/* Action Buttons - Desktop only (>=1024px) */}
+                    <div className="hidden lg:flex items-center gap-4">
                         {isAuthenticated ? (
                             <button
                                 onClick={() => router.visit(route('dashboard'))}
@@ -130,9 +129,9 @@ export default function Header({ settings }: HeaderProps) {
                         <LanguageSwitcher />
                     </div>
 
-                    {/* Mobile Toggle */}
+                    {/* Hamburger Toggle - Mobile & Tablet (<1024px) */}
                     <button
-                        className="md:hidden p-2 text-slate-600 hover:text-slate-900"
+                        className="lg:hidden p-2 text-slate-600 hover:text-slate-900 cursor-pointer"
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                         aria-label="Toggle navigation"
                     >
@@ -141,19 +140,68 @@ export default function Header({ settings }: HeaderProps) {
                 </div>
             </div>
 
-            {/* Mobile Menu */}
+            {/* Mobile & Tablet Toggle Menu Drawer */}
             {mobileMenuOpen && (
-                <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-xl px-6 py-5 space-y-3">
-                    {renderNavItems(true)}
-                    <div className="pt-3 border-t border-slate-200 flex flex-col gap-3">
-                        <a href={route('login')} className="text-slate-600 font-medium py-2">
-                            {t('Login')}
-                        </a>
-                        <a href={route('register')} style={{ backgroundColor: primaryColor }} className="px-5 py-2.5 rounded-full text-sm font-semibold text-white text-center shadow-md">
-                            {t(ctaText)}
-                        </a>
-                        <div className="pt-2 flex items-center justify-between">
-                            <span className="text-xs font-medium text-slate-500">{t('Language')}</span>
+                <div className="lg:hidden bg-white border-t border-slate-200/90 shadow-2xl px-6 py-6 space-y-4">
+                    <div className="space-y-1">
+                        {renderNavItems(true)}
+
+                        {sectionData?.enable_addon_link !== false && (
+                            <Link
+                                href={route('addons.page')}
+                                className="block py-2.5 text-base font-medium text-slate-700 hover:text-slate-900 transition-colors"
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                {t('Add-Ons')}
+                            </Link>
+                        )}
+
+                        {sectionData?.enable_pricing_link !== false && (
+                            <Link
+                                href={route('pricing.page')}
+                                className="block py-2.5 text-base font-medium text-slate-700 hover:text-slate-900 transition-colors"
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                {t('Pricing')}
+                            </Link>
+                        )}
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
+                        {isAuthenticated ? (
+                            <button
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    router.visit(route('dashboard'));
+                                }}
+                                style={{ backgroundColor: primaryColor }}
+                                className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all shadow-md flex items-center justify-center gap-2"
+                            >
+                                <ShieldCheck className="w-4 h-4" />
+                                {t('Dashboard')}
+                            </button>
+                        ) : (
+                            <>
+                                <a
+                                    href={route('login')}
+                                    className="w-full py-2.5 rounded-xl text-center text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    {t('Login')}
+                                </a>
+                                <a
+                                    href={route('register')}
+                                    style={{ backgroundColor: primaryColor }}
+                                    className="w-full py-3 rounded-xl text-center text-sm font-semibold text-white transition-all shadow-md"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    {t(ctaText)}
+                                </a>
+                            </>
+                        )}
+
+                        <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('Language')}</span>
                             <LanguageSwitcher />
                         </div>
                     </div>
