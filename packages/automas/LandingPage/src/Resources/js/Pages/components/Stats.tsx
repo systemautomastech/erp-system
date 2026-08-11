@@ -41,7 +41,7 @@ export default function Stats({ settings }: StatsProps) {
                     const animate = (currentTime: number) => {
                         const elapsedTime = currentTime - startTime;
                         const progress = Math.min(elapsedTime / duration, 1);
-                        
+
                         // Ease out cubic
                         const easeProgress = 1 - Math.pow(1 - progress, 3);
 
@@ -76,16 +76,27 @@ export default function Stats({ settings }: StatsProps) {
         return item.value || '24/7';
     };
 
+    const colors = settings?.config_sections?.colors || {};
+    const primaryColor = colors.primary || 'var(--color-primary)';
+    const accentColor = colors.accent || 'var(--color-accent)';
+
     return (
-        <section ref={sectionRef} className="relative py-20 border-y border-slate-100 bg-white">
+        <section ref={sectionRef} className="relative py-4 lg:py-16 bg-transparent">
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
                     {statsList.map((statItem: any, idx: number) => (
-                        <div key={idx} className="text-center">
-                            <div className="text-4xl md:text-5xl font-['Plus_Jakarta_Sans',sans-serif] font-bold mb-2 text-slate-900">
+                        <div
+                            key={idx}
+                            className="rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden group min-h-[105px] sm:min-h-[130px] flex flex-col justify-center"
+                            style={{ backgroundColor: accentColor }}
+                        >
+                            {/* Subtle Inner Glow Highlight */}
+                            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                            <div className="text-2xl sm:text-4xl lg:text-5xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-white tracking-tight mb-1 sm:mb-2">
                                 {formatValue(statItem, idx)}
                             </div>
-                            <div className="text-sm text-slate-500 font-medium">
+                            <div className="text-xs sm:text-sm text-white/90 font-medium tracking-wide">
                                 {t(statItem.label)}
                             </div>
                         </div>

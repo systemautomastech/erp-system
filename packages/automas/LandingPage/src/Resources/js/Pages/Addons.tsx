@@ -101,34 +101,42 @@ export default function Addons(props: AddonsProps) {
 
             <Header settings={settings} />
 
-            <main className="min-h-screen bg-gray-50 py-10">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="text-center mb-12">
-                        <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
-                            {addonSettings.title || 'Premium Addons'}
+            <main className="min-h-screen bg-slate-50/70 pt-28 pb-20 font-['Plus_Jakarta_Sans',sans-serif]">
+                <div className="max-w-7xl mx-auto px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="text-center max-w-3xl mx-auto mb-14">
+                        <span 
+                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full border border-slate-200 mb-4 shadow-2xs"
+                            style={{ backgroundColor: `${colors.primary}12`, color: colors.primary }}
+                        >
+                            {t('Enterprise Ecosystem')}
+                        </span>
+                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 tracking-tight leading-[1.08] mb-5">
+                            {addonSettings.title || t('Premium Addons')}
                         </h1>
-                        <p className="text-xl text-slate-700 max-w-3xl mx-auto mb-8">
-                            {addonSettings.subtitle || 'Extend your Automas ERP with powerful premium modules designed to enhance your business operations'}
+                        <p className="text-base sm:text-lg text-slate-500 font-normal leading-relaxed mb-6">
+                            {addonSettings.subtitle || t('Extend your Automas ERP with powerful premium modules designed to enhance your business operations')}
                         </p>
-                        <div className="text-sm text-slate-500">
-                            {t('Showing')} {addons.data.length} {t('of')} {addons.total} {t('addons')}
+                        <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span>{t('Showing')} <strong className="text-slate-900">{addons.data.length}</strong> {t('of')} <strong className="text-slate-900">{addons.total}</strong> {t('addons')}</span>
                         </div>
                     </div>
 
-                    {/* Filters */}
+                    {/* Modern Filters Card */}
                     {(addonSettings.show_search !== false || addonSettings.show_category !== false || addonSettings.show_price !== false || addonSettings.show_sort !== false) && (
-                        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-                            <div className="grid grid-cols-1 md:grid-cols-5 lg:grid-cols-5 gap-4 items-end">
+                        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200/90 p-6 md:p-8 mb-12">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                                 {addonSettings.show_search !== false && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">{t('Search')}</label>
+                                    <div className="lg:col-span-2">
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">{t('Search')}</label>
                                         <div className="relative">
-                                            <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                                            <Search className="absolute start-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                                             <Input
                                                 placeholder={t("Search addons...")}
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="ps-10"
+                                                className="ps-10 h-11 rounded-2xl border-slate-200 focus:border-slate-400 bg-slate-50/50"
                                                 onKeyPress={(e) => e.key === 'Enter' && handleFilter()}
                                             />
                                         </div>
@@ -137,12 +145,12 @@ export default function Addons(props: AddonsProps) {
 
                                 {addonSettings.show_price !== false && (
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">{t("Price")}</label>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">{t("Price")}</label>
                                         <Select value={priceFilter} onValueChange={setPriceFilter}>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50/50">
                                                 <SelectValue placeholder={t("All Prices")} />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="rounded-2xl">
                                                 <SelectItem value="all">{t("All Prices")}</SelectItem>
                                                 <SelectItem value="free">{t("Free")}</SelectItem>
                                                 <SelectItem value="0-50">{formatAdminCurrency(0)} - {formatAdminCurrency(50)}</SelectItem>
@@ -154,37 +162,24 @@ export default function Addons(props: AddonsProps) {
                                 )}
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">{t('Price Type')}</label>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">{t('Price Type')}</label>
                                     <Select value={priceType} onValueChange={setPriceType}>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50/50">
                                             <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="rounded-2xl">
                                             <SelectItem value="monthly">{t('Monthly')}</SelectItem>
                                             <SelectItem value="yearly">{t('Yearly')}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
 
-                                {addonSettings.show_sort !== false && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">{t('Sort By')}</label>
-                                        <Select value={sortBy} onValueChange={setSortBy}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="name">{t('Name')}</SelectItem>
-                                                <SelectItem value="price_low">{t('Price: Low to High')}</SelectItem>
-                                                <SelectItem value="price_high">{t('Price: High to Low')}</SelectItem>
-                                                <SelectItem value="newest">{t('Newest')}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-
                                 <div>
-                                    <Button onClick={handleFilter} style={{ backgroundColor: colors.primary }} className="w-full text-white">
+                                    <Button 
+                                        onClick={handleFilter} 
+                                        style={{ backgroundColor: colors.primary }} 
+                                        className="w-full h-11 rounded-2xl text-white font-bold transition-all shadow-md hover:opacity-90 cursor-pointer"
+                                    >
                                         <Filter className="h-4 w-4 me-2" />
                                         {t('Filter')}
                                     </Button>
@@ -193,7 +188,8 @@ export default function Addons(props: AddonsProps) {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    {/* Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
                         {addons.data.map((addon) => (
                             <AddonCard
                                 key={addon.id}
@@ -210,11 +206,12 @@ export default function Addons(props: AddonsProps) {
 
                     {/* Pagination */}
                     {addons.last_page > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-12">
+                        <div className="flex justify-center items-center gap-2 mt-16">
                             <Button
                                 variant="outline"
                                 disabled={addons.current_page === 1}
                                 onClick={() => handlePageChange(addons.current_page - 1)}
+                                className="rounded-2xl h-10 px-5 border-slate-200 text-slate-700"
                             >
                                 {t('Previous')}
                             </Button>
@@ -231,7 +228,7 @@ export default function Addons(props: AddonsProps) {
                                         variant={page === addons.current_page ? 'default' : 'outline'}
                                         onClick={() => handlePageChange(page)}
                                         style={page === addons.current_page ? { backgroundColor: colors.primary } : {}}
-                                        className={page === addons.current_page ? 'text-white' : ''}
+                                        className={`rounded-2xl h-10 w-10 p-0 ${page === addons.current_page ? 'text-white shadow-md font-bold' : 'border-slate-200 text-slate-700'}`}
                                     >
                                         {page}
                                     </Button>
@@ -242,6 +239,7 @@ export default function Addons(props: AddonsProps) {
                                 variant="outline"
                                 disabled={addons.current_page === addons.last_page}
                                 onClick={() => handlePageChange(addons.current_page + 1)}
+                                className="rounded-2xl h-10 px-5 border-slate-200 text-slate-700"
                             >
                                 {t('Next')}
                             </Button>
@@ -249,14 +247,14 @@ export default function Addons(props: AddonsProps) {
                     )}
 
                     {addons.data.length === 0 && (
-                        <div className="text-center py-16">
-                            <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                                <svg className="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        <div className="text-center py-20 bg-white rounded-3xl border border-slate-200/90 shadow-sm max-w-xl mx-auto my-12 p-8">
+                            <div className="w-20 h-20 mx-auto mb-5 bg-slate-100 rounded-2xl flex items-center justify-center">
+                                <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-semibold text-slate-900 mb-2">{t('No Addons Available')}</h3>
-                            <p className="text-slate-700">{addonSettings.empty_message || t('Check back later for new premium addons and modules.')}</p>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">{t('No Addons Available')}</h3>
+                            <p className="text-slate-500 text-sm leading-relaxed">{addonSettings.empty_message || t('Check back later for new premium addons and modules.')}</p>
                         </div>
                     )}
                 </div>
