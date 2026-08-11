@@ -111,18 +111,7 @@ export default function Modules({ settings }: ModulesProps) {
     }, [isAutoPlay, modulesList.length]);
 
     return (
-        <section id="modules" className="relative py-20 lg:py-28 bg-slate-50 text-slate-900 overflow-hidden select-none">
-            {/* Background Orbs */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-100/80 via-slate-50 to-white pointer-events-none" />
-            <div
-                className="absolute w-[600px] h-[600px] rounded-full blur-[140px] top-1/4 -left-40 pointer-events-none opacity-10"
-                style={{ backgroundColor: primaryColor }}
-            />
-            <div
-                className="absolute w-[500px] h-[500px] rounded-full blur-[140px] bottom-10 -right-30 pointer-events-none opacity-10"
-                style={{ backgroundColor: secondaryColor }}
-            />
-
+        <section id="modules" className="relative py-6 lg:py-24 bg-transparent text-slate-900 overflow-hidden select-none">
             <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="text-center max-w-3xl mx-auto mb-10 lg:mb-14">
@@ -144,7 +133,7 @@ export default function Modules({ settings }: ModulesProps) {
                 </div>
 
                 {/* Centered Category Pill Tabs */}
-                <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-12 lg:mb-16">
+                <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-12 lg:mb-4">
                     {modulesList.map((mod: any, idx: number) => {
                         const isActive = idx === activeIdx;
                         const ModIcon = getModuleIcon(mod.key);
@@ -179,7 +168,7 @@ export default function Modules({ settings }: ModulesProps) {
                 <button
                     onClick={prevSlide}
                     aria-label="Previous Module"
-                    className="absolute left-3 sm:left-6 lg:left-12 top-1/2 -translate-y-1/2 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/95 text-slate-800 border border-slate-200/90 shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 cursor-pointer group"
+                    className="absolute left-1 sm:left-6 lg:left-12 top-1/2 -translate-y-1/2 z-40 w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white/95 text-slate-800 border border-slate-200/90 shadow-2xl hidden sm:flex items-center justify-center transition-all duration-300 hover:scale-110 cursor-pointer group"
                     onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = primaryColor;
                         e.currentTarget.style.color = '#ffffff';
@@ -189,13 +178,13 @@ export default function Modules({ settings }: ModulesProps) {
                         e.currentTarget.style.color = '#1e293b';
                     }}
                 >
-                    <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7 transition-transform group-hover:-translate-x-0.5" />
+                    <ChevronLeft className="w-5 h-5 sm:w-7 sm:h-7 transition-transform group-hover:-translate-x-0.5" />
                 </button>
 
                 <button
                     onClick={nextSlide}
                     aria-label="Next Module"
-                    className="absolute right-3 sm:right-6 lg:right-12 top-1/2 -translate-y-1/2 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/95 text-slate-800 border border-slate-200/90 shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 cursor-pointer group"
+                    className="absolute right-1 sm:right-6 lg:right-12 top-1/2 -translate-y-1/2 z-40 w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white/95 text-slate-800 border border-slate-200/90 shadow-2xl hidden sm:flex items-center justify-center transition-all duration-300 hover:scale-110 cursor-pointer group"
                     onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = primaryColor;
                         e.currentTarget.style.color = '#ffffff';
@@ -205,16 +194,18 @@ export default function Modules({ settings }: ModulesProps) {
                         e.currentTarget.style.color = '#1e293b';
                     }}
                 >
-                    <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 transition-transform group-hover:translate-x-0.5" />
+                    <ChevronRight className="w-5 h-5 sm:w-7 sm:h-7 transition-transform group-hover:translate-x-0.5" />
                 </button>
 
                 {/* 3D Carousel Track Centered on Screen */}
-                <div className="py-4 overflow-hidden w-full">
+                <div className="py-4 overflow-x-auto no-scrollbar w-full sm:overflow-hidden">
                     <div
                         ref={trackRef}
-                        className="flex items-center gap-6 sm:gap-8 transition-transform duration-700 ease-out"
+                        className="flex items-center gap-4 sm:gap-8 transition-transform duration-700 ease-out px-4 sm:px-0"
                         style={{
-                            transform: `translateX(calc(50vw - ${(activeIdx * 920) + 460}px))`
+                            transform: typeof window !== 'undefined' && window.innerWidth < 640
+                                ? `translateX(-${activeIdx * 88}vw)`
+                                : `translateX(calc(50vw - ${(activeIdx * 920) + 460}px))`
                         }}
                     >
                         {modulesList.map((mod: any, idx: number) => {
@@ -231,37 +222,37 @@ export default function Modules({ settings }: ModulesProps) {
                                             setIsAutoPlay(false);
                                         }
                                     }}
-                                    className={`w-[88vw] sm:w-[75vw] lg:w-[880px] shrink-0 transition-all duration-700 ease-out ${isActive
-                                        ? 'scale-100 opacity-100 z-20 shadow-2xl'
-                                        : 'scale-90 opacity-40 hover:opacity-75 cursor-pointer z-10 filter blur-[0.3px]'
+                                    className={`w-[88vw] sm:w-[75vw] lg:w-[900px] shrink-0 transition-all duration-700 ease-out ${isActive
+                                        ? 'scale-100 opacity-100 z-20'
+                                        : 'scale-95 sm:scale-90 opacity-60 sm:opacity-40 hover:opacity-75 cursor-pointer z-10'
                                         }`}
                                 >
-                                    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl shadow-slate-200/80">
+                                    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 lg:p-8">
+                                        {/* Top Header Row Across Card - Far Left & Far Right */}
+                                        <div className="flex items-center justify-between mb-6 pb-2 border-b border-slate-100">
+                                            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100/90 text-slate-800 border border-slate-200">
+                                                <IconComponent className="w-4 h-4 text-slate-700" />
+                                                <span>{t(mod.label || 'Module')}</span>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-400 bg-slate-100/90 px-3.5 py-1.5 rounded-full border border-slate-200/70 shadow-2xs">
+                                                <span style={{ color: primaryColor }} className="text-sm font-extrabold">0{idx + 1}</span>
+                                                <span>/</span>
+                                                <span>0{modulesList.length}</span>
+                                            </div>
+                                        </div>
+
                                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
 
-                                            {/* Left Info Column */}
-                                            <div className="lg:col-span-6 space-y-5 lg:space-y-6">
-
-                                                {/* Module Badge & Index */}
-                                                <div className="flex items-center justify-between">
-                                                    <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100/90 text-slate-800 border border-slate-200">
-                                                        <IconComponent className="w-4 h-4 text-slate-700" />
-                                                        <span>{t(mod.label || 'Module')}</span>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-400 bg-slate-100/80 px-3 py-1.5 rounded-lg border border-slate-200/60">
-                                                        <span style={{ color: primaryColor }} className="text-sm">0{idx + 1}</span>
-                                                        <span>/</span>
-                                                        <span>0{modulesList.length}</span>
-                                                    </div>
-                                                </div>
+                                            {/* Left Info Column (Second on mobile, First on desktop) */}
+                                            <div className="lg:col-span-6 space-y-5 lg:space-y-6 order-2 lg:order-1">
 
                                                 {/* Title & Description */}
                                                 <div className="space-y-3">
                                                     <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-2xl sm:text-3xl font-bold text-slate-900 leading-tight tracking-tight">
                                                         {t(mod.title)}
                                                     </h3>
-                                                    <p className="text-slate-600 text-sm leading-relaxed font-normal">
+                                                    <p className="text-slate-400 text-sm leading-relaxed font-normal">
                                                         {t(mod.description)}
                                                     </p>
                                                 </div>
@@ -298,31 +289,31 @@ export default function Modules({ settings }: ModulesProps) {
 
                                             </div>
 
-                                            {/* Right Full Dashboard Image Frame */}
-                                            <div className="lg:col-span-6">
-                                                <div className="relative bg-slate-950 rounded-2xl p-3 border border-slate-800 shadow-2xl overflow-hidden group">
+                                            {/* Right Full Dashboard Image Frame (First on mobile, Second on desktop) */}
+                                            <div className="lg:col-span-6 order-1 lg:order-2">
+                                                <div className="relative bg-gray-50 rounded-2xl p-3 border border-slate-200 overflow-hidden group">
                                                     {/* Browser Header Bar */}
-                                                    <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-800/80 px-2">
+                                                    <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200 px-2">
                                                         <div className="flex items-center gap-1.5">
                                                             <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                                                             <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                                                             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                                                         </div>
-                                                        <div className="bg-slate-900 text-slate-400 text-[11px] font-mono px-3 py-0.5 rounded-full border border-slate-800 truncate max-w-[240px]">
-                                                            automas-erp.com / {mod.key || 'module'}
+                                                        <div className="bg-gray-100 text-slate-400 text-[11px] font-mono px-3 py-0.5 rounded-full border border-slate-200 truncate max-w-[240px]">
+                                                            {import.meta.env.VITE_APP_URL || 'automas.com.bd'}/{mod.key || 'module'}
                                                         </div>
                                                     </div>
 
                                                     {/* Screenshot Image Container */}
-                                                    <div className="relative overflow-hidden rounded-xl bg-slate-900">
+                                                    <div className="relative overflow-hidden rounded-xl bg-gray-100">
                                                         {imageUrl ? (
                                                             <img
                                                                 src={imageUrl}
                                                                 alt={t(mod.title)}
-                                                                className="w-full h-[240px] sm:h-[300px] lg:h-[350px] object-cover rounded-xl transition-all duration-700 group-hover:scale-102"
+                                                                className="w-full h-[200px] sm:h-[300px] lg:h-[200px] object-cover rounded-xl transition-all duration-700 group-hover:scale-102"
                                                             />
                                                         ) : (
-                                                            <div className="w-full h-[240px] sm:h-[300px] lg:h-[350px] bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-2">
+                                                            <div className="w-full h-[200px] sm:h-[300px] lg:h-[350px] bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-2">
                                                                 <IconComponent className="w-12 h-12 stroke-[1.5]" />
                                                                 <span className="text-xs font-mono">{t('Module Dashboard Preview')}</span>
                                                             </div>
@@ -330,7 +321,6 @@ export default function Modules({ settings }: ModulesProps) {
                                                     </div>
                                                 </div>
                                             </div>
-
                                         </div>
                                     </div>
                                 </div>
@@ -340,7 +330,7 @@ export default function Modules({ settings }: ModulesProps) {
                 </div>
 
                 {/* Pagination Indicator Dots */}
-                <div className="flex items-center justify-center gap-2.5 mt-8">
+                <div className="flex items-center justify-center gap-2.5 mt-6">
                     {modulesList.map((_, idx) => (
                         <button
                             key={idx}

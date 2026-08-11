@@ -67,8 +67,8 @@ export default function Header({ settings }: HeaderProps) {
     };
 
     return (
-        <nav id="navbar" className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-            scrolled ? 'bg-white/80 backdrop-blur-xl border-b border-slate-200/80 shadow-xs' : 'bg-transparent'
+        <nav id="navbar" className={`absolute md:fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+            scrolled ? 'bg-white/80 md:backdrop-blur-xl border-b border-slate-200/80 shadow-xs' : 'bg-transparent'
         }`}>
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">

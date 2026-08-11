@@ -51,21 +51,21 @@ export default function Landing({ settings, plans, activeModules }: LandingProps
                     { y: 35, opacity: 0 },
                     { y: 0, opacity: 1, duration: 0.9, delay: 0.2 }
                 )
-                .fromTo('.gsap-hero-subtitle',
-                    { y: 25, opacity: 0 },
-                    { y: 0, opacity: 1, duration: 0.8 },
-                    '-=0.6'
-                )
-                .fromTo('.gsap-hero-cta',
-                    { y: 20, opacity: 0 },
-                    { y: 0, opacity: 1, duration: 0.7 },
-                    '-=0.5'
-                )
-                .fromTo('.gsap-hero-stage',
-                    { y: 45, opacity: 0, scale: 0.97 },
-                    { y: 0, opacity: 1, scale: 1, duration: 1 },
-                    '-=0.4'
-                );
+                    .fromTo('.gsap-hero-subtitle',
+                        { y: 25, opacity: 0 },
+                        { y: 0, opacity: 1, duration: 0.8 },
+                        '-=0.6'
+                    )
+                    .fromTo('.gsap-hero-cta',
+                        { y: 20, opacity: 0 },
+                        { y: 0, opacity: 1, duration: 0.7 },
+                        '-=0.5'
+                    )
+                    .fromTo('.gsap-hero-stage',
+                        { y: 45, opacity: 0, scale: 0.97 },
+                        { y: 0, opacity: 1, scale: 1, duration: 1 },
+                        '-=0.4'
+                    );
 
                 // ScrollTrigger Card Animations
                 if (windowScrollTrigger) {
@@ -108,16 +108,16 @@ export default function Landing({ settings, plans, activeModules }: LandingProps
     const renderSection = (sectionKey: string) => {
         if (!isSectionVisible(sectionKey)) return null;
         switch (sectionKey) {
-            case 'header':   return <Header key={sectionKey} settings={settings} />;
-            case 'hero':     return <Hero key={sectionKey} settings={settings} />;
-            case 'stats':    return <Stats key={sectionKey} settings={settings} />;
+            case 'header': return <Header key={sectionKey} settings={settings} />;
+            case 'hero': return <Hero key={sectionKey} settings={settings} />;
+            case 'stats': return <Stats key={sectionKey} settings={settings} />;
             case 'features': return <Features key={sectionKey} settings={settings} />;
-            case 'modules':  return <Modules key={sectionKey} settings={settings} />;
+            case 'modules': return <Modules key={sectionKey} settings={settings} />;
             case 'benefits': return <Benefits key={sectionKey} settings={settings} />;
-            case 'gallery':  return <Gallery key={sectionKey} settings={settings} />;
-            case 'cta':      return <CTA key={sectionKey} settings={settings} plans={plans} activeModules={activeModules} />;
-            case 'footer':   return <Footer key={sectionKey} settings={settings} />;
-            default:         return null;
+            case 'gallery': return <Gallery key={sectionKey} settings={settings} />;
+            case 'cta': return <CTA key={sectionKey} settings={settings} plans={plans} activeModules={activeModules} />;
+            case 'footer': return <Footer key={sectionKey} settings={settings} />;
+            default: return null;
         }
     };
 
@@ -128,29 +128,53 @@ export default function Landing({ settings, plans, activeModules }: LandingProps
     };
 
     return (
-        <div 
-            className="min-h-screen bg-white font-['Plus_Jakarta_Sans',sans-serif]"
+        <div
+            className="min-h-screen bg-slate-50 font-['Plus_Jakarta_Sans',sans-serif] relative"
             style={{
                 '--color-primary': colorScheme.primary || '#130774',
                 '--color-secondary': colorScheme.secondary || '#0b55b7',
                 '--color-accent': colorScheme.accent || '#130674',
             } as React.CSSProperties}
         >
+            {/* STICKY BACKGROUND LAYER (Stays sticky behind all scrolling sections) */}
+            <div className="sticky top-0 h-screen w-full pointer-events-none z-0 overflow-hidden -mb-[100vh]">
+                {/* Primary Top-Left Ambient Orb */}
+                <div
+                    className="absolute w-[650px] h-[650px] rounded-full blur-[140px] top-10 -left-40"
+                    style={{ backgroundColor: colorScheme.primary || '#130774', opacity: 0.14 }}
+                />
+                {/* Secondary Bottom-Right Ambient Orb */}
+                <div
+                    className="absolute w-[600px] h-[600px] rounded-full blur-[140px] bottom-10 -right-20"
+                    style={{ backgroundColor: colorScheme.secondary || '#0b55b7', opacity: 0.14 }}
+                />
+                {/* Sticky Grid Texture */}
+                <div
+                    className="absolute inset-0 opacity-[0.25]"
+                    style={{
+                        backgroundImage: 'radial-gradient(rgba(148,163,184,0.2) 1px, transparent 1px)',
+                        backgroundSize: '36px 36px'
+                    }}
+                />
+            </div>
+
             <Head title={`${settings?.company_name || 'Automas ERP'} - All-in-One Business Management Solution`}>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet" />
-                
+
                 {/* GSAP & ScrollTrigger CDN */}
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-                
+
                 {faviconUrl && <link rel="icon" type="image/x-icon" href={faviconUrl} />}
             </Head>
-            
+
             {/* Render sections in order */}
-            {sectionOrder.map(sectionKey => renderSection(sectionKey))}
-            
+            <div className="relative z-10 bg-transparent">
+                {sectionOrder.map(sectionKey => renderSection(sectionKey))}
+            </div>
+
             <CookieConsent settings={adminAllSetting || {}} />
         </div>
     );

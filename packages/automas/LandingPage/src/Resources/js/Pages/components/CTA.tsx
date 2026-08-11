@@ -34,7 +34,7 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
     const mostPopularPlanId = hasSystemPlans
         ? propPlans.reduce((prev, current) =>
             (current.orders_count || 0) > (prev.orders_count || 0) ? current : prev
-          ).id
+        ).id
         : null;
 
     const defaultPlans = [
@@ -65,9 +65,9 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
     ];
 
     return (
-        <section className="py-24 bg-slate-50" id="pricing">
+        <section className="relative py-6 lg:py-24 bg-transparent overflow-hidden" id="pricing">
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
-                
+
                 {/* Header from settings */}
                 <div className="text-center max-w-2xl mx-auto mb-12">
                     <span className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full border border-slate-200 mb-4" style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}>
@@ -90,22 +90,20 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                             <button
                                 onClick={() => setPriceType('monthly')}
                                 style={priceType === 'monthly' ? { backgroundColor: '#ffffff', color: '#0f172a' } : {}}
-                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-                                    priceType === 'monthly'
+                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${priceType === 'monthly'
                                         ? 'shadow-md'
                                         : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 {t('Monthly Billing')}
                             </button>
                             <button
                                 onClick={() => setPriceType('yearly')}
                                 style={priceType === 'yearly' ? { backgroundColor: '#ffffff', color: '#0f172a' } : {}}
-                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-                                    priceType === 'yearly'
+                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${priceType === 'yearly'
                                         ? 'shadow-md'
                                         : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 {t('Yearly Billing')}
                             </button>
@@ -128,11 +126,10 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                                 <div
                                     key={plan.id}
                                     style={isFeatured ? { borderColor: primaryColor } : {}}
-                                    className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${
-                                        isFeatured
+                                    className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${isFeatured
                                             ? 'bg-[#0A1E42] text-white shadow-2xl ring-2 relative md:-translate-y-3'
                                             : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
-                                    }`}
+                                        }`}
                                 >
                                     {isFeatured && (
                                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1" style={{ backgroundColor: primaryColor }}>
@@ -192,11 +189,10 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                                     <a
                                         href={route('register')}
                                         style={isFeatured ? { backgroundColor: primaryColor } : {}}
-                                        className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${
-                                            isFeatured
+                                        className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${isFeatured
                                                 ? 'text-white hover:opacity-90'
                                                 : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
-                                        }`}
+                                            }`}
                                     >
                                         {t('Select Plan')}
                                     </a>
@@ -208,11 +204,10 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                             <div
                                 key={idx}
                                 style={plan.featured ? { borderColor: primaryColor } : {}}
-                                className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${
-                                    plan.featured
+                                className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${plan.featured
                                         ? 'bg-[#0A1E42] text-white shadow-xl ring-2 relative md:-translate-y-3'
                                         : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
-                                }`}
+                                    }`}
                             >
                                 {plan.featured && (
                                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm" style={{ backgroundColor: primaryColor }}>
@@ -249,11 +244,10 @@ export default function CTA({ settings, plans: propPlans = [], activeModules = [
                                 <a
                                     href={route('register')}
                                     style={plan.featured ? { backgroundColor: primaryColor } : {}}
-                                    className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${
-                                        plan.featured
+                                    className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${plan.featured
                                             ? 'text-white hover:opacity-90'
                                             : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
-                                    }`}
+                                        }`}
                                 >
                                     {t(plan.buttonText || 'Get Started')}
                                 </a>
