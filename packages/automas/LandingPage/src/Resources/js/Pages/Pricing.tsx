@@ -76,13 +76,12 @@ export default function Pricing(props: PricingProps) {
 
             <Header settings={settings} />
 
-            
             <main className="min-h-screen bg-slate-50/70 pt-28 pb-24 font-['Plus_Jakarta_Sans',sans-serif]">
                 <div className="max-w-7xl mx-auto px-6 lg:px-8">
 
                     {/* Header */}
                     <div className="text-center max-w-3xl mx-auto mb-12">
-                        <span 
+                        <span
                             className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full border border-slate-200 mb-4 shadow-2xs"
                             style={{ backgroundColor: `${colors.primary}12`, color: colors.primary }}
                         >
@@ -101,21 +100,19 @@ export default function Pricing(props: PricingProps) {
                         <div className="inline-flex items-center bg-slate-200/70 p-1.5 rounded-full shadow-inner gap-1">
                             <button
                                 onClick={() => setPriceType('monthly')}
-                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                                    priceType === 'monthly'
+                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${priceType === 'monthly'
                                         ? 'bg-white text-slate-900 shadow-md'
                                         : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 {t("Monthly Billing")}
                             </button>
                             <button
                                 onClick={() => setPriceType('yearly')}
-                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                                    priceType === 'yearly'
+                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${priceType === 'yearly'
                                         ? 'bg-white text-slate-900 shadow-md'
                                         : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 {t("Yearly Billing")}
                             </button>
@@ -140,15 +137,14 @@ export default function Pricing(props: PricingProps) {
                                         <div
                                             key={plan.id}
                                             style={isFeatured ? { borderColor: colors.primary } : {}}
-                                            className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${
-                                                isFeatured
+                                            className={`rounded-2xl p-8 transition-all duration-300 flex flex-col justify-between ${isFeatured
                                                     ? 'bg-[#0A1E42] text-white shadow-2xl ring-2 relative md:-translate-y-3'
                                                     : 'bg-white text-slate-900 border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md'
-                                            }`}
+                                                }`}
                                         >
                                             {isFeatured && (
-                                                <div 
-                                                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1" 
+                                                <div
+                                                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-white text-[11px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1"
                                                     style={{ backgroundColor: colors.primary }}
                                                 >
                                                     <span className="text-yellow-300">★</span>
@@ -231,11 +227,10 @@ export default function Pricing(props: PricingProps) {
                                             <a
                                                 href={route('register')}
                                                 style={isFeatured ? { backgroundColor: colors.primary } : {}}
-                                                className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${
-                                                    isFeatured
+                                                className={`w-full py-3.5 rounded-xl text-center text-sm font-semibold transition-all shadow-xs ${isFeatured
                                                         ? 'text-white hover:opacity-90'
                                                         : 'bg-[#0A1E42] text-white hover:bg-[#122A52]'
-                                                }`}
+                                                    }`}
                                             >
                                                 {t('Select Plan')}
                                             </a>
