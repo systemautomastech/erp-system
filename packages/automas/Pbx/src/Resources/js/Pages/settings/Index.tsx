@@ -26,6 +26,8 @@ interface PbxSetting {
     extension_start?: number | null;
     extension_end?: number | null;
     max_extensions?: number | null;
+    call_report_api_url?: string | null;
+    call_report_api_key?: string | null;
     is_enabled?: boolean | number;
 }
 
@@ -48,6 +50,8 @@ interface PbxSettingsForm {
     extension_end: number | string;
     max_extensions: number | string;
     is_enabled: boolean;
+    call_report_api_url: string;
+    call_report_api_key: string;
 }
 
 export default function Index({ setting }: PbxSettingsPageProps) {
@@ -78,6 +82,8 @@ export default function Index({ setting }: PbxSettingsPageProps) {
         extension_start: setting?.extension_start ?? 100,
         extension_end: setting?.extension_end ?? 199,
         max_extensions: setting?.max_extensions ?? 50,
+        call_report_api_url: setting?.call_report_api_url ?? '',
+        call_report_api_key: setting?.call_report_api_key ?? '',
         is_enabled: Boolean(setting?.is_enabled),
     });
 
@@ -405,6 +411,43 @@ export default function Index({ setting }: PbxSettingsPageProps) {
                                             )
                                         }
                                         required
+                                    />
+                                </FormField>
+
+
+                                <FormField
+                                    id="call_report_api_url"
+                                    label={t('Call Report API URL')}
+                                    error={getError('call_report_api_url')}
+                                >
+                                    <Input
+                                        id="call_report_api_url"
+                                        type="text"
+                                        value={data.call_report_api_url}
+                                        onChange={(event) =>
+                                            setData(
+                                                'call_report_api_url',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                </FormField>
+
+                                <FormField
+                                    id="call_report_api_key"
+                                    label={t('Call Report API Key')}
+                                    error={getError('call_report_api_key')}
+                                >
+                                    <Input
+                                        id="call_report_api_key"
+                                        type="text"
+                                        value={data.call_report_api_key}
+                                        onChange={(event) =>
+                                            setData(
+                                                'call_report_api_key',
+                                                event.target.value,
+                                            )
+                                        }
                                     />
                                 </FormField>
                             </div>
