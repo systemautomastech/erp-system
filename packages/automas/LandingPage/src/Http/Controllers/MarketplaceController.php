@@ -39,6 +39,7 @@ class MarketplaceController extends Controller
         
         return Inertia::render('LandingPage/Marketplace', [
             'packages' => $packages,
+            'matchedPackage' => $matchedPackage,
             'settings' => $settings,
             'landingPageSettings' => $landingPageSettings
         ]);

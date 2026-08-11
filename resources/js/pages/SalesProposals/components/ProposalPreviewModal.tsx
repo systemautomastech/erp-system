@@ -399,7 +399,7 @@ export default function ProposalPreviewModal({
                                         )}
                                         {section.content ? (
                                             <div
-                                                className="text-slate-700 text-sm sm:text-base leading-relaxed prose max-w-none [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5"
+                                                className="text-slate-700 text-sm sm:text-base leading-relaxed prose max-w-none [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_table]:w-full [&_table]:table-auto [&_table]:border-collapse [&_table]:my-4 [&_table]:border [&_table]:border-slate-200 [&_table]:rounded-lg [&_table]:overflow-hidden [&_tr:first-child]:bg-[var(--template-color)] [&_tr:first-child]:text-white [&_tr:first-child_th]:bg-[var(--template-color)] [&_tr:first-child_th]:text-white [&_tr:first-child_td]:bg-[var(--template-color)] [&_tr:first-child_td]:text-white [&_tr:first-child_td]:font-bold [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-left [&_td]:py-2.5 [&_td]:px-4 [&_td]:text-xs [&_td]:border-b [&_td]:border-slate-100 [&_tr:not(:first-child):hover]:bg-slate-50/50"
                                                 dangerouslySetInnerHTML={{ __html: section.content }}
                                             />
                                         ) : (

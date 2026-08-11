@@ -111,18 +111,78 @@ export default function Screenshots({ settings, title: propTitle, subtitle: prop
     }, []);
 
     const renderGrid = () => (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {images.map((image: string, index: number) => (
-                <div key={index} className="group relative overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300">
-                    <img
-                        src={image.startsWith('http') ? image : getImagePath(image)}
-                        alt={`Screenshot ${index + 1}`}
-                        className="w-full h-64 object-contain group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300"></div>
+        <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {images.map((image: string, index: number) => (
+                    <div 
+                        key={index} 
+                        className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer bg-white border border-slate-100 p-2"
+                        onClick={() => setSelectedImage(index)}
+                    >
+                        <img
+                            src={image.startsWith('http') ? image : getImagePath(image)}
+                            alt={`Screenshot ${index + 1}`}
+                            className="w-full h-64 object-contain group-hover:scale-105 transition-transform duration-300 rounded-lg"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center rounded-xl">
+                            <div className="bg-white/90 backdrop-blur-md rounded-full p-3 transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg text-slate-900">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {selectedImage !== null && (
+                <div
+                    className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div className="relative max-w-5xl max-h-full animate-scaleIn">
+                        <img
+                            src={images[selectedImage]?.startsWith('http') ? images[selectedImage] : getImagePath(images[selectedImage])}
+                            alt={`Screenshot ${selectedImage + 1}`}
+                            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                        />
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedImage((prev) => prev !== null ? (prev - 1 + images.length) % images.length : 0);
+                            }}
+                            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-4 rounded-full backdrop-blur-md transition-all duration-200 hover:scale-110 shadow-xl border border-white/20"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedImage((prev) => prev !== null ? (prev + 1) % images.length : 0);
+                            }}
+                            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-4 rounded-full backdrop-blur-md transition-all duration-200 hover:scale-110 shadow-xl border border-white/20"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => setSelectedImage(null)}
+                            className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full backdrop-blur-md transition-all duration-200 hover:scale-110 shadow-xl border border-white/20"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+                            <p className="text-white text-sm font-medium">{selectedImage + 1} {t('of')} {images.length}</p>
+                        </div>
+                    </div>
                 </div>
-            ))}
-        </div>
+            )}
+        </>
     );
 
     const renderMasonry = () => {
@@ -405,7 +465,7 @@ export default function Screenshots({ settings, title: propTitle, subtitle: prop
         return (
             <div className="space-y-6">
                 {/* Main Image Display */}
-                <div className="relative group">
+                <div className="relative group cursor-pointer" onClick={() => setSelectedImage(mainImage)}>
                     <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden shadow-2xl">
                         <img
                             src={images[mainImage]?.startsWith('http') ? images[mainImage] : getImagePath(images[mainImage])}
@@ -415,6 +475,13 @@ export default function Screenshots({ settings, title: propTitle, subtitle: prop
                     </div>
                     <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm font-medium backdrop-blur-sm">
                         {mainImage + 1} of {images.length}
+                    </div>
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center rounded-xl">
+                        <div className="bg-white/90 backdrop-blur-md rounded-full p-3 shadow-lg text-slate-900">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
                     </div>
                 </div>
 

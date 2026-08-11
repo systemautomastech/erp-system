@@ -14,14 +14,8 @@ import MarketplaceWhyChoose from './marketplace/WhyChoose';
 import { getAdminSetting, getImagePath } from '@/utils/helpers';
 
 interface MarketplaceProps {
-    packages?: Array<{
-        name: string;
-        slug: string;
-        description: string;
-        price: string;
-        yearly_price?: string;
-        image?: string;
-    }>;
+    packages?: Array<any>;
+    matchedPackage?: any;
     settings?: {
         title?: string;
         config_sections?: {
@@ -46,7 +40,7 @@ interface MarketplaceProps {
     };
 }
 
-export default function Marketplace({ packages = [], settings, landingPageSettings }: MarketplaceProps) {
+export default function Marketplace({ packages = [], matchedPackage, settings, landingPageSettings }: MarketplaceProps) {
     const getSectionData = (key: string) => {
         return settings?.config_sections?.sections?.[key] || {};
     };
@@ -71,7 +65,7 @@ export default function Marketplace({ packages = [], settings, landingPageSettin
             case 'header':
                 return <Header key={sectionKey} settings={updatedLandingPageSettings} />;
             case 'hero':
-                return <MarketplaceHero key={sectionKey} settings={settings} />;
+                return <MarketplaceHero key={sectionKey} settings={settings} matchedPackage={matchedPackage} />;
             case 'modules':
                 return <MarketplaceModules key={sectionKey} packages={packages} settings={settings} />;
             case 'dedication':
@@ -97,7 +91,7 @@ export default function Marketplace({ packages = [], settings, landingPageSettin
     };
 
     return (
-        <div className="min-h-screen bg-white" style={{
+        <div className="min-h-screen bg-slate-50/70 font-['Plus_Jakarta_Sans',sans-serif]" style={{
             '--color-primary': colorScheme.primary,
             '--color-secondary': colorScheme.secondary,
             '--color-accent': colorScheme.accent

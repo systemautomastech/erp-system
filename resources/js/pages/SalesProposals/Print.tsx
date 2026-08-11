@@ -276,6 +276,39 @@ export default function Print() {
                     box-shadow: none;
                 }
 
+                .proposal-container table {
+                    width: 100%;
+                    table-layout: auto;
+                    border-collapse: collapse;
+                    margin: 12px 0;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    overflow: hidden;
+                }
+
+                .proposal-container tr:first-child,
+                .proposal-container th {
+                    background-color: var(--primary, #0f172a) !important;
+                    color: #ffffff !important;
+                    padding: 8px 12px;
+                    text-align: left;
+                    font-size: 11px;
+                    font-weight: bold;
+                    border: 1px solid #e2e8f0;
+                }
+
+                .proposal-container tr:first-child td {
+                    background-color: var(--primary, #0f172a) !important;
+                    color: #ffffff !important;
+                    font-weight: bold;
+                }
+
+                .proposal-container td {
+                    padding: 8px 12px;
+                    font-size: 11px;
+                    border: 1px solid #e2e8f0;
+                }
+
                 .page-break-inside-avoid {
                     page-break-inside: avoid;
                     break-inside: avoid;
