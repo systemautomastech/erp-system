@@ -88,6 +88,8 @@ class PbxSettingsController extends Controller
             'websocket_url' => ['required', 'string', 'max:500'],
             'stun_server' => ['nullable', 'string', 'max:500'],
             'sip_trunk_name' => ['nullable', 'string', 'max:191'],
+            'call_report_api_url' => ['nullable', 'string', 'max:500'],
+            'call_report_api_key' => ['nullable', 'string', 'max:500'],
 
             'extension_start' => ['required', 'integer', 'min:1'],
             'extension_end' => [

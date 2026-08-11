@@ -23,10 +23,10 @@ export const pbxCompanyMenu = (t: (key: string) => string) => [
                 href: route('pbx.extensions.index'),
             },
             {
-                title: t('Call Logs'),
+                title: t('Call Reports'),
                 icon: FileCheck,
                 permission: 'manage call logs',
-                href: route('pbx.call-logs.index'),
+                href: route('pbx.call-reports.index'),
             },
             {
                 title: t('System Setup'),

@@ -18,6 +18,8 @@ class PbxSetting extends Model
         'ami_port',
         'ami_username',
         'ami_password',
+        'call_report_api_url',
+        'call_report_api_key',
         'sip_domain',
         'websocket_url',
         'stun_server',
@@ -37,6 +39,8 @@ class PbxSetting extends Model
         'max_extensions' => 'integer',
         'is_enabled' => 'boolean',
         'ami_password' => 'encrypted',
+        'call_report_api_key' => 'encrypted',
+
     ];
 
     public function scopeForCreator($query, int $creatorId)

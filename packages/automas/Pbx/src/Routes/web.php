@@ -4,6 +4,7 @@ use Automas\Pbx\Http\Controllers\PbxCallLogController;
 use Automas\Pbx\Http\Controllers\PbxExtensionController;
 use Automas\Pbx\Http\Controllers\PbxSettingsController;
 use Illuminate\Support\Facades\Route;
+use Automas\Pbx\Http\Controllers\PbxCallReportController;
 
 Route::middleware([
     'web',
@@ -32,6 +33,12 @@ Route::middleware([
 
     Route::post('store-call-events', [PbxCallLogController::class, 'storeEvent'])
         ->name('call-events.store');
+
+    Route::get('/call-reports', [PbxCallReportController::class, 'index'])
+        ->name('call-reports.index');
+
+    Route::get('/call-reports/recording', [PbxCallReportController::class, 'recording'])
+        ->name('call-reports.recording');
 });
 
 Route::get('/pbx/ringtone', [PbxSettingsController::class, 'ringtone'])
