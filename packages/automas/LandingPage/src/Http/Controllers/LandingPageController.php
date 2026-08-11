@@ -161,6 +161,7 @@ class LandingPageController extends Controller
         $plans = Plan::where('status', true)
             ->where('custom_plan', false)
             ->withCount('orders')
+            ->orderBy('sort_order', 'asc')
             ->get();
 
         // Get active modules/addons
@@ -190,7 +191,9 @@ class LandingPageController extends Controller
                     'free_plan' => $plan->free_plan,
                     'trial' => $plan->trial,
                     'trial_days' => $plan->trial_days,
-                    'orders_count' => $plan->orders_count
+                    'orders_count' => $plan->orders_count,
+                    'position' => $plan->position ?? $plan->sort_order ?? 0,
+                    'is_most_popular' => (bool) ($plan->is_most_popular ?? $plan->is_popular ?? false),
                 ];
             }),
             'activeModules' => $activeModules,
