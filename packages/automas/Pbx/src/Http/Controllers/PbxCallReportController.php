@@ -7,6 +7,7 @@ use Automas\Pbx\Models\PbxExtension;
 use Automas\Pbx\Models\PbxSetting;
 use Automas\Pbx\Services\PbxCallReportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 
@@ -18,105 +19,28 @@ class PbxCallReportController extends Controller
 
     public function index(Request $request)
     {
-        $setting = PbxSetting::query()
-            ->where('created_by', creatorId())
-            ->where('is_enabled', true)
-            ->firstOrFail();
+        $user = Auth::user();
 
-        $extensions = PbxExtension::query()
-            ->with('user:id,name')
-            ->where('created_by', creatorId())
-            ->where('is_active', true)
-            ->get();
+        /*
+        |--------------------------------------------------------------------------
+        | Permission
+        |--------------------------------------------------------------------------
+        */
 
-        $extensionNumbers = $extensions
-            ->pluck('extension')
-            ->filter()
-            ->values()
-            ->all();
+        $canViewAll = $user->can('view all call logs');
+        $canViewOwn = $user->can('view own call logs');
 
-        $result = $this->callReportService->getCallLogs(
-            $setting,
-            $extensionNumbers,
-            [
-                'from' => $request->input('from'),
-                'to' => $request->input('to'),
-                'page' => $request->integer('page', 1),
-                'per_page' => $request->integer('per_page', 50),
-            ]
+        abort_unless(
+            $canViewAll || $canViewOwn,
+            403,
+            'You do not have permission to view call reports.'
         );
 
-        $extensionMap = $extensions->keyBy(
-            fn($extension) => (string) $extension->extension
-        );
-
-        $calls = collect($result['data'] ?? [])
-            ->map(function (array $call) use ($extensionMap) {
-                $extension = $extensionMap->get(
-                    (string) ($call['extension'] ?? '')
-                );
-
-                return [
-                    ...$call,
-
-                    'user_id' => $extension?->user_id,
-
-                    'user_name' => $extension?->user?->name,
-
-                    'recording_url' => !empty($call['has_recording'])
-                        ? route('pbx.call-reports.recording', [
-                            'linkedid' => $call['linkedid'],
-                            'extension' => $call['extension'],
-                        ])
-                        : null,
-                ];
-            })
-            ->values();
-
-        return Inertia::render('Pbx/CallReports/Index', [
-            'calls' => $calls,
-
-            'pagination' => $result['pagination'] ?? [
-                'page' => 1,
-                'per_page' => 50,
-                'total' => 0,
-                'last_page' => 1,
-            ],
-
-            'summary' => $result['summary'] ?? [
-                'totalCalls' => 0,
-                'incoming' => 0,
-                'outgoing' => 0,
-                'totalDuration' => 0,
-                'totalTalkTime' => 0,
-                'answered' => 0,
-                'noAnswer' => 0,
-                'rejected' => 0,
-                'otherStatuses' => 0,
-            ],
-
-            'extensions' => $extensions->map(function ($extension) {
-                return [
-                    'id' => $extension->id,
-                    'extension' => $extension->extension,
-                    'user_id' => $extension->user_id,
-                    'user_name' => $extension->user?->name,
-                ];
-            })->values(),
-
-            'filters' => [
-                'from' => $request->input('from'),
-                'to' => $request->input('to'),
-            ],
-        ]);
-    }
-
-    public function recording(Request $request)
-    {
-        $request->validate([
-            'linkedid' => ['required', 'string', 'max:50'],
-            'extension' => ['required', 'string', 'max:20'],
-        ]);
+        /*
+        |--------------------------------------------------------------------------
+        | PBX Setting
+        |--------------------------------------------------------------------------
+        */
 
         $setting = PbxSetting::query()
             ->where('created_by', creatorId())
@@ -124,49 +48,471 @@ class PbxCallReportController extends Controller
             ->firstOrFail();
 
         /*
-    |--------------------------------------------------------------------------
-    | Verify extension belongs to current company
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Allowed Extensions
+        |--------------------------------------------------------------------------
+        |
+        | view-all-call-logs:
+        |     all company extensions
+        |
+        | view-own-call-logs:
+        |     only extensions assigned to logged-in user
+        |
+        */
 
-        $extension = PbxExtension::query()
+        $extensionsQuery = PbxExtension::query()
+            ->with('user:id,name')
             ->where('created_by', creatorId())
-            ->where('extension', $request->extension)
-            ->where('is_active', true)
-            ->firstOrFail();
+            ->where('is_active', true);
 
-        $url = rtrim($setting->call_report_api_url, '/')
+        if (!$canViewAll) {
+            $extensionsQuery->where(
+                'user_id',
+                $user->id
+            );
+        }
+
+        $extensions = $extensionsQuery
+            ->orderBy('extension')
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filters
+        |--------------------------------------------------------------------------
+        */
+
+        $from = $request->input('from');
+        $to = $request->input('to');
+
+        $selectedExtension = $request->input(
+            'extension'
+        );
+
+        $direction = $request->input(
+            'direction'
+        );
+
+        $status = $request->input(
+            'status'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent users filtering another user's extension
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($selectedExtension)) {
+            $allowed = $extensions->contains(
+                fn ($item) =>
+                    (string) $item->extension ===
+                    (string) $selectedExtension
+            );
+
+            abort_unless(
+                $allowed,
+                403,
+                'You do not have permission to view this extension.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Extensions sent to Issabel
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($selectedExtension)) {
+            $extensionNumbers = [
+                (string) $selectedExtension,
+            ];
+        } else {
+            $extensionNumbers = $extensions
+                ->pluck('extension')
+                ->filter()
+                ->map(
+                    fn ($extension) =>
+                        (string) $extension
+                )
+                ->values()
+                ->all();
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Call Report API
+        |--------------------------------------------------------------------------
+        */
+
+        $result = $this->callReportService
+            ->getCallLogs(
+                $setting,
+                $extensionNumbers,
+                [
+                    'from' => $from,
+                    'to' => $to,
+                    'direction' => $direction,
+                    'status' => $status,
+
+                    'page' => max(
+                        $request->integer(
+                            'page',
+                            1
+                        ),
+                        1
+                    ),
+
+                    'per_page' => min(
+                        max(
+                            $request->integer(
+                                'per_page',
+                                50
+                            ),
+                            10
+                        ),
+                        100
+                    ),
+                ]
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Extension/User map
+        |--------------------------------------------------------------------------
+        */
+
+        $extensionMap = $extensions->keyBy(
+            fn ($extension) =>
+                (string) $extension->extension
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Current Page Calls
+        |--------------------------------------------------------------------------
+        */
+
+        $calls = collect(
+            $result['data'] ?? []
+        )
+            ->map(
+                function (
+                    array $call
+                ) use ($extensionMap) {
+
+                    $extensionNumber =
+                        (string) (
+                            $call['extension']
+                            ?? ''
+                        );
+
+                    $extension =
+                        $extensionMap->get(
+                            $extensionNumber
+                        );
+
+                    $hasRecording =
+                        (bool) (
+                            $call[
+                                'has_recording'
+                            ] ?? false
+                        );
+
+                    $linkedId =
+                        $call['linkedid']
+                        ?? null;
+
+                    return [
+                        ...$call,
+
+                        'user_id' =>
+                            $extension?->user_id,
+
+                        'user_name' =>
+                            $extension
+                                ?->user
+                                ?->name,
+
+                        'recording_url' =>
+                            (
+                                $hasRecording &&
+                                $linkedId &&
+                                $extensionNumber
+                            )
+                                ? route(
+                                    'pbx.call-reports.recording',
+                                    [
+                                        'linkedid' =>
+                                            $linkedId,
+
+                                        'extension' =>
+                                            $extensionNumber,
+                                    ]
+                                )
+                                : null,
+                    ];
+                }
+            )
+            ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Return
+        |--------------------------------------------------------------------------
+        */
+
+        return Inertia::render(
+            'Pbx/CallReports/Index',
+            [
+                /*
+                 * Current page only.
+                 */
+                'calls' => $calls,
+
+                /*
+                 * Pagination represents ALL matching rows.
+                 */
+                'pagination' =>
+                    $result['pagination']
+                    ?? [
+                        'page' => 1,
+                        'per_page' => 50,
+                        'total' => 0,
+                        'last_page' => 1,
+                    ],
+
+                /*
+                 * Summary MUST be returned by Issabel
+                 * for all filtered records.
+                 */
+                'summary' =>
+                    $result['summary']
+                    ?? [
+                        'totalCalls' => 0,
+                        'incoming' => 0,
+                        'outgoing' => 0,
+                        'totalDuration' => 0,
+                        'totalTalkTime' => 0,
+                        'answered' => 0,
+                        'noAnswer' => 0,
+                        'rejected' => 0,
+                        'otherStatuses' => 0,
+                    ],
+
+                /*
+                 * User can only see extension choices
+                 * he has permission to access.
+                 */
+                'extensions' =>
+                    $extensions
+                        ->map(
+                            function (
+                                $extension
+                            ) {
+                                return [
+                                    'id' =>
+                                        $extension->id,
+
+                                    'extension' =>
+                                        (string)
+                                        $extension->extension,
+
+                                    'user_id' =>
+                                        $extension->user_id,
+
+                                    'user_name' =>
+                                        $extension
+                                            ?->user
+                                            ?->name,
+                                ];
+                            }
+                        )
+                        ->values(),
+
+                'filters' => [
+                    'from' => $from,
+                    'to' => $to,
+
+                    'extension' =>
+                        $selectedExtension
+                        ?: null,
+
+                    'direction' =>
+                        $direction
+                        ?: null,
+
+                    'status' =>
+                        $status
+                        ?: null,
+                ],
+
+                'permissions' => [
+                    'view_all' =>
+                        $canViewAll,
+
+                    'view_own' =>
+                        $canViewOwn,
+                ],
+            ]
+        );
+    }
+
+    public function recording(
+        Request $request
+    ) {
+        $user = Auth::user();
+
+        $canViewAll =
+            $user->can(
+                'view-all-call-logs'
+            );
+
+        $canViewOwn =
+            $user->can(
+                'view-own-call-logs'
+            );
+
+        abort_unless(
+            $canViewAll ||
+            $canViewOwn,
+            403
+        );
+
+        $validated =
+            $request->validate([
+                'linkedid' => [
+                    'required',
+                    'string',
+                    'max:50',
+                ],
+
+                'extension' => [
+                    'required',
+                    'string',
+                    'max:20',
+                ],
+            ]);
+
+        $setting =
+            PbxSetting::query()
+                ->where(
+                    'created_by',
+                    creatorId()
+                )
+                ->where(
+                    'is_enabled',
+                    true
+                )
+                ->firstOrFail();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Recording permission
+        |--------------------------------------------------------------------------
+        */
+
+        $extensionQuery =
+            PbxExtension::query()
+                ->where(
+                    'created_by',
+                    creatorId()
+                )
+                ->where(
+                    'extension',
+                    $validated[
+                        'extension'
+                    ]
+                )
+                ->where(
+                    'is_active',
+                    true
+                );
+
+        if (!$canViewAll) {
+            $extensionQuery->where(
+                'user_id',
+                $user->id
+            );
+        }
+
+        $extension =
+            $extensionQuery
+                ->firstOrFail();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Issabel Recording API
+        |--------------------------------------------------------------------------
+        */
+
+        $url =
+            rtrim(
+                $setting
+                    ->call_report_api_url,
+                '/'
+            )
             . '/recording.php';
 
-        $response = Http::withHeaders([
-            'X-API-Key' => $setting->call_report_api_key,
-            'Accept' => '*/*',
-        ])
-            ->connectTimeout(5)
-            ->timeout(60)
-            ->get($url, [
-                'linkedid' => $request->linkedid,
-                'extension' => $extension->extension,
-            ]);
+        $response =
+            Http::withHeaders([
+                'X-API-Key' =>
+                    $setting
+                        ->call_report_api_key,
+
+                'Accept' => '*/*',
+            ])
+                ->connectTimeout(5)
+                ->timeout(60)
+                ->get(
+                    $url,
+                    [
+                        'linkedid' =>
+                            $validated[
+                                'linkedid'
+                            ],
+
+                        'extension' =>
+                            $extension
+                                ->extension,
+                    ]
+                );
 
         if ($response->failed()) {
             abort(
-                $response->status() === 404 ? 404 : 502,
+                $response->status()
+                    === 404
+                    ? 404
+                    : 502,
+
                 'Recording could not be loaded.'
             );
         }
 
-        $contentType = $response->header('Content-Type')
+        $body =
+            $response->body();
+
+        $contentType =
+            $response->header(
+                'Content-Type'
+            )
             ?? 'application/octet-stream';
 
         return response(
-            $response->body(),
+            $body,
             200,
             [
-                'Content-Type' => $contentType,
-                'Content-Length' => strlen($response->body()),
-                'Content-Disposition' => 'inline',
-                'Cache-Control' => 'private, no-store',
+                'Content-Type' =>
+                    $contentType,
+
+                'Content-Length' =>
+                    strlen($body),
+
+                'Content-Disposition' =>
+                    'inline',
+
+                'Cache-Control' =>
+                    'private, no-store',
             ]
         );
     }
