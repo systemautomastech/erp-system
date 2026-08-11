@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Automas\Account\Models\Customer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,8 @@ class SalesProposal extends Model
 {
     protected $fillable = [
         'proposal_number',
+        'reference',
+        'subject',
         'proposal_date',
         'due_date',
         'customer_id',
@@ -22,7 +25,7 @@ class SalesProposal extends Model
         'total_amount',
         'status',
         'converted_to_invoice',
-        'invoice_id',
+        'converted_to_deal',
         'notes',
         'creator_id',
         'created_by'
@@ -35,7 +38,6 @@ class SalesProposal extends Model
         'tax_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
-        'converted_to_invoice' => 'boolean',
         'type' => 'string'
     ];
 
@@ -44,6 +46,11 @@ class SalesProposal extends Model
     public function items(): HasMany
     {
         return $this->hasMany(SalesProposalItem::class, 'proposal_id');
+    }
+
+    public function tariffs(): HasMany
+    {
+        return $this->hasMany(SalesProposalTariff::class, 'proposal_id')->orderBy('sort_order');
     }
 
     public function customer(): BelongsTo
@@ -58,12 +65,12 @@ class SalesProposal extends Model
 
     public function customerDetails(): BelongsTo
     {
-        return $this->belongsTo(\Automas\Account\Models\Customer::class, 'customer_id', 'user_id');
+        return $this->belongsTo(Customer::class, 'customer_id', 'user_id');
     }
 
     public function invoice(): BelongsTo
     {
-        return $this->belongsTo(SalesInvoice::class, 'invoice_id');
+        return $this->belongsTo(SalesInvoice::class, 'converted_to_invoice');
     }
 
     public function isOverdue(): bool
@@ -85,27 +92,27 @@ class SalesProposal extends Model
 
         static::creating(function ($proposal) {
             if (empty($proposal->proposal_number)) {
-                $proposal->proposal_number = static::generateProposalNumber();
+                $proposal->proposal_number = static::generateProposalNumber($proposal->proposal_date);
             }
         });
     }
 
-    public static function generateProposalNumber(): string
+    public static function generateProposalNumber($date = null): string
     {
-        $year = date('Y');
-        $month = date('m');
-        $lastProposal = static::where('proposal_number', 'like', "SP-{$year}-{$month}-%")
-            ->where('created_by', creatorId())
-            ->orderBy('proposal_number', 'desc')
-            ->first();
+        $creatorId = creatorId();
+        $dateFormatted = $date ? date('Y-m-d', strtotime($date)) : date('Y-m-d');
 
-        if ($lastProposal) {
-            $lastNumber = (int) substr($lastProposal->proposal_number, -3);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($creatorId, $dateFormatted) {
+            $setting = ProposalSetting::where('creator_id', $creatorId)->lockForUpdate()->first();
 
-        return "SP-{$year}-{$month}-" . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            $prefix = $setting?->proposal_prefix ?? 'PROP-';
+            $startingNumber = $setting?->proposal_starting_number ?? 1001;
+
+            if ($setting) {
+                $setting->increment('proposal_starting_number');
+            }
+
+            return "{$prefix}{$startingNumber}-{$dateFormatted}";
+        });
     }
 }

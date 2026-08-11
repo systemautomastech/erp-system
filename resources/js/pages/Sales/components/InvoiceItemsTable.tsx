@@ -9,21 +9,25 @@ import { InputError } from '@/components/ui/input-error';
 import { Trash2 } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 interface Props {
     items: SalesInvoiceItem[];
     onChange: (items: SalesInvoiceItem[]) => void;
-    errors: any;
-    products?: Array<{id: number; name: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{id: number; tax_name: string; rate: number}>}>;
+    errors?: any;
+    products?: Array<{ id: number; name: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
     showAddButton?: boolean;
     invoiceType?: string;
 }
 
-export default function InvoiceItemsTable({ items, onChange, errors, products = [], showAddButton = true, invoiceType = 'product' }: Props) {
+export default function InvoiceItemsTable({ items, onChange, errors = {}, products = [], showAddButton = true, invoiceType = 'product' }: Props) {
     const { t } = useTranslation();
 
     const addItem = () => {
         const newItem: SalesInvoiceItem = {
             product_id: 0,
+            section: 'otc',
+            product_type: invoiceType || 'product',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
@@ -111,6 +115,9 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                                 {t('Product')} <span className="text-red-500">*</span>
                             </th>
+                            <th className="px-3 py-3 text-left text-sm font-semibold text-foreground">
+                                {t('Type')}
+                            </th>
                             {invoiceType === 'product' && (
                                 <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                                     {t('Qty')} <span className="text-red-500">*</span>
@@ -143,6 +150,20 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                                         onChange={(productId, product) => handleProductSelect(index, productId, product)}
                                     />
                                     <InputError message={errors[`items.${index}.product_id`]} />
+                                </td>
+                                <td className="px-3 py-4">
+                                    <Select
+                                        value={item.product_type || invoiceType || 'product'}
+                                        onValueChange={(val) => updateItem(index, 'product_type', val)}
+                                    >
+                                        <SelectTrigger className="w-24 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="product">{t('Product')}</SelectItem>
+                                            <SelectItem value="service">{t('Service')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </td>
                                 {invoiceType === 'product' && (
                                     <td className="px-4 py-4">

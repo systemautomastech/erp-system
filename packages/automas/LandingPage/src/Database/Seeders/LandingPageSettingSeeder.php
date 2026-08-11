@@ -49,7 +49,7 @@ class LandingPageSettingSeeder extends Seeder
             'hero' => [
                 'variant' => 'hero1',
                 'title' => 'Transform Your Business with Automas ERP',
-                'subtitle' => 'The complete all-in-one business management solution that combines Project Management, Accounting, HRM, CRM, POS, and Product Management into a single powerful platform. Streamline operations, boost productivity, and grow your business with our integrated suite of tools.',
+                'subtitle' => 'An all-in-one SaaS and ERP platform built to simplify operations, boost productivity, and support business growth at every stage.',
                 'primary_button_text' => 'Start Free Trial',
                 'primary_button_link' => route('register'),
                 'secondary_button_text' => 'Login',

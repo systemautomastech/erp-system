@@ -39,12 +39,41 @@ class LandingPageController extends Controller
         $settingsData['enable_registration'] = $enableRegistration === 'on';
         $settingsData['is_authenticated'] = $request->user() !== null;
 
+        // Get active plans from the main app
+        $plans = Plan::where('status', true)
+            ->where('custom_plan', false)
+            ->withCount('orders')
+            ->get();
+
+        // Get active modules/addons
+        $activeModules = AddOn::where('is_enable', true)
+            ->whereNotIn('module', User::$superadmin_activated_module)
+            ->select('module', 'name as alias', 'image', 'monthly_price', 'yearly_price')
+            ->get();
+
         return Inertia::render('LandingPage/Landing', [
             'auth' => [
                 'user' => $request->user(),
                 'lang' => app()->getLocale()
             ],
-            'settings' => $settingsData
+            'settings' => $settingsData,
+            'plans' => $plans->map(function($plan) {
+                return [
+                    'id' => $plan->id,
+                    'name' => $plan->name,
+                    'description' => $plan->description,
+                    'package_price_monthly' => $plan->package_price_monthly,
+                    'package_price_yearly' => $plan->package_price_yearly,
+                    'number_of_users' => $plan->number_of_users,
+                    'storage_limit' => $plan->storage_limit,
+                    'modules' => $plan->modules ?? [],
+                    'free_plan' => $plan->free_plan,
+                    'trial' => $plan->trial,
+                    'trial_days' => $plan->trial_days,
+                    'orders_count' => $plan->orders_count
+                ];
+            }),
+            'activeModules' => $activeModules,
         ]);
     }
 

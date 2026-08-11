@@ -12,7 +12,9 @@ return new class extends Migration
         {
             Schema::create('sales_proposals', function (Blueprint $table) {
                 $table->id();
-                $table->string('proposal_number');
+                $table->string('proposal_id');
+                $table->string('reference')->nullable();
+                $table->string('subject')->nullable();
                 $table->date('proposal_date');
                 $table->date('due_date');
                 $table->unsignedBigInteger('customer_id');
@@ -22,8 +24,8 @@ return new class extends Migration
                 $table->decimal('discount_amount', 15, 2)->default(0);
                 $table->decimal('total_amount', 15, 2)->default(0);
                 $table->enum('status', ['draft', 'sent', 'accepted', 'rejected'])->default('draft');
-                $table->boolean('converted_to_invoice')->default(false);
-                $table->unsignedBigInteger('invoice_id')->nullable();
+                $table->unsignedBigInteger('converted_to_invoice')->nullable();
+                $table->unsignedBigInteger('converted_to_deal')->nullable();
                 $table->string('payment_terms')->nullable();
                 $table->text('notes')->nullable();
                 $table->foreignId('creator_id')->nullable()->index();
@@ -31,7 +33,7 @@ return new class extends Migration
                 $table->timestamps();
 
                 $table->foreign('customer_id')->references('id')->on('users')->onDelete('cascade');
-                $table->foreign('invoice_id')->references('id')->on('sales_invoices')->onDelete('set null');
+                $table->foreign('converted_to_invoice')->references('id')->on('sales_invoices')->onDelete('set null');
                 $table->foreign('creator_id')->references('id')->on('users')->onDelete('set null');
                 $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
 

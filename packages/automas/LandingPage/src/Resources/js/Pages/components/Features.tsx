@@ -1,260 +1,204 @@
-import { useState, useEffect } from 'react';
-import { Building2, Calculator, Users, CreditCard, UserCheck, FolderOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { 
+    Folder, 
+    Calculator, 
+    UserCheck, 
+    Contact, 
+    ShoppingBag, 
+    Package, 
+    Layers, 
+    BarChart3, 
+    Shield, 
+    Settings,
+    FileText,
+    CheckSquare
+} from 'lucide-react';
 
 interface FeaturesProps {
     settings?: any;
 }
 
-const FEATURES_VARIANTS = {
-    features1: {
-        section: 'bg-white py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center max-w-3xl mx-auto',
-        grid: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8',
-        layout: 'grid'
-    },
-    features2: {
-        section: 'bg-gray-50 py-20',
-        container: 'max-w-5xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center',
-        grid: 'space-y-8',
-        layout: 'list'
-    },
-    features3: {
-        section: 'bg-white py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center',
-        grid: 'grid grid-cols-1 md:grid-cols-2 gap-8',
-        layout: 'cards'
-    },
-    features4: {
-        section: 'bg-gray-900 py-20',
-        container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-white mb-6',
-        subtitle: 'text-lg text-gray-300 mb-16',
-        grid: 'grid grid-cols-1 lg:grid-cols-2 gap-12 items-center',
-        layout: 'split'
-    },
-    features5: {
-        section: 'bg-gray-50 py-20',
-        container: 'max-w-full px-4 sm:px-6 lg:px-8',
-        title: 'text-3xl md:text-4xl font-bold text-slate-900 mb-6 text-center',
-        subtitle: 'text-lg text-slate-700 mb-16 text-center',
-        grid: 'relative overflow-hidden',
-        layout: 'carousel'
-    }
-};
-
 export default function Features({ settings }: FeaturesProps) {
+    const { t } = useTranslation();
     const sectionData = settings?.config_sections?.sections?.features || {};
-    const variant = sectionData.variant;
-    const config = FEATURES_VARIANTS[variant as keyof typeof FEATURES_VARIANTS] || FEATURES_VARIANTS.features1;
-    
-    const title = sectionData.title;
-    const subtitle = sectionData.subtitle;
-    const colors = settings?.config_sections?.colors || { primary: '#10b981', secondary: '#059669', accent: '#f59e0b' };
-    const [currentSlide, setCurrentSlide] = useState(0);
-    
-    const defaultFeatures = [
-        { title: 'ERP Management', description: 'Complete enterprise resource planning', icon: 'Building2' },
-        { title: 'Accounting', description: 'Advanced financial management', icon: 'Calculator' },
-        { title: 'CRM System', description: 'Customer relationship management', icon: 'Users' }
+    const colors = settings?.config_sections?.colors || {
+        primary: 'var(--color-primary, #130774)',
+        secondary: 'var(--color-secondary, #0b55b7)',
+        accent: 'var(--color-accent, #130674)'
+    };
+
+    const title = sectionData.title || 'Powerful Modular Features';
+    const subtitle = sectionData.subtitle || 'Everything your business needs in one integrated platform';
+
+    const defaultIcons = [Folder, Calculator, UserCheck, Contact, ShoppingBag, Package];
+
+    const getFeatureIcon = (iconName?: string, idx: number = 0) => {
+        if (!iconName) return defaultIcons[idx % defaultIcons.length];
+        
+        const name = String(iconName).toLowerCase().replace(/[\s\-_]/g, '');
+        switch (name) {
+            case 'folder':
+            case 'folderkanban':
+            case 'layout':
+                return Folder;
+            case 'calculator':
+            case 'landmark':
+            case 'dollarsign':
+                return Calculator;
+            case 'usercheck':
+            case 'user-check':
+            case 'user_check':
+            case 'users':
+            case 'usercog':
+            case 'hrm':
+                return UserCheck;
+            case 'contact':
+            case 'usershield':
+            case 'crm':
+                return Contact;
+            case 'shoppingbag':
+            case 'shoppingcart':
+            case 'pos':
+                return ShoppingBag;
+            case 'package':
+            case 'layers':
+            case 'box':
+            case 'product':
+                return Package;
+            case 'shield':
+                return Shield;
+            case 'barchart':
+            case 'barchart3':
+                return BarChart3;
+            case 'settings':
+                return Settings;
+            case 'filetext':
+                return FileText;
+            case 'checksquare':
+                return CheckSquare;
+            default:
+                return defaultIcons[idx % defaultIcons.length];
+        }
+    };
+
+    const defaultFeatureCards = [
+        {
+            icon: 'Folder',
+            bg: '#F5F2FF',
+            color: '#7C5CFF',
+            badge: 'Enterprise',
+            title: 'Project Management',
+            description: 'Organize and track projects efficiently. Manage tasks, milestones, and deadlines with team collaboration. Track progress with Gantt charts and Kanban boards.'
+        },
+        {
+            icon: 'Calculator',
+            bg: '#EAF1FE',
+            color: '#2F6FED',
+            badge: 'Enterprise',
+            title: 'Accounting',
+            description: 'Manage finances with ease and accuracy. Handle invoices, bills, and payments. Track income and expenses and generate detailed financial reports.'
+        },
+        {
+            icon: 'User Check',
+            bg: '#FFF6E5',
+            color: '#F5A524',
+            badge: 'Enterprise',
+            title: 'HRM',
+            description: 'Simplify employee management and payroll. Manage employee records and profiles, attendance and leave management, and payroll processing automation.'
+        },
+        {
+            icon: 'Contact',
+            bg: '#FDEEF3',
+            color: '#EC4899',
+            badge: 'Enterprise',
+            title: 'CRM',
+            description: 'Strengthen customer relationships and improve sales. Manage leads and contacts, track sales pipeline, and handle deal and opportunity management.'
+        },
+        {
+            icon: 'ShoppingBag',
+            bg: '#E5FAFD',
+            color: '#06B6D4',
+            badge: 'Enterprise',
+            title: 'POS',
+            description: 'Fast and reliable point-of-sale solution. Process transactions quickly, manage inventory in real-time, and handle multiple payment methods.'
+        },
+        {
+            icon: 'Package',
+            bg: '#EAFBF0',
+            color: '#16A34A',
+            badge: 'Enterprise',
+            title: 'Product & Service',
+            description: 'Manage your products and services catalog efficiently. Organize product categories, manage inventory levels, and implement pricing strategies.'
+        }
     ];
-    
-    const features = sectionData.features?.length > 0 ? sectionData.features : defaultFeatures;
-    const duplicatedFeatures = [...features, ...features]; // Duplicate for infinite scroll
-    
-    // Auto slide for carousel
-    useEffect(() => {
-        if (config.layout === 'carousel' && features.length > 1) {
-            const interval = setInterval(() => {
-                setCurrentSlide(prev => {
-                    const next = prev + 1;
-                    if (next >= features.length) {
-                        setTimeout(() => setCurrentSlide(0), 500);
-                        return next;
-                    }
-                    return next;
-                });
-            }, 4000);
-            return () => clearInterval(interval);
-        }
-    }, [config.layout, features.length]);
 
-    const getIcon = (iconName: string) => {
-        const icons = { Building2, Calculator, Users, CreditCard, UserCheck, FolderOpen };
-        return icons[iconName as keyof typeof icons] || Building2;
-    };
+    const featureCards = (sectionData.features && sectionData.features.length > 0)
+        ? sectionData.features
+        : defaultFeatureCards;
 
-    const renderFeature = (feature: any, index: number) => {
-        const IconComponent = getIcon(feature.icon);
-
-        if (config.layout === 'grid') {
-            return (
-                <div key={index} className="text-center p-6 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-                        <IconComponent className="h-8 w-8 text-white" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-slate-900 mb-3">{feature.title}</h3>
-                    <p className="text-slate-700">{feature.description}</p>
-                </div>
-            );
-        }
-
-        if (config.layout === 'list') {
-            return (
-                <div key={index} className="flex items-start gap-6 p-6 bg-white rounded-lg shadow-sm">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-                        <IconComponent className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-semibold text-slate-900 mb-2">{feature.title}</h3>
-                        <p className="text-slate-700">{feature.description}</p>
-                    </div>
-                </div>
-            );
-        }
-
-        if (config.layout === 'cards') {
-            return (
-                <div key={index} className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-                    <div className="w-14 h-14 mb-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-                        <IconComponent className="h-7 w-7 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-semibold text-slate-900 mb-4">{feature.title}</h3>
-                    <p className="text-slate-700 text-lg">{feature.description}</p>
-                </div>
-            );
-        }
-
-        if (config.layout === 'split') {
-            return (
-                <div key={index} className="flex items-center gap-4 p-4 bg-gray-800 rounded-lg">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-                        <IconComponent className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-white mb-1">{feature.title}</h3>
-                        <p className="text-gray-300 text-sm">{feature.description}</p>
-                    </div>
-                </div>
-            );
-        }
-
-        if (config.layout === 'carousel') {
-            return (
-                <div key={index} className="flex-shrink-0 w-80 me-6 group">
-                    <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-gray-200 transform hover:-translate-y-2 h-full">
-                        <div className="w-16 h-16 mb-6 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300" style={{ backgroundColor: `${colors.primary}15` }}>
-                            <IconComponent className="h-8 w-8" style={{ color: colors.primary }} />
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-gray-700 transition-colors">{feature.title}</h3>
-                        <p className="text-slate-700 leading-relaxed mb-6">{feature.description}</p>
-                        <div className="w-12 h-1 rounded-full transition-all duration-300" style={{ backgroundColor: colors.primary }}></div>
-                    </div>
-                </div>
-            );
-        }
-
-        return null;
-    };
-
-    if (config.layout === 'split') {
-        return (
-            <section className={config.section}>
-                <div className={config.container}>
-                    <div className={config.grid}>
-                        <div>
-                            <h2 className={config.title}>{title}</h2>
-                            <p className={config.subtitle}>{subtitle}</p>
-                        </div>
-                        <div className="space-y-4">
-                            {features.map((feature: any, index: number) => renderFeature(feature, index))}
-                        </div>
-                    </div>
-                </div>
-            </section>
-        );
-    }
-
-    if (config.layout === 'carousel') {
-        const nextSlide = () => {
-            setCurrentSlide(prev => {
-                const next = prev + 1;
-                if (next >= features.length) {
-                    setTimeout(() => setCurrentSlide(0), 500);
-                    return next;
-                }
-                return next;
-            });
-        };
-        
-        const prevSlide = () => {
-            setCurrentSlide(prev => {
-                if (prev === 0) {
-                    setCurrentSlide(features.length);
-                    setTimeout(() => setCurrentSlide(features.length - 1), 50);
-                    return features.length - 1;
-                }
-                return prev - 1;
-            });
-        };
-        
-        return (
-            <section className={config.section}>
-                <div className={config.container}>
-                    <h2 className={config.title}>{title}</h2>
-                    <p className={config.subtitle}>{subtitle}</p>
-                    <div className="relative">
-                        <div className={config.grid}>
-                            <div 
-                                className={`flex transition-transform duration-500 ease-in-out ${currentSlide >= features.length ? 'transition-none' : ''}`}
-                                style={{ transform: `translateX(-${currentSlide * 344}px)` }}
-                            >
-                                {duplicatedFeatures.map((feature: any, index: number) => renderFeature(feature, index))}
-                            </div>
-                        </div>
-                        <button
-                            onClick={prevSlide}
-                            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-xl transition-all hover:scale-110 z-10"
-                        >
-                            <ChevronLeft className="w-6 h-6" />
-                        </button>
-                        <button
-                            onClick={nextSlide}
-                            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-xl transition-all hover:scale-110 z-10"
-                        >
-                            <ChevronRight className="w-6 h-6" />
-                        </button>
-                        <div className="flex justify-center mt-8 gap-2">
-                            {features.map((_, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => setCurrentSlide(index)}
-                                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                                        currentSlide === index ? 'scale-125' : 'hover:scale-110'
-                                    }`}
-                                    style={{ backgroundColor: currentSlide === index ? colors.primary : '#d1d5db' }}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </section>
-        );
-    }
-    
     return (
-        <section className={config.section}>
-            <div className={config.container}>
-                <h2 className={config.title}>{title}</h2>
-                <p className={config.subtitle}>{subtitle}</p>
-                <div className={config.grid}>
-                    {features.map((feature: any, index: number) => renderFeature(feature, index))}
+        <section id="features" className="py-24 bg-slate-50">
+            <div className="max-w-7xl mx-auto px-6 lg:px-8">
+                
+                {/* Header from settings */}
+                <div className="text-center max-w-2xl mx-auto mb-16 gsap-card-reveal">
+                    <span 
+                        className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full mb-4 shadow-2xs"
+                        style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}
+                    >
+                        <span className="text-[10px]">◆</span> {t('Main Features')}
+                    </span>
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
+                        {t(title)}
+                    </h2>
+                    {subtitle && (
+                        <p className="mt-4 text-base text-slate-500 font-normal">
+                            {t(subtitle)}
+                        </p>
+                    )}
                 </div>
+
+                {/* 6 Cards Grid with Selected Settings Icons */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {featureCards.map((item: any, idx: number) => {
+                        const fallbackCard = defaultFeatureCards[idx % defaultFeatureCards.length];
+                        const cardBg = item.bg || fallbackCard.bg;
+                        const cardColor = item.color || fallbackCard.color;
+                        const cardBadge = item.badge || fallbackCard.badge;
+                        const IconComponent = getFeatureIcon(item.icon || item.icon_name || fallbackCard.icon, idx);
+
+                        return (
+                            <div
+                                key={idx}
+                                className="gsap-card-reveal rounded-2xl border border-slate-200/80 p-8 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl group"
+                                style={{ backgroundColor: cardBg }}
+                            >
+                                <div className="flex items-center justify-between mb-6">
+                                    <div
+                                        className="w-12 h-12 rounded-xl text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300"
+                                        style={{ backgroundColor: cardColor }}
+                                    >
+                                        <IconComponent className="w-6 h-6 stroke-[2]" />
+                                    </div>
+                                    {cardBadge && (
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/80 border border-slate-200/60 text-slate-700 shadow-2xs">
+                                            {t(cardBadge)}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <h3 className="font-['Plus_Jakarta_Sans',sans-serif] text-xl font-bold text-slate-900 mb-3">
+                                    {t(item.title)}
+                                </h3>
+
+                                <p className="text-sm text-slate-600 leading-relaxed font-normal">
+                                    {t(item.description || item.desc)}
+                                </p>
+                            </div>
+                        );
+                    })}
+                </div>
+
             </div>
         </section>
     );
