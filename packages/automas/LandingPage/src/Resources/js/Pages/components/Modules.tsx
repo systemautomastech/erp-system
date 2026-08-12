@@ -81,6 +81,17 @@ export default function Modules({ settings }: ModulesProps) {
 
     const [activeIdx, setActiveIdx] = useState<number>(0);
     const [isAutoPlay, setIsAutoPlay] = useState<boolean>(true);
+    const [windowWidth, setWindowWidth] = useState<number>(
+        typeof window !== 'undefined' ? window.innerWidth : 1200
+    );
+
+    useEffect(() => {
+        const handleResize = () => {
+            setWindowWidth(window.innerWidth);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const getModuleIcon = (key: string) => {
         switch (key) {
@@ -109,6 +120,17 @@ export default function Modules({ settings }: ModulesProps) {
         }, 6000);
         return () => clearInterval(timer);
     }, [isAutoPlay, modulesList.length]);
+
+    // Calculate dynamic transform to center active slide across device modes
+    const getTrackTransform = () => {
+        if (windowWidth >= 1280) {
+            // Desktop mode (1280px+): 900px cards perfectly centered at 50vw
+            return `translateX(calc(50vw - ${(activeIdx * 900) + 450}px))`;
+        } else {
+            // Tablet & Mobile mode: Clean 1-by-1 slide transition centered 100% in viewport
+            return `translateX(-${activeIdx * 100}%)`;
+        }
+    };
 
     return (
         <section id="modules" className="relative py-6 lg:py-24 bg-transparent text-slate-900 overflow-hidden select-none">
@@ -146,7 +168,7 @@ export default function Modules({ settings }: ModulesProps) {
                                 }}
                                 style={isActive ? { backgroundColor: primaryColor, color: '#ffffff' } : {}}
                                 className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center gap-2.5 ${isActive
-                                    ? 'shadow-xl shadow-primary/20 scale-105 ring-2 ring-primary/20'
+                                    ? 'shadow-lg scale-110'
                                     : 'bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-100 hover:text-slate-900 shadow-2xs'
                                     }`}
                             >
@@ -197,16 +219,12 @@ export default function Modules({ settings }: ModulesProps) {
                     <ChevronRight className="w-5 h-5 sm:w-7 sm:h-7 transition-transform group-hover:translate-x-0.5" />
                 </button>
 
-                {/* 3D Carousel Track Centered on Screen */}
-                <div className="py-4 overflow-hidden w-full">
+                {/* Carousel Track Centered on Screen */}
+                <div className="py-4 overflow-hidden w-full max-w-full">
                     <div
                         ref={trackRef}
-                        className="flex items-center transition-transform duration-700 ease-out"
-                        style={{
-                            transform: typeof window !== 'undefined' && window.innerWidth < 1024
-                                ? `translateX(-${activeIdx * 100}%)`
-                                : `translateX(calc(50vw - ${(activeIdx * 920) + 460}px))`
-                        }}
+                        className="flex items-center w-full transition-transform duration-700 ease-out"
+                        style={{ transform: getTrackTransform() }}
                     >
                         {modulesList.map((mod: any, idx: number) => {
                             const isActive = idx === activeIdx;
@@ -222,12 +240,12 @@ export default function Modules({ settings }: ModulesProps) {
                                             setIsAutoPlay(false);
                                         }
                                     }}
-                                    className={`w-full lg:w-[900px] shrink-0 px-4 sm:px-6 transition-all duration-700 ease-out ${isActive
-                                        ? 'scale-100 opacity-100 z-20'
-                                        : 'scale-95 lg:scale-90 opacity-0 lg:opacity-40 hover:opacity-75 cursor-pointer z-10'
+                                    className={`w-full min-w-full xl:min-w-0 xl:w-[900px] shrink-0 px-4 sm:px-6 transition-all duration-700 ease-out ${isActive
+                                        ? 'scale-100 opacity-100 visible z-20'
+                                        : 'scale-95 xl:scale-90 opacity-0 invisible xl:visible xl:opacity-40 pointer-events-none xl:pointer-events-auto hover:opacity-75 cursor-pointer z-10'
                                         }`}
                                 >
-                                    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 lg:p-8">
+                                    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 lg:p-8 max-w-4xl mx-auto">
                                         {/* Top Header Row Across Card - Far Left & Far Right */}
                                         <div className="flex items-center justify-between mb-6 pb-2 border-b border-slate-100">
                                             <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100/90 text-slate-800 border border-slate-200">

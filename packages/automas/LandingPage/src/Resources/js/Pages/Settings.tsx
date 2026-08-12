@@ -168,8 +168,8 @@ export default function Settings({ settings, customPages }: SettingsProps) {
         >
             <Head title={t('Landing Page Settings')} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <div className="lg:col-span-3 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-8 space-y-4">
 
                     {/* Main Tabs */}
                     <Tabs
@@ -238,13 +238,13 @@ export default function Settings({ settings, customPages }: SettingsProps) {
                 </div>
 
                 {/* Live Preview */}
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-4">
                     <div className="sticky top-6">
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-base">{t('Live Preview')}</CardTitle>
                             </CardHeader>
-                            <CardContent className="p-4">
+                            <CardContent className="p-2">
                                 <LandingPreview settings={data} />
                             </CardContent>
                         </Card>
