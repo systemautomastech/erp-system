@@ -1,11 +1,12 @@
-import { Head, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
+import { Head, router } from '@inertiajs/react';
+import { useTranslation } from 'react-i18next';
 
 import {
-    CalendarDays,
     CheckCircle,
     Clock,
     Headphones,
+    Phone,
     PhoneIncoming,
     PhoneOutgoing,
     RefreshCw,
@@ -14,18 +15,13 @@ import {
 
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-
 import {
     Card,
     CardContent,
-    CardHeader,
-    CardTitle,
 } from '@/components/ui/card';
 
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 import {
     Select,
@@ -36,13 +32,22 @@ import {
 } from '@/components/ui/select';
 
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+
+import { DataTable } from '@/components/ui/data-table';
+import { FilterButton } from '@/components/ui/filter-button';
+import { Pagination } from '@/components/ui/pagination';
+import { SearchInput } from '@/components/ui/search-input';
+import { PerPageSelector } from '@/components/ui/per-page-selector';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+
+import NoRecordsFound from '@/components/no-records-found';
+
+import { formatDate, formatTimeFromDate } from '@/utils/helpers';
 
 /*
 |--------------------------------------------------------------------------
@@ -56,8 +61,8 @@ interface CallLog {
     extension: string;
 
     direction:
-        | 'inbound'
-        | 'outbound';
+    | 'inbound'
+    | 'outbound';
 
     number: string | null;
 
@@ -69,11 +74,11 @@ interface CallLog {
 
     talk_time: number;
 
-    recordingfile: string | null;
+    recordingfile?: string | null;
 
     has_recording: boolean;
 
-    recording_size: number;
+    recording_size?: number;
 
     linkedid: string;
 
@@ -96,16 +101,6 @@ interface ExtensionOption {
     user_name?: string | null;
 }
 
-interface Pagination {
-    page: number;
-
-    per_page: number;
-
-    total: number;
-
-    last_page: number;
-}
-
 interface Summary {
     totalCalls: number;
 
@@ -126,41 +121,95 @@ interface Summary {
     otherStatuses: number;
 }
 
-interface Filters {
-    from?: string | null;
+interface CallFilters {
+    search: string;
 
-    to?: string | null;
+    extension: string;
 
-    extension?: string | null;
+    call_direction: string;
 
-    direction?: string | null;
+    status: string;
 
-    status?: string | null;
+    date_range: string;
+}
+
+interface CallPaginator {
+    data: CallLog[];
+
+    current_page?: number;
+
+    first_page_url?: string;
+
+    from?: number | null;
+
+    last_page?: number;
+
+    last_page_url?: string;
+
+    links?: Array<{
+        url: string | null;
+        label: string;
+        active: boolean;
+    }>;
+
+    next_page_url?: string | null;
+
+    path?: string;
+
+    per_page?: number;
+
+    prev_page_url?: string | null;
+
+    to?: number | null;
+
+    total?: number;
+
+    meta?: {
+        current_page?: number;
+        from?: number | null;
+        last_page?: number;
+        links?: Array<{
+            url: string | null;
+            label: string;
+            active: boolean;
+        }>;
+        path?: string;
+        per_page?: number;
+        to?: number | null;
+        total?: number;
+    };
+}
+
+interface CallReportPermissions {
+    view_all: boolean;
+
+    view_own: boolean;
 }
 
 interface Props {
-    calls: CallLog[];
+    calls: CallPaginator;
 
     extensions: ExtensionOption[];
 
-    pagination: Pagination;
-
     summary: Summary;
 
-    filters: Filters;
+    filters: CallFilters;
+
+    callReportPermissions: CallReportPermissions;
 }
 
 /*
 |--------------------------------------------------------------------------
-| Duration formatter
+| Duration
 |--------------------------------------------------------------------------
 */
 
 const formatDuration = (
-    seconds: number,
+    seconds?: number,
 ) => {
-    const value = Number(
-        seconds || 0,
+    const value = Math.max(
+        Number(seconds || 0),
+        0,
     );
 
     const hours = Math.floor(
@@ -171,7 +220,9 @@ const formatDuration = (
         (value % 3600) / 60,
     );
 
-    const secs = value % 60;
+    const secs = Math.floor(
+        value % 60,
+    );
 
     if (hours > 0) {
         return [
@@ -202,64 +253,39 @@ const formatDuration = (
 
 /*
 |--------------------------------------------------------------------------
-| Date formatter
+| Date
 |--------------------------------------------------------------------------
 */
 
-const formatDateTime = (
-    value: string,
-) => {
-    if (!value) {
-        return '—';
-    }
-
-    const normalized =
-        value.replace(
-            ' ',
-            'T',
-        );
-
-    const date =
-        new Date(normalized);
-
-    if (
-        Number.isNaN(
-            date.getTime(),
-        )
-    ) {
-        return value;
-    }
-
-    return date.toLocaleString();
-};
 
 /*
 |--------------------------------------------------------------------------
-| Status badge
+| Status
 |--------------------------------------------------------------------------
 */
 
 const getStatusVariant = (
-    status: string,
+    status?: string,
 ):
     | 'default'
     | 'secondary'
     | 'destructive'
+    | 'success'
     | 'outline' => {
     switch (
-        status
-            ?.toUpperCase()
-            .trim()
+    status
+        ?.toUpperCase()
+        .trim()
     ) {
         case 'ANSWERED':
-            return 'default';
+            return 'success';
 
         case 'NO ANSWER':
         case 'NOANSWER':
             return 'secondary';
 
-        case 'BUSY':
         case 'FAILED':
+        case 'BUSY':
         case 'CONGESTION':
             return 'destructive';
 
@@ -277,52 +303,79 @@ const getStatusVariant = (
 export default function Index({
     calls,
     extensions,
-    pagination,
     summary,
-    filters,
+    filters: serverFilters,
+    callReportPermissions,
 }: Props) {
+    const { t } = useTranslation();
+
+    /*
+    |--------------------------------------------------------------------------
+    | URL
+    |--------------------------------------------------------------------------
+    */
+
+    const urlParams =
+        new URLSearchParams(
+            window.location.search,
+        );
+
     /*
     |--------------------------------------------------------------------------
     | Filters
     |--------------------------------------------------------------------------
     */
 
-    const [from, setFrom] =
-        useState(
-            filters.from ?? '',
-        );
-
-    const [to, setTo] =
-        useState(
-            filters.to ?? '',
-        );
-
     const [
-        extensionFilter,
-        setExtensionFilter,
-    ] = useState(
-        filters.extension ?? 'all',
-    );
+        filters,
+        setFilters,
+    ] = useState<CallFilters>({
+        search:
+            urlParams.get(
+                'search',
+            )
+            ?? serverFilters.search
+            ?? '',
 
-    const [
-        directionFilter,
-        setDirectionFilter,
-    ] = useState(
-        filters.direction ?? 'all',
-    );
+        extension:
+            urlParams.get(
+                'extension',
+            )
+            ?? serverFilters.extension
+            ?? '',
 
-    const [
-        statusFilter,
-        setStatusFilter,
-    ] = useState(
-        filters.status ?? 'all',
-    );
+        call_direction:
+            urlParams.get(
+                'call_direction',
+            )
+            ?? serverFilters.call_direction
+            ?? '',
+
+        status:
+            urlParams.get(
+                'status',
+            )
+            ?? serverFilters.status
+            ?? '',
+
+        date_range:
+            urlParams.get(
+                'date_range',
+            )
+            ?? serverFilters.date_range
+            ?? '',
+    });
 
     /*
     |--------------------------------------------------------------------------
-    | Loading
+    | UI
     |--------------------------------------------------------------------------
     */
+
+    const [
+        showFilters,
+        setShowFilters,
+    ] = useState(false);
 
     const [
         loading,
@@ -331,142 +384,166 @@ export default function Index({
 
     /*
     |--------------------------------------------------------------------------
-    | Available status options
+    | Per Page
     |--------------------------------------------------------------------------
-    |
-    | Include common PBX statuses even if current page does not contain them.
-    |
     */
 
-    const statuses = useMemo(
-        () => {
-            const values = new Set<string>([
-                'ANSWERED',
-                'NO ANSWER',
-                'BUSY',
-                'FAILED',
-                'CONGESTION',
-            ]);
+    const perPage =
+        urlParams.get(
+            'per_page',
+        ) || '10';
 
-            calls.forEach((call) => {
-                if (call.status) {
+    /*
+    |--------------------------------------------------------------------------
+    | Statuses
+    |--------------------------------------------------------------------------
+    */
+
+    const statusOptions =
+        useMemo(
+            () => {
+                const values =
+                    new Set<string>([
+                        'ANSWERED',
+                        'NO ANSWER',
+                        'BUSY',
+                        'FAILED',
+                        'CONGESTION',
+                    ]);
+
+                calls?.data?.forEach(
+                    (call) => {
+                        if (
+                            call.status
+                        ) {
+                            values.add(
+                                call.status,
+                            );
+                        }
+                    },
+                );
+
+                if (
+                    filters.status
+                ) {
                     values.add(
-                        call.status,
+                        filters.status,
                     );
                 }
-            });
 
-            if (
-                filters.status
-            ) {
-                values.add(
-                    filters.status,
+                return Array.from(
+                    values,
                 );
-            }
-
-            return Array.from(
-                values,
-            );
-        },
-        [
-            calls,
-            filters.status,
-        ],
-    );
+            },
+            [
+                calls?.data,
+                filters.status,
+            ],
+        );
 
     /*
     |--------------------------------------------------------------------------
-    | Build filter payload
+    | Active Filter Count
     |--------------------------------------------------------------------------
     */
 
-    const buildFilters = (
-        page = 1,
-    ) => {
-        return {
-            from:
-                from ||
-                undefined,
+    const activeFilters =
+        [
+            filters.extension,
+            filters.call_direction,
+            filters.status,
+            filters.date_range,
+        ].filter(
+            (value) =>
+                value !== ''
+                && value !== null
+                && value !== undefined,
+        ).length;
 
-            to:
-                to ||
-                undefined,
+    /*
+    |--------------------------------------------------------------------------
+    | Request Filters
+    |--------------------------------------------------------------------------
+    */
+
+    const buildRequestFilters =
+        () => ({
+            search:
+                filters.search
+                || undefined,
 
             extension:
-                extensionFilter !==
-                'all'
-                    ? extensionFilter
-                    : undefined,
+                filters.extension
+                || undefined,
 
-            direction:
-                directionFilter !==
-                'all'
-                    ? directionFilter
-                    : undefined,
+            call_direction:
+                filters.call_direction
+                || undefined,
 
             status:
-                statusFilter !==
-                'all'
-                    ? statusFilter
-                    : undefined,
+                filters.status
+                || undefined,
 
-            page,
+            date_range:
+                filters.date_range
+                || undefined,
+
+            per_page:
+                perPage,
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Apply Filter
+    |--------------------------------------------------------------------------
+    */
+
+    const handleFilter = () => {
+        router.get(
+            route(
+                'pbx.call-reports.index',
+            ),
+
+            buildRequestFilters(),
+
+            {
+                preserveState: true,
+
+                preserveScroll: true,
+
+                replace: true,
+
+                onStart: () =>
+                    setLoading(
+                        true,
+                    ),
+
+                onFinish: () =>
+                    setLoading(
+                        false,
+                    ),
+            },
+        );
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | Clear Filter
+    |--------------------------------------------------------------------------
+    */
+
+    const clearFilters = () => {
+        const emptyFilters: CallFilters =
+        {
+            search: '',
+            extension: '',
+            call_direction: '',
+            status: '',
+            date_range: '',
         };
-    };
 
-    /*
-    |--------------------------------------------------------------------------
-    | Apply filters
-    |--------------------------------------------------------------------------
-    */
-
-    const applyFilters = () => {
-        router.get(
-            route(
-                'pbx.call-reports.index',
-            ),
-
-            buildFilters(1),
-
-            {
-                preserveState: true,
-
-                preserveScroll: true,
-
-                replace: true,
-
-                onStart: () => {
-                    setLoading(true);
-                },
-
-                onFinish: () => {
-                    setLoading(false);
-                },
-            },
-        );
-    };
-
-    /*
-    |--------------------------------------------------------------------------
-    | Reset
-    |--------------------------------------------------------------------------
-    */
-
-    const resetFilters = () => {
-        setFrom('');
-
-        setTo('');
-
-        setExtensionFilter(
-            'all',
-        );
-
-        setDirectionFilter(
-            'all',
-        );
-
-        setStatusFilter(
-            'all',
+        setFilters(
+            emptyFilters,
         );
 
         router.get(
@@ -474,70 +551,293 @@ export default function Index({
                 'pbx.call-reports.index',
             ),
 
-            {},
+            {
+                per_page:
+                    perPage,
+            },
 
             {
-                preserveState: false,
+                preserveState:
+                    false,
 
-                preserveScroll: true,
+                preserveScroll:
+                    true,
 
                 replace: true,
 
-                onStart: () => {
-                    setLoading(true);
-                },
+                onStart: () =>
+                    setLoading(
+                        true,
+                    ),
 
-                onFinish: () => {
-                    setLoading(false);
-                },
+                onFinish: () =>
+                    setLoading(
+                        false,
+                    ),
             },
         );
     };
 
     /*
     |--------------------------------------------------------------------------
-    | Pagination
+    | Table Columns
     |--------------------------------------------------------------------------
     */
 
-    const goToPage = (
-        page: number,
-    ) => {
-        if (
-            loading ||
-            page < 1 ||
-            page >
-                pagination.last_page ||
-            page ===
-                pagination.page
-        ) {
-            return;
-        }
+    const tableColumns = [
+        /*
+        |--------------------------------------------------------------------------
+        | User
+        |--------------------------------------------------------------------------
+        */
 
-        router.get(
-            route(
-                'pbx.call-reports.index',
+        {
+            key: 'user_name',
+
+            header: t('User'),
+
+            sortable: false,
+
+            render: (
+                value: string,
+                row: CallLog,
+            ) => (
+                <div>
+                    <div className="font-medium text-foreground">
+                        {value || '-'}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                        {row.extension || '-'}
+                    </div>
+                </div>
             ),
+        },
 
-            buildFilters(page),
 
-            {
-                preserveState: true,
+        /*
+        |--------------------------------------------------------------------------
+        | Date
+        |--------------------------------------------------------------------------
+        */
+        {
+            key: 'calldate',
 
-                preserveScroll: true,
+            header:
+                t('Date & Time'),
 
-                replace: true,
+            sortable: false,
 
-                onStart: () => {
-                    setLoading(true);
-                },
+            render: (
+                value: string,
+            ) => (
+                <div className="whitespace-nowrap text-sm">
+                    <div className="text-foreground">
+                        {formatDate(value)}
+                    </div>
 
-                onFinish: () => {
-                    setLoading(false);
-                },
+                    <div className="text-xs text-muted-foreground">
+                        {formatTimeFromDate(value)}
+                    </div>
+                </div>
+            ),
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Direction
+        |--------------------------------------------------------------------------
+        */
+        {
+            key: 'direction',
+
+            header:
+                t('Direction'),
+
+            sortable: false,
+
+            render: (
+                value: string,
+            ) => {
+                const inbound =
+                    value ===
+                    'inbound';
+
+                return (
+                    <span
+                        className={
+                            inbound
+                                ? 'inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700'
+                                : 'inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700'
+                        }
+                    >
+                        {inbound ? (
+                            <PhoneIncoming className="h-3.5 w-3.5" />
+                        ) : (
+                            <PhoneOutgoing className="h-3.5 w-3.5" />
+                        )}
+
+                        {inbound
+                            ? t(
+                                'Incoming',
+                            )
+                            : t(
+                                'Outgoing',
+                            )}
+                    </span>
+                );
             },
-        );
-    };
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Number
+        |--------------------------------------------------------------------------
+        */
+        {
+            key: 'number',
+
+            header:
+                t('Number'),
+
+            sortable: false,
+
+            render: (
+                value: string,
+                row: CallLog,
+            ) => (
+                <div>
+                    <div className="font-medium">
+                        {value || '-'}
+                    </div>
+
+                    {row.did ? (
+                        <div className="text-xs text-muted-foreground">
+                            DID: {row.did}
+                        </div>
+                    ) : null}
+                </div>
+            ),
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Status
+        |--------------------------------------------------------------------------
+        */
+        {
+            key: 'status',
+
+            header:
+                t('Status'),
+
+            sortable: false,
+
+            render: (
+                value: string,
+            ) => (
+                <Badge
+                    variant={getStatusVariant(
+                        value,
+                    )}
+                >
+                    {value || '-'}
+                </Badge>
+            ),
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Duration
+        |--------------------------------------------------------------------------
+        */
+
+        {
+            key: 'duration',
+
+            header:
+                t('Duration'),
+
+            sortable: false,
+
+            render: (
+                value: number,
+            ) => (
+                <span className="whitespace-nowrap font-medium">
+                    {formatDuration(
+                        value,
+                    )}
+                </span>
+            ),
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Talk Time
+        |--------------------------------------------------------------------------
+        */
+
+        {
+            key: 'talk_time',
+
+            header:
+                t('Talk Time'),
+
+            sortable: false,
+
+            render: (
+                value: number,
+            ) => (
+                <span className="whitespace-nowrap font-medium">
+                    {formatDuration(
+                        value,
+                    )}
+                </span>
+            ),
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Recording
+        |--------------------------------------------------------------------------
+        */
+
+        {
+            key: 'recording_url',
+
+            header:
+                t('Recording'),
+
+            sortable: false,
+
+            render: (
+                value: string,
+                row: CallLog,
+            ) => {
+                if (
+                    !row.has_recording
+                    || !value
+                ) {
+                    return (
+                        <span className="text-muted-foreground">
+                            -
+                        </span>
+                    );
+                }
+
+                return (
+                    <div className="flex min-w-[225px] items-center gap-2">
+                        <audio
+                            controls
+                            // preload="none"
+                            src={value}
+                            className="h-8 w-[190px]"
+                        />
+                    </div>
+                );
+            },
+        },
+    ];
 
     /*
     |--------------------------------------------------------------------------
@@ -546,208 +846,258 @@ export default function Index({
     */
 
     return (
-        <AuthenticatedLayout>
-            <Head title="Call Reports" />
+        <AuthenticatedLayout
+            breadcrumbs={[
+                {
+                    label:
+                        t('PBX'),
+                },
+                {
+                    label:
+                        t(
+                            'Call Reports',
+                        ),
+                },
+            ]}
+            pageTitle={
+                t(
+                    'Call Reports',
+                )
+            }
+        >
+            <Head
+                title={t(
+                    'Call Reports',
+                )}
+            />
 
             <div className="space-y-6">
 
-                {/* Header */}
-
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Call Reports
-                    </h1>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Extension-wise calling history directly from the PBX.
-                    </p>
-                </div>
-
+                {/* ========================================================= */}
                 {/* Summary */}
+                {/* ========================================================= */}
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
+                    {/* Total Calls */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
 
                                 <div>
                                     <p className="text-sm text-muted-foreground">
-                                        Total Calls
+                                        {t(
+                                            'Total Calls',
+                                        )}
                                     </p>
 
-                                    <p className="mt-2 text-3xl font-semibold">
-                                        {summary.totalCalls}
+                                    <p className="mt-1 text-2xl font-semibold">
+                                        {
+                                            summary.totalCalls
+                                        }
                                     </p>
                                 </div>
 
-                                <Headphones className="h-10 w-10 text-primary" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                                    <Headphones className="h-5 w-5 text-primary" />
+                                </div>
 
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
+                    {/* Incoming */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
 
                                 <div>
                                     <p className="text-sm text-muted-foreground">
-                                        Incoming
+                                        {t(
+                                            'Incoming',
+                                        )}
                                     </p>
 
-                                    <p className="mt-2 text-3xl font-semibold">
-                                        {summary.incoming}
+                                    <p className="mt-1 text-2xl font-semibold">
+                                        {
+                                            summary.incoming
+                                        }
                                     </p>
                                 </div>
 
-                                <PhoneIncoming className="h-10 w-10 text-emerald-500" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
+                                    <PhoneIncoming className="h-5 w-5 text-emerald-600" />
+                                </div>
 
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
+                    {/* Outgoing */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
 
                                 <div>
                                     <p className="text-sm text-muted-foreground">
-                                        Outgoing
+                                        {t(
+                                            'Outgoing',
+                                        )}
                                     </p>
 
-                                    <p className="mt-2 text-3xl font-semibold">
-                                        {summary.outgoing}
+                                    <p className="mt-1 text-2xl font-semibold">
+                                        {
+                                            summary.outgoing
+                                        }
                                     </p>
                                 </div>
 
-                                <PhoneOutgoing className="h-10 w-10 text-sky-500" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
+                                    <PhoneOutgoing className="h-5 w-5 text-blue-600" />
+                                </div>
 
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
+                    {/* Answered */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
 
                                 <div>
                                     <p className="text-sm text-muted-foreground">
-                                        Total Duration
+                                        {t(
+                                            'Answered',
+                                        )}
                                     </p>
 
-                                    <p className="mt-2 text-3xl font-semibold">
+                                    <p className="mt-1 text-2xl font-semibold">
+                                        {
+                                            summary.answered
+                                        }
+                                    </p>
+                                </div>
+
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
+                                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                                </div>
+
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* No Answer */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
+
+                                <div>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t(
+                                            'No Answer',
+                                        )}
+                                    </p>
+
+                                    <p className="mt-1 text-2xl font-semibold">
+                                        {
+                                            summary.noAnswer
+                                        }
+                                    </p>
+                                </div>
+
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
+                                    <RefreshCw className="h-5 w-5 text-amber-600" />
+                                </div>
+
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Rejected */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
+
+                                <div>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t(
+                                            'Rejected',
+                                        )}
+                                    </p>
+
+                                    <p className="mt-1 text-2xl font-semibold">
+                                        {
+                                            summary.rejected
+                                        }
+                                    </p>
+                                </div>
+
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50">
+                                    <XCircle className="h-5 w-5 text-red-600" />
+                                </div>
+
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Total Duration */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
+
+                                <div>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t(
+                                            'Total Duration',
+                                        )}
+                                    </p>
+
+                                    <p className="mt-1 text-2xl font-semibold">
                                         {formatDuration(
                                             summary.totalDuration,
                                         )}
                                     </p>
                                 </div>
 
-                                <Clock className="h-10 w-10 text-violet-500" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50">
+                                    <Clock className="h-5 w-5 text-violet-600" />
+                                </div>
 
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
+                    {/* Talk Time */}
+
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center justify-between">
 
                                 <div>
                                     <p className="text-sm text-muted-foreground">
-                                        Total Talk Time
+                                        {t(
+                                            'Talk Time',
+                                        )}
                                     </p>
 
-                                    <p className="mt-2 text-3xl font-semibold">
+                                    <p className="mt-1 text-2xl font-semibold">
                                         {formatDuration(
                                             summary.totalTalkTime,
                                         )}
                                     </p>
                                 </div>
 
-                                <Headphones className="h-10 w-10 text-emerald-600" />
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Answered
-                                    </p>
-
-                                    <p className="mt-2 text-3xl font-semibold">
-                                        {summary.answered}
-                                    </p>
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-50">
+                                    <Phone className="h-5 w-5 text-cyan-600" />
                                 </div>
-
-                                <CheckCircle className="h-10 w-10 text-emerald-600" />
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        No Answer
-                                    </p>
-
-                                    <p className="mt-2 text-3xl font-semibold">
-                                        {summary.noAnswer}
-                                    </p>
-                                </div>
-
-                                <RefreshCw className="h-10 w-10 text-amber-500" />
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Rejected
-                                    </p>
-
-                                    <p className="mt-2 text-3xl font-semibold">
-                                        {summary.rejected}
-                                    </p>
-                                </div>
-
-                                <XCircle className="h-10 w-10 text-red-600" />
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-between gap-4">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Other Statuses
-                                    </p>
-
-                                    <p className="mt-2 text-3xl font-semibold">
-                                        {summary.otherStatuses}
-                                    </p>
-                                </div>
-
-                                <Badge className="rounded-full bg-muted px-3 py-2 text-sm font-medium text-foreground">
-                                    {summary.otherStatuses}
-                                </Badge>
 
                             </div>
                         </CardContent>
@@ -755,563 +1105,465 @@ export default function Index({
 
                 </div>
 
-                {/* Filters */}
+                {/* ========================================================= */}
+                {/* Standard System Table */}
+                {/* ========================================================= */}
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">
-                            Filters
-                        </CardTitle>
-                    </CardHeader>
+                <Card className="shadow-sm">
 
-                    <CardContent>
+                    {/* Toolbar */}
 
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                    <CardContent className="border-b bg-gray-50/50 p-6">
 
-                            {/* From */}
+                        <div className="flex items-center justify-between gap-4">
 
-                            <div className="space-y-2">
+                            <div className="max-w-md flex-1">
 
-                                <Label htmlFor="from">
-                                    From
-                                </Label>
-
-                                <Input
-                                    id="from"
-                                    type="date"
-                                    value={from}
+                                <SearchInput
+                                    value={
+                                        filters.search
+                                    }
                                     onChange={(
-                                        event,
+                                        value,
                                     ) =>
-                                        setFrom(
-                                            event.target.value,
+                                        setFilters(
+                                            {
+                                                ...filters,
+
+                                                search:
+                                                    value,
+                                            },
                                         )
                                     }
+                                    onSearch={
+                                        handleFilter
+                                    }
+                                    placeholder={t(
+                                        'Search number or extension...',
+                                    )}
                                 />
 
                             </div>
 
-                            {/* To */}
+                            <div className="flex items-center gap-3">
 
-                            <div className="space-y-2">
-
-                                <Label htmlFor="to">
-                                    To
-                                </Label>
-
-                                <Input
-                                    id="to"
-                                    type="date"
-                                    value={to}
-                                    onChange={(
-                                        event,
-                                    ) =>
-                                        setTo(
-                                            event.target.value,
-                                        )
-                                    }
+                                <PerPageSelector
+                                    routeName="pbx.call-reports.index"
+                                    filters={buildRequestFilters()}
                                 />
 
-                            </div>
+                                <div className="relative">
 
-                            {/* Extension */}
+                                    <FilterButton
+                                        showFilters={
+                                            showFilters
+                                        }
+                                        onToggle={() =>
+                                            setShowFilters(
+                                                !showFilters,
+                                            )
+                                        }
+                                    />
 
-                            <div className="space-y-2">
+                                    {activeFilters >
+                                        0 && (
 
-                                <Label>
-                                    User / Extension
-                                </Label>
+                                            <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
 
-                                <Select
-                                    value={
-                                        extensionFilter
-                                    }
-                                    onValueChange={
-                                        setExtensionFilter
-                                    }
-                                >
+                                                {
+                                                    activeFilters
+                                                }
 
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="All extensions" />
-                                    </SelectTrigger>
+                                            </span>
 
-                                    <SelectContent>
-
-                                        <SelectItem value="all">
-                                            All extensions
-                                        </SelectItem>
-
-                                        {extensions.map(
-                                            (
-                                                item,
-                                            ) => (
-                                                <SelectItem
-                                                    key={
-                                                        item.id
-                                                    }
-                                                    value={
-                                                        item.extension
-                                                    }
-                                                >
-                                                    {item.user_name
-                                                        ? `${item.user_name} (${item.extension})`
-                                                        : item.extension}
-                                                </SelectItem>
-                                            ),
                                         )}
 
-                                    </SelectContent>
-
-                                </Select>
+                                </div>
 
                             </div>
-
-                            {/* Direction */}
-
-                            <div className="space-y-2">
-
-                                <Label>
-                                    Direction
-                                </Label>
-
-                                <Select
-                                    value={
-                                        directionFilter
-                                    }
-                                    onValueChange={
-                                        setDirectionFilter
-                                    }
-                                >
-
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="All directions" />
-                                    </SelectTrigger>
-
-                                    <SelectContent>
-
-                                        <SelectItem value="all">
-                                            All directions
-                                        </SelectItem>
-
-                                        <SelectItem value="inbound">
-                                            Incoming
-                                        </SelectItem>
-
-                                        <SelectItem value="outbound">
-                                            Outgoing
-                                        </SelectItem>
-
-                                    </SelectContent>
-
-                                </Select>
-
-                            </div>
-
-                            {/* Status */}
-
-                            <div className="space-y-2">
-
-                                <Label>
-                                    Status
-                                </Label>
-
-                                <Select
-                                    value={
-                                        statusFilter
-                                    }
-                                    onValueChange={
-                                        setStatusFilter
-                                    }
-                                >
-
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="All statuses" />
-                                    </SelectTrigger>
-
-                                    <SelectContent>
-
-                                        <SelectItem value="all">
-                                            All statuses
-                                        </SelectItem>
-
-                                        {statuses.map(
-                                            (
-                                                status,
-                                            ) => (
-                                                <SelectItem
-                                                    key={
-                                                        status
-                                                    }
-                                                    value={
-                                                        status
-                                                    }
-                                                >
-                                                    {status}
-                                                </SelectItem>
-                                            ),
-                                        )}
-
-                                    </SelectContent>
-
-                                </Select>
-
-                            </div>
-
-                        </div>
-
-                        {/* Filter Buttons */}
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-
-                            <Button
-                                onClick={
-                                    applyFilters
-                                }
-                                disabled={
-                                    loading
-                                }
-                            >
-                                {loading ? (
-                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <CalendarDays className="mr-2 h-4 w-4" />
-                                )}
-
-                                Apply
-                            </Button>
-
-                            <Button
-                                variant="outline"
-                                onClick={
-                                    resetFilters
-                                }
-                                disabled={
-                                    loading
-                                }
-                            >
-                                <RefreshCw className="mr-2 h-4 w-4" />
-
-                                Reset
-                            </Button>
 
                         </div>
 
                     </CardContent>
-                </Card>
 
-                {/* Calls */}
-
-                <Card>
-
-                    <CardHeader className="flex flex-row items-center justify-between">
-
-                        <CardTitle className="text-base">
-                            Calls
-                        </CardTitle>
-
-                        <div className="text-sm text-muted-foreground">
-                            {pagination.total} records
-                        </div>
-
-                    </CardHeader>
-
-                    <CardContent>
-
-                        <div className="overflow-x-auto">
-
-                            <Table className="w-full min-w-[1100px] border-separate border-spacing-y-3 text-sm">
-
-                                <TableHeader>
-
-                                    <TableRow className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            User
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Extension
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Date & Time
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Direction
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Number
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Status
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Duration
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Talk Time
-                                        </TableHead>
-
-                                        <TableHead className="px-3 py-3 font-medium">
-                                            Recording
-                                        </TableHead>
-
-                                    </TableRow>
-
-                                </TableHeader>
-
-                                <TableBody>
-
-                                    {calls.length === 0 ? (
-
-                                        <TableRow>
-
-                                            <TableCell
-                                                colSpan={
-                                                    9
-                                                }
-                                                className="px-3 py-12 text-center text-muted-foreground"
-                                            >
-                                                No call records found.
-                                            </TableCell>
-
-                                        </TableRow>
-
-                                    ) : (
-
-                                        calls.map(
-                                            (
-                                                call,
-                                            ) => (
-
-                                                <TableRow
-                                                    key={`${call.uniqueid}-${call.extension}-${call.direction}`}
-                                                    className="rounded-2xl border border-border bg-background shadow-sm last:border-0"
-                                                >
-
-                                                    {/* User */}
-
-                                                    <TableCell className="px-3 py-3">
-
-                                                        <div className="text-sm font-medium text-foreground">
-                                                            {call.user_name ??
-                                                                '—'}
-                                                        </div>
-
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {call.user_id
-                                                                ? `ID: ${call.user_id}`
-                                                                : ''}
-                                                        </div>
-
-                                                    </TableCell>
-
-                                                    {/* Extension */}
-
-                                                    <TableCell className="px-3 py-3 font-medium">
-                                                        {call.extension}
-                                                    </TableCell>
-
-                                                    {/* Date */}
-
-                                                    <TableCell className="whitespace-nowrap px-3 py-3 text-sm text-muted-foreground">
-                                                        {formatDateTime(
-                                                            call.calldate,
-                                                        )}
-                                                    </TableCell>
-
-                                                    {/* Direction */}
-
-                                                    <TableCell className="px-3 py-3">
-
-                                                        <div className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1 text-sm font-medium text-foreground">
-
-                                                            {call.direction ===
-                                                            'inbound' ? (
-                                                                <PhoneIncoming className="h-4 w-4 text-emerald-500" />
-                                                            ) : (
-                                                                <PhoneOutgoing className="h-4 w-4 text-sky-500" />
-                                                            )}
-
-                                                            <span>
-                                                                {call.direction ===
-                                                                'inbound'
-                                                                    ? 'Incoming'
-                                                                    : 'Outgoing'}
-                                                            </span>
-
-                                                        </div>
-
-                                                    </TableCell>
-
-                                                    {/* Number */}
-
-                                                    <TableCell className="px-3 py-3">
-
-                                                        <div className="text-sm text-foreground">
-                                                            {call.number ??
-                                                                '—'}
-                                                        </div>
-
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {call.did
-                                                                ? `DID: ${call.did}`
-                                                                : ''}
-                                                        </div>
-
-                                                    </TableCell>
-
-                                                    {/* Status */}
-
-                                                    <TableCell className="px-3 py-3">
-
-                                                        <Badge
-                                                            variant={getStatusVariant(
-                                                                call.status,
-                                                            )}
-                                                        >
-                                                            {call.status}
-                                                        </Badge>
-
-                                                    </TableCell>
-
-                                                    {/* Duration */}
-
-                                                    <TableCell className="whitespace-nowrap px-3 py-3 font-medium">
-                                                        {formatDuration(
-                                                            call.duration,
-                                                        )}
-                                                    </TableCell>
-
-                                                    {/* Talk Time */}
-
-                                                    <TableCell className="whitespace-nowrap px-3 py-3 font-medium">
-                                                        {formatDuration(
-                                                            call.talk_time,
-                                                        )}
-                                                    </TableCell>
-
-                                                    {/* Recording */}
-
-                                                    <TableCell className="px-3 py-3">
-
-                                                        {call.has_recording &&
-                                                        call.recording_url ? (
-
-                                                            <div className="flex items-center gap-2">
-
-                                                                <Headphones className="h-4 w-4 shrink-0 text-primary" />
-
-                                                                <audio
-                                                                    controls
-                                                                    preload="none"
-                                                                    className="h-8 w-[220px] rounded-lg border border-border bg-background"
-                                                                    src={
-                                                                        call.recording_url
-                                                                    }
-                                                                />
-
-                                                            </div>
-
-                                                        ) : (
-
-                                                            <span className="text-muted-foreground">
-                                                                —
-                                                            </span>
-
-                                                        )}
-
-                                                    </TableCell>
-
-                                                </TableRow>
-
-                                            ),
-                                        )
-
-                                    )}
-
-                                </TableBody>
-
-                            </Table>
-
-                        </div>
-
-                        {/* Pagination */}
-
-                        {pagination.last_page >
-                            1 && (
-
-                            <div className="mt-5 flex items-center justify-between border-t pt-4">
-
-                                <div className="text-sm text-muted-foreground">
-
-                                    Page{' '}
-                                    {
-                                        pagination.page
-                                    }{' '}
-                                    of{' '}
-                                    {
-                                        pagination.last_page
-                                    }
-
-                                    <span className="ml-2">
-                                        (
-                                        {
-                                            pagination.total
-                                        }{' '}
-                                        records)
-                                    </span>
+                    {/* Filters */}
+
+                    {showFilters && (
+
+                        <CardContent className="border-b bg-blue-50/30 p-6">
+
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+
+                                {/* Extension */}
+
+                                <div>
+
+                                    <label className="mb-2 block text-sm font-medium text-gray-700">
+
+                                        {callReportPermissions.view_all
+                                            ? t(
+                                                'User / Extension',
+                                            )
+                                            : t(
+                                                'My Extension',
+                                            )}
+
+                                    </label>
+
+                                    <Select
+                                        value={
+                                            filters.extension
+                                            || 'all'
+                                        }
+                                        onValueChange={(
+                                            value,
+                                        ) =>
+                                            setFilters(
+                                                {
+                                                    ...filters,
+
+                                                    extension:
+                                                        value ===
+                                                            'all'
+                                                            ? ''
+                                                            : value,
+                                                },
+                                            )
+                                        }
+                                    >
+
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={t(
+                                                    'All Extensions',
+                                                )}
+                                            />
+                                        </SelectTrigger>
+
+                                        <SelectContent>
+
+                                            <SelectItem value="all">
+                                                {callReportPermissions.view_all
+                                                    ? t(
+                                                        'All Extensions',
+                                                    )
+                                                    : t(
+                                                        'All My Extensions',
+                                                    )}
+                                            </SelectItem>
+
+                                            {extensions.map(
+                                                (
+                                                    item,
+                                                ) => (
+
+                                                    <SelectItem
+                                                        key={
+                                                            item.id
+                                                        }
+                                                        value={
+                                                            item.extension
+                                                        }
+                                                    >
+                                                        {item.user_name
+                                                            ? `${item.user_name} (${item.extension})`
+                                                            : item.extension}
+                                                    </SelectItem>
+
+                                                ),
+                                            )}
+
+                                        </SelectContent>
+
+                                    </Select>
 
                                 </div>
 
-                                <div className="flex gap-2">
+                                {/* Direction */}
 
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={
-                                            loading ||
-                                            pagination.page <=
-                                                1
+                                <div>
+
+                                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                                        {t(
+                                            'Direction',
+                                        )}
+                                    </label>
+
+                                    <Select
+                                        value={
+                                            filters.call_direction
+                                            || 'all'
                                         }
-                                        onClick={() =>
-                                            goToPage(
-                                                pagination.page -
-                                                    1,
+                                        onValueChange={(
+                                            value,
+                                        ) =>
+                                            setFilters(
+                                                {
+                                                    ...filters,
+
+                                                    call_direction:
+                                                        value ===
+                                                            'all'
+                                                            ? ''
+                                                            : value,
+                                                },
                                             )
                                         }
                                     >
-                                        Previous
-                                    </Button>
 
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={
-                                            loading ||
-                                            pagination.page >=
-                                                pagination.last_page
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={t(
+                                                    'All Directions',
+                                                )}
+                                            />
+                                        </SelectTrigger>
+
+                                        <SelectContent>
+
+                                            <SelectItem value="all">
+                                                {t(
+                                                    'All Directions',
+                                                )}
+                                            </SelectItem>
+
+                                            <SelectItem value="inbound">
+                                                {t(
+                                                    'Incoming',
+                                                )}
+                                            </SelectItem>
+
+                                            <SelectItem value="outbound">
+                                                {t(
+                                                    'Outgoing',
+                                                )}
+                                            </SelectItem>
+
+                                        </SelectContent>
+
+                                    </Select>
+
+                                </div>
+
+                                {/* Status */}
+
+                                <div>
+
+                                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                                        {t(
+                                            'Status',
+                                        )}
+                                    </label>
+
+                                    <Select
+                                        value={
+                                            filters.status
+                                            || 'all'
                                         }
-                                        onClick={() =>
-                                            goToPage(
-                                                pagination.page +
-                                                    1,
+                                        onValueChange={(
+                                            value,
+                                        ) =>
+                                            setFilters(
+                                                {
+                                                    ...filters,
+
+                                                    status:
+                                                        value ===
+                                                            'all'
+                                                            ? ''
+                                                            : value,
+                                                },
                                             )
                                         }
                                     >
-                                        Next
-                                    </Button>
+
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={t(
+                                                    'All Statuses',
+                                                )}
+                                            />
+                                        </SelectTrigger>
+
+                                        <SelectContent>
+
+                                            <SelectItem value="all">
+                                                {t(
+                                                    'All Statuses',
+                                                )}
+                                            </SelectItem>
+
+                                            {statusOptions.map(
+                                                (
+                                                    status,
+                                                ) => (
+
+                                                    <SelectItem
+                                                        key={
+                                                            status
+                                                        }
+                                                        value={
+                                                            status
+                                                        }
+                                                    >
+                                                        {
+                                                            status
+                                                        }
+                                                    </SelectItem>
+
+                                                ),
+                                            )}
+
+                                        </SelectContent>
+
+                                    </Select>
+
+                                </div>
+
+                                {/* Date */}
+
+                                <div>
+
+                                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                                        {t(
+                                            'Call Date Range',
+                                        )}
+                                    </label>
+
+                                    <DateRangePicker
+                                        value={
+                                            filters.date_range
+                                        }
+                                        onChange={(
+                                            value,
+                                        ) =>
+                                            setFilters(
+                                                {
+                                                    ...filters,
+
+                                                    date_range:
+                                                        value,
+                                                },
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'Select date range',
+                                        )}
+                                    />
 
                                 </div>
 
                             </div>
 
-                        )}
+                            <div className="mt-4 flex gap-2">
+
+                                <Button
+                                    size="sm"
+                                    onClick={
+                                        handleFilter
+                                    }
+                                    disabled={
+                                        loading
+                                    }
+                                >
+                                    {loading && (
+                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                    )}
+
+                                    {t(
+                                        'Apply',
+                                    )}
+                                </Button>
+
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={
+                                        clearFilters
+                                    }
+                                    disabled={
+                                        loading
+                                    }
+                                >
+                                    {t(
+                                        'Clear',
+                                    )}
+                                </Button>
+
+                            </div>
+
+                        </CardContent>
+
+                    )}
+
+                    {/* Table */}
+
+                    <CardContent className="p-0">
+
+                        <div className="max-h-[70vh] w-full overflow-y-auto rounded-none scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-400">
+
+                            <div className="min-w-[1200px]">
+
+                                <DataTable
+                                    data={
+                                        calls?.data
+                                        || []
+                                    }
+                                    columns={
+                                        tableColumns
+                                    }
+                                    className="rounded-none"
+                                    emptyState={
+                                        <NoRecordsFound
+                                            icon={
+                                                Phone
+                                            }
+                                            title={t(
+                                                'No call logs found',
+                                            )}
+                                            description={t(
+                                                'No calls match the selected filters.',
+                                            )}
+                                            hasFilters={
+                                                !!(
+                                                    filters.search
+                                                    || filters.extension
+                                                    || filters.call_direction
+                                                    || filters.status
+                                                    || filters.date_range
+                                                )
+                                            }
+                                            onClearFilters={
+                                                clearFilters
+                                            }
+                                            className="h-auto"
+                                        />
+                                    }
+                                />
+
+                            </div>
+
+                        </div>
+
+                    </CardContent>
+
+                    {/* Pagination */}
+
+                    <CardContent className="border-t bg-gray-50/30 px-4 py-2">
+
+                        <Pagination
+                            data={
+                                calls || {
+                                    data: [],
+                                    links: [],
+                                    meta: {},
+                                }
+                            }
+                            routeName="pbx.call-reports.index"
+                            filters={
+                                buildRequestFilters()
+                            }
+                        />
 
                     </CardContent>
 

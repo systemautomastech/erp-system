@@ -173,6 +173,21 @@ const formatDateTime = (date: string | Date, pageProps?: any): string => {
 };
 
 /**
+ * Extract time from a datetime and format it according to company time settings
+ */
+const formatTimeFromDate = (date: string | Date, pageProps?: any): string => {
+  if (!date) return '';
+
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+
+  return formatTime(`${hours}:${minutes}`, pageProps);
+};
+
+/**
  * Get full image path
  */
 const getImagePath = (path: string, pageProps?: any): string => {
@@ -555,6 +570,7 @@ export {
   formatDate,
   formatTime,
   formatDateTime,
+  formatTimeFromDate,
   getImagePath,
   formatCurrency,
   formatAdminCurrency,
