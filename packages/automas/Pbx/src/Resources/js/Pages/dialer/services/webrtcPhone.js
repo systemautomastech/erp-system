@@ -10,6 +10,9 @@ let phoneConfig = null
 let incomingRingtone = null
 let sessionStartedAt = null
 
+let transferInProgress = false
+let transferCompleted = false
+
 let reconnectTimer = null
 let reconnectAttempts = 0
 let ownerPollTimer = null
@@ -265,6 +268,8 @@ export function initWebRTCPhone(config) {
         session = e.session
         window.CTI_PHONE.currentSession = session
         sessionStartedAt = Date.now()
+        transferInProgress = false
+        transferCompleted = false
 
         console.log('New RTC session:', e.originator, session)
 
@@ -315,6 +320,7 @@ export function initWebRTCPhone(config) {
 
         session.on('accepted', () => {
             stopIncomingRingtone()
+            console.log('[PBX SESSION] accepted')
             console.log('Call accepted/active')
 
             attachRemoteAudio(session)
@@ -336,6 +342,7 @@ export function initWebRTCPhone(config) {
         })
 
         session.on('confirmed', () => {
+            console.log('[PBX SESSION] confirmed')
             console.log('Call confirmed')
 
             const senders = session.connection?.getSenders() || []
@@ -356,6 +363,7 @@ export function initWebRTCPhone(config) {
         })
 
         session.on('ended', (event) => {
+            console.log('[PBX SESSION] ended', event.cause)
             console.log('Call ended:', event.cause)
 
             stopCallStats()
@@ -386,6 +394,7 @@ export function initWebRTCPhone(config) {
         })
 
         session.on('failed', (event) => {
+            console.error('[PBX SESSION] failed', event.cause)
             console.error('Call failed:', event.cause, event)
 
             stopCallStats()
@@ -665,10 +674,139 @@ export function register() {
     ua?.register()
 }
 
+export async function transfer(target) {
+    console.log('[PBX TRANSFER] requested', target)
+
+    if (transferInProgress || transferCompleted) {
+        console.error('[PBX TRANSFER] failed', 'Call has already been transferred or transfer in progress')
+        throw new Error('Call has already been transferred.')
+    }
+
+    const activeSession = getActiveSession()
+
+    if (!activeSession) {
+        console.error('[PBX TRANSFER] failed', 'No active call')
+        throw new Error('No active call to transfer.')
+    }
+
+    if (typeof activeSession.isEstablished === 'function' && !activeSession.isEstablished()) {
+        console.error('[PBX TRANSFER] failed', 'Call is not established')
+        throw new Error('Call is not established.')
+    }
+
+    const cleanTarget = String(target || '').trim()
+    if (!cleanTarget) {
+        console.error('[PBX TRANSFER] failed', 'Empty target extension')
+        throw new Error('Invalid destination extension.')
+    }
+
+    const ownExt = phoneConfig?.extension ? String(phoneConfig.extension).trim() : null
+    if (ownExt && cleanTarget === ownExt) {
+        console.error('[PBX TRANSFER] failed', 'Cannot transfer to own extension')
+        throw new Error('You cannot transfer a call to your own extension.')
+    }
+
+    const sipDomain = phoneConfig?.sip_domain || 'localhost'
+    const uri = cleanTarget.includes('@')
+        ? (cleanTarget.startsWith('sip:') ? cleanTarget : `sip:${cleanTarget}`)
+        : `sip:${cleanTarget}@${sipDomain}`
+
+    console.log('[PBX TRANSFER] REFER destination', uri)
+
+    transferInProgress = true
+
+    return new Promise((resolve, reject) => {
+        let isResolved = false
+
+        try {
+            const referSubscriber = activeSession.refer(uri, {
+                eventHandlers: {
+                    requestSucceeded: (event) => {
+                        console.log('[PBX TRANSFER] REFER sent & accepted by Asterisk')
+                        transferInProgress = false
+                        transferCompleted = true
+
+                        window.dispatchEvent(new CustomEvent('cti:transfer-success', {
+                            detail: { target: cleanTarget, uri }
+                        }))
+
+                        if (!isResolved) {
+                            isResolved = true
+                            resolve({ status: 'transferred', event })
+                        }
+
+                        // Blind Transfer Completion:
+                        // Asterisk has accepted the REFER request.
+                        // Agent 101 must leave the call immediately while Asterisk rings 105 independently.
+                        setTimeout(() => {
+                            try {
+                                if (activeSession && typeof activeSession.terminate === 'function') {
+                                    console.log('[PBX TRANSFER] Terminating local agent session after blind transfer acceptance')
+                                    activeSession.terminate()
+                                }
+                            } catch (termErr) {
+                                console.warn('[PBX TRANSFER] Error terminating session after transfer:', termErr)
+                            }
+                        }, 50)
+                    },
+                    requestFailed: (event) => {
+                        const errorCause = event?.cause || 'Unable to transfer the call.'
+                        console.error('[PBX TRANSFER] failed', errorCause)
+                        transferInProgress = false
+                        transferCompleted = false
+
+                        window.dispatchEvent(new CustomEvent('cti:transfer-failed', {
+                            detail: { target: cleanTarget, reason: errorCause }
+                        }))
+
+                        if (!isResolved) {
+                            isResolved = true
+                            reject(new Error(errorCause))
+                        }
+                    },
+                    accepted: (event) => {
+                        console.log('[PBX TRANSFER] NOTIFY accepted (transfer complete)', event)
+                    },
+                    failed: (event) => {
+                        console.error('[PBX TRANSFER] NOTIFY failed (target status)', event)
+                    }
+                }
+            })
+
+            if (referSubscriber === false) {
+                transferInProgress = false
+                transferCompleted = false
+                const err = new Error('Unable to transfer the call.')
+                console.error('[PBX TRANSFER] failed', err)
+                window.dispatchEvent(new CustomEvent('cti:transfer-failed', {
+                    detail: { target: cleanTarget, reason: err.message }
+                }))
+                if (!isResolved) {
+                    isResolved = true
+                    reject(err)
+                }
+            }
+        } catch (err) {
+            transferInProgress = false
+            transferCompleted = false
+            console.error('[PBX TRANSFER] failed', err)
+            window.dispatchEvent(new CustomEvent('cti:transfer-failed', {
+                detail: { target: cleanTarget, reason: err.message || 'Unable to transfer the call.' }
+            }))
+            if (!isResolved) {
+                isResolved = true
+                reject(err)
+            }
+        }
+    })
+}
+
 function resetSession(dispatchEnded = false, detail = {}) {
     stopIncomingRingtone()
     session = null
     sessionStartedAt = null
+    transferInProgress = false
+    transferCompleted = false
     window.CTI_PHONE.currentSession = null
 
     if (dispatchEnded) {
@@ -689,5 +827,9 @@ window.CTI_PHONE = {
     hold,
     unhold,
     register,
+    transfer,
+    getExtension: () => phoneConfig?.extension ? String(phoneConfig.extension) : null,
+    isTransferInProgress: () => transferInProgress,
+    isTransferCompleted: () => transferCompleted,
     currentSession: null,
 }

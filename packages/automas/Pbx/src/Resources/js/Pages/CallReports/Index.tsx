@@ -3,11 +3,16 @@ import { Head, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 
 import {
+    BarChart3,
     CheckCircle,
+    CheckCircle2,
     Clock,
     Headphones,
     Phone,
+    PhoneCall,
     PhoneIncoming,
+    PhoneMissed,
+    PhoneOff,
     PhoneOutgoing,
     RefreshCw,
     XCircle,
@@ -30,13 +35,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 import { DataTable } from '@/components/ui/data-table';
 import { FilterButton } from '@/components/ui/filter-button';
@@ -119,6 +117,12 @@ interface Summary {
     rejected: number;
 
     otherStatuses: number;
+
+    avgDuration?: number;
+
+    avgTalkTime?: number;
+
+    answerRate?: number;
 }
 
 interface CallFilters {
@@ -831,7 +835,7 @@ export default function Index({
                             controls
                             // preload="none"
                             src={value}
-                            className="h-8 w-[190px]"
+                            className="h-8 w-full"
                         />
                     </div>
                 );
@@ -859,250 +863,29 @@ export default function Index({
                         ),
                 },
             ]}
-            pageTitle={
-                t(
-                    'Call Reports',
-                )
-            }
         >
-            <Head
-                title={t(
-                    'Call Reports',
-                )}
-            />
 
             <div className="space-y-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                            {t('Call Reports')}
+                        </h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {t('Detailed call history, search, audio playback, and exports.')}
+                        </p>
+                    </div>
 
-                {/* ========================================================= */}
-                {/* Summary */}
-                {/* ========================================================= */}
-
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-                    {/* Total Calls */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Total Calls',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {
-                                            summary.totalCalls
-                                        }
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                                    <Headphones className="h-5 w-5 text-primary" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Incoming */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Incoming',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {
-                                            summary.incoming
-                                        }
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-                                    <PhoneIncoming className="h-5 w-5 text-emerald-600" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Outgoing */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Outgoing',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {
-                                            summary.outgoing
-                                        }
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-                                    <PhoneOutgoing className="h-5 w-5 text-blue-600" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Answered */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Answered',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {
-                                            summary.answered
-                                        }
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-                                    <CheckCircle className="h-5 w-5 text-emerald-600" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* No Answer */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'No Answer',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {
-                                            summary.noAnswer
-                                        }
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
-                                    <RefreshCw className="h-5 w-5 text-amber-600" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Rejected */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Rejected',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {
-                                            summary.rejected
-                                        }
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50">
-                                    <XCircle className="h-5 w-5 text-red-600" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Total Duration */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Total Duration',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {formatDuration(
-                                            summary.totalDuration,
-                                        )}
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50">
-                                    <Clock className="h-5 w-5 text-violet-600" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Talk Time */}
-
-                    <Card className="shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Talk Time',
-                                        )}
-                                    </p>
-
-                                    <p className="mt-1 text-2xl font-semibold">
-                                        {formatDuration(
-                                            summary.totalTalkTime,
-                                        )}
-                                    </p>
-                                </div>
-
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-50">
-                                    <Phone className="h-5 w-5 text-cyan-600" />
-                                </div>
-
-                            </div>
-                        </CardContent>
-                    </Card>
-
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => router.get(route('pbx.call-reports.summary'))}
+                        >
+                            <BarChart3 className="h-4 w-4" />
+                            {t('View Call Analytics & Charts')}
+                        </Button>
+                    </div>
                 </div>
 
                 {/* ========================================================= */}
@@ -1240,7 +1023,7 @@ export default function Index({
                                             />
                                         </SelectTrigger>
 
-                                        <SelectContent>
+                                        <SelectContent searchable>
 
                                             <SelectItem value="all">
                                                 {callReportPermissions.view_all

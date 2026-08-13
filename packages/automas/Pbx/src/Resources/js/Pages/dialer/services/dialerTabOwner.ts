@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import {
     blinkTitle,
     playBeep,
@@ -436,10 +437,8 @@ export async function openDialerPopup(): Promise<void> {
 }
 
 function showOwnerTabMessage(): void {
-    window.alert(
-        'The dialer is already running in another browser tab.\n\n' +
-        'For security reasons, browsers do not allow websites to automatically switch to another tab.\n\n' +
-        'Please switch to the tab where the dialer is currently active.',
+    toast.warning(
+        'The dialer is already running in another browser tab. Please switch to the tab where the dialer is currently active.',
     )
 }
 

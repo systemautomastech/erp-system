@@ -2,7 +2,6 @@
 
 namespace Automas\Pbx\Providers;
 
-use Automas\Pbx\Console\Commands\AmiListenCommand;
 use Illuminate\Support\ServiceProvider;
 
 class PbxServiceProvider extends ServiceProvider
@@ -17,9 +16,7 @@ class PbxServiceProvider extends ServiceProvider
         $this->app->register(EventServiceProvider::class);
         $this->app->register(ViewComposer::class);
 
-        $this->commands([
-            AmiListenCommand::class,
-        ]);
+        $this->commands([]);
     }
 
     public function boot(): void

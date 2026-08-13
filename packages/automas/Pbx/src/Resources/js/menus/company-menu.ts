@@ -1,7 +1,8 @@
 import {
+    BarChart3,
     FileCheck,
-    Settings,
     PhoneCall,
+    Settings,
     Users,
 } from 'lucide-react';
 
@@ -21,6 +22,12 @@ export const pbxCompanyMenu = (t: (key: string) => string) => [
                 icon: Users,
                 permission: 'manage extensions',
                 href: route('pbx.extensions.index'),
+            },
+            {
+                title: t('Call Summary'),
+                icon: BarChart3,
+                permission: 'manage call logs',
+                href: route('pbx.call-reports.summary'),
             },
             {
                 title: t('Call Reports'),

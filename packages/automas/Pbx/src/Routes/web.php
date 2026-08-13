@@ -18,6 +18,9 @@ Route::middleware([
     Route::post('settings', [PbxSettingsController::class, 'store'])
         ->name('settings.store');
 
+    Route::get('extensions/directory', [PbxExtensionController::class, 'directory'])
+        ->name('extensions.directory');
+
     Route::resource('extensions', PbxExtensionController::class)->names([
         'index' => 'extensions.index',
         'create' => 'extensions.create',
@@ -34,13 +37,15 @@ Route::middleware([
     Route::post('store-call-events', [PbxCallLogController::class, 'storeEvent'])
         ->name('call-events.store');
 
+    Route::get('/call-summary', [PbxCallReportController::class, 'summary'])
+        ->name('call-reports.summary');
+
     Route::get('/call-reports', [PbxCallReportController::class, 'index'])
         ->name('call-reports.index');
 
     Route::get('/call-reports/recording', [PbxCallReportController::class, 'recording'])
         ->name('call-reports.recording');
-});
 
-Route::get('/pbx/ringtone', [PbxSettingsController::class, 'ringtone'])
-    ->middleware(['auth'])
-    ->name('pbx.ringtone');
+    Route::get('ringtone', [PbxSettingsController::class, 'ringtone'])
+        ->name('ringtone');
+});

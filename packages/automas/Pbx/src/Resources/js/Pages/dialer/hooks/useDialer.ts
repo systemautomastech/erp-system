@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { toast } from 'sonner'
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -20,9 +21,9 @@ import callStore, {
 import { useCallHistory } from './useCallHistory'
 import { useCallerLookup } from './useCallerLookup'
 import { useCallTimer } from './useCallTimer'
-import { useForwarding } from './useForwarding'
+import { useCallTransfer } from './useCallTransfer'
 
-export type DialerPanel = 'dialpad' | 'calls' | 'forward'
+export type DialerPanel = 'dialpad' | 'calls'
 
 export interface DialpadKey {
   value: string
@@ -49,6 +50,11 @@ interface CTIPhone {
   answer?: () => void | Promise<void>
   reject?: () => void | Promise<void>
   hangup?: () => void | Promise<void>
+
+  transfer?: (
+    target: string,
+  ) => Promise<{ status: string; event: any }>
+  getExtension?: () => string | null
 
   mute?: () => void | Promise<void>
   unmute?: () => void | Promise<void>
@@ -321,15 +327,7 @@ export function useDialer() {
     )
   }, [])
 
-  const {
-    forwardNumber,
-    setForwardNumber,
-    forwardEnabled,
-    setForwardEnabled,
-    enableForwarding,
-    disableForwarding,
-    forwardCurrentCall,
-  } = useForwarding(callStore)
+  const callTransfer = useCallTransfer(callStore)
 
   const {
     recentSearch,
@@ -476,6 +474,25 @@ export function useDialer() {
 
       if (!target) return
 
+      if (
+        callStore.callStatus === 'active' ||
+        callStore.callStatus === 'calling' ||
+        callStore.callStatus === 'ringing' ||
+        callStore.callStatus === 'incoming'
+      ) {
+        toast.warning(
+          'A call is already in progress. Please end or complete the current call before placing a new call.',
+        )
+        return
+      }
+
+      if (!callStore.registered) {
+        toast.warning(
+          'Softphone is not registered. Please register your extension before making calls.',
+        )
+        return
+      }
+
       setNumber(target)
 
       callStore.currentNumber = target
@@ -605,12 +622,14 @@ export function useDialer() {
       if (!target) return
 
       if (
-        callStore.callStatus ===
-        'active'
+        callStore.callStatus === 'active' ||
+        callStore.callStatus === 'calling' ||
+        callStore.callStatus === 'ringing' ||
+        callStore.callStatus === 'incoming'
       ) {
-        await forwardCurrentCall(target)
-        setNumber('')
-        forceStoreRender()
+        toast.warning(
+          'A call is already in progress. Please end or complete the current call before placing a new call.',
+        )
         return
       }
 
@@ -620,7 +639,7 @@ export function useDialer() {
         )
 
       if (forwarded) {
-        window.alert(
+        toast.info(
           'The dialer is already active in another tab. Your call request has been forwarded to the active dialer.',
         )
         return
@@ -640,7 +659,7 @@ export function useDialer() {
     [
       clickToCallWithLogging,
       forceStoreRender,
-      forwardCurrentCall,
+      callTransfer,
       number,
     ],
   )
@@ -671,8 +690,12 @@ export function useDialer() {
         return
       }
 
+      if (!hasDigits || !canPlaceCall) {
+        return
+      }
+
       void callNumber()
-    }, [callNumber, endCurrentCall])
+    }, [canPlaceCall, callNumber, endCurrentCall, hasDigits])
 
   const pressKey = useCallback(
     (key: string): void => {
@@ -1145,6 +1168,18 @@ export function useDialer() {
 
       if (!target) return
 
+      if (
+        callStore.callStatus === 'active' ||
+        callStore.callStatus === 'calling' ||
+        callStore.callStatus === 'ringing' ||
+        callStore.callStatus === 'incoming'
+      ) {
+        toast.warning(
+          'A call is already in progress. Please end or complete the current call before placing a new call.',
+        )
+        return
+      }
+
       setNumber(target)
       setIsOpen(true)
       setActivePanel('dialpad')
@@ -1411,12 +1446,6 @@ export function useDialer() {
     activePanel,
     setActivePanel,
 
-    forwardNumber,
-    setForwardNumber,
-
-    forwardEnabled,
-    setForwardEnabled,
-
     recentSearch,
     setRecentSearch,
 
@@ -1457,9 +1486,7 @@ export function useDialer() {
     saveCallCache,
     addRecentCall,
 
-    enableForwarding,
-    disableForwarding,
-    forwardCurrentCall,
+    callTransfer,
 
     resetCallState,
 
