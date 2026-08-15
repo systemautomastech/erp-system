@@ -243,19 +243,21 @@ export default function InvoiceItemsTable({ items, onChange, errors = {}, produc
                                     />
                                 </td>
                                 <td className="px-4 py-4">
-                                    {item.taxes && item.taxes.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                            {item.taxes.map((tax, taxIndex) => (
-                                                <span key={taxIndex} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">
+                                        {item.taxes && item.taxes.length > 0 ? (
+                                            item.taxes.map((tax, taxIndex) => (
+                                                <span key={taxIndex} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 whitespace-nowrap">
                                                     {tax.tax_name} ({tax.tax_rate}%)
                                                 </span>
-                                            ))}
-                                        </div>
-                                    ) : item.tax_percentage > 0 ? (
-                                        <span className="text-sm text-blue-800">Tax ({item.tax_percentage}%)</span>
-                                    ) : (
-                                        <span className="text-sm text-muted-foreground">No tax</span>
-                                    )}
+                                            ))
+                                        ) : Number(item.tax_percentage) > 0 ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 whitespace-nowrap">
+                                                {t('Tax')} ({Number(item.tax_percentage).toFixed(2)}%)
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground italic px-1">{t('No tax')}</span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="px-4 py-4">
                                     <span className="text-sm font-medium">

@@ -12,6 +12,7 @@ use App\Events\UpdateSalesProposal;
 use App\Models\ProposalDefaultPage;
 use App\Models\ProposalSetting;
 use App\Models\SalesProposal;
+use App\Models\SalesProposalContent;
 use App\Models\SalesProposalItem;
 use App\Models\SalesProposalItemTax;
 use App\Models\SalesProposalTariff;
@@ -29,6 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Automas\ProductService\Models\ProductServiceItem;
 use App\Models\EmailTemplate;
+use Spatie\LaravelPdf\Facades\Pdf;
 
 class SalesProposalController extends Controller
 {
@@ -180,37 +182,44 @@ class SalesProposalController extends Controller
     public function store(StoreSalesProposalRequest $request)
     {
         if (Auth::user()->can('create-sales-proposals')) {
-
-            $totals = $this->calculateTotals($request->items);
-
-            $proposal = new SalesProposal();
-            $proposal->proposal_number = SalesProposal::generateProposalNumber($request->invoice_date ?? $request->proposal_date);
-            $proposal->reference = $request->reference;
-            $proposal->subject = $request->subject;
-            $proposal->proposal_date = $request->invoice_date ?? $request->proposal_date;
-            $proposal->due_date = $request->due_date;
-            $proposal->customer_id = $request->customer_id;
-            $proposal->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
-            $proposal->type = $request->type ?? 'product';
-            $proposal->payment_terms = $request->payment_terms;
-            $proposal->notes = $request->notes;
-            $proposal->subtotal = $totals['subtotal'];
-            $proposal->tax_amount = $totals['tax_amount'];
-            $proposal->discount_amount = $totals['discount_amount'];
-            $proposal->total_amount = $totals['total_amount'];
-            $proposal->creator_id = Auth::id();
-            $proposal->created_by = creatorId();
-            $proposal->save();
-
-            $this->createProposalItems($proposal->id, $request->items);
-            $this->saveProposalTariffs($proposal->id, $request->tariffs);
             try {
-                CreateSalesProposal::dispatch($request, $proposal);
-            } catch (\Throwable $th) {
-                return back()->with('error', $th->getMessage());
-            }
+                $proposal = DB::transaction(function () use ($request) {
+                    $totals = $this->calculateTotals($request->items);
 
-            return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal has been created successfully.'));
+                    $proposal = new SalesProposal();
+                    $proposal->proposal_number = SalesProposal::generateProposalNumber($request->invoice_date ?? $request->proposal_date);
+                    $proposal->reference = $request->reference;
+                    $proposal->subject = $request->subject;
+                    $proposal->proposal_date = $request->invoice_date ?? $request->proposal_date;
+                    $proposal->due_date = $request->due_date;
+                    $proposal->customer_id = $request->customer_id;
+                    $proposal->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
+                    $proposal->type = $request->type ?? 'product';
+                    $proposal->payment_terms = $request->payment_terms;
+                    $proposal->notes = $request->notes;
+                    $proposal->subtotal = $totals['subtotal'];
+                    $proposal->tax_amount = $totals['tax_amount'];
+                    $proposal->discount_amount = $totals['discount_amount'];
+                    $proposal->total_amount = $totals['total_amount'];
+                    $proposal->creator_id = Auth::id();
+                    $proposal->created_by = creatorId();
+                    $proposal->save();
+
+                    $this->createProposalItems($proposal->id, $request->items);
+                    $this->saveProposalTariffs($proposal->id, $request->tariffs);
+                    $this->saveProposalContents($proposal->id, $request->proposal_content);
+
+                    return $proposal;
+                });
+
+                try {
+                    CreateSalesProposal::dispatch($request, $proposal);
+                } catch (\Throwable $th) {}
+
+                return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal has been created successfully.'));
+            } catch (\Exception $e) {
+                return back()->with('error', $e->getMessage());
+            }
         } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
@@ -226,6 +235,9 @@ class SalesProposalController extends Controller
             $relations = ['customer', 'items.product', 'items.taxes', 'warehouse'];
             if (Schema::hasTable('sales_proposal_tariffs')) {
                 $relations[] = 'tariffs';
+            }
+            if (Schema::hasTable('sales_proposal_contents')) {
+                $relations[] = 'contents';
             }
             $salesProposal->load($relations);
 
@@ -251,6 +263,9 @@ class SalesProposalController extends Controller
             $editRelations = ['items.taxes'];
             if (Schema::hasTable('sales_proposal_tariffs')) {
                 $editRelations[] = 'tariffs';
+            }
+            if (Schema::hasTable('sales_proposal_contents')) {
+                $editRelations[] = 'contents';
             }
             $salesProposal->load($editRelations);
             $customers = User::where('type', 'client')->where('created_by', creatorId())->get();
@@ -283,28 +298,37 @@ class SalesProposalController extends Controller
                 return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
             }
 
-            $totals = $this->calculateTotals($request->items);
+            try {
+                DB::transaction(function () use ($request, $salesProposal) {
+                    $totals = $this->calculateTotals($request->items);
 
-            $salesProposal->proposal_date = $request->invoice_date;
-            $salesProposal->due_date = $request->due_date;
-            $salesProposal->customer_id = $request->customer_id;
-            $salesProposal->warehouse_id = $salesProposal->type === 'product' ? $request->warehouse_id : null;
-            $salesProposal->payment_terms = $request->payment_terms;
-            $salesProposal->notes = $request->notes;
-            $salesProposal->subtotal = $totals['subtotal'];
-            $salesProposal->tax_amount = $totals['tax_amount'];
-            $salesProposal->discount_amount = $totals['discount_amount'];
-            $salesProposal->total_amount = $totals['total_amount'];
-            $salesProposal->save();
+                    $salesProposal->proposal_date = $request->invoice_date;
+                    $salesProposal->due_date = $request->due_date;
+                    $salesProposal->customer_id = $request->customer_id;
+                    $salesProposal->warehouse_id = $salesProposal->type === 'product' ? $request->warehouse_id : null;
+                    $salesProposal->payment_terms = $request->payment_terms;
+                    $salesProposal->notes = $request->notes;
+                    $salesProposal->subtotal = $totals['subtotal'];
+                    $salesProposal->tax_amount = $totals['tax_amount'];
+                    $salesProposal->discount_amount = $totals['discount_amount'];
+                    $salesProposal->total_amount = $totals['total_amount'];
+                    $salesProposal->save();
 
-            $salesProposal->items()->delete();
-            $this->createProposalItems($salesProposal->id, $request->items);
-            $this->saveProposalTariffs($salesProposal->id, $request->tariffs);
+                    $salesProposal->items()->delete();
+                    $this->createProposalItems($salesProposal->id, $request->items);
+                    $this->saveProposalTariffs($salesProposal->id, $request->tariffs);
+                    $this->saveProposalContents($salesProposal->id, $request->proposal_content);
+                });
 
-            // Dispatch event for packages to handle their fields
-            UpdateSalesProposal::dispatch($request, $salesProposal);
+                // Dispatch event for packages to handle their fields
+                try {
+                    UpdateSalesProposal::dispatch($request, $salesProposal);
+                } catch (\Throwable $th) {}
 
-            return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal details are updated successfully.'));
+                return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal details are updated successfully.'));
+            } catch (\Exception $e) {
+                return back()->with('error', $e->getMessage());
+            }
         } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
@@ -509,6 +533,64 @@ class SalesProposalController extends Controller
         }
     }
 
+    private function saveProposalContents($proposalId, $proposalContent)
+    {
+        if (!Schema::hasTable('sales_proposal_contents')) {
+            return;
+        }
+
+        try {
+            if (Schema::hasColumn('sales_proposal_contents', 'proposal_id')) {
+                SalesProposalContent::where('proposal_id', $proposalId)->delete();
+            }
+        } catch (\Throwable $th) {}
+
+        if (empty($proposalContent)) {
+            return;
+        }
+
+        $items = is_string($proposalContent) ? json_decode($proposalContent, true) : $proposalContent;
+        if (!is_array($items)) {
+            return;
+        }
+
+        $savedOrder = 1;
+        foreach ($items as $item) {
+            if (is_array($item)) {
+                $pageType = $item['page_type'] ?? 'content';
+                
+                // Do not add items pages (otc, mrc) into contents table as they have their own items table
+                if (in_array($pageType, ['otc', 'mrc'])) {
+                    continue;
+                }
+
+                $order = isset($item['order']) ? (int)$item['order'] : $savedOrder;
+                $title = $item['title'] ?? null;
+                $htmlContent = $item['content'] ?? null;
+                $bgImage = $item['background_image'] ?? null;
+                $jsonContent = json_encode($item);
+            } else {
+                $order = $savedOrder;
+                $title = null;
+                $htmlContent = (string)$item;
+                $pageType = 'content';
+                $bgImage = null;
+                $jsonContent = (string)$item;
+            }
+
+            SalesProposalContent::create([
+                'proposal_id' => $proposalId,
+                'title' => $title,
+                'content' => $htmlContent,
+                'page_type' => $pageType,
+                'background_image' => $bgImage,
+                'proposal_content' => $htmlContent ?? $jsonContent,
+                'order' => $order,
+            ]);
+            $savedOrder++;
+        }
+    }
+
     public function getWarehouseProducts(Request $request)
     {
         if (Auth::user()->can('create-sales-proposals') || Auth::user()->can('edit-sales-proposals')) {
@@ -597,6 +679,9 @@ class SalesProposalController extends Controller
             if (Schema::hasTable('sales_proposal_tariffs')) {
                 $relations[] = 'tariffs';
             }
+            if (Schema::hasTable('sales_proposal_contents')) {
+                $relations[] = 'contents';
+            }
             $salesProposal->load($relations);
 
             $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
@@ -612,6 +697,45 @@ class SalesProposalController extends Controller
                 'defaultPages' => $defaultPages,
                 'proposalSetting' => $proposalSetting,
             ]);
+        } else {
+            return back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function downloadPdf(SalesProposal $salesProposal)
+    {
+        if (Auth::user()->can('print-sales-proposals')) {
+            $relations = ['customer', 'items.product', 'items.taxes', 'warehouse'];
+            if (Schema::hasTable('sales_proposal_tariffs')) {
+                $relations[] = 'tariffs';
+            }
+            if (Schema::hasTable('sales_proposal_contents')) {
+                $relations[] = 'contents';
+            }
+            $salesProposal->load($relations);
+
+            $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
+                ->where('is_active', true)
+                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
+                ->orderBy('sort_order')
+                ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
+
+            $proposalSetting = ProposalSetting::getSettings(creatorId());
+
+            $companyName = $proposalSetting['company_name'] ?? config('app.name', 'Automas');
+            $cleanCompName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
+            $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($salesProposal->proposal_number)));
+            $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
+
+            return Pdf::view('sales-proposals.print', [
+                'proposal' => $salesProposal,
+                'defaultPages' => $defaultPages,
+                'proposalSetting' => $proposalSetting,
+                'isServerPdf' => true,
+            ])
+                ->format('a4')
+                ->margins(0, 0, 0, 0)
+                ->download($pdfFilename);
         } else {
             return back()->with('error', __('Permission denied'));
         }

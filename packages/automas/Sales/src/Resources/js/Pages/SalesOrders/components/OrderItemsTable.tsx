@@ -179,20 +179,22 @@ export default function OrderItemsTable({ items, onChange, errors, products, sho
                                         min="0"
                                         max="100"
                                         step="0.01"
-                                    />
+                                    />   
                                 </td>
                                 <td className="px-4 py-4">
-                                    <div className="flex flex-wrap gap-1">
+                                    <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">
                                         {item.taxes && item.taxes.length > 0 ? (
                                             item.taxes.map((tax, taxIndex) => (
-                                                <span key={taxIndex} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                <span key={taxIndex} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 whitespace-nowrap">
                                                     {tax.tax_name} ({tax.tax_rate}%)
                                                 </span>
                                             ))
-                                        ) : item.tax_percentage > 0 ? (
-                                            <span className="text-sm text-blue-800">{t('Tax')} ({item.tax_percentage}%)</span>
+                                        ) : Number(item.tax_percentage) > 0 ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 whitespace-nowrap">
+                                                {t('Tax')} ({Number(item.tax_percentage).toFixed(2)}%)
+                                            </span>
                                         ) : (
-                                            <span className="text-sm text-muted-foreground">{t('No tax')}</span>
+                                            <span className="text-xs text-muted-foreground italic px-1">{t('No tax')}</span>
                                         )}
                                     </div>
                                 </td>

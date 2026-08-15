@@ -70,16 +70,35 @@ export default function Edit() {
 
     // Initialize proposal sections with existing proposal_content or fallback to defaultPages
     const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
-        const rawContent = (proposal as any).proposal_content;
+        const contentsRel = (proposal as any).contents;
         let parsed: any[] = [];
-        if (typeof rawContent === 'string') {
-            try {
-                parsed = JSON.parse(rawContent);
-            } catch (e) {
-                parsed = [];
+        if (Array.isArray(contentsRel) && contentsRel.length > 0) {
+            parsed = contentsRel.map((c: any) => {
+                if (c.proposal_content) {
+                    try {
+                        const dec = typeof c.proposal_content === 'string' ? JSON.parse(c.proposal_content) : c.proposal_content;
+                        if (dec && typeof dec === 'object') return dec;
+                    } catch (e) {}
+                }
+                return {
+                    title: c.title || '',
+                    content: c.content || c.proposal_content || '',
+                    page_type: c.page_type || 'content',
+                    background_image: c.background_image || '',
+                    order: c.order || 1,
+                };
+            });
+        } else {
+            const rawContent = (proposal as any).proposal_content || (proposal as any).others;
+            if (typeof rawContent === 'string') {
+                try {
+                    parsed = JSON.parse(rawContent);
+                } catch (e) {
+                    parsed = [];
+                }
+            } else if (Array.isArray(rawContent)) {
+                parsed = rawContent;
             }
-        } else if (Array.isArray(rawContent)) {
-            parsed = rawContent;
         }
 
         if (parsed && parsed.length > 0) {

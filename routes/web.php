@@ -173,6 +173,7 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Proposal Routes
     Route::resource('sales-proposals', SalesProposalController::class);
     Route::get('sales-proposals/{salesProposal}/print', [SalesProposalController::class, 'print'])->name('sales-proposals.print');
+    Route::get('sales-proposals/{salesProposal}/download-pdf', [SalesProposalController::class, 'downloadPdf'])->name('sales-proposals.download-pdf');
     Route::post('sales-proposals/{salesProposal}/sent', [SalesProposalController::class, 'sent'])->name('sales-proposals.sent');
     Route::post('sales-proposals/{salesProposal}/accept', [SalesProposalController::class, 'accept'])->name('sales-proposals.accept');
     Route::post('sales-proposals/{salesProposal}/reject', [SalesProposalController::class, 'reject'])->name('sales-proposals.reject');

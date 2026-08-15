@@ -48,6 +48,11 @@ class SalesProposal extends Model
         return $this->hasMany(SalesProposalItem::class, 'proposal_id');
     }
 
+    public function contents(): HasMany
+    {
+        return $this->hasMany(SalesProposalContent::class, 'proposal_id')->orderBy('order');
+    }
+
     public function tariffs(): HasMany
     {
         return $this->hasMany(SalesProposalTariff::class, 'proposal_id')->orderBy('sort_order');

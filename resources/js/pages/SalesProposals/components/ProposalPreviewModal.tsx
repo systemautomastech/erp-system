@@ -13,8 +13,6 @@ import {
     getCompanySetting,
     getImagePath,
 } from '@/utils/helpers';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 
 // =============================================================================
 // TYPES
@@ -453,42 +451,6 @@ const buildRenderablePages = (
 // =============================================================================
 
 const usePrintHandler = (previewRef: React.RefObject<HTMLDivElement | null>, t: (key: string) => string) => {
-    return useCallback(() => {
-        if (!previewRef.current) return;
-
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        const stylesHtml = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-            .map((node) => node.outerHTML)
-            .join('\n');
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>${t('Sales Proposal Preview')}</title>
-                    ${stylesHtml}
-                    <style>${PRINT_STYLES}</style>
-                </head>
-                <body>
-                    <div class="print-wrapper">${previewRef.current.outerHTML}</div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
-    }, [previewRef, t]);
-};
-
-const usePdfDownloadHandler = (
-    previewRef: React.RefObject<HTMLDivElement | null>,
-    t: (key: string) => string
-) => {
     return useCallback(() => {
         if (!previewRef.current) return;
 
@@ -990,9 +952,6 @@ const ContentPage = React.memo<ContentPageProps>(
             >
                 <PageBody>
                     <div>
-                        {page.title && (
-                            <div className="font-bold mb-3 text-[#293240] text-sm">{page.title}</div>
-                        )}
                         {page.content ? (
                             <div
                                 className={CONTENT_PROSE_CLASSES}
@@ -1002,7 +961,6 @@ const ContentPage = React.memo<ContentPageProps>(
                             <p className="text-sm text-slate-400 italic py-8 text-center">{emptyMessage}</p>
                         )}
                     </div>
-                    <PageFooter pageNum={pageNum} totalPages={totalPages} t={t} />
                 </PageBody>
             </PageShell>
         );
@@ -1012,8 +970,6 @@ ContentPage.displayName = 'ContentPage';
 
 // =============================================================================
 // MAIN COMPONENT
-// =============================================================================
-
 export default function ProposalPreviewModal({
     isOpen,
     onClose,
@@ -1066,7 +1022,6 @@ export default function ProposalPreviewModal({
     // Actions
     // -------------------------------------------------------------------------
     const handlePrint = usePrintHandler(previewContainerRef, t);
-    const handleDownloadPdf = usePdfDownloadHandler(previewContainerRef, t);
 
     // -------------------------------------------------------------------------
     // Render
@@ -1084,10 +1039,6 @@ export default function ProposalPreviewModal({
                     </div>
 
                     <div className="flex items-center gap-2 pr-6">
-                        <Button variant="outline" size="sm" onClick={handleDownloadPdf} className="gap-2 text-xs h-8">
-                            <Download className="h-3.5 w-3.5" />
-                            {t('Download')}
-                        </Button>
                         <Button variant="default" size="sm" onClick={handlePrint} className="gap-2 text-xs h-8">
                             <Printer className="h-3.5 w-3.5" />
                             {t('Print')}

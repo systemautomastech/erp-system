@@ -80,7 +80,7 @@ export default function Index({ settings, defaultPages = [] }: Props) {
                     <section id="default-pages">
                         <Card className="shadow-sm">
                             <CardContent className="p-6">
-                                <DefaultPages defaultPages={defaultPages} />
+                                <DefaultPages defaultPages={defaultPages} settings={settings || {}} />
                             </CardContent>
                         </Card>
                     </section>
