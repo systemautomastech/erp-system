@@ -13,6 +13,7 @@ class SalesProposalItem extends Model
         'product_id',
         'section',
         'product_type',
+        'description',
         'quantity',
         'unit_price',
         'discount_percentage',

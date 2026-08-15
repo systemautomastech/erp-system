@@ -11,11 +11,14 @@ import { formatCurrency } from '@/utils/helpers';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+import RichTextEditor from '@/components/ui/rich-text-editor';
+import { Label } from '@/components/ui/label';
+
 interface Props {
     items: SalesInvoiceItem[];
     onChange: (items: SalesInvoiceItem[]) => void;
     errors?: any;
-    products?: Array<{ id: number; name: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
+    products?: Array<{ id: number; name: string; description?: string; long_description?: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
     showAddButton?: boolean;
     invoiceType?: string;
 }
@@ -28,6 +31,7 @@ export default function InvoiceItemsTable({ items, onChange, errors = {}, produc
             product_id: 0,
             section: 'otc',
             product_type: invoiceType || 'product',
+            description: '',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
@@ -80,12 +84,15 @@ export default function InvoiceItemsTable({ items, onChange, errors = {}, produc
             tax_rate: tax.rate
         })) || [];
 
+        const defaultDesc = product?.description || product?.long_description || '';
+
         newItems[index] = {
             ...newItems[index],
             product_id: productId,
             unit_price: Number(product?.sale_price) || 0,
             tax_percentage: Number(totalTaxRate) || 0,
-            taxes: taxes
+            taxes: taxes,
+            description: defaultDesc,
         };
 
         const item = newItems[index];
@@ -142,14 +149,33 @@ export default function InvoiceItemsTable({ items, onChange, errors = {}, produc
                     </thead>
                     <tbody className="divide-y divide-border">
                         {items.map((item, index) => (
-                            <tr key={index}>
-                                <td className="px-4 py-4">
+                            <tr key={index} className="align-top">
+                                <td className="px-4 py-4 min-w-[280px]">
                                     <ProductSelector
                                         products={products}
                                         value={item.product_id}
                                         onChange={(productId, product) => handleProductSelect(index, productId, product)}
                                     />
                                     <InputError message={errors[`items.${index}.product_id`]} />
+
+                                    {item.product_id > 0 && (
+                                        <div className="mt-3 space-y-1">
+                                            <Label className="text-[11px] font-semibold text-slate-500">{t('Product Description')}</Label>
+                                            <RichTextEditor
+                                                content={item.description || ''}
+                                                onChange={(desc) => {
+                                                    const newItems = [...items];
+                                                    newItems[index] = {
+                                                        ...newItems[index],
+                                                        description: desc,
+                                                    };
+                                                    onChange(newItems);
+                                                }}
+                                                placeholder={t('Enter or edit product description...')}
+                                                minimal={true}
+                                            />
+                                        </div>
+                                    )}
                                 </td>
                                 <td className="px-3 py-4">
                                     <Select
@@ -253,18 +279,50 @@ export default function InvoiceItemsTable({ items, onChange, errors = {}, produc
                 </table>
             </div>
 
-            {showAddButton && (
-                <div className="flex justify-start">
-                    <Button
-                        type="button"
-                        onClick={addItem}
-                        variant="default"
-                        size="sm"
-                    >
-                        + {t('Add Item')}
-                    </Button>
-                </div>
-            )}
+            {(() => {
+                const sectionSubTotal = items.reduce((acc, item) => acc + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0);
+                const sectionDiscountTotal = items.reduce((acc, item) => acc + (Number(item.discount_amount) || 0), 0);
+                const sectionTaxTotal = items.reduce((acc, item) => acc + (Number(item.tax_amount) || 0), 0);
+                const sectionGrandTotal = items.reduce((acc, item) => acc + (Number(item.total_amount) || 0), 0);
+
+                return (
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <div>
+                            {showAddButton && (
+                                <Button
+                                    type="button"
+                                    onClick={addItem}
+                                    variant="default"
+                                    size="sm"
+                                >
+                                    + {t('Add Item')}
+                                </Button>
+                            )}
+                        </div>
+
+                        {items.length > 0 && (
+                            <div className="w-full sm:w-72 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3.5 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium">{t('Sub Total (৳)')}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(sectionSubTotal)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium">{t('Discount (৳)')}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100">{sectionDiscountTotal > 0 ? `-${formatCurrency(sectionDiscountTotal)}` : formatCurrency(0)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium">{t('VAT/Tax (৳)')}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(sectionTaxTotal)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm font-bold text-slate-900 dark:text-slate-100 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                    <span>{t('Total Amount (৳)')}</span>
+                                    <span className="text-primary">{formatCurrency(sectionGrandTotal)}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             <InputError message={errors.items} />
         </div>

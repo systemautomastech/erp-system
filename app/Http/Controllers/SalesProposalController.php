@@ -25,6 +25,7 @@ use App\Http\Requests\UpdateSalesProposalRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Automas\ProductService\Models\ProductServiceItem;
 use App\Models\EmailTemplate;
@@ -162,13 +163,13 @@ class SalesProposalController extends Controller
                 ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
                 ->orderBy('sort_order')
                 ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
-            $proposalSetting = ProposalSetting::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))->first();
+            $proposalSetting = ProposalSetting::getSettings(creatorId());
 
             return Inertia::render('SalesProposals/Create', [
                 'customers' => $customers,
                 'warehouses' => $warehouses,
                 'defaultPages' => $defaultPages,
-                'defaultTerms' => $proposalSetting ? $proposalSetting->default_terms : null,
+                'defaultTerms' => $proposalSetting['default_terms'] ?? null,
                 'proposalSetting' => $proposalSetting,
             ]);
         } else {
@@ -222,7 +223,11 @@ class SalesProposalController extends Controller
                 return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
             }
 
-            $salesProposal->load(['customer', 'items.product', 'items.taxes', 'warehouse', 'tariffs']);
+            $relations = ['customer', 'items.product', 'items.taxes', 'warehouse'];
+            if (Schema::hasTable('sales_proposal_tariffs')) {
+                $relations[] = 'tariffs';
+            }
+            $salesProposal->load($relations);
 
             return Inertia::render('SalesProposals/View', [
                 'proposal' => $salesProposal
@@ -243,16 +248,27 @@ class SalesProposalController extends Controller
                 return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
             }
 
-            $salesProposal->load(['items.taxes', 'tariffs']);
+            $editRelations = ['items.taxes'];
+            if (Schema::hasTable('sales_proposal_tariffs')) {
+                $editRelations[] = 'tariffs';
+            }
+            $salesProposal->load($editRelations);
             $customers = User::where('type', 'client')->where('created_by', creatorId())->get();
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
 
-            $proposalSetting = ProposalSetting::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))->first();
+            $proposalSetting = ProposalSetting::getSettings(creatorId());
+
+            $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
+                ->where('is_active', true)
+                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
+                ->orderBy('sort_order')
+                ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
 
             return Inertia::render('SalesProposals/Edit', [
                 'proposal' => $salesProposal,
                 'customers' => $customers,
                 'warehouses' => $warehouses,
+                'defaultPages' => $defaultPages,
                 'proposalSetting' => $proposalSetting,
             ]);
         } else {
@@ -387,45 +403,82 @@ class SalesProposalController extends Controller
         $totalTax = 0;
         $totalDiscount = 0;
 
-        foreach ($items as $item) {
-            $lineTotal = $item['quantity'] * $item['unit_price'];
-            $discountAmount = ($lineTotal * ($item['discount_percentage'] ?? 0)) / 100;
-            $afterDiscount = $lineTotal - $discountAmount;
-            $taxAmount = ($afterDiscount * ($item['tax_percentage'] ?? 0)) / 100;
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                if (empty($item['product_id']) || (int) $item['product_id'] <= 0) {
+                    continue;
+                }
 
-            $subtotal += $lineTotal;
-            $totalDiscount += $discountAmount;
-            $totalTax += $taxAmount;
+                $quantity = max(1, (int) ($item['quantity'] ?? 1));
+                $unitPrice = max(0, (float) ($item['unit_price'] ?? 0));
+                $discountPct = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+
+                $taxPct = (float) ($item['tax_percentage'] ?? 0);
+                if (isset($item['taxes']) && is_array($item['taxes']) && count($item['taxes']) > 0) {
+                    $taxPct = array_reduce($item['taxes'], function ($sum, $t) {
+                        return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
+                    }, 0);
+                }
+
+                $lineTotal = $quantity * $unitPrice;
+                $discountAmount = ($lineTotal * $discountPct) / 100;
+                $afterDiscount = $lineTotal - $discountAmount;
+                $taxAmount = ($afterDiscount * $taxPct) / 100;
+
+                $subtotal += $lineTotal;
+                $totalDiscount += $discountAmount;
+                $totalTax += $taxAmount;
+            }
         }
 
         return [
-            'subtotal' => $subtotal,
-            'tax_amount' => $totalTax,
-            'discount_amount' => $totalDiscount,
-            'total_amount' => $subtotal + $totalTax - $totalDiscount
+            'subtotal' => round($subtotal, 2),
+            'tax_amount' => round($totalTax, 2),
+            'discount_amount' => round($totalDiscount, 2),
+            'total_amount' => round($subtotal + $totalTax - $totalDiscount, 2)
         ];
     }
 
     private function createProposalItems($proposalId, $items)
     {
+        if (!is_array($items)) {
+            return;
+        }
+
         foreach ($items as $itemData) {
+            if (empty($itemData['product_id']) || (int) $itemData['product_id'] <= 0) {
+                continue;
+            }
+
+            $quantity = max(1, (int) ($itemData['quantity'] ?? 1));
+            $unitPrice = max(0, (float) ($itemData['unit_price'] ?? 0));
+            $discountPct = max(0, min(100, (float) ($itemData['discount_percentage'] ?? 0)));
+
+            $taxPct = (float) ($itemData['tax_percentage'] ?? 0);
+            if (isset($itemData['taxes']) && is_array($itemData['taxes']) && count($itemData['taxes']) > 0) {
+                $taxPct = array_reduce($itemData['taxes'], function ($sum, $t) {
+                    return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
+                }, 0);
+            }
+
             $item = new SalesProposalItem();
             $item->proposal_id = $proposalId;
             $item->product_id = $itemData['product_id'];
-            $item->section = $itemData['section'] ?? 'general';
+            $item->section = $itemData['section'] ?? 'otc';
             $item->product_type = $itemData['product_type'] ?? 'product';
-            $item->quantity = $itemData['quantity'];
-            $item->unit_price = $itemData['unit_price'];
-            $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
-            $item->tax_percentage = $itemData['tax_percentage'] ?? 0;
-            $item->save();
+            $item->description = $itemData['description'] ?? $itemData['product_description'] ?? null;
+            $item->quantity = $quantity;
+            $item->unit_price = $unitPrice;
+            $item->discount_percentage = $discountPct;
+            $item->tax_percentage = $taxPct;
+            $item->save(); // Automatically triggers SalesProposalItem::calculateAmounts() in Eloquent saving listener!
 
             if (isset($itemData['taxes']) && is_array($itemData['taxes'])) {
                 foreach ($itemData['taxes'] as $tax) {
                     $proposalItemTax = new SalesProposalItemTax();
                     $proposalItemTax->item_id = $item->id;
-                    $proposalItemTax->tax_name = $tax['tax_name'];
-                    $proposalItemTax->tax_rate = $tax['tax_rate'] ?? $tax['rate'] ?? 0;
+                    $proposalItemTax->tax_name = $tax['tax_name'] ?? 'Tax';
+                    $proposalItemTax->tax_rate = (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0);
                     $proposalItemTax->save();
                 }
             }
@@ -434,6 +487,10 @@ class SalesProposalController extends Controller
 
     private function saveProposalTariffs($proposalId, $tariffs)
     {
+        if (!Schema::hasTable('sales_proposal_tariffs')) {
+            return;
+        }
+
         SalesProposalTariff::where('proposal_id', $proposalId)->delete();
         if (is_array($tariffs)) {
             foreach ($tariffs as $index => $tariffData) {
@@ -460,7 +517,7 @@ class SalesProposalController extends Controller
             if (!$warehouseId) {
                 return response()->json([]);
             }
-            $products = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
+            $products = ProductServiceItem::select('id', 'name', 'sku', 'description', 'sale_price', 'long_description', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
                 ->where('created_by', creatorId())
                 ->whereHas('warehouseStocks', function ($q) use ($warehouseId) {
@@ -478,6 +535,8 @@ class SalesProposalController extends Controller
                     return [
                         'id' => $product->id,
                         'name' => $product->name,
+                        'description' => $product->description,
+                        'long_description' => $product->long_description,
                         'sku' => $product->sku,
                         'sale_price' => $product->sale_price,
                         'unit' => $product->unit,
@@ -501,7 +560,7 @@ class SalesProposalController extends Controller
     public function getServices(Request $request)
     {
         if (Auth::user()->can('create-sales-proposals') || Auth::user()->can('edit-sales-proposals')) {
-            $services = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
+            $services = ProductServiceItem::select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
                 ->where('type', 'service')
                 ->where('created_by', creatorId())
@@ -510,6 +569,8 @@ class SalesProposalController extends Controller
                     return [
                         'id' => $service->id,
                         'name' => $service->name,
+                        'description' => $service->description,
+                        'long_description' => $service->long_description,
                         'sku' => $service->sku,
                         'sale_price' => $service->sale_price,
                         'unit' => $service->unit,
@@ -532,10 +593,24 @@ class SalesProposalController extends Controller
     public function print(SalesProposal $salesProposal)
     {
         if (Auth::user()->can('print-sales-proposals')) {
-            $salesProposal->load(['customer', 'items.product', 'items.taxes', 'warehouse']);
+            $relations = ['customer', 'items.product', 'items.taxes', 'warehouse'];
+            if (Schema::hasTable('sales_proposal_tariffs')) {
+                $relations[] = 'tariffs';
+            }
+            $salesProposal->load($relations);
 
-            return Inertia::render('SalesProposals/Print', [
-                'proposal' => $salesProposal
+            $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
+                ->where('is_active', true)
+                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
+                ->orderBy('sort_order')
+                ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
+
+            $proposalSetting = ProposalSetting::getSettings(creatorId());
+
+            return view('sales-proposals.print', [
+                'proposal' => $salesProposal,
+                'defaultPages' => $defaultPages,
+                'proposalSetting' => $proposalSetting,
             ]);
         } else {
             return back()->with('error', __('Permission denied'));

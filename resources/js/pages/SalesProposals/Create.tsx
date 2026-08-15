@@ -18,14 +18,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, X } from 'lucide-react';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import RichTextEditor from '@/components/ui/rich-text-editor';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import ProposalPreviewModal from './components/ProposalPreviewModal';
-import TariffDetailsTable, { ProposalTariffRow } from './components/TariffDetailsTable';
 import ChargeItemsTable from './components/ChargeItemsTable';
+import PageOrderSection from './components/PageOrderSection';
 
 interface ProposalDefaultPage {
     id: number;
@@ -71,181 +71,6 @@ export default function Create() {
         return [];
     });
 
-    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-
-    const handleInsertDefaultPage = (defaultPage: ProposalDefaultPage) => {
-        const isFront = defaultPage.page_type === 'front-page' || defaultPage.title?.toLowerCase().includes('front') || defaultPage.title?.toLowerCase().includes('cover');
-        const isAlreadyAdded = sections.some(
-            (sec) => sec.id === `sec-${defaultPage.id}` || (isFront && (sec.page_type === 'front-page' || sec.title?.toLowerCase().includes('front') || sec.title?.toLowerCase().includes('cover'))) || sec.title.trim().toLowerCase() === defaultPage.title.trim().toLowerCase()
-        );
-
-        if (isAlreadyAdded) {
-            const updated = sections.filter(
-                (sec) => !(sec.id === `sec-${defaultPage.id}` || (isFront && (sec.page_type === 'front-page' || sec.title?.toLowerCase().includes('front') || sec.title?.toLowerCase().includes('cover'))) || sec.title.trim().toLowerCase() === defaultPage.title.trim().toLowerCase())
-            );
-            updated.forEach((item, index) => {
-                item.order = index + 1;
-            });
-            setSections(updated);
-        } else {
-            setSections((prev) => [
-                ...prev,
-                {
-                    id: `sec-${defaultPage.id}-${Date.now()}`,
-                    title: defaultPage.title,
-                    content: defaultPage.content,
-                    page_type: isFront ? 'front-page' : (defaultPage.page_type || 'general'),
-                    background_image: defaultPage.background_image,
-                    order: prev.length + 1,
-                    isExpanded: true,
-                },
-            ]);
-        }
-    };
-
-    const handleAddBlankSection = () => {
-        setSections((prev) => [
-            ...prev,
-            {
-                id: `sec-${Date.now()}`,
-                title: `${t('Section')} ${prev.length + 1}`,
-                content: '',
-                order: prev.length + 1,
-                isExpanded: true,
-            },
-        ]);
-    };
-
-    // Terms Sections state
-    const [termSections, setTermSections] = useState<Array<{ id: string; title: string; content: string; order: number; isExpanded: boolean }>>([]);
-    const [draggedTermIndex, setDraggedTermIndex] = useState<number | null>(null);
-
-    const handleInsertDefaultTerms = () => {
-        const defaultTitle = t('Default Terms & Conditions');
-        const isAlreadyAdded = termSections.some(
-            (tSec) => tSec.title.trim().toLowerCase() === defaultTitle.trim().toLowerCase()
-        );
-
-        if (isAlreadyAdded) {
-            const updated = termSections.filter(
-                (tSec) => tSec.title.trim().toLowerCase() !== defaultTitle.trim().toLowerCase()
-            );
-            updated.forEach((item, index) => {
-                item.order = index + 1;
-            });
-            setTermSections(updated);
-        } else {
-            const termsToInsert = defaultTerms || '<h2>Terms & Conditions</h2><p>1. Proposal is valid for 30 days from issuance.<br/>2. Payment terms: 50% deposit upon acceptance, 50% on project completion.</p>';
-            setTermSections((prev) => [
-                ...prev,
-                {
-                    id: `term-${Date.now()}`,
-                    title: defaultTitle,
-                    content: termsToInsert,
-                    order: prev.length + 1,
-                    isExpanded: true,
-                },
-            ]);
-        }
-    };
-
-    const handleAddBlankTerm = () => {
-        setTermSections((prev) => [
-            ...prev,
-            {
-                id: `term-${Date.now()}`,
-                title: `${t('Term')} ${prev.length + 1}`,
-                content: '',
-                order: prev.length + 1,
-                isExpanded: true,
-            },
-        ]);
-    };
-
-    const handleRemoveTermSection = (id: string) => {
-        const updated = termSections.filter((term) => term.id !== id);
-        updated.forEach((item, index) => {
-            item.order = index + 1;
-        });
-        setTermSections(updated);
-    };
-
-    const toggleTermExpand = (id: string) => {
-        setTermSections(
-            termSections.map((term) =>
-                term.id === id ? { ...term, isExpanded: !term.isExpanded } : term
-            )
-        );
-    };
-
-    const handleTermDragStart = (index: number) => {
-        setDraggedTermIndex(index);
-    };
-
-    const handleTermDragOver = (e: React.DragEvent, targetIndex: number) => {
-        e.preventDefault();
-        if (draggedTermIndex === null || draggedTermIndex === targetIndex) return;
-
-        const updated = [...termSections];
-        const [draggedItem] = updated.splice(draggedTermIndex, 1);
-        updated.splice(targetIndex, 0, draggedItem);
-
-        updated.forEach((item, index) => {
-            item.order = index + 1;
-        });
-
-        setDraggedTermIndex(targetIndex);
-        setTermSections(updated);
-    };
-
-    const handleTermDragEnd = () => {
-        setDraggedTermIndex(null);
-    };
-
-    const handleRemoveSection = (id: string) => {
-        const updated = sections.filter((sec) => sec.id !== id);
-
-        updated.forEach((item, index) => {
-            item.order = index + 1;
-        });
-
-        setSections(updated);
-    };
-
-    const toggleSectionExpand = (id: string) => {
-        setSections(
-            sections.map((sec) =>
-                sec.id === id ? { ...sec, isExpanded: !sec.isExpanded } : sec
-            )
-        );
-    };
-
-    const handleDragStart = (index: number) => {
-        setDraggedIndex(index);
-    };
-
-    const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
-        e.preventDefault();
-        if (draggedIndex === null || draggedIndex === targetIndex) return;
-
-        const updatedSections = [...sections];
-
-        const [draggedItem] = updatedSections.splice(draggedIndex, 1);
-        updatedSections.splice(targetIndex, 0, draggedItem);
-
-        // Order update
-        updatedSections.forEach((item, index) => {
-            item.order = index + 1;
-        });
-
-        setDraggedIndex(targetIndex);
-        setSections(updatedSections);
-    };
-
-    const handleDragEnd = () => {
-        setDraggedIndex(null);
-    };
-
     useFlashMessages();
     const { data, setData, post, processing, errors, transform } = useForm({
         proposal_id: '',
@@ -262,6 +87,7 @@ export default function Create() {
             product_id: 0,
             section: 'general',
             product_type: 'product',
+            product_description: '',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
@@ -271,8 +97,71 @@ export default function Create() {
             total_amount: 0
         }] as SalesInvoiceItem[],
         proposal_content: [],
-        tariffs: [] as ProposalTariffRow[],
+        other_details: '',
     });
+
+    // Auto-sync OTC and MRC section cards into Page Order list when products exist in those tables
+    useEffect(() => {
+        const hasOtcItems = data.items.some(
+            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+        );
+        const hasMrcItems = data.items.some(
+            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+        );
+
+        const hasOtherDetails = Boolean(data.other_details && data.other_details.trim() !== '' && data.other_details !== '<p></p>');
+
+        setSections((prev) => {
+            let updated = [...prev];
+
+            // OTC Card
+            const otcIdx = updated.findIndex((s) => s.page_type === 'otc');
+            if (hasOtcItems && otcIdx === -1) {
+                updated.push({
+                    id: `sec-otc-${Date.now()}`,
+                    title: 'One-Time Charges (OTC)',
+                    content: '[OTC_CHARGES_TABLE]',
+                    page_type: 'otc',
+                    order: updated.length + 1,
+                    isExpanded: false,
+                });
+            } else if (!hasOtcItems && otcIdx !== -1) {
+                updated = updated.filter((s) => s.page_type !== 'otc');
+            }
+
+            // MRC Card
+            const mrcIdx = updated.findIndex((s) => s.page_type === 'mrc');
+            if (hasMrcItems && mrcIdx === -1) {
+                updated.push({
+                    id: `sec-mrc-${Date.now()}`,
+                    title: 'Monthly Recurring Charges (MRC)',
+                    content: '[MRC_CHARGES_TABLE]',
+                    page_type: 'mrc',
+                    order: updated.length + 1,
+                    isExpanded: false,
+                });
+            } else if (!hasMrcItems && mrcIdx !== -1) {
+                updated = updated.filter((s) => s.page_type !== 'mrc');
+            }
+
+            // Other Details Card
+            const otherIdx = updated.findIndex((s) => s.page_type === 'other-details');
+            if (hasOtherDetails && otherIdx === -1) {
+                updated.push({
+                    id: `sec-other-${Date.now()}`,
+                    title: 'Other Details',
+                    content: '[OTHER_DETAILS_CONTENT]',
+                    page_type: 'other-details',
+                    order: updated.length + 1,
+                    isExpanded: false,
+                });
+            } else if (!hasOtherDetails && otherIdx !== -1) {
+                updated = updated.filter((s) => s.page_type !== 'other-details');
+            }
+
+            return updated.map((item, idx) => ({ ...item, order: idx + 1 }));
+        });
+    }, [data.items, data.other_details]);
 
     // Selected Customer Details
     const selectedCustomer: any = customers?.find((c: any) => String(c.id) === String(data.customer_id));
@@ -288,6 +177,7 @@ export default function Create() {
                 const response = await fetch(route('sales-proposals.warehouse.products') + `?warehouse_id=${warehouseId}`);
                 const warehouseProducts = await response.json();
                 setAvailableProducts(warehouseProducts);
+                console.log('warehouseProducts', warehouseProducts);
             } catch (error) {
                 console.error('Failed to fetch warehouse products:', error);
                 setAvailableProducts([]);
@@ -530,7 +420,7 @@ export default function Create() {
                     </Card>
 
                     {/* 1. One-Time Charge (OTC) Card */}
-                    <Card>
+                    <Card id="otc-section" className="transition-all duration-300">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                                 <FileText className="h-5 w-5" />
@@ -539,7 +429,7 @@ export default function Create() {
                         </CardHeader>
                         <CardContent>
                             <InvoiceItemsTable
-                                items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
+                                items={data.items.filter(i => i.section === 'otc' || i.section === 'mrc' || !i.section)}
                                 products={availableProducts}
                                 onChange={(updatedOtcItems) => {
                                     const formattedOtc = updatedOtcItems.map(i => ({ ...i, section: 'otc' }));
@@ -553,7 +443,7 @@ export default function Create() {
                     </Card>
 
                     {/* 2. Monthly Recurring Charge (MRC) Card */}
-                    <Card>
+                    <Card id="mrc-section" className="transition-all duration-300">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                                 <FileText className="h-5 w-5" />
@@ -575,403 +465,29 @@ export default function Create() {
                         </CardContent>
                     </Card>
 
-                    {/* 4. Tariff Details Table Card */}
-
-                    {/* Tariff Details Table Card */}
-                    <Card>
+                    {/* Other Details Card */}
+                    <Card id="other-details-section">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-lg">
                                 <FileText className="h-5 w-5" />
-                                {t('Tariff Details')}
+                                {t('Other Details')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <TariffDetailsTable
-                                tariffs={data.tariffs || []}
-                                onChange={(updatedTariffs) => setData('tariffs', updatedTariffs)}
+                            <RichTextEditor
+                                content={data.other_details || ''}
+                                onChange={(val) => setData('other_details', val)}
+                                placeholder={t('Enter other details...')}
                             />
                         </CardContent>
                     </Card>
 
-                    {/* Default Pages & Proposal Text Sections */}
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div>
-                                    <CardTitle className="flex items-center gap-2 text-lg">
-                                        <FileText className="h-5 w-5" />
-                                        {t('Default Pages')}
-                                    </CardTitle>
-                                </div>
-                                <Button
-                                    type="button"
-                                    onClick={handleAddBlankSection}
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2 h-9 text-xs"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    {t('Add New Page')}
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Default Page Template Cards */}
-                            {defaultPages && defaultPages.length > 0 && (
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                        {t('Existing Pages')}
-                                    </Label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                        {defaultPages.map((page) => {
-                                            const isInserted = sections.some((s) => s.title.toLowerCase() === page.title.toLowerCase());
-                                            return (
-                                                <Card
-                                                    key={page.id}
-                                                    onClick={() => handleInsertDefaultPage(page)}
-                                                    className={cn(
-                                                        "cursor-pointer transition-all hover:border-primary/80 hover:shadow-xs group relative p-3 border rounded-lg flex items-center justify-between gap-2 select-none",
-                                                        isInserted ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card"
-                                                    )}
-                                                >
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <span className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0">
-                                                            {page.sort_order || (page as any).order}
-                                                        </span>
-                                                        <span className="text-xs font-medium truncate">{page.title}</span>
-                                                    </div>
-                                                    {isInserted ? (
-                                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-600 dark:text-green-400 gap-1 shrink-0 border border-green-500/20">
-                                                            <Check className="h-3 w-3" />
-                                                            {t('Added')}
-                                                        </Badge>
-                                                    ) : (
-                                                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 opacity-60 group-hover:opacity-100 shrink-0">
-                                                            <Plus className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    )}
-                                                </Card>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Section Cards List */}
-                            <div className="space-y-4 pt-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    {t('Proposal Content Sections')}
-                                </Label>
-                                {sections.length === 0 ? (
-                                    <div className="border border-dashed rounded-lg p-8 text-center text-muted-foreground space-y-2 bg-muted/20">
-                                        <FileText className="h-8 w-8 mx-auto text-muted-foreground/60" />
-                                        <p className="text-sm font-medium">{t('No pages added to this proposal yet.')}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {t('Click on an existing page card above or click "+ Add New Page" to add sections to your proposal.')}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    sections.map((section, index) => (
-                                        <Card
-                                            key={section.id}
-                                            draggable
-                                            onDragStart={() => handleDragStart(index)}
-                                            onDragOver={(e) => handleDragOver(e, index)}
-                                            onDragEnd={handleDragEnd}
-                                            className={`transition-all border ${draggedIndex === index ? 'opacity-50 border-dashed border-primary' : ''}`}
-                                        >
-                                            <Collapsible
-                                                open={section.isExpanded}
-                                                onOpenChange={() => toggleSectionExpand(section.id)}
-                                            >
-                                                <div className="p-4 flex items-center justify-between select-none">
-                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                        <div
-                                                            className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground shrink-0"
-                                                            title={t('Drag to reorder')}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <GripVertical className="h-5 w-5" />
-                                                        </div>
-
-                                                        <div className="flex items-center gap-2 font-medium text-base min-w-0 flex-1">
-                                                            <FileText className="h-4 w-4 text-primary shrink-0" />
-                                                            <span className="truncate">
-                                                                {section.title || `${t('Section')} ${index + 1}`}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <CollapsibleTrigger asChild>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                                title={section.isExpanded ? t('Fold box') : t('Unfold box')}
-                                                            >
-                                                                {section.isExpanded ? (
-                                                                    <ChevronDown className="h-4 w-4" />
-                                                                ) : (
-                                                                    <ChevronRight className="h-4 w-4" />
-                                                                )}
-                                                            </Button>
-                                                        </CollapsibleTrigger>
-
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleRemoveSection(section.id);
-                                                            }}
-                                                            title={t('Remove section')}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                <CollapsibleContent>
-                                                    <div className="px-4 pb-4 space-y-4 border-t pt-4">
-                                                        <div className="space-y-2">
-                                                            {(section.page_type !== 'front-page') ?
-                                                                (
-                                                                    <><Label htmlFor={`sec-title-${section.id}`}>{t('Section Title')}</Label>
-                                                                        <Input
-                                                                            id={`sec-title-${section.id}`}
-                                                                            value={section.title}
-                                                                            onChange={(e) => {
-                                                                                const updated = [...sections];
-                                                                                updated[index].title = e.target.value;
-                                                                                setSections(updated);
-                                                                            }}
-                                                                            placeholder={t('e.g., Introduction')}
-                                                                        /></>
-                                                                ) : (<span>{section.title}</span>)}
-
-                                                        </div>
-
-                                                        {((section as any).page_type === 'front-page' || (section as any).is_front_page || section.title?.toLowerCase().includes('front page') || section.title?.toLowerCase().includes('cover')) ? (
-                                                            <div className="space-y-2 pt-1">
-                                                            </div>
-                                                        ) : (
-                                                            <div className="space-y-2">
-                                                                <Label>{t('Section Content')}</Label>
-                                                                <RichTextEditor
-                                                                    content={section.content}
-                                                                    onChange={(content) => {
-                                                                        const updated = [...sections];
-                                                                        updated[index].content = content;
-                                                                        setSections(updated);
-                                                                    }}
-                                                                    placeholder={t('Enter section content...')}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </CollapsibleContent>
-                                            </Collapsible>
-                                        </Card>
-                                    ))
-                                )}
-
-                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                                    <Button type="button" variant="outline" size="sm" onClick={handleAddBlankSection} className="gap-2 h-9 text-xs">
-                                        <Plus className="h-4 w-4" />
-                                        {t('Add New Page')}
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Terms & Conditions Section */}
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div>
-                                    <CardTitle className="flex items-center gap-2 text-lg">
-                                        <FileText className="h-5 w-5" />
-                                        {t('Terms & Conditions')}
-                                    </CardTitle>
-                                </div>
-                                <Button
-                                    type="button"
-                                    onClick={handleAddBlankTerm}
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2 h-9 text-xs"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    {t('Add New Term')}
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Existing Terms Template Cards */}
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    {t('Existing Terms')}
-                                </Label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    {(() => {
-                                        const isTermsInserted = termSections.some((tSec) => tSec.title.toLowerCase() === t('Default Terms & Conditions').toLowerCase());
-                                        return (
-                                            <Card
-                                                onClick={handleInsertDefaultTerms}
-                                                className={cn(
-                                                    "cursor-pointer transition-all hover:border-primary/80 hover:shadow-xs group relative p-3 border rounded-lg flex items-center justify-between gap-2 select-none",
-                                                    isTermsInserted ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card"
-                                                )}
-                                            >
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0">
-                                                        1
-                                                    </span>
-                                                    <span className="text-xs font-medium truncate">{t('Default Terms & Conditions')}</span>
-                                                </div>
-                                                {isTermsInserted ? (
-                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-600 dark:text-green-400 gap-1 shrink-0 border border-green-500/20">
-                                                        <Check className="h-3 w-3" />
-                                                        {t('Added')}
-                                                    </Badge>
-                                                ) : (
-                                                    <Button type="button" size="icon" variant="ghost" className="h-6 w-6 opacity-60 group-hover:opacity-100 shrink-0">
-                                                        <Plus className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                )}
-                                            </Card>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-
-                            {/* Term Section Cards List */}
-                            <div className="space-y-4 pt-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    {t('Proposal Terms Sections')}
-                                </Label>
-                                {termSections.length === 0 ? (
-                                    <div className="border border-dashed rounded-lg p-8 text-center text-muted-foreground space-y-2 bg-muted/20">
-                                        <FileText className="h-8 w-8 mx-auto text-muted-foreground/60" />
-                                        <p className="text-sm font-medium">{t('No terms added to this proposal yet.')}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {t('Click on an existing terms card above or click "+ Add New Term" to add terms to your proposal.')}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    termSections.map((term, index) => (
-                                        <Card
-                                            key={term.id}
-                                            draggable
-                                            onDragStart={() => handleTermDragStart(index)}
-                                            onDragOver={(e) => handleTermDragOver(e, index)}
-                                            onDragEnd={handleTermDragEnd}
-                                            className={`transition-all border ${draggedTermIndex === index ? 'opacity-50 border-dashed border-primary' : ''}`}
-                                        >
-                                            <Collapsible
-                                                open={term.isExpanded}
-                                                onOpenChange={() => toggleTermExpand(term.id)}
-                                            >
-                                                <div className="p-4 flex items-center justify-between select-none">
-                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                        <div
-                                                            className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground shrink-0"
-                                                            title={t('Drag to reorder')}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <GripVertical className="h-5 w-5" />
-                                                        </div>
-
-                                                        <div className="flex items-center gap-2 font-medium text-base min-w-0 flex-1">
-                                                            <FileText className="h-4 w-4 text-primary shrink-0" />
-                                                            <span className="truncate">
-                                                                {term.title || `${t('Term')} ${index + 1}`}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <CollapsibleTrigger asChild>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                                title={term.isExpanded ? t('Fold box') : t('Unfold box')}
-                                                            >
-                                                                {term.isExpanded ? (
-                                                                    <ChevronDown className="h-4 w-4" />
-                                                                ) : (
-                                                                    <ChevronRight className="h-4 w-4" />
-                                                                )}
-                                                            </Button>
-                                                        </CollapsibleTrigger>
-
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleRemoveTermSection(term.id);
-                                                            }}
-                                                            title={t('Remove term section')}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                <CollapsibleContent>
-                                                    <div className="px-4 pb-4 space-y-4 border-t pt-4">
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`term-title-${term.id}`}>{t('Term Title')}</Label>
-                                                            <Input
-                                                                id={`term-title-${term.id}`}
-                                                                value={term.title}
-                                                                onChange={(e) => {
-                                                                    const updated = [...termSections];
-                                                                    updated[index].title = e.target.value;
-                                                                    setTermSections(updated);
-                                                                }}
-                                                                placeholder={t('e.g., Payment Terms')}
-                                                            />
-                                                        </div>
-
-                                                        <div className="space-y-2">
-                                                            <Label>{t('Term Content')}</Label>
-                                                            <RichTextEditor
-                                                                content={term.content}
-                                                                onChange={(content) => {
-                                                                    const updated = [...termSections];
-                                                                    updated[index].content = content;
-                                                                    setTermSections(updated);
-                                                                }}
-                                                                placeholder={t('Enter term content...')}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </CollapsibleContent>
-                                            </Collapsible>
-                                        </Card>
-                                    ))
-                                )}
-
-                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                                    <Button type="button" variant="outline" size="sm" onClick={handleAddBlankTerm} className="gap-2 h-9 text-xs">
-                                        <Plus className="h-4 w-4" />
-                                        {t('Add New Term')}
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* Page Order Section */}
+                    <PageOrderSection
+                        sections={sections as any}
+                        setSections={setSections as any}
+                        defaultPages={defaultPages}
+                    />
 
                     {/* Additional Notes Section */}
                     <Card>
@@ -1033,13 +549,12 @@ export default function Create() {
                     onClose={() => setIsPreviewOpen(false)}
                     formData={data}
                     sections={sections}
-                    termSections={termSections}
                     customers={customers}
                     warehouses={warehouses}
                     availableProducts={availableProducts}
                     totals={totals}
                     proposalSetting={proposalSetting}
-                    tariffs={data.tariffs}
+                    other_details={data.other_details}
                 />
             </div>
         </AuthenticatedLayout>

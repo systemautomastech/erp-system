@@ -53,7 +53,7 @@ export default function Print() {
     const [isDownloading, setIsDownloading] = useState(false);
     const [fieldsLoaded, setFieldsLoaded] = useState(false);
 
-    const customFields = useFormFields('getCustomFields', { ...proposal, module: 'General', sub_module: 'Proposal', id: proposal.id, isPrint: true }, () => {}, {}, 'view', t);
+    const customFields = useFormFields('getCustomFields', { ...proposal, module: 'General', sub_module: 'Proposal', id: proposal.id, isPrint: true }, () => { }, {}, 'view', t);
 
     useEffect(() => {
         if (customFields && customFields.length >= 0) {

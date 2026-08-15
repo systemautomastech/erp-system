@@ -7,6 +7,14 @@
 }
 
 .quotation-cover__sheet {
+    /* margin: 0 auto 1.5rem;
+    width: 210mm;
+    min-height: 297mm;
+    background-color: #fff !important;
+    background-size: 210mm 297mm;
+    background-repeat: no-repeat;
+    page-break-after: always; */
+
     width: 210mm;
     min-height: 297mm;
     margin: 0 auto;
@@ -14,6 +22,7 @@
     position: relative !important;
     overflow: hidden !important;
     box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08);
+    page-break-after: always;
 }
 
 .quotation-cover__topbar {

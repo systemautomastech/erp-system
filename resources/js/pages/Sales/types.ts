@@ -32,6 +32,7 @@ export interface SalesInvoiceItem {
     product_id: number;
     section?: string;
     product_type?: string;
+    description?: string;
     quantity: number;
     unit_price: number;
     discount_percentage: number;
@@ -39,7 +40,7 @@ export interface SalesInvoiceItem {
     tax_percentage: number;
     tax_amount: number;
     total_amount: number;
-    taxes?: Array<{id?: number; tax_name: string; tax_rate: number}>;
+    taxes?: Array<{ id?: number; tax_name: string; tax_rate: number }>;
     product?: ProductServiceItem;
 }
 

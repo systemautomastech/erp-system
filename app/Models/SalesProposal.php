@@ -103,14 +103,15 @@ class SalesProposal extends Model
         $dateFormatted = $date ? date('Y-m-d', strtotime($date)) : date('Y-m-d');
 
         return \Illuminate\Support\Facades\DB::transaction(function () use ($creatorId, $dateFormatted) {
-            $setting = ProposalSetting::where('creator_id', $creatorId)->lockForUpdate()->first();
+            $settings = ProposalSetting::getSettings($creatorId);
 
-            $prefix = $setting?->proposal_prefix ?? 'PROP-';
-            $startingNumber = $setting?->proposal_starting_number ?? 1001;
+            $prefix = $settings['proposal_prefix'] ?? 'PRO';
+            $startingNumber = (int) ($settings['proposal_starting_number'] ?? 1);
 
-            if ($setting) {
-                $setting->increment('proposal_starting_number');
-            }
+            $nextNumber = $startingNumber + 1;
+            ProposalSetting::setSettings([
+                'proposal_starting_number' => (string) $nextNumber,
+            ], $creatorId);
 
             return "{$prefix}{$startingNumber}-{$dateFormatted}";
         });

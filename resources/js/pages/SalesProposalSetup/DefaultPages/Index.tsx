@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import MediaLibraryModal from '@/components/MediaLibraryModal';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { getImagePath, getCompanySetting, formatDate } from '@/utils/helpers';
 import {
     Dialog,
@@ -55,8 +56,10 @@ export default function DefaultPages({ defaultPages = [], settings }: DefaultPag
     const [isPageModalOpen, setIsPageModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isBgModalOpen, setIsBgModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [editingPage, setEditingPage] = useState<ProposalDefaultPageItem | null>(null);
     const [viewingPage, setViewingPage] = useState<ProposalDefaultPageItem | null>(null);
+    const [deletingPage, setDeletingPage] = useState<ProposalDefaultPageItem | null>(null);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         title: '',
@@ -145,23 +148,28 @@ export default function DefaultPages({ defaultPages = [], settings }: DefaultPag
         }
     };
 
-    const handleDeletePage = (page: ProposalDefaultPageItem) => {
-        if (page.page_type === 'front-page') {
-            toast.error(t('The Front Page is fixed and cannot be deleted.'));
+    const openDeleteModal = (page: ProposalDefaultPageItem) => {
+        if (page.page_type === 'front-page' || page.page_type === 'terms-conditions') {
+            toast.error(t('This fixed default page cannot be deleted.'));
             return;
         }
+        setDeletingPage(page);
+        setIsDeleteModalOpen(true);
+    };
 
-        if (confirm(t('Are you sure you want to delete this page?'))) {
-            router.delete(route('proposal-setup.default-pages.destroy', page.id), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    toast.success(t('Default page deleted successfully.'));
-                },
-                onError: () => {
-                    toast.error(t('Failed to delete page.'));
-                },
-            });
-        }
+    const handleConfirmDelete = () => {
+        if (!deletingPage) return;
+        router.delete(route('proposal-setup.default-pages.destroy', deletingPage.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success(t('Default page deleted successfully.'));
+                setIsDeleteModalOpen(false);
+                setDeletingPage(null);
+            },
+            onError: () => {
+                toast.error(t('Failed to delete page.'));
+            },
+        });
     };
 
     const handleViewPage = (page: ProposalDefaultPageItem) => {
@@ -292,7 +300,7 @@ export default function DefaultPages({ defaultPages = [], settings }: DefaultPag
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 text-destructive hover:text-destructive"
-                                                    onClick={() => handleDeletePage(page)}
+                                                    onClick={() => openDeleteModal(page)}
                                                     title={t('Delete')}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -595,12 +603,9 @@ export default function DefaultPages({ defaultPages = [], settings }: DefaultPag
                                         </div>
                                     ) : (
                                         <div className="space-y-4 flex-1">
-                                            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight border-b border-slate-200 pb-3">
-                                                {data.title || t('Untitled Page')}
-                                            </h2>
                                             {data.content ? (
                                                 <div
-                                                    className="text-slate-700 text-xs leading-relaxed prose max-w-none [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
+                                                    className="text-slate-700 text-xs leading-relaxed prose max-w-none [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-1 [&_h4]:text-base [&_h4]:font-semibold [&_h4]:my-1 [&_table]:w-full [&_table]:text-xs [&_table]:border-collapse [&_table]:my-4 [&_table]:border [&_table]:border-slate-200 [&_table]:rounded-sm [&_table]:overflow-hidden [&_thead]:bg-[var(--template-color)] [&_thead]:text-white [&_thead_th]:bg-[var(--template-color)] [&_thead_th]:text-white [&_thead_th]:font-semibold [&_thead_th]:py-2 [&_thead_th]:px-3 [&_thead_th]:border [&_thead_th]:border-slate-200 [&_thead_th]:text-left [&_tr:first-child]:bg-[var(--template-color)] [&_tr:first-child]:text-white [&_tr:first-child_th]:bg-[var(--template-color)] [&_tr:first-child_th]:text-white [&_tr:first-child_th]:font-semibold [&_tr:first-child_th]:py-2 [&_tr:first-child_th]:px-3 [&_tr:first-child_th]:border [&_tr:first-child_th]:border-slate-200 [&_tr:first-child_th]:text-left [&_tr:first-child_td]:bg-[var(--template-color)] [&_tr:first-child_td]:text-white [&_tr:first-child_td]:font-semibold [&_tr:first-child_td]:py-2 [&_tr:first-child_td]:px-3 [&_tr:first-child_td]:border [&_tr:first-child_td]:border-slate-200 [&_tr:first-child_td]:text-left [&_td]:py-2 [&_td]:px-3 [&_td]:border [&_td]:border-slate-200 [&_td]:text-slate-700 [&_td]:text-xs [&_tr:not(:first-child):hover]:bg-slate-50/50"
                                                     dangerouslySetInnerHTML={{ __html: data.content }}
                                                 />
                                             ) : (
@@ -818,6 +823,17 @@ export default function DefaultPages({ defaultPages = [], settings }: DefaultPag
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Standard Delete Confirmation Modal */}
+            <ConfirmationDialog
+                open={isDeleteModalOpen}
+                onOpenChange={setIsDeleteModalOpen}
+                title={t('Delete Default Page')}
+                message={deletingPage ? `${t('Are you sure you want to delete')} "${deletingPage.title}"? ${t('This action cannot be undone.')}` : t('Are you sure you want to delete this page?')}
+                confirmText={t('Delete')}
+                onConfirm={handleConfirmDelete}
+                variant="destructive"
+            />
         </div>
     );
 }
