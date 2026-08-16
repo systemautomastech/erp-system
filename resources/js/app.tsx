@@ -22,6 +22,7 @@ window.Dialer = {
         clickToCall: route("pbx.click-to-call"),
         callerLookup: route("pbx.caller-lookup"),
         callEvents: route("pbx.call-events.store"),
+        extensionsDirectory: route("pbx.extensions.directory"),
     },
 
     assets: {

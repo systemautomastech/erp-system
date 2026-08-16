@@ -95,6 +95,45 @@ class PbxExtensionController extends Controller
         ]);
     }
 
+    public function directory(Request $request)
+    {
+        $creatorId = (int) creatorId();
+
+        $query = PbxExtension::query()
+            ->where('created_by', $creatorId)
+            ->where('is_active', true)
+            ->with('user:id,name,email');
+
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+
+            $query->where(function ($q) use ($search) {
+                $q->where('extension', 'like', '%' . $search . '%')
+                    ->orWhere('caller_id', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($uq) use ($search) {
+                        $uq->where('name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        $extensions = $query->get()
+            ->map(function ($ext) {
+                return [
+                    'id' => $ext->id,
+                    'extension' => (string) $ext->extension,
+                    'caller_id' => $ext->caller_id,
+                    'user_name' => $ext->user ? $ext->user->name : null,
+                    'user_email' => $ext->user ? $ext->user->email : null,
+                    'label' => ($ext->user ? $ext->user->name . ' (' . $ext->extension . ')' : 'Ext ' . $ext->extension),
+                ];
+            });
+
+        return response()->json([
+            'extensions' => $extensions,
+        ]);
+    }
+
     public function create(): Response|RedirectResponse
     {
         if (!Auth::user()->can('manage extensions')) {

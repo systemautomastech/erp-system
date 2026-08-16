@@ -1,16 +1,20 @@
-import { FormEvent } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import { LoaderCircle, Save } from 'lucide-react';
+import { LoaderCircle, Save, Volume2, Square } from 'lucide-react';
 import AuthenticatedLayout from "@/layouts/authenticated-layout";
-import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 
+interface RingtoneOption {
+    value: string;
+    label: string;
+}
 
 interface PbxSetting {
     id?: number;
@@ -29,10 +33,12 @@ interface PbxSetting {
     call_report_api_url?: string | null;
     call_report_api_key?: string | null;
     is_enabled?: boolean | number;
+    ringtone?: string | null;
 }
 
 interface PbxSettingsPageProps {
     setting: PbxSetting | null;
+    availableRingtones?: RingtoneOption[];
 }
 
 interface PbxSettingsForm {
@@ -52,10 +58,13 @@ interface PbxSettingsForm {
     is_enabled: boolean;
     call_report_api_url: string;
     call_report_api_key: string;
+    ringtone: string;
 }
 
-export default function Index({ setting }: PbxSettingsPageProps) {
+export default function Index({ setting, availableRingtones = [] }: PbxSettingsPageProps) {
     const { t } = useTranslation();
+    const [isPlaying, setIsPlaying] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useFlashMessages();
 
@@ -64,7 +73,6 @@ export default function Index({ setting }: PbxSettingsPageProps) {
         setData,
         post,
         processing,
-        wasSuccessful,
         errors,
     } = useForm<PbxSettingsForm>({
         pbx_name: setting?.pbx_name ?? '',
@@ -85,7 +93,53 @@ export default function Index({ setting }: PbxSettingsPageProps) {
         call_report_api_url: setting?.call_report_api_url ?? '',
         call_report_api_key: setting?.call_report_api_key ?? '',
         is_enabled: Boolean(setting?.is_enabled),
+        ringtone: setting?.ringtone ?? 'ringtone.mp3',
     });
+
+    const toggleRingtonePreview = (): void => {
+        if (isPlaying) {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                audioRef.current = null;
+            }
+            setIsPlaying(false);
+            return;
+        }
+
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+
+        const selected = data.ringtone || 'ringtone.mp3';
+        const ringtoneUrl = `${route('pbx.ringtone')}?file=${encodeURIComponent(selected)}&_t=${Date.now()}`;
+
+        const audio = new Audio(ringtoneUrl);
+        audioRef.current = audio;
+
+        audio.onended = () => {
+            setIsPlaying(false);
+            audioRef.current = null;
+        };
+
+        audio.onerror = (e) => {
+            console.error('Failed to play ringtone preview:', e);
+            setIsPlaying(false);
+            audioRef.current = null;
+        };
+
+        audio
+            .play()
+            .then(() => {
+                setIsPlaying(true);
+            })
+            .catch((err) => {
+                console.error('Ringtone play error:', err);
+                setIsPlaying(false);
+                audioRef.current = null;
+            });
+    };
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
@@ -414,6 +468,47 @@ export default function Index({ setting }: PbxSettingsPageProps) {
                                     />
                                 </FormField>
 
+                                <FormField
+                                    id="ringtone"
+                                    label={t('Incoming Call Ringtone')}
+                                    error={getError('ringtone')}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1">
+                                            <Select
+                                                value={data.ringtone}
+                                                onValueChange={(value) =>
+                                                    setData('ringtone', value)
+                                                }
+                                            >
+                                                <SelectTrigger id="ringtone">
+                                                    <SelectValue placeholder={t('Select Ringtone')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableRingtones.map((item) => (
+                                                        <SelectItem key={item.value} value={item.value}>
+                                                            {item.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={toggleRingtonePreview}
+                                            title={isPlaying ? t('Stop Ringtone') : t('Test Ringtone')}
+                                        >
+                                            {isPlaying ? (
+                                                <Square className="h-4 w-4 text-destructive fill-current" />
+                                            ) : (
+                                                <Volume2 className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                </FormField>
 
                                 <FormField
                                     id="call_report_api_url"

@@ -10,21 +10,28 @@ class PbxCallReportService
     public function getCallLogs(
         object $setting,
         array $extensions,
-        array $filters = []
+        array $filters = [],
+        bool $includeSummary = false
     ): array {
         /*
         |--------------------------------------------------------------------------
-        | Validate configuration
+        | Configuration
         |--------------------------------------------------------------------------
         */
 
-        if (empty($setting->call_report_api_url)) {
+        if (
+            empty($setting
+                ->call_report_api_url)
+        ) {
             throw new RuntimeException(
                 'Call report API URL is not configured.'
             );
         }
 
-        if (empty($setting->call_report_api_key)) {
+        if (
+            empty($setting
+                ->call_report_api_key)
+        ) {
             throw new RuntimeException(
                 'Call report API key is not configured.'
             );
@@ -32,7 +39,7 @@ class PbxCallReportService
 
         /*
         |--------------------------------------------------------------------------
-        | No extensions
+        | No Accessible Extensions
         |--------------------------------------------------------------------------
         */
 
@@ -44,24 +51,37 @@ class PbxCallReportService
 
         /*
         |--------------------------------------------------------------------------
-        | Build API query
+        | API Query
         |--------------------------------------------------------------------------
         */
 
         $query = [
-            'extensions' => implode(
+            'extensions' =>
+            implode(
                 ',',
                 $extensions
             ),
 
-            'page' => max(
-                (int) ($filters['page'] ?? 1),
+            'summary' => 1,
+            'with_summary' => 1,
+            'get_summary' => 1,
+
+            'page' =>
+            max(
+                (int) (
+                    $filters['page']
+                    ?? 1
+                ),
                 1
             ),
 
-            'per_page' => min(
+            'per_page' =>
+            min(
                 max(
-                    (int) ($filters['per_page'] ?? 50),
+                    (int) (
+                        $filters['per_page']
+                        ?? 10
+                    ),
                     10
                 ),
                 100
@@ -70,16 +90,38 @@ class PbxCallReportService
 
         /*
         |--------------------------------------------------------------------------
-        | Date filters
+        | Search
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($filters['from'])) {
-            $query['from'] = $filters['from'];
+        if (
+            !empty($filters['search'])
+        ) {
+            $query['search'] =
+                trim(
+                    (string)
+                    $filters['search']
+                );
         }
 
-        if (!empty($filters['to'])) {
-            $query['to'] = $filters['to'];
+        /*
+        |--------------------------------------------------------------------------
+        | Date
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty($filters['from'])
+        ) {
+            $query['from'] =
+                $filters['from'];
+        }
+
+        if (
+            !empty($filters['to'])
+        ) {
+            $query['to'] =
+                $filters['to'];
         }
 
         /*
@@ -89,10 +131,13 @@ class PbxCallReportService
         */
 
         if (
-            !empty($filters['direction']) &&
-            in_array(
+            !empty($filters['direction'])
+            && in_array(
                 $filters['direction'],
-                ['inbound', 'outbound'],
+                [
+                    'inbound',
+                    'outbound',
+                ],
                 true
             )
         ) {
@@ -106,41 +151,47 @@ class PbxCallReportService
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($filters['status'])) {
+        if (
+            !empty($filters['status'])
+        ) {
             $query['status'] =
-                $filters['status'];
+                trim(
+                    (string)
+                    $filters['status']
+                );
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Issabel endpoint
+        | Endpoint
         |--------------------------------------------------------------------------
         */
 
         $url = rtrim(
-            $setting->call_report_api_url,
+            $setting
+                ->call_report_api_url,
             '/'
         ) . '/call-logs.php';
 
         /*
         |--------------------------------------------------------------------------
-        | ONE API request only
+        | Fetch One Page
         |--------------------------------------------------------------------------
         */
 
-        $response = $this->fetchCallLogsPage(
-            $url,
-            $query,
-            [
-                'X-API-Key' =>
-                $setting->call_report_api_key,
+        $response =
+            $this->fetchCallLogsPage(
+                $url,
+                $query,
+                [
+                    'X-API-Key' =>
+                    $setting
+                        ->call_report_api_key,
 
-                'Accept' =>
-                'application/json',
-            ]
-        );
-
-
+                    'Accept' =>
+                    'application/json',
+                ]
+            );
 
         /*
         |--------------------------------------------------------------------------
@@ -148,76 +199,91 @@ class PbxCallReportService
         |--------------------------------------------------------------------------
         */
 
-        $pagination = $response['pagination'] ?? [
-            'page' => $query['page'],
-            'per_page' => $query['per_page'],
-            'total' => 0,
-            'last_page' => 1,
-        ];
+        $pagination =
+            $response['pagination'] ?? [];
 
         /*
         |--------------------------------------------------------------------------
         | Summary
         |--------------------------------------------------------------------------
         |
-        | BEST:
-        | Issabel returns summary calculated with SQL.
+        | IMPORTANT:
         |
-        | FALLBACK:
-        | Until Issabel API is updated, calculate summary from current page.
+        | This summary is calculated by Issabel across ALL matching records
+        | (all calls matching filtered extension(s), date range, status, direction),
+        | NOT only the current page ($response['data']).
+        |
+        | If the user has permission to view own call logs only, $extensionNumbers
+        | contains only their assigned extension(s), ensuring extension-wise reporting.
         |
         */
 
-        $summary = isset($response['summary'])
-            && is_array($response['summary'])
-            ? $this->normalizeSummary(
-                $response['summary']
-            )
-            : $this->buildSummary(
-                $response['data'] ?? []
-            );
+        if ($includeSummary) {
+            if (
+                isset($response['summary'])
+                && is_array($response['summary'])
+                && !empty($response['summary'])
+            ) {
+                $summary = $this->normalizeSummary($response['summary']);
+            } else {
+                $summary = $this->fetchOverallSummary(
+                    $url,
+                    $query,
+                    [
+                        'X-API-Key' => $setting->call_report_api_key,
+                        'Accept' => 'application/json',
+                    ],
+                    is_array($response['data'] ?? null)
+                        ? $response['data']
+                        : [],
+                    (int) ($pagination['total'] ?? 0)
+                );
+            }
+        } else {
+            $summary = $this->emptySummary();
+        }
 
         return [
             'success' => true,
 
-            'filters' => [
-                'extensions' => $extensions,
-
-                'from' => $filters['from']
-                    ?? null,
-
-                'to' => $filters['to']
-                    ?? null,
-
-                'direction' =>
-                $filters['direction']
-                    ?? null,
-
-                'status' =>
-                $filters['status']
-                    ?? null,
-            ],
-
-            'data' => $response['data']
-                ?? [],
+            'data' =>
+            is_array(
+                $response['data']
+                    ?? null
+            )
+                ? $response['data']
+                : [],
 
             'pagination' => [
-                'page' => (int) (
-                    $pagination['page']
-                    ?? $query['page']
+                'page' =>
+                max(
+                    (int) (
+                        $pagination['page']
+                        ?? $query['page']
+                    ),
+                    1
                 ),
 
-                'per_page' => (int) (
-                    $pagination['per_page']
-                    ?? $query['per_page']
+                'per_page' =>
+                max(
+                    (int) (
+                        $pagination['per_page']
+                        ?? $query['per_page']
+                    ),
+                    1
                 ),
 
-                'total' => (int) (
-                    $pagination['total']
-                    ?? 0
+                'total' =>
+                max(
+                    (int) (
+                        $pagination['total']
+                        ?? 0
+                    ),
+                    0
                 ),
 
-                'last_page' => max(
+                'last_page' =>
+                max(
                     (int) (
                         $pagination['last_page']
                         ?? 1
@@ -226,13 +292,14 @@ class PbxCallReportService
                 ),
             ],
 
-            'summary' => $summary,
+            'summary' =>
+            $summary,
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Fetch one page
+    | API Request
     |--------------------------------------------------------------------------
     */
 
@@ -241,9 +308,10 @@ class PbxCallReportService
         array $query,
         array $headers
     ): array {
-        $response = Http::withHeaders(
-            $headers
-        )
+        $response =
+            Http::withHeaders(
+                $headers
+            )
             ->connectTimeout(5)
             ->timeout(20)
             ->retry(
@@ -257,7 +325,7 @@ class PbxCallReportService
 
         /*
         |--------------------------------------------------------------------------
-        | HTTP error
+        | HTTP Failure
         |--------------------------------------------------------------------------
         */
 
@@ -270,13 +338,16 @@ class PbxCallReportService
 
         /*
         |--------------------------------------------------------------------------
-        | Decode JSON
+        | JSON
         |--------------------------------------------------------------------------
         */
 
-        $data = $response->json();
+        $data =
+            $response->json();
 
-        if (!is_array($data)) {
+        if (
+            !is_array($data)
+        ) {
             throw new RuntimeException(
                 'Invalid JSON response from Issabel call report API.'
             );
@@ -284,11 +355,16 @@ class PbxCallReportService
 
         /*
         |--------------------------------------------------------------------------
-        | API error
+        | API Failure
         |--------------------------------------------------------------------------
         */
 
-        if (!($data['success'] ?? false)) {
+        if (
+            !(
+                $data['success']
+                ?? false
+            )
+        ) {
             throw new RuntimeException(
                 $data['message']
                     ?? 'Invalid response from Issabel call report API.'
@@ -300,7 +376,279 @@ class PbxCallReportService
 
     /*
     |--------------------------------------------------------------------------
-    | Empty result
+    | Normalize PBX Summary
+    |--------------------------------------------------------------------------
+    */
+
+    private function normalizeSummary(
+        array $summary
+    ): array {
+        $totalCalls = (int) (
+            $summary['totalCalls']
+            ?? $summary['total_calls']
+            ?? $summary['total']
+            ?? $summary['calls']
+            ?? 0
+        );
+
+        $incoming = (int) (
+            $summary['incoming']
+            ?? $summary['inbound']
+            ?? $summary['incoming_calls']
+            ?? $summary['inbound_calls']
+            ?? 0
+        );
+
+        $outgoing = (int) (
+            $summary['outgoing']
+            ?? $summary['outbound']
+            ?? $summary['outgoing_calls']
+            ?? $summary['outbound_calls']
+            ?? 0
+        );
+
+        $answered = (int) (
+            $summary['answered']
+            ?? $summary['answered_calls']
+            ?? $summary['answer']
+            ?? 0
+        );
+
+        $noAnswer = (int) (
+            $summary['noAnswer']
+            ?? $summary['no_answer']
+            ?? $summary['noanswer']
+            ?? $summary['missed']
+            ?? $summary['unanswered']
+            ?? 0
+        );
+
+        $rejected = (int) (
+            $summary['rejected']
+            ?? $summary['failed']
+            ?? $summary['busy']
+            ?? $summary['congestion']
+            ?? $summary['rejected_calls']
+            ?? 0
+        );
+
+        $otherStatuses = (int) (
+            $summary['otherStatuses']
+            ?? $summary['other_statuses']
+            ?? 0
+        );
+
+        $totalDuration = (int) (
+            $summary['totalDuration']
+            ?? $summary['total_duration']
+            ?? $summary['duration']
+            ?? $summary['total_duration_sec']
+            ?? 0
+        );
+
+        $totalTalkTime = (int) (
+            $summary['totalTalkTime']
+            ?? $summary['total_talk_time']
+            ?? $summary['talk_time']
+            ?? $summary['total_billsec']
+            ?? $summary['billsec']
+            ?? 0
+        );
+
+        if ($totalCalls === 0) {
+            $totalCalls = max($incoming + $outgoing, $answered + $noAnswer + $rejected + $otherStatuses);
+        }
+
+        $answerRate = isset($summary['answerRate'])
+            ? (float) $summary['answerRate']
+            : (isset($summary['answer_rate'])
+                ? (float) $summary['answer_rate']
+                : ($totalCalls > 0 ? round(($answered / $totalCalls) * 100, 1) : 0.0));
+
+        $avgDuration = isset($summary['avgDuration'])
+            ? (int) $summary['avgDuration']
+            : (isset($summary['avg_duration'])
+                ? (int) $summary['avg_duration']
+                : ($totalCalls > 0 ? (int) round($totalDuration / $totalCalls) : 0));
+
+        $avgTalkTime = isset($summary['avgTalkTime'])
+            ? (int) $summary['avgTalkTime']
+            : (isset($summary['avg_talk_time'])
+                ? (int) $summary['avg_talk_time']
+                : ($answered > 0 ? (int) round($totalTalkTime / $answered) : ($totalCalls > 0 ? (int) round($totalTalkTime / $totalCalls) : 0)));
+
+        return [
+            'totalCalls' => $totalCalls,
+            'incoming' => $incoming,
+            'outgoing' => $outgoing,
+            'totalDuration' => $totalDuration,
+            'totalTalkTime' => $totalTalkTime,
+            'answered' => $answered,
+            'noAnswer' => $noAnswer,
+            'rejected' => $rejected,
+            'otherStatuses' => $otherStatuses,
+            'avgDuration' => $avgDuration,
+            'avgTalkTime' => $avgTalkTime,
+            'answerRate' => $answerRate,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fallback Summary Calculation
+    |--------------------------------------------------------------------------
+    */
+
+    private function buildFallbackSummary(array $data, int $totalCalls): array
+    {
+        $incoming = 0;
+        $outgoing = 0;
+        $answered = 0;
+        $noAnswer = 0;
+        $rejected = 0;
+        $otherStatuses = 0;
+        $totalDuration = 0;
+        $totalTalkTime = 0;
+
+        foreach ($data as $call) {
+            $direction = strtolower((string) ($call['direction'] ?? ''));
+            if ($direction === 'inbound' || $direction === 'incoming') {
+                $incoming++;
+            } elseif ($direction === 'outbound' || $direction === 'outgoing') {
+                $outgoing++;
+            }
+
+            $status = strtoupper(trim((string) ($call['status'] ?? '')));
+            switch ($status) {
+                case 'ANSWERED':
+                case 'ANSWER':
+                    $answered++;
+                    break;
+                case 'NO ANSWER':
+                case 'NOANSWER':
+                case 'MISSED':
+                    $noAnswer++;
+                    break;
+                case 'BUSY':
+                case 'FAILED':
+                case 'CONGESTION':
+                case 'REJECTED':
+                case 'CANCELLED':
+                case 'CANCEL':
+                    $rejected++;
+                    break;
+                default:
+                    $otherStatuses++;
+                    break;
+            }
+
+            $totalDuration += (int) ($call['duration'] ?? 0);
+            $totalTalkTime += (int) ($call['talk_time'] ?? $call['billsec'] ?? 0);
+        }
+
+        $effectiveTotalCalls = max($totalCalls, count($data));
+
+        $answerRate = $effectiveTotalCalls > 0
+            ? round(($answered / $effectiveTotalCalls) * 100, 1)
+            : 0.0;
+
+        $countData = max(count($data), 1);
+
+        $avgDuration = $effectiveTotalCalls > 0
+            ? (int) round($totalDuration / $countData)
+            : 0;
+
+        $avgTalkTime = $answered > 0
+            ? (int) round($totalTalkTime / $answered)
+            : ($effectiveTotalCalls > 0 ? (int) round($totalTalkTime / $countData) : 0);
+
+        return [
+            'totalCalls' => $effectiveTotalCalls,
+            'incoming' => $incoming,
+            'outgoing' => $outgoing,
+            'totalDuration' => $totalDuration,
+            'totalTalkTime' => $totalTalkTime,
+            'answered' => $answered,
+            'noAnswer' => $noAnswer,
+            'rejected' => $rejected,
+            'otherStatuses' => $otherStatuses,
+            'avgDuration' => $avgDuration,
+            'avgTalkTime' => $avgTalkTime,
+            'answerRate' => $answerRate,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Overall Summary Calculation Across All Matching Calls
+    |--------------------------------------------------------------------------
+    */
+
+    private function fetchOverallSummary(
+        string $url,
+        array $query,
+        array $headers,
+        array $pageData,
+        int $totalRecords
+    ): array {
+        if ($totalRecords <= count($pageData)) {
+            return $this->buildFallbackSummary($pageData, $totalRecords);
+        }
+
+        try {
+            $allCalls = [];
+            $perPage = 100;
+            $lastPage = (int) ceil($totalRecords / $perPage);
+            $maxPages = min($lastPage, 50);
+
+            for ($p = 1; $p <= $maxPages; $p++) {
+                $bulkQuery = array_merge($query, [
+                    'page' => $p,
+                    'per_page' => $perPage,
+                ]);
+
+                $bulkResponse = Http::withHeaders($headers)
+                    ->connectTimeout(3)
+                    ->timeout(10)
+                    ->get($url, $bulkQuery);
+
+                if (!$bulkResponse->successful()) {
+                    break;
+                }
+
+                $bulkJson = $bulkResponse->json();
+
+                if (isset($bulkJson['summary']) && is_array($bulkJson['summary']) && !empty($bulkJson['summary'])) {
+                    return $this->normalizeSummary($bulkJson['summary']);
+                }
+
+                $items = $bulkJson['data'] ?? [];
+                if (!is_array($items) || empty($items)) {
+                    break;
+                }
+
+                foreach ($items as $item) {
+                    $allCalls[] = $item;
+                }
+
+                if (count($allCalls) >= $totalRecords) {
+                    break;
+                }
+            }
+
+            if (!empty($allCalls)) {
+                return $this->buildFallbackSummary($allCalls, $totalRecords);
+            }
+        } catch (\Throwable $e) {
+            // Fallback gracefully on network error
+        }
+
+        return $this->buildFallbackSummary($pageData, $totalRecords);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Empty Result
     |--------------------------------------------------------------------------
     */
 
@@ -310,122 +658,36 @@ class PbxCallReportService
         return [
             'success' => true,
 
-            'filters' => [
-                'extensions' => [],
-
-                'from' => $filters['from']
-                    ?? null,
-
-                'to' => $filters['to']
-                    ?? null,
-
-                'direction' =>
-                $filters['direction']
-                    ?? null,
-
-                'status' =>
-                $filters['status']
-                    ?? null,
-            ],
-
             'data' => [],
 
             'pagination' => [
                 'page' => 1,
-                'per_page' => (int) (
+
+                'per_page' =>
+                (int) (
                     $filters['per_page']
-                    ?? 50
+                    ?? 10
                 ),
+
                 'total' => 0,
+
                 'last_page' => 1,
             ],
 
-            'summary' => [
-                'totalCalls' => 0,
-                'incoming' => 0,
-                'outgoing' => 0,
-                'totalDuration' => 0,
-                'totalTalkTime' => 0,
-                'answered' => 0,
-                'noAnswer' => 0,
-                'rejected' => 0,
-                'otherStatuses' => 0,
-            ],
+            'summary' =>
+            $this->emptySummary(),
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Normalize server summary
+    | Empty Summary
     |--------------------------------------------------------------------------
     */
 
-    private function normalizeSummary(
-        array $summary
-    ): array {
+    private function emptySummary(): array
+    {
         return [
-            'totalCalls' => (int) (
-                $summary['totalCalls']
-                ?? $summary['total_calls']
-                ?? 0
-            ),
-
-            'incoming' => (int) (
-                $summary['incoming']
-                ?? 0
-            ),
-
-            'outgoing' => (int) (
-                $summary['outgoing']
-                ?? 0
-            ),
-
-            'totalDuration' => (int) (
-                $summary['totalDuration']
-                ?? $summary['total_duration']
-                ?? 0
-            ),
-
-            'totalTalkTime' => (int) (
-                $summary['totalTalkTime']
-                ?? $summary['total_talk_time']
-                ?? 0
-            ),
-
-            'answered' => (int) (
-                $summary['answered']
-                ?? 0
-            ),
-
-            'noAnswer' => (int) (
-                $summary['noAnswer']
-                ?? $summary['no_answer']
-                ?? 0
-            ),
-
-            'rejected' => (int) (
-                $summary['rejected']
-                ?? 0
-            ),
-
-            'otherStatuses' => (int) (
-                $summary['otherStatuses']
-                ?? $summary['other_statuses']
-                ?? 0
-            ),
-        ];
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Current-page summary fallback
-    |--------------------------------------------------------------------------
-    */
-
-    private function buildSummary(
-        array $calls
-    ): array {
-        $summary = [
             'totalCalls' => 0,
             'incoming' => 0,
             'outgoing' => 0,
@@ -435,111 +697,120 @@ class PbxCallReportService
             'noAnswer' => 0,
             'rejected' => 0,
             'otherStatuses' => 0,
+            'avgDuration' => 0,
+            'avgTalkTime' => 0,
+            'answerRate' => 0.0,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chart Visualization Aggregation
+    |--------------------------------------------------------------------------
+    */
+
+    public function buildChartsData(array $summary, array $callLogs): array
+    {
+        // 1. Call Direction Breakdown
+        $directionChart = [
+            [
+                'name' => 'Inbound',
+                'value' => (int) ($summary['incoming'] ?? 0),
+                'color' => '#3b82f6',
+            ],
+            [
+                'name' => 'Outbound',
+                'value' => (int) ($summary['outgoing'] ?? 0),
+                'color' => '#8b5cf6',
+            ],
         ];
 
-        foreach ($calls as $call) {
-            if (!is_array($call)) {
-                continue;
-            }
+        // 2. Call Status / Disposition Breakdown
+        $statusChart = [
+            [
+                'name' => 'Answered',
+                'value' => (int) ($summary['answered'] ?? 0),
+                'color' => '#10b981',
+            ],
+            [
+                'name' => 'No Answer',
+                'value' => (int) ($summary['noAnswer'] ?? 0),
+                'color' => '#f59e0b',
+            ],
+            [
+                'name' => 'Rejected / Failed',
+                'value' => (int) ($summary['rejected'] ?? 0),
+                'color' => '#f43f5e',
+            ],
+        ];
 
-            $summary['totalCalls']++;
-
-            /*
-            |--------------------------------------------------------------------------
-            | Direction
-            |--------------------------------------------------------------------------
-            */
-
-            $direction = strtolower(
-                trim(
-                    (string) (
-                        $call['direction']
-                        ?? ''
-                    )
-                )
-            );
-
-            if ($direction === 'inbound') {
-                $summary['incoming']++;
-            }
-
-            if ($direction === 'outbound') {
-                $summary['outgoing']++;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Duration
-            |--------------------------------------------------------------------------
-            */
-
-            $summary['totalDuration'] +=
-                (int) (
-                    $call['duration']
-                    ?? 0
-                );
-
-            $summary['totalTalkTime'] +=
-                (int) (
-                    $call['talk_time']
-                    ?? 0
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Status
-            |--------------------------------------------------------------------------
-            */
-
-            $status = strtoupper(
-                trim(
-                    (string) (
-                        $call['status']
-                        ?? ''
-                    )
-                )
-            );
-
-            if ($status === 'ANSWERED') {
-                $summary['answered']++;
-
-                continue;
-            }
-
-            if (
-                in_array(
-                    $status,
-                    [
-                        'NO ANSWER',
-                        'NOANSWER',
-                    ],
-                    true
-                )
-            ) {
-                $summary['noAnswer']++;
-
-                continue;
-            }
-
-            if (
-                in_array(
-                    $status,
-                    [
-                        'FAILED',
-                        'BUSY',
-                        'CONGESTION',
-                    ],
-                    true
-                )
-            ) {
-                $summary['rejected']++;
-
-                continue;
-            }
-
-            $summary['otherStatuses']++;
+        if (!empty($summary['otherStatuses'])) {
+            $statusChart[] = [
+                'name' => 'Other',
+                'value' => (int) $summary['otherStatuses'],
+                'color' => '#6b7280',
+            ];
         }
 
-        return $summary;
+        // 3. Top Extensions Activity
+        $extensionCounts = [];
+        foreach ($callLogs as $call) {
+            $ext = trim((string) ($call['extension'] ?? $call['src'] ?? $call['dst'] ?? ''));
+            if ($ext !== '' && strtolower($ext) !== 'unknown') {
+                if (!isset($extensionCounts[$ext])) {
+                    $extensionCounts[$ext] = [
+                        'extension' => 'Ext ' . $ext,
+                        'total' => 0,
+                        'answered' => 0,
+                        'duration' => 0,
+                    ];
+                }
+                $extensionCounts[$ext]['total']++;
+                $status = strtoupper(trim((string) ($call['status'] ?? '')));
+                if ($status === 'ANSWERED' || $status === 'ANSWER') {
+                    $extensionCounts[$ext]['answered']++;
+                }
+                $extensionCounts[$ext]['duration'] += (int) ($call['duration'] ?? 0);
+            }
+        }
+
+        usort($extensionCounts, fn($a, $b) => $b['total'] <=> $a['total']);
+        $topExtensions = array_values(array_slice($extensionCounts, 0, 8));
+
+        // 4. Daily / Hourly Call Trends
+        $trendMap = [];
+        foreach ($callLogs as $call) {
+            $rawDate = $call['calldate'] ?? $call['created_at'] ?? $call['start_time'] ?? null;
+            if ($rawDate) {
+                $dateKey = date('M d', strtotime($rawDate));
+            } else {
+                $dateKey = date('M d');
+            }
+
+            if (!isset($trendMap[$dateKey])) {
+                $trendMap[$dateKey] = [
+                    'date' => $dateKey,
+                    'total' => 0,
+                    'answered' => 0,
+                    'missed' => 0,
+                ];
+            }
+            $trendMap[$dateKey]['total']++;
+            $status = strtoupper(trim((string) ($call['status'] ?? '')));
+            if ($status === 'ANSWERED' || $status === 'ANSWER') {
+                $trendMap[$dateKey]['answered']++;
+            } else {
+                $trendMap[$dateKey]['missed']++;
+            }
+        }
+
+        $trendData = array_values($trendMap);
+
+        return [
+            'direction' => $directionChart,
+            'status' => $statusChart,
+            'extensions' => $topExtensions,
+            'trend' => $trendData,
+        ];
     }
 }

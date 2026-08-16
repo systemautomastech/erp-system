@@ -28,6 +28,7 @@ class PbxSetting extends Model
         'extension_end',
         'max_extensions',
         'is_enabled',
+        'ringtone',
         'creator_id',
         'created_by',
     ];

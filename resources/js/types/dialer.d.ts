@@ -1,4 +1,4 @@
-export {};
+export { };
 
 declare global {
     interface Window {
@@ -8,6 +8,7 @@ declare global {
                 clickToCall?: string;
                 callerLookup?: string;
                 callEvents?: string;
+                extensionsDirectory?: string;
             };
 
             assets: {
@@ -83,6 +84,8 @@ declare global {
                 | boolean
                 | void
                 | Promise<boolean | void>;
+
+            getExtension?: () => string | null;
         };
 
         CTI_PHONE_CALL?: (

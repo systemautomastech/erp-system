@@ -78,6 +78,7 @@
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
+  pointer-events: none;
 }
 
 .register-btn {

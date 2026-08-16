@@ -29,6 +29,7 @@ class PbxSettingsController extends Controller
 
         return Inertia::render('Pbx/settings/Index', [
             'setting' => $setting,
+            'availableRingtones' => $this->getAvailableRingtones(),
         ]);
     }
 
@@ -57,7 +58,6 @@ class PbxSettingsController extends Controller
 
         PbxSetting::query()->updateOrCreate(
             [
-                'creator_id'     => Auth::id(),
                 'created_by' => $creatorId,
             ],
             $validated
@@ -100,47 +100,131 @@ class PbxSettingsController extends Controller
             'max_extensions' => ['required', 'integer', 'min:1'],
 
             'is_enabled' => ['nullable', 'boolean'],
+            'ringtone' => ['nullable', 'string', 'max:191'],
         ]);
     }
-
 
     public function ringtone(Request $request)
     {
         $user = Auth::user();
-        $disk = Storage::disk('public');
+        $creatorId = (int) creatorId();
 
-        $tenantId = $user->creatorId();
+        $setting = PbxSetting::query()
+            ->forCreator($creatorId)
+            ->first();
 
-        $userPath =
-            "sounds/ringtones/users/{$user->id}/ringtone.mp3";
+        $requestedFile = $request->query('file');
+        $selectedRingtone = $requestedFile
+            ? basename($requestedFile)
+            : ($setting?->ringtone ?? 'ringtone.mp3');
 
-        $tenantPath =
-            "sounds/ringtones/tenants/{$tenantId}/ringtone.mp3";
+        $candidateDirectories = [
+            storage_path('app/sounds'),
+            storage_path('app/sounds/ringtones'),
+            storage_path('app/public/sounds'),
+            storage_path('app/public/sounds/ringtones'),
+            public_path('sounds'),
+            public_path('sounds/ringtones'),
+        ];
 
-        $defaultPath =
-            'sounds/ringtones/default.mp3';
+        $absolutePath = null;
 
-        $path = match (true) {
-            $disk->exists($userPath) => $userPath,
-            $disk->exists($tenantPath) => $tenantPath,
-            $disk->exists($defaultPath) => $defaultPath,
-            default => abort(404, 'Ringtone not found.'),
-        };
-
-        $absolutePath = $disk->path($path);
-        $etag = hash_file('sha256', $absolutePath);
-
-        if (
-            $request->header('If-None-Match') === "\"{$etag}\""
-        ) {
-            return response('', 304);
+        foreach ($candidateDirectories as $dir) {
+            $filePath = $dir . DIRECTORY_SEPARATOR . $selectedRingtone;
+            if (file_exists($filePath)) {
+                $absolutePath = $filePath;
+                break;
+            }
         }
 
+        if (!$absolutePath) {
+            $fallbacks = ['ringtone.mp3', 'ringtone1.mp3', 'default.mp3'];
+            foreach ($candidateDirectories as $dir) {
+                foreach ($fallbacks as $fb) {
+                    $filePath = $dir . DIRECTORY_SEPARATOR . $fb;
+                    if (file_exists($filePath)) {
+                        $absolutePath = $filePath;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        if (!$absolutePath || !file_exists($absolutePath)) {
+            abort(404, 'Ringtone not found.');
+        }
+
+        $extension = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+        $mimeType = match ($extension) {
+            'wav' => 'audio/wav',
+            'ogg' => 'audio/ogg',
+            'm4a' => 'audio/mp4',
+            default => 'audio/mpeg',
+        };
+
         return response()->file($absolutePath, [
-            'Content-Type' => 'audio/mpeg',
-            'Cache-Control' =>
-            'private, max-age=86400, must-revalidate',
-            'ETag' => "\"{$etag}\"",
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline',
+            'Accept-Ranges' => 'bytes',
+            'Cache-Control' => 'no-cache, must-revalidate',
         ]);
+    }
+
+    protected function getAvailableRingtones(): array
+    {
+        $directories = [
+            storage_path('app/sounds'),
+            storage_path('app/sounds/ringtones'),
+            storage_path('app/public/sounds'),
+            storage_path('app/public/sounds/ringtones'),
+            public_path('sounds'),
+            public_path('sounds/ringtones'),
+        ];
+
+        $foundFiles = [];
+
+        foreach ($directories as $dir) {
+            if (!is_dir($dir)) {
+                continue;
+            }
+
+            $matches = glob($dir . '/*.{mp3,wav,ogg,m4a,MP3,WAV,OGG,M4A}', GLOB_BRACE);
+            if ($matches) {
+                foreach ($matches as $filePath) {
+                    $filename = basename($filePath);
+                    $foundFiles[$filename] = $filePath;
+                }
+            }
+        }
+
+        ksort($foundFiles);
+
+        $ringtones = [];
+
+        foreach ($foundFiles as $filename => $filePath) {
+            $nameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
+
+            $label = match (strtolower($nameWithoutExt)) {
+                'ringtone' => 'Ringtone 1 (Default)',
+                'ringtone1' => 'Ringtone 1',
+                'ringtone2' => 'Ringtone 2',
+                'ringtone3' => 'Ringtone 3',
+                default => ucfirst(str_replace(['_', '-'], ' ', $nameWithoutExt)),
+            };
+
+            $ringtones[] = [
+                'value' => $filename,
+                'label' => $label,
+            ];
+        }
+
+        if (empty($ringtones)) {
+            $ringtones[] = [
+                'value' => 'ringtone.mp3',
+                'label' => 'Ringtone 1 (Default)',
+            ];
+        }
+
+        return array_values($ringtones);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Automas\Pbx\Services;
 
-use Automas\Pbx\Entities\PbxSetting;
+use Automas\Pbx\Models\PbxSetting;
 use Illuminate\Support\Facades\Log;
 
 class AmiConnectionService

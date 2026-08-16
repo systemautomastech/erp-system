@@ -24,14 +24,15 @@ use Automas\Hrm\Events\DestroyPayroll;
 use Automas\Hrm\Events\DestroySalarySlip;
 use Automas\Hrm\Events\PaySalary;
 use App\Models\EmailTemplate;
+use Spatie\LaravelPdf\Facades\Pdf;
 
 class PayrollController extends Controller
 {
     private function checkPayrollAccess(Payroll $payroll)
     {
-        if(Auth::user()->can('manage-any-payrolls')) {
+        if (Auth::user()->can('manage-any-payrolls')) {
             return $payroll->created_by == creatorId();
-        } elseif(Auth::user()->can('manage-own-payrolls')) {
+        } elseif (Auth::user()->can('manage-own-payrolls')) {
             return $payroll->creator_id == Auth::id();
         }
         return false;
@@ -119,7 +120,7 @@ class PayrollController extends Controller
     public function show(Payroll $payroll)
     {
         if (Auth::user()->can('view-payrolls')) {
-            if(!$this->checkPayrollAccess($payroll)) {
+            if (!$this->checkPayrollAccess($payroll)) {
                 return redirect()->route('hrm.payrolls.index')->with('error', __('Permission denied'));
             }
             $payroll->load(['payrollEntries' => function ($query) {
@@ -241,7 +242,7 @@ class PayrollController extends Controller
                             'status'                  => ucfirst($entry->status),
                         ];
                         $message = EmailTemplate::sendEmailTemplate('Payroll Processed', [$emp->user->email ?? null], $emailData);
-                        if($message['is_success'] == false && !empty($message['error'])) {
+                        if ($message['is_success'] == false && !empty($message['error'])) {
                             return back()
                                 ->with('success', __('Payroll processed successfully.'))
                                 ->with('error', $message['error']);
@@ -259,7 +260,6 @@ class PayrollController extends Controller
                         'count' => $entries->count(),
                     ]));
                 }
-            
             } catch (\Exception $e) {
                 $payroll->update(['status' => 'draft']);
                 return redirect()->back()->with('error', __('Failed to process payroll: :error', ['error' => $e->getMessage()]));
@@ -556,11 +556,41 @@ class PayrollController extends Controller
     public function printPayslip(PayrollEntry $payrollEntry)
     {
         if (Auth::user()->can('download-payslip')) {
-            $payrollEntry->load(['employee.user', 'employee.designation', 'payroll']);
+            $payrollEntry->load(['employee.user', 'employee.designation', 'employee.department', 'payroll']);
 
             return Inertia::render('Hrm/Payrolls/payslip/Payslip', [
                 'payrollEntry' => $payrollEntry,
+                'companySettings' => getCompanyAllSetting(),
             ]);
+        } else {
+            return redirect()->back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function downloadPayslip(PayrollEntry $payrollEntry)
+    {
+        if (Auth::user()->can('download-payslip')) {
+            $payrollEntry->load([
+                'employee.user',
+                'employee.designation',
+                'employee.department',
+                'payroll',
+            ]);
+
+            $companySettings = getCompanyAllSetting();
+
+            $empName = $payrollEntry->employee->user->name ?? $payrollEntry->employee->name ?? 'Employee';
+            $sanitizedName = preg_replace('/[^\w\.-]/', '_', str_replace(' ', '_', $empName));
+            $payPeriodStart = \Carbon\Carbon::parse($payrollEntry->payroll->pay_period_start ?? now())->format('Y-m-d');
+            $filename = "payslip-{$sanitizedName}-{$payPeriodStart}.pdf";
+
+            return Pdf::view('hrm::payrolls.payslip.pdf', [
+                'payrollEntry' => $payrollEntry,
+                'companySettings' => $companySettings,
+            ])
+                ->format('a4')
+                ->portrait()
+                ->download($filename);
         } else {
             return redirect()->back()->with('error', __('Permission denied'));
         }
