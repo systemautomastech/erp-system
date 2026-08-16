@@ -18,7 +18,7 @@ interface Props {
     items: SalesInvoiceItem[];
     onChange: (items: SalesInvoiceItem[]) => void;
     errors?: any;
-    products?: Array<{ id: number; name: string; description?: string; long_description?: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
+    products?: Array<{ id: number; name: string; description?: string; long_description?: string; sale_price: number; unit?: string; stock_quantity?: number; type?: string; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
     showAddButton?: boolean;
     invoiceType?: string;
     onRefresh?: () => void | Promise<void>;

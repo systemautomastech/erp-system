@@ -47,7 +47,7 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<CreateProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // Initialize proposal sections (auto pre-populating Front Page if available)
@@ -237,7 +237,7 @@ export default function Create() {
                 content: item.content,
                 order: index + 1,
             })),
-            tariffs: (formData.tariffs || []).map((t, idx) => ({
+            tariffs: ((formData as any).tariffs || []).map((t: any, idx: number) => ({
                 ...t,
                 sort_order: idx + 1,
             })),

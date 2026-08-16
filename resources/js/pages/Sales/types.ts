@@ -33,6 +33,7 @@ export interface SalesInvoiceItem {
     section?: string;
     product_type?: string;
     description?: string;
+    product_description?: string;
     quantity: number;
     unit_price: number;
     discount_percentage: number;

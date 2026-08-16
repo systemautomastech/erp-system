@@ -46,6 +46,8 @@ interface SalesProposal {
     customer_id: number;
     warehouse_id?: number;
     type?: string;
+    is_tax_enabled?: boolean;
+    is_prepaid?: boolean;
     payment_terms?: string;
     notes?: string;
     items: any[];
@@ -65,7 +67,7 @@ interface EditProps {
 export default function Edit() {
     const { t } = useTranslation();
     const { proposal, customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<EditProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // Initialize proposal sections with existing proposal_content or fallback to defaultPages
@@ -302,7 +304,7 @@ export default function Edit() {
                 background_image: item.background_image,
                 order: index + 1,
             })),
-            tariffs: (formData.tariffs || []).map((t, idx) => ({
+            tariffs: ((formData as any).tariffs || []).map((t: any, idx: number) => ({
                 ...t,
                 sort_order: idx + 1,
             })),

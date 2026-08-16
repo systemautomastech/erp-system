@@ -552,7 +552,7 @@ interface CoverPageProps {
     templateColor: string;
     logoImage: string;
     formData: ProposalFormData;
-    customer?: ProposalPreviewModalProps['customers'][number];
+    customer?: NonNullable<ProposalPreviewModalProps['customers']>[number];
     t: (key: string) => string;
 }
 
