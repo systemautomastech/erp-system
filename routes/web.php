@@ -173,6 +173,7 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Proposal Routes
     Route::resource('sales-proposals', SalesProposalController::class);
     Route::get('sales-proposals/{salesProposal}/print', [SalesProposalController::class, 'print'])->name('sales-proposals.print');
+    Route::get('sales-proposals/{salesProposal}/download-pdf', [SalesProposalController::class, 'downloadPdf'])->name('sales-proposals.download-pdf');
     Route::post('sales-proposals/{salesProposal}/sent', [SalesProposalController::class, 'sent'])->name('sales-proposals.sent');
     Route::post('sales-proposals/{salesProposal}/accept', [SalesProposalController::class, 'accept'])->name('sales-proposals.accept');
     Route::post('sales-proposals/{salesProposal}/reject', [SalesProposalController::class, 'reject'])->name('sales-proposals.reject');
@@ -181,18 +182,11 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('sales-proposals/services/list', [SalesProposalController::class, 'getServices'])->name('sales-proposals.services');
 
     // Proposal Setup
-    Route::get('sales-proposal/general-settings', [ProposalSetupController::class, 'generalSettings'])->name('proposal-setup.general-settings');
-    Route::post('sales-proposal/general-settings', [ProposalSetupController::class, 'storeGeneralSettings'])->name('proposal-setup.general-settings.store');
-    Route::match(['put', 'patch'], 'sales-proposal/general-settings/{proposalSetting?}', [ProposalSetupController::class, 'updateGeneralSettings'])->name('proposal-setup.general-settings.update');
-
-    Route::get('sales-proposal/logo-template', [ProposalSetupController::class, 'logoTemplate'])->name('proposal-setup.logo-template');
-    Route::get('sales-proposal/default-terms', [ProposalSetupController::class, 'defaultTerms'])->name('proposal-setup.default-terms');
-    Route::get('sales-proposal/default-pages', [ProposalSetupController::class, 'defaultPages'])->name('proposal-setup.default-pages');
+    Route::get('sales-proposal/settings', [ProposalSetupController::class, 'index'])->name('proposal-setup.index');
+    Route::post('sales-proposal/settings', [ProposalSetupController::class, 'updateSettings'])->name('proposal-setup.update');
     Route::post('sales-proposal/default-pages', [ProposalSetupController::class, 'storeDefaultPage'])->name('proposal-setup.default-pages.store');
     Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'updateDefaultPage'])->name('proposal-setup.default-pages.update');
     Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'destroyDefaultPage'])->name('proposal-setup.default-pages.destroy');
-
-    // Route::post('sales-proposal/setup', [SalesProposalSetupController::class, 'store'])->name('sales-proposal.setup.store');
 
     // Messenger routes
     Route::get('messenger', [MessengerController::class, 'index'])->name('messenger.index');

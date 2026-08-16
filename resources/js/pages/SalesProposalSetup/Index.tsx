@@ -1,77 +1,89 @@
+import React, { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
-import { Save } from 'lucide-react';
-import { toast } from 'sonner';
-import SetupSidebar, { SetupTabKey } from './Sidebar';
+import SetupSidebar from './Sidebar';
 import GeneralSettings from './GeneralSettings/Index';
 import LogoTemplates from './LogoTemplates/Index';
-import DefaultTermConditions from './DefaultTermConditions/Index';
 import DefaultPages from './DefaultPages/Index';
 
-interface ProposalSettingData {
-    id?: number;
-    proposal_prefix?: string;
-    proposal_starting_number?: number | string;
-    default_validity_days?: number | string;
-    logo_image?: string;
-    background_image?: string;
-    default_terms?: string;
-}
-
 interface Props {
-    activeTab: SetupTabKey;
-    settings?: ProposalSettingData | null;
+    settings?: Record<string, any> | null;
     defaultPages?: any[];
 }
 
-export default function Index({ activeTab, settings, defaultPages = [] }: Props) {
+export default function Index({ settings, defaultPages = [] }: Props) {
     const { t } = useTranslation();
+    const [activeSection, setActiveSection] = useState('general-settings');
 
-    const tabComponents: Record<SetupTabKey, React.ReactNode> = {
-        'general-settings': <GeneralSettings settings={settings} />,
-        'logo-template': <LogoTemplates settings={settings} />,
-        'default-terms': <DefaultTermConditions settings={settings} />,
-        'default-pages': <DefaultPages defaultPages={defaultPages} />,
-    };
-
-    // Dynamic breadcrumbs based on active tab
-    const getBreadcrumbLabel = () => {
-        switch (activeTab) {
-            case 'general-settings':
-                return t('General Settings');
-            case 'logo-template':
-                return t('Logo & Template');
-            case 'default-terms':
-                return t('Default Terms & Conditions');
-            case 'default-pages':
-                return t('Default Pages');
-            default:
-                return t('System Setup');
+    const handleNavClick = (id: string) => {
+        setActiveSection(id);
+        const element = document.getElementById(id);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
         }
     };
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const sections = ['general-settings', 'logo-template', 'default-pages'];
+            for (const sectionId of sections) {
+                const element = document.getElementById(sectionId);
+                if (element) {
+                    const rect = element.getBoundingClientRect();
+                    if (rect.top <= 150 && rect.bottom >= 150) {
+                        setActiveSection(sectionId);
+                        break;
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     return (
         <AuthenticatedLayout
             breadcrumbs={[
                 { label: t('Sales Proposals'), url: route('sales-proposals.index') },
-                { label: getBreadcrumbLabel() },
+                { label: t('System Setup') },
             ]}
             pageTitle={t('System Setup')}
         >
-            <Head title={`${t('Proposal System Setup')} - ${getBreadcrumbLabel()}`} />
+            <Head title={t('Proposal System Setup')} />
 
             <div className="flex flex-col md:flex-row gap-8">
-                <SetupSidebar activeTab={activeTab} />
+                <SetupSidebar activeSection={activeSection} onNavClick={handleNavClick} />
 
-                <div className="flex-1">
-                    <Card className="shadow-sm">
-                        <CardContent className="p-6">
-                            {tabComponents[activeTab]}
-                        </CardContent>
-                    </Card>
+                <div className="flex-1 space-y-8">
+                    {/* 1. General Settings Section */}
+                    <section id="general-settings">
+                        <Card className="shadow-sm">
+                            <CardContent className="p-6">
+                                <GeneralSettings settings={settings} />
+                            </CardContent>
+                        </Card>
+                    </section>
+
+                    {/* 2. Logo & Template Section */}
+                    <section id="logo-template">
+                        <Card className="shadow-sm">
+                            <CardContent className="p-6">
+                                <LogoTemplates settings={settings} />
+                            </CardContent>
+                        </Card>
+                    </section>
+
+                    {/* 3. Default Pages Section */}
+                    <section id="default-pages">
+                        <Card className="shadow-sm">
+                            <CardContent className="p-6">
+                                <DefaultPages defaultPages={defaultPages} settings={settings || {}} />
+                            </CardContent>
+                        </Card>
+                    </section>
                 </div>
             </div>
         </AuthenticatedLayout>

@@ -3,35 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProposalDefaultPage\StoreDefaultPageRequest;
-use App\Http\Requests\ProposalGeneralSetting\StoreGeneralSettingRequest;
-use App\Http\Requests\ProposalGeneralSetting\UpdateGeneralSettingRequest;
+use App\Http\Requests\ProposalDefaultPage\UpdateDefaultPageRequest;
 use App\Models\ProposalDefaultPage;
 use App\Models\ProposalSetting;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
-use App\Http\Requests\ProposalDefaultPage\UpdateDefaultPageRequest;
-
 class ProposalSetupController extends Controller
 {
-    public function generalSettings()
+    public function index()
     {
-        return $this->renderSetupTab('general-settings');
-    }
+        $settings = ProposalSetting::getSettings(Auth::id());
 
-    public function logoTemplate()
-    {
-        return $this->renderSetupTab('logo-template');
-    }
-
-    public function defaultTerms()
-    {
-        return $this->renderSetupTab('default-terms');
-    }
-
-    public function defaultPages()
-    {
-        // Ensure a fixed Front Page exists for creator with page_type = 'front-page'
+        // Ensure fixed Front Page exists for creator
         $frontPage = ProposalDefaultPage::where('creator_id', Auth::id())
             ->where('page_type', 'front-page')
             ->first();
@@ -47,43 +32,41 @@ class ProposalSetupController extends Controller
             ]);
         }
 
+        // Ensure fixed Terms & Conditions page exists for creator
+        $termsPage = ProposalDefaultPage::where('creator_id', Auth::id())
+            ->where(function ($q) {
+                $q->where('page_type', 'terms-conditions')
+                  ->orWhere('title', 'Terms & Conditions');
+            })
+            ->first();
+
+        if (!$termsPage) {
+            ProposalDefaultPage::create([
+                'title' => 'Terms & Conditions',
+                'content' => '<h2>Terms & Conditions</h2><p>1. Proposal is valid for 30 days from issuance.<br/>2. Payment terms: 50% deposit upon acceptance, 50% on project completion.</p>',
+                'page_type' => 'terms-conditions',
+                'is_active' => true,
+                'sort_order' => 99,
+                'creator_id' => Auth::id(),
+            ]);
+        }
+
         $defaultPages = ProposalDefaultPage::where('creator_id', Auth::id())
-            ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 WHEN page_type = 'terms-conditions' THEN 2 ELSE 1 END")
             ->orderBy('sort_order')
             ->get();
 
         return Inertia::render('SalesProposalSetup/Index', [
-            'activeTab' => 'default-pages',
-            'settings' => ProposalSetting::where('creator_id', Auth::id())->first(),
+            'settings' => $settings,
             'defaultPages' => $defaultPages,
         ]);
     }
 
-    public function storeGeneralSettings(StoreGeneralSettingRequest $request)
+    public function updateSettings(Request $request)
     {
-        return $this->saveSettings($request->validated());
-    }
+        $settingsData = $request->input('settings', $request->except(['_token', '_method']));
 
-    public function updateGeneralSettings(UpdateGeneralSettingRequest $request)
-    {
-        return $this->saveSettings($request->validated());
-    }
-
-    private function saveSettings(array $validatedData)
-    {
-        $existing = ProposalSetting::where('creator_id', Auth::id())->first();
-
-        $dataToSave = array_merge([
-            'proposal_prefix' => $existing?->proposal_prefix ?? 'PRO',
-            'proposal_starting_number' => $existing?->proposal_starting_number ?? 1,
-            'default_validity_days' => $existing?->default_validity_days ?? 30,
-            'template_color' => $existing?->template_color ?? '#E9591C',
-        ], $validatedData);
-
-        ProposalSetting::updateOrCreate(
-            ['creator_id' => Auth::id()],
-            $dataToSave
-        );
+        ProposalSetting::setSettings($settingsData, Auth::id());
 
         return redirect()->back()->with('success', __('Settings saved successfully.'));
     }
@@ -119,20 +102,12 @@ class ProposalSetupController extends Controller
 
     public function destroyDefaultPage(ProposalDefaultPage $defaultPage)
     {
-        if ($defaultPage->page_type === 'front-page') {
-            return redirect()->back()->with('error', __('The Front Page is fixed and cannot be deleted.'));
+        if ($defaultPage->page_type === 'front-page' || $defaultPage->page_type === 'terms-conditions') {
+            return redirect()->back()->with('error', __('This fixed default page cannot be deleted.'));
         }
 
         $defaultPage->delete();
 
         return redirect()->back()->with('success', __('Default page deleted successfully.'));
-    }
-
-    private function renderSetupTab(string $activeTab)
-    {
-        return Inertia::render('SalesProposalSetup/Index', [
-            'activeTab' => $activeTab,
-            'settings' => ProposalSetting::where('creator_id', Auth::id())->first(),
-        ]);
     }
 }

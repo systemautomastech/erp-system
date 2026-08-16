@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from '@inertiajs/react';
 import MediaLibraryModal from '@/components/MediaLibraryModal';
 import { Button } from '@/components/ui/button';
@@ -8,14 +8,8 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { getImagePath } from '@/utils/helpers';
 
-interface ProposalSettingData {
-    id?: number;
-    logo_image?: string;
-    background_image?: string;
-}
-
 interface LogoTemplatesProps {
-    settings?: ProposalSettingData | null;
+    settings?: Record<string, any> | null;
 }
 
 export default function LogoTemplates({ settings }: LogoTemplatesProps) {
@@ -24,14 +18,16 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
     const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
     const [isBgModalOpen, setIsBgModalOpen] = useState(false);
 
-    const { data, setData, post, put, processing, errors } = useForm({
-        logo_image: settings?.logo_image ?? '',
-        background_image: settings?.background_image ?? '',
+    const { data, setData, post, processing } = useForm({
+        settings: {
+            logo_image: settings?.logo_image ?? '',
+            background_image: settings?.background_image ?? '',
+        }
     });
 
     useEffect(() => {
         if (settings) {
-            setData({
+            setData('settings', {
                 logo_image: settings.logo_image ?? '',
                 background_image: settings.background_image ?? '',
             });
@@ -40,26 +36,26 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
 
     const handleSelectLogo = (url: string | string[]) => {
         const selected = Array.isArray(url) ? url[0] : url;
-        setData('logo_image', selected || '');
+        setData('settings', { ...data.settings, logo_image: selected || '' });
         setIsLogoModalOpen(false);
     };
 
     const handleSelectBg = (url: string | string[]) => {
         const selected = Array.isArray(url) ? url[0] : url;
-        setData('background_image', selected || '');
+        setData('settings', { ...data.settings, background_image: selected || '' });
         setIsBgModalOpen(false);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        post(route('proposal-setup.general-settings.store'), {
+        post(route('proposal-setup.update'), {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success(t('Logo saved successfully.'));
+                toast.success(t('Images saved successfully.'));
             },
             onError: () => {
-                toast.error(t('Failed to save branding assets.'));
+                toast.error(t('Failed to save Images.'));
             },
         });
     };
@@ -67,7 +63,7 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-                <h3 className="text-lg font-medium">{t('Logo and Template')}</h3>
+                <h3 className="text-lg font-medium">{t('Logo & Template')}</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -75,10 +71,10 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                 <div className="space-y-3">
                     <Label>{t('Header Logo')}</Label>
                     <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center gap-3 min-h-[160px] bg-muted/10">
-                        {data.logo_image ? (
+                        {data.settings.logo_image ? (
                             <div className="relative group w-full flex justify-center p-2">
                                 <img
-                                    src={getImagePath(data.logo_image)}
+                                    src={getImagePath(data.settings.logo_image)}
                                     alt="Header Logo"
                                     className="max-h-28 object-contain rounded"
                                 />
@@ -87,7 +83,7 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                                     variant="destructive"
                                     size="icon"
                                     className="absolute top-0 right-0 h-7 w-7"
-                                    onClick={() => setData('logo_image', '')}
+                                    onClick={() => setData('settings', { ...data.settings, logo_image: '' })}
                                     title={t('Remove Logo')}
                                 >
                                     <Trash2 className="h-4 w-4" />
@@ -108,19 +104,16 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                             </>
                         )}
                     </div>
-                    {errors.logo_image && (
-                        <p className="text-xs text-destructive">{errors.logo_image}</p>
-                    )}
                 </div>
 
                 {/* PDF Background Image */}
                 <div className="space-y-3">
                     <Label>{t('Template Background Image')}</Label>
                     <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center gap-3 min-h-[160px] bg-muted/10">
-                        {data.background_image ? (
+                        {data.settings.background_image ? (
                             <div className="relative group w-full flex justify-center p-2">
                                 <img
-                                    src={getImagePath(data.background_image)}
+                                    src={getImagePath(data.settings.background_image)}
                                     alt="Background Image"
                                     className="max-h-28 object-contain rounded"
                                 />
@@ -129,7 +122,7 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                                     variant="destructive"
                                     size="icon"
                                     className="absolute top-0 right-0 h-7 w-7"
-                                    onClick={() => setData('background_image', '')}
+                                    onClick={() => setData('settings', { ...data.settings, background_image: '' })}
                                     title={t('Remove Background Image')}
                                 >
                                     <Trash2 className="h-4 w-4" />
@@ -150,16 +143,13 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                             </>
                         )}
                     </div>
-                    {errors.background_image && (
-                        <p className="text-xs text-destructive">{errors.background_image}</p>
-                    )}
                 </div>
             </div>
 
             <div className="flex justify-end pt-4 border-t">
                 <Button type="submit" size="sm" disabled={processing} className="gap-2">
                     <Save className="h-4 w-4" />
-                    {t('Save Assets')}
+                    {t('Save Changes')}
                 </Button>
             </div>
 

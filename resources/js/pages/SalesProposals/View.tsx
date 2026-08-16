@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
@@ -59,6 +59,7 @@ interface ViewProps {
 export default function View() {
     const { t } = useTranslation();
     const { proposal, auth } = usePage<ViewProps>().props;
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useFlashMessages();
 
@@ -94,6 +95,17 @@ export default function View() {
             }
         >
             <Head title={`${t('Sales Proposal')} #${proposal.proposal_number}`} />
+
+            {isDownloading && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                    <div className="bg-white p-6 rounded-lg shadow-lg">
+                        <div className="flex items-center space-x-3">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-6">
                 <Card>
@@ -153,7 +165,23 @@ export default function View() {
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => window.open(route('sales-proposals.print', proposal.id) + '?download=pdf', '_blank')}
+                                                    onClick={() => {
+                                                        setIsDownloading(true);
+                                                        const downloadUrl = route('sales-proposals.download-pdf', proposal.id);
+                                                        const iframe = document.createElement('iframe');
+                                                        iframe.style.display = 'none';
+                                                        iframe.src = downloadUrl;
+                                                        iframe.onload = () => {
+                                                            setTimeout(() => setIsDownloading(false), 800);
+                                                        };
+                                                        document.body.appendChild(iframe);
+                                                        setTimeout(() => {
+                                                            setIsDownloading(false);
+                                                            if (iframe.parentNode) {
+                                                                document.body.removeChild(iframe);
+                                                            }
+                                                        }, 5000);
+                                                    }}
                                                 >
                                                     <Download className="h-4 w-4 mr-2" />
                                                     {t('Download PDF')}

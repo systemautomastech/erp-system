@@ -14,6 +14,7 @@ class UpdateSalesProposalRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'subject' => 'required|string|max:255',
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
             'customer_id' => 'required|integer|exists:users,id',

@@ -1,55 +1,43 @@
-import { Link } from '@inertiajs/react';
+import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
     Settings,
     Image as ImageIcon,
-    FileText,
     File,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-export type SetupTabKey = 'general-settings' | 'logo-template' | 'default-terms' | 'default-pages';
-
-interface SidebarItem {
-    key: SetupTabKey;
+export interface SetupSidebarItem {
+    id: string;
     label: string;
     icon: React.ElementType;
-    route: string;
 }
 
 interface SetupSidebarProps {
-    activeTab: SetupTabKey;
+    activeSection: string;
+    onNavClick: (id: string) => void;
 }
 
-export default function SetupSidebar({ activeTab }: SetupSidebarProps) {
+export default function SetupSidebar({ activeSection, onNavClick }: SetupSidebarProps) {
     const { t } = useTranslation();
 
-    const setupSidebarItems: SidebarItem[] = [
+    const sidebarItems: SetupSidebarItem[] = [
         {
-            key: 'general-settings',
+            id: 'general-settings',
             label: t('General Settings'),
             icon: Settings,
-            route: route('proposal-setup.general-settings'),
         },
         {
-            key: 'logo-template',
+            id: 'logo-template',
             label: t('Logo & Template'),
             icon: ImageIcon,
-            route: route('proposal-setup.logo-template'),
         },
         {
-            key: 'default-terms',
-            label: t('Default Terms & Conditions'),
-            icon: FileText,
-            route: route('proposal-setup.default-terms'),
-        },
-        {
-            key: 'default-pages',
+            id: 'default-pages',
             label: t('Default Pages'),
             icon: File,
-            route: route('proposal-setup.default-pages'),
         },
     ];
 
@@ -58,22 +46,20 @@ export default function SetupSidebar({ activeTab }: SetupSidebarProps) {
             <div className="sticky top-4">
                 <ScrollArea className="h-[calc(100vh-8rem)]">
                     <div className="pr-4 space-y-1">
-                        {setupSidebarItems.map((item) => {
+                        {sidebarItems.map((item) => {
                             const Icon = item.icon;
-                            const isActive = activeTab === item.key;
+                            const isActive = activeSection === item.id;
                             return (
                                 <Button
-                                    key={item.key}
+                                    key={item.id}
                                     variant="ghost"
                                     className={cn('w-full justify-start', {
                                         'bg-muted font-medium': isActive,
                                     })}
-                                    asChild
+                                    onClick={() => onNavClick(item.id)}
                                 >
-                                    <Link href={item.route} preserveState>
-                                        <Icon className="h-4 w-4 mr-2" />
-                                        {item.label}
-                                    </Link>
+                                    <Icon className="h-4 w-4 mr-2" />
+                                    {item.label}
                                 </Button>
                             );
                         })}

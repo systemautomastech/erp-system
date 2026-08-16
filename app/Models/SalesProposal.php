@@ -18,6 +18,9 @@ class SalesProposal extends Model
         'customer_id',
         'warehouse_id',
         'type',
+        'is_recurring',
+        'is_prepaid',
+        'is_tax_enabled',
         'payment_terms',
         'subtotal',
         'tax_amount',
@@ -34,6 +37,9 @@ class SalesProposal extends Model
     protected $casts = [
         'proposal_date' => 'date',
         'due_date' => 'date',
+        'is_recurring' => 'boolean',
+        'is_prepaid' => 'boolean',
+        'is_tax_enabled' => 'boolean',
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
@@ -46,6 +52,11 @@ class SalesProposal extends Model
     public function items(): HasMany
     {
         return $this->hasMany(SalesProposalItem::class, 'proposal_id');
+    }
+
+    public function contents(): HasMany
+    {
+        return $this->hasMany(SalesProposalContent::class, 'proposal_id')->orderBy('order');
     }
 
     public function tariffs(): HasMany
@@ -103,14 +114,15 @@ class SalesProposal extends Model
         $dateFormatted = $date ? date('Y-m-d', strtotime($date)) : date('Y-m-d');
 
         return \Illuminate\Support\Facades\DB::transaction(function () use ($creatorId, $dateFormatted) {
-            $setting = ProposalSetting::where('creator_id', $creatorId)->lockForUpdate()->first();
+            $settings = ProposalSetting::getSettings($creatorId);
 
-            $prefix = $setting?->proposal_prefix ?? 'PROP-';
-            $startingNumber = $setting?->proposal_starting_number ?? 1001;
+            $prefix = $settings['proposal_prefix'] ?? 'PRO';
+            $startingNumber = (int) ($settings['proposal_starting_number'] ?? 1);
 
-            if ($setting) {
-                $setting->increment('proposal_starting_number');
-            }
+            $nextNumber = $startingNumber + 1;
+            ProposalSetting::setSettings([
+                'proposal_starting_number' => (string) $nextNumber,
+            ], $creatorId);
 
             return "{$prefix}{$startingNumber}-{$dateFormatted}";
         });

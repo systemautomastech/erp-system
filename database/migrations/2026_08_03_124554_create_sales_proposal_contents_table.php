@@ -11,12 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sales_proposal_contents', function (Blueprint $table) {
-            $table->id();
-            $table->longText('proposal_content');
-            $table->bigInteger('order')->default(1);
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('sales_proposal_contents')) {
+            Schema::create('sales_proposal_contents', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('proposal_id')->constrained('sales_proposals')->cascadeOnDelete();
+                $table->longText('proposal_content');
+                $table->bigInteger('order')->default(1);
+                $table->timestamps();
+
+                $table->unique(['proposal_id', 'order']);
+                $table->index('proposal_id');
+            });
+        }
     }
 
     /**

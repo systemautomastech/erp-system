@@ -29,7 +29,7 @@ export default function ProductSelector({ products, value, onChange }: Props) {
     return (
         <Select value={value.toString()} onValueChange={handleChange}>
             <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('Select Product')} />
+                <SelectValue placeholder={t('Select Item')} />
             </SelectTrigger>
             <SelectContent searchable>
                 {products.map((product) => (
