@@ -15,7 +15,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, X } from 'lucide-react';
 import RichTextEditor from '@/components/ui/rich-text-editor';
@@ -23,6 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Switch } from '@/components/ui/switch';
 import ProposalPreviewModal from './components/ProposalPreviewModal';
 import ChargeItemsTable from './components/ChargeItemsTable';
 import PageOrderSection from './components/PageOrderSection';
@@ -78,7 +78,7 @@ export default function Edit() {
                     try {
                         const dec = typeof c.proposal_content === 'string' ? JSON.parse(c.proposal_content) : c.proposal_content;
                         if (dec && typeof dec === 'object') return dec;
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 return {
                     title: c.title || '',
@@ -142,6 +142,8 @@ export default function Edit() {
         customer_id: proposal.customer_id ? proposal.customer_id.toString() : '',
         warehouse_id: proposal.warehouse_id ? proposal.warehouse_id.toString() : '',
         type: proposal.type || 'product',
+        is_tax_enabled: proposal.is_tax_enabled !== undefined ? Boolean(proposal.is_tax_enabled) : true,
+        is_prepaid: proposal.is_prepaid !== undefined ? Boolean(proposal.is_prepaid) : false,
         payment_terms: proposal.payment_terms || '',
         notes: proposal.notes || '',
         items: (proposal.items && proposal.items.length > 0) ? proposal.items.map(item => ({
@@ -241,11 +243,33 @@ export default function Edit() {
     // Get custom fields using useFormFields hook
     const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal', id: proposal.id }, setData, errors, 'edit', t);
 
+    const [isRefreshingProducts, setIsRefreshingProducts] = useState(false);
+
+    const refreshProducts = async () => {
+        setIsRefreshingProducts(true);
+        const startTime = Date.now();
+        try {
+            const url = data.warehouse_id
+                ? route('sales-proposals.warehouse.products') + `?warehouse_id=${data.warehouse_id}`
+                : route('sales-proposals.warehouse.products');
+            const response = await fetch(url);
+            const warehouseProducts = await response.json();
+            setAvailableProducts(Array.isArray(warehouseProducts) ? warehouseProducts : []);
+        } catch (error) {
+            console.error('Failed to refresh products:', error);
+        } finally {
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 500) {
+                setTimeout(() => setIsRefreshingProducts(false), 500 - elapsed);
+            } else {
+                setIsRefreshingProducts(false);
+            }
+        }
+    };
+
     useEffect(() => {
-        if (data.type === 'product' && data.warehouse_id) {
+        if (data.warehouse_id) {
             handleWarehouseChange(data.warehouse_id);
-        } else if (data.type === 'service') {
-            fetchServices();
         }
     }, []);
 
@@ -262,26 +286,6 @@ export default function Edit() {
                 setAvailableProducts([]);
             }
         } else {
-            setAvailableProducts([]);
-        }
-    };
-
-    const handleTypeChange = (type: string) => {
-        setData('type', type);
-        if (type === 'service') {
-            fetchServices();
-        } else if (data.warehouse_id) {
-            handleWarehouseChange(data.warehouse_id);
-        }
-    };
-
-    const fetchServices = async () => {
-        try {
-            const response = await fetch(route('sales-proposals.services'));
-            const services = await response.json();
-            setAvailableProducts(services);
-        } catch (error) {
-            console.error('Failed to fetch services:', error);
             setAvailableProducts([]);
         }
     };
@@ -323,24 +327,10 @@ export default function Edit() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <CalendarDays className="h-5 w-5" />
-                                    {t('Sales Proposal Details')}
-                                </CardTitle>
-                                <div className="flex items-center gap-2">
-                                    <RadioGroup value={data.type} onValueChange={handleTypeChange} className="flex gap-4">
-                                        <div className="flex items-center gap-2">
-                                            <RadioGroupItem value="product" id="type-product" />
-                                            <Label htmlFor="type-product" className="cursor-pointer font-normal">{t('Product Wise')}</Label>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <RadioGroupItem value="service" id="type-service" />
-                                            <Label htmlFor="type-service" className="cursor-pointer font-normal">{t('Service Wise')}</Label>
-                                        </div>
-                                    </RadioGroup>
-                                </div>
-                            </div>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <CalendarDays className="h-5 w-5" />
+                                {t('Sales Proposal Details')}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="flex flex-col md:flex-row gap-4 border-b pb-4 items-start">
@@ -462,37 +452,62 @@ export default function Edit() {
                                     )}
                                 </div>
 
-                                {data.type === 'product' && (
-                                    <div>
-                                        <Label htmlFor="warehouse_id" required>
-                                            {t('Warehouse')}
-                                        </Label>
-                                        <Select value={data.warehouse_id} onValueChange={handleWarehouseChange}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={t('Select Warehouse')} />
-                                            </SelectTrigger>
-                                            <SelectContent searchable>
-                                                {warehouses?.map((warehouse) => (
-                                                    <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                        {warehouse.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <InputError message={errors.warehouse_id} />
-                                    </div>
-                                )}
+                                <div>
+                                    <Label htmlFor="warehouse_id" required>
+                                        {t('Warehouse')}
+                                    </Label>
+                                    <Select value={data.warehouse_id} onValueChange={handleWarehouseChange}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('Select Warehouse')} />
+                                        </SelectTrigger>
+                                        <SelectContent searchable>
+                                            {warehouses?.map((warehouse) => (
+                                                <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                                                    {warehouse.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.warehouse_id} />
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
                     {/* 1. One-Time Charge (OTC) Card */}
                     <Card id="otc-section" className="transition-all duration-300">
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                                 <FileText className="h-5 w-5" />
                                 {t('One-Time Charges (OTC)')}
                             </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="enable-tax-toggle-edit" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
+                                    {t('Enable Tax')}
+                                </Label>
+                                <Switch
+                                    id="enable-tax-toggle-edit"
+                                    size="sm"
+                                    checked={data.is_tax_enabled}
+                                    onCheckedChange={(checked) => {
+                                        setData('is_tax_enabled', checked);
+                                        if (!checked) {
+                                            const updatedItems = data.items.map(item => {
+                                                const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+                                                const discountAmount = (lineTotal * (Number(item.discount_percentage) || 0)) / 100;
+                                                return {
+                                                    ...item,
+                                                    tax_percentage: 0,
+                                                    tax_amount: 0,
+                                                    total_amount: lineTotal - discountAmount,
+                                                    taxes: []
+                                                };
+                                            });
+                                            setData('items', updatedItems);
+                                        }
+                                    }}
+                                />
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <InvoiceItemsTable
@@ -505,17 +520,31 @@ export default function Edit() {
                                 }}
                                 invoiceType={data.type as 'product' | 'service'}
                                 errors={errors}
+                                onRefresh={refreshProducts}
+                                isRefreshing={isRefreshingProducts}
+                                isTaxEnabled={data.is_tax_enabled}
                             />
                         </CardContent>
                     </Card>
 
                     {/* 2. Monthly Recurring Charge (MRC) Card */}
                     <Card id="mrc-section" className="transition-all duration-300">
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                                 <FileText className="h-5 w-5" />
                                 {t('Monthly Recurring Charges (MRC)')}
                             </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="prepaid-toggle-edit" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
+                                    {t('Prepaid')}
+                                </Label>
+                                <Switch
+                                    id="prepaid-toggle-edit"
+                                    size="sm"
+                                    checked={data.is_prepaid}
+                                    onCheckedChange={(checked) => setData('is_prepaid', checked)}
+                                />
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <InvoiceItemsTable
@@ -528,6 +557,9 @@ export default function Edit() {
                                 }}
                                 invoiceType={data.type as 'product' | 'service'}
                                 errors={errors}
+                                onRefresh={refreshProducts}
+                                isRefreshing={isRefreshingProducts}
+                                isTaxEnabled={data.is_tax_enabled}
                             />
                         </CardContent>
                     </Card>

@@ -182,44 +182,58 @@ class SalesProposalController extends Controller
     public function store(StoreSalesProposalRequest $request)
     {
         if (Auth::user()->can('create-sales-proposals')) {
+            $proposal = DB::transaction(function () use ($request) {
+                $isTaxEnabled = filter_var($request->input('is_tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
+                $totals = $this->calculateTotals($request->items, $isTaxEnabled);
+
+                // Check if any MRC items exist
+                $hasMrc = false;
+                if (is_array($request->items)) {
+                    foreach ($request->items as $item) {
+                        if (($item['section'] ?? '') === 'mrc' && !empty($item['product_id'])) {
+                            $hasMrc = true;
+                            break;
+                        }
+                    }
+                }
+                $isRecurring = $hasMrc ? 1 : 0;
+                $isPrepaid = ($hasMrc && filter_var($request->input('is_prepaid', false), FILTER_VALIDATE_BOOLEAN)) ? 1 : 0;
+
+                $proposal = new SalesProposal();
+                $proposal->proposal_number = SalesProposal::generateProposalNumber($request->invoice_date ?? $request->proposal_date);
+                $proposal->reference = $request->reference;
+                $proposal->subject = $request->subject;
+                $proposal->proposal_date = $request->invoice_date ?? $request->proposal_date;
+                $proposal->due_date = $request->due_date;
+                $proposal->customer_id = $request->customer_id;
+                $proposal->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
+                $proposal->type = $request->type ?? 'product';
+                $proposal->is_recurring = $isRecurring;
+                $proposal->is_prepaid = $isPrepaid;
+                $proposal->is_tax_enabled = $isTaxEnabled ? 1 : 0;
+                $proposal->payment_terms = $request->payment_terms;
+                $proposal->notes = $request->notes;
+                $proposal->subtotal = $totals['subtotal'];
+                $proposal->tax_amount = $totals['tax_amount'];
+                $proposal->discount_amount = $totals['discount_amount'];
+                $proposal->total_amount = $totals['total_amount'];
+                $proposal->creator_id = Auth::id();
+                $proposal->created_by = creatorId();
+                $proposal->save();
+
+                $this->createProposalItems($proposal->id, $request->items, $isTaxEnabled);
+                $this->saveProposalTariffs($proposal->id, $request->tariffs);
+                $this->saveProposalContents($proposal->id, $request->proposal_content);
+
+                return $proposal;
+            });
+
             try {
-                $proposal = DB::transaction(function () use ($request) {
-                    $totals = $this->calculateTotals($request->items);
-
-                    $proposal = new SalesProposal();
-                    $proposal->proposal_number = SalesProposal::generateProposalNumber($request->invoice_date ?? $request->proposal_date);
-                    $proposal->reference = $request->reference;
-                    $proposal->subject = $request->subject;
-                    $proposal->proposal_date = $request->invoice_date ?? $request->proposal_date;
-                    $proposal->due_date = $request->due_date;
-                    $proposal->customer_id = $request->customer_id;
-                    $proposal->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
-                    $proposal->type = $request->type ?? 'product';
-                    $proposal->payment_terms = $request->payment_terms;
-                    $proposal->notes = $request->notes;
-                    $proposal->subtotal = $totals['subtotal'];
-                    $proposal->tax_amount = $totals['tax_amount'];
-                    $proposal->discount_amount = $totals['discount_amount'];
-                    $proposal->total_amount = $totals['total_amount'];
-                    $proposal->creator_id = Auth::id();
-                    $proposal->created_by = creatorId();
-                    $proposal->save();
-
-                    $this->createProposalItems($proposal->id, $request->items);
-                    $this->saveProposalTariffs($proposal->id, $request->tariffs);
-                    $this->saveProposalContents($proposal->id, $request->proposal_content);
-
-                    return $proposal;
-                });
-
-                try {
-                    CreateSalesProposal::dispatch($request, $proposal);
-                } catch (\Throwable $th) {}
-
-                return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal has been created successfully.'));
-            } catch (\Exception $e) {
-                return back()->with('error', $e->getMessage());
+                CreateSalesProposal::dispatch($request, $proposal);
+            } catch (\Throwable $th) {
             }
+
+            return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal has been created successfully.'));
         } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
@@ -298,37 +312,51 @@ class SalesProposalController extends Controller
                 return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
             }
 
+            DB::transaction(function () use ($request, $salesProposal) {
+                $isTaxEnabled = filter_var($request->input('is_tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
+                $totals = $this->calculateTotals($request->items, $isTaxEnabled);
+
+                // Check if any MRC items exist
+                $hasMrc = false;
+                if (is_array($request->items)) {
+                    foreach ($request->items as $item) {
+                        if (($item['section'] ?? '') === 'mrc' && !empty($item['product_id'])) {
+                            $hasMrc = true;
+                            break;
+                        }
+                    }
+                }
+                $isRecurring = $hasMrc ? 1 : 0;
+                $isPrepaid = ($hasMrc && filter_var($request->input('is_prepaid', false), FILTER_VALIDATE_BOOLEAN)) ? 1 : 0;
+
+                $salesProposal->proposal_date = $request->invoice_date;
+                $salesProposal->due_date = $request->due_date;
+                $salesProposal->customer_id = $request->customer_id;
+                $salesProposal->warehouse_id = $salesProposal->type === 'product' ? $request->warehouse_id : null;
+                $salesProposal->is_recurring = $isRecurring;
+                $salesProposal->is_prepaid = $isPrepaid;
+                $salesProposal->is_tax_enabled = $isTaxEnabled ? 1 : 0;
+                $salesProposal->payment_terms = $request->payment_terms;
+                $salesProposal->notes = $request->notes;
+                $salesProposal->subtotal = $totals['subtotal'];
+                $salesProposal->tax_amount = $totals['tax_amount'];
+                $salesProposal->discount_amount = $totals['discount_amount'];
+                $salesProposal->total_amount = $totals['total_amount'];
+                $salesProposal->save();
+
+                $salesProposal->items()->delete();
+                $this->createProposalItems($salesProposal->id, $request->items, $isTaxEnabled);
+                $this->saveProposalTariffs($salesProposal->id, $request->tariffs);
+                $this->saveProposalContents($salesProposal->id, $request->proposal_content);
+            });
+
+            // Dispatch event for packages to handle their fields
             try {
-                DB::transaction(function () use ($request, $salesProposal) {
-                    $totals = $this->calculateTotals($request->items);
-
-                    $salesProposal->proposal_date = $request->invoice_date;
-                    $salesProposal->due_date = $request->due_date;
-                    $salesProposal->customer_id = $request->customer_id;
-                    $salesProposal->warehouse_id = $salesProposal->type === 'product' ? $request->warehouse_id : null;
-                    $salesProposal->payment_terms = $request->payment_terms;
-                    $salesProposal->notes = $request->notes;
-                    $salesProposal->subtotal = $totals['subtotal'];
-                    $salesProposal->tax_amount = $totals['tax_amount'];
-                    $salesProposal->discount_amount = $totals['discount_amount'];
-                    $salesProposal->total_amount = $totals['total_amount'];
-                    $salesProposal->save();
-
-                    $salesProposal->items()->delete();
-                    $this->createProposalItems($salesProposal->id, $request->items);
-                    $this->saveProposalTariffs($salesProposal->id, $request->tariffs);
-                    $this->saveProposalContents($salesProposal->id, $request->proposal_content);
-                });
-
-                // Dispatch event for packages to handle their fields
-                try {
-                    UpdateSalesProposal::dispatch($request, $salesProposal);
-                } catch (\Throwable $th) {}
-
-                return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal details are updated successfully.'));
-            } catch (\Exception $e) {
-                return back()->with('error', $e->getMessage());
+                UpdateSalesProposal::dispatch($request, $salesProposal);
+            } catch (\Throwable $th) {
             }
+
+            return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal details are updated successfully.'));
         } else {
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
@@ -421,7 +449,7 @@ class SalesProposalController extends Controller
         }
     }
 
-    private function calculateTotals($items)
+    private function calculateTotals($items, bool $isTaxEnabled = true)
     {
         $subtotal = 0;
         $totalTax = 0;
@@ -437,11 +465,14 @@ class SalesProposalController extends Controller
                 $unitPrice = max(0, (float) ($item['unit_price'] ?? 0));
                 $discountPct = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
 
-                $taxPct = (float) ($item['tax_percentage'] ?? 0);
-                if (isset($item['taxes']) && is_array($item['taxes']) && count($item['taxes']) > 0) {
-                    $taxPct = array_reduce($item['taxes'], function ($sum, $t) {
-                        return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
-                    }, 0);
+                $taxPct = 0;
+                if ($isTaxEnabled) {
+                    $taxPct = (float) ($item['tax_percentage'] ?? 0);
+                    if (isset($item['taxes']) && is_array($item['taxes']) && count($item['taxes']) > 0) {
+                        $taxPct = array_reduce($item['taxes'], function ($sum, $t) {
+                            return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
+                        }, 0);
+                    }
                 }
 
                 $lineTotal = $quantity * $unitPrice;
@@ -463,7 +494,7 @@ class SalesProposalController extends Controller
         ];
     }
 
-    private function createProposalItems($proposalId, $items)
+    private function createProposalItems($proposalId, $items, bool $isTaxEnabled = true)
     {
         if (!is_array($items)) {
             return;
@@ -478,11 +509,14 @@ class SalesProposalController extends Controller
             $unitPrice = max(0, (float) ($itemData['unit_price'] ?? 0));
             $discountPct = max(0, min(100, (float) ($itemData['discount_percentage'] ?? 0)));
 
-            $taxPct = (float) ($itemData['tax_percentage'] ?? 0);
-            if (isset($itemData['taxes']) && is_array($itemData['taxes']) && count($itemData['taxes']) > 0) {
-                $taxPct = array_reduce($itemData['taxes'], function ($sum, $t) {
-                    return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
-                }, 0);
+            $taxPct = 0;
+            if ($isTaxEnabled) {
+                $taxPct = (float) ($itemData['tax_percentage'] ?? 0);
+                if (isset($itemData['taxes']) && is_array($itemData['taxes']) && count($itemData['taxes']) > 0) {
+                    $taxPct = array_reduce($itemData['taxes'], function ($sum, $t) {
+                        return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
+                    }, 0);
+                }
             }
 
             $item = new SalesProposalItem();
@@ -497,7 +531,7 @@ class SalesProposalController extends Controller
             $item->tax_percentage = $taxPct;
             $item->save(); // Automatically triggers SalesProposalItem::calculateAmounts() in Eloquent saving listener!
 
-            if (isset($itemData['taxes']) && is_array($itemData['taxes'])) {
+            if ($isTaxEnabled && isset($itemData['taxes']) && is_array($itemData['taxes'])) {
                 foreach ($itemData['taxes'] as $tax) {
                     $proposalItemTax = new SalesProposalItemTax();
                     $proposalItemTax->item_id = $item->id;
@@ -543,7 +577,8 @@ class SalesProposalController extends Controller
             if (Schema::hasColumn('sales_proposal_contents', 'proposal_id')) {
                 SalesProposalContent::where('proposal_id', $proposalId)->delete();
             }
-        } catch (\Throwable $th) {}
+        } catch (\Throwable $th) {
+        }
 
         if (empty($proposalContent)) {
             return;
@@ -558,13 +593,13 @@ class SalesProposalController extends Controller
         foreach ($items as $item) {
             if (is_array($item)) {
                 $pageType = $item['page_type'] ?? 'content';
-                
+
                 // Do not add items pages (otc, mrc) into contents table as they have their own items table
                 if (in_array($pageType, ['otc', 'mrc'])) {
                     continue;
                 }
 
-                $order = isset($item['order']) ? (int)$item['order'] : $savedOrder;
+                $order = isset($item['order']) ? (int) $item['order'] : $savedOrder;
                 $title = $item['title'] ?? null;
                 $htmlContent = $item['content'] ?? null;
                 $bgImage = $item['background_image'] ?? null;
@@ -572,10 +607,10 @@ class SalesProposalController extends Controller
             } else {
                 $order = $savedOrder;
                 $title = null;
-                $htmlContent = (string)$item;
+                $htmlContent = (string) $item;
                 $pageType = 'content';
                 $bgImage = null;
-                $jsonContent = (string)$item;
+                $jsonContent = (string) $item;
             }
 
             SalesProposalContent::create([
@@ -596,24 +631,28 @@ class SalesProposalController extends Controller
         if (Auth::user()->can('create-sales-proposals') || Auth::user()->can('edit-sales-proposals')) {
             $warehouseId = $request->warehouse_id;
 
-            if (!$warehouseId) {
-                return response()->json([]);
-            }
-            $products = ProductServiceItem::select('id', 'name', 'sku', 'description', 'sale_price', 'long_description', 'tax_ids', 'unit', 'type')
+            $query = ProductServiceItem::select('id', 'name', 'sku', 'description', 'sale_price', 'long_description', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
-                ->where('created_by', creatorId())
-                ->whereHas('warehouseStocks', function ($q) use ($warehouseId) {
-                    $q->where('warehouse_id', $warehouseId)
-                        ->where('quantity', '>', 0);
-                })
-                ->with([
+                ->where('created_by', creatorId());
+
+            if ($warehouseId) {
+                $query->where(function ($q) use ($warehouseId) {
+                    $q->whereHas('warehouseStocks', function ($stockQuery) use ($warehouseId) {
+                        $stockQuery->where('warehouse_id', $warehouseId)
+                            ->where('quantity', '>', 0);
+                    })->orWhere('type', 'service')
+                      ->orWhereNull('type')
+                      ->orWhereDoesntHave('warehouseStocks');
+                })->with([
                     'warehouseStocks' => function ($q) use ($warehouseId) {
                         $q->where('warehouse_id', $warehouseId);
                     }
-                ])
-                ->get()
+                ]);
+            }
+
+            $products = $query->get()
                 ->map(function ($product) {
-                    $stock = $product->warehouseStocks->first();
+                    $stock = $product->relationLoaded('warehouseStocks') ? $product->warehouseStocks->first() : null;
                     return [
                         'id' => $product->id,
                         'name' => $product->name,
