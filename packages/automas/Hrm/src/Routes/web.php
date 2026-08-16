@@ -44,6 +44,7 @@ use Automas\Hrm\Http\Controllers\LeaveBalanceController;
 use Automas\Hrm\Http\Controllers\OvertimeController;
 use Automas\Hrm\Http\Controllers\SetSalaryController;
 use Automas\Hrm\Http\Controllers\WorkingDaysController;
+use Automas\Hrm\Http\Controllers\PayrollSettingController;
 
 Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Hrm'])->group(function () {
     Route::get('/hrm/dashboard', [DashboardController::class, 'index'])->name('hrm.index');
@@ -370,6 +371,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Hrm'])->group(fun
 
     Route::delete('/hrm/payroll-entries/{payrollEntry}', [PayrollController::class, 'destroyEntry'])->name('hrm.payroll-entries.destroy');
     Route::get('/hrm/payroll-entries/{payrollEntry}/print', [PayrollController::class, 'printPayslip'])->name('hrm.payroll-entries.print');
+    Route::get('/hrm/payroll-entries/{payrollEntry}/download', [PayrollController::class, 'downloadPayslip'])->name('hrm.payroll-entries.download');
     Route::patch('/hrm/payroll-entries/{payrollEntry}/pay', [PayrollController::class, 'paySalary'])->name('hrm.payroll-entries.pay');
 
     Route::prefix('hrm/ip-restricts')->name('hrm.ip-restricts.')->group(function () {
@@ -378,5 +380,10 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Hrm'])->group(fun
         Route::put('/{iprestrict}', [IpRestrictController::class, 'update'])->name('update');
         Route::delete('/{iprestrict}', [IpRestrictController::class, 'destroy'])->name('destroy');
         Route::post('/toggle-setting', [IpRestrictController::class, 'toggleSetting'])->name('toggle-setting');
+    });
+
+    Route::prefix('hrm/payslip-settings')->name('hrm.payslip-settings.')->group(function () {
+        Route::get('/', [PayrollSettingController::class, 'index'])->name('index');
+        Route::post('/', [PayrollSettingController::class, 'update'])->name('update');
     });
 });

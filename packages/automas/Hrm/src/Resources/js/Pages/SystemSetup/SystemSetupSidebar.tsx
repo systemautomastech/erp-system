@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
-import {       Building, Building2, Users, FileText, Settings, AlertTriangle,ShieldAlert,AlertOctagon , Calendar , Tag , DollarSign , Minus , CreditCard, Clock , Shield } from "lucide-react";
+import { Building, Building2, Users, FileText, Settings, AlertTriangle, ShieldAlert, AlertOctagon, Calendar, Tag, DollarSign, Minus, CreditCard, Clock, Shield } from "lucide-react";
 
 interface SidebarItem {
     key: string;
@@ -44,6 +44,13 @@ export default function SystemSetupSidebar({ activeItem, onSectionChange }: Syst
             icon: Users,
             route: 'hrm.designations.index',
             permission: 'manage-designations'
+        },
+        {
+            key: 'payslip-settings',
+            label: t('Payslip Setup'),
+            icon: FileText,
+            route: 'hrm.payslip-settings.index',
+            permission: 'manage-payslip'
         },
         {
             key: 'employee-document-types',
@@ -138,15 +145,18 @@ export default function SystemSetupSidebar({ activeItem, onSectionChange }: Syst
         },
         {
             key: 'ip-restricts',
-            label: t('Ip Restricts'),
+            label: t('IP Settings'),
             icon: Shield,
             route: 'hrm.ip-restricts.index',
             permission: 'manage-ip-restricts'
-        },
+        }
     ];
 
     const filteredItems = sidebarItems.filter(item =>
-        auth.user?.permissions?.includes(item.permission)
+        auth.user?.permissions?.includes(item.permission) ||
+        auth.user?.permissions?.includes('manage-hrm') ||
+        auth.user?.roles?.includes('superadmin') ||
+        auth.user?.roles?.includes('company')
     );
 
     return (
