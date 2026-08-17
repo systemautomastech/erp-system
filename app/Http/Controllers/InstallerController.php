@@ -122,8 +122,6 @@ class InstallerController extends Controller
         }
     }
 
-
-
     public function addons()
     {
         $modules = $this->getAllAvailableModules();
@@ -166,12 +164,8 @@ class InstallerController extends Controller
 
         $credentials = [
             'admin' => [
-                'email' => 'superadmin@example.com',
-                'password' => '1234'
-            ],
-            'company' => [
-                'email' => 'company@example.com',
-                'password' => '1234'
+                'email' => 'superadmin@automas.com',
+                'password' => 'Automas1234#'
             ]
         ];
 
