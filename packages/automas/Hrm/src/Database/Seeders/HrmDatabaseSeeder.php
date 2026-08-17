@@ -17,55 +17,5 @@ class HrmDatabaseSeeder extends Seeder
         $this->call(MarketplaceSettingSeeder::class);
         $this->call(EmailTemplatesSeeder::class);
         $this->call(NotificationsTableSeeder::class);
-
-        if (config('app.run_demo_seeder')) {
-            // Add here your demo data seeders
-            $companyUser = User::where('email', 'company@automas.com')->first() ?? User::where('type', 'company')->first() ?? User::first();
-            $userId = $companyUser ? $companyUser->id : 1;
-
-            HrmUtility::defaultdata($userId);
-
-            (new DemoBranchSeeder())->run($userId);
-            (new DemoDepartmentSeeder())->run($userId);
-            (new DemoDesignationSeeder())->run($userId);
-            (new DemoDesignationSeeder())->run($userId);
-            (new DemoEmployeeDocumentTypeSeeder())->run($userId);
-            (new DemoShiftSeeder())->run($userId);
-            (new DemoEmployeeSeeder())->run($userId);
-            (new DemoAwardTypeSeeder())->run($userId);
-            (new DemoAwardSeeder())->run($userId);
-            (new DemoPromotionSeeder())->run($userId);
-            (new DemoResignationSeeder())->run($userId);
-            (new DemoTerminationTypeSeeder())->run($userId);
-            (new DemoTerminationSeeder())->run($userId);
-            (new DemoWarningTypeSeeder())->run($userId);
-            (new DemoWarningSeeder())->run($userId);
-            (new DemoComplaintTypeSeeder())->run($userId);
-            (new DemoComplaintSeeder())->run($userId);
-            (new DemoEmployeeTransferSeeder())->run($userId);
-            (new DemoEmployeeTransferSeeder())->run($userId);
-            (new DemoHolidayTypeSeeder())->run($userId);
-            (new DemoHolidaySeeder())->run($userId);
-            (new DemoDocumentCategorySeeder())->run($userId);
-            (new DemoHrmDocumentSeeder())->run($userId);
-            (new DemoAcknowledgmentSeeder())->run($userId);
-            (new DemoAnnouncementCategorySeeder())->run($userId);
-            (new DemoAnnouncementSeeder())->run($userId);
-            (new DemoEventTypeSeeder())->run($userId);
-            (new DemoEventSeeder())->run($userId);
-            (new DemoLeaveTypeSeeder())->run($userId);
-            (new DemoLeaveApplicationSeeder())->run($userId);
-            (new DemoAttendanceSeeder())->run($userId);
-            (new DemoAllowanceTypeSeeder())->run($userId);
-            (new DemoDeductionTypeSeeder())->run($userId);
-            (new DemoLoanTypeSeeder())->run($userId);
-            (new DemoAllowanceSeeder())->run($userId);
-            (new DemoDeductionSeeder())->run($userId);
-            (new DemoLoanSeeder())->run($userId);
-            (new DemoOvertimeSeeder())->run($userId);
-            (new DemoPayrollSeeder())->run($userId);
-            (new DemoIpRestrictSeeder())->run($userId);
-            (new DemoCompanyPolicySeeder())->run($userId);
-        }
     }
 }

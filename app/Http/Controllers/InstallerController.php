@@ -167,6 +167,10 @@ class InstallerController extends Controller
             'admin' => [
                 'email' => 'superadmin@automas.com',
                 'password' => 'Automas1234#'
+            ],
+            'company' => [
+                'email' => 'systemautomastech@gmail.com',
+                'password' => 'Automas1234#'
             ]
         ];
 
