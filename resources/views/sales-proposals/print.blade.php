@@ -156,6 +156,67 @@
         $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($proposal->proposal_number)));
         $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
 
+        $replaceProposalShortcodes = function ($content) use ($proposal, $proposalSetting, $getImagePath, $logoImage) {
+            if (empty($content)) return '';
+            $customer = $proposal->customer ?? null;
+            $dateFormat = $proposalSetting['dateFormat'] ?? 'Y-m-d';
+
+            $rawCompanyLogo = company_setting('logo_dark', $proposal->created_by)
+                ?? company_setting('logo_light', $proposal->created_by)
+                ?? company_setting('company_logo', $proposal->created_by)
+                ?? company_setting('logo', $proposal->created_by)
+                ?? admin_setting('logo_dark')
+                ?? admin_setting('logo_light')
+                ?? admin_setting('logo')
+                ?? 'uploads/logo/logo_dark.png';
+            $companyLogoUrl = $getImagePath($rawCompanyLogo) ?: asset('uploads/logo/logo_dark.png');
+            $rawProposalLogo = $proposalSetting['logo_image'] ?? $rawCompanyLogo;
+            $proposalLogoUrl = $getImagePath($rawProposalLogo) ?: $logoImage;
+
+            $creatorUser = \App\Models\User::find($proposal->creator_id ?? $proposal->created_by);
+
+            $values = [
+                'app_name' => $proposalSetting['company_name'] ?? config('app.name', 'Automas'),
+                'company_name' => $proposalSetting['company_name'] ?? config('app.name', 'Automas'),
+                'company_email' => $proposalSetting['company_email'] ?? '',
+                'company_phone' => $proposalSetting['company_phone'] ?? '',
+                'company_address' => $proposalSetting['company_address'] ?? '',
+                'company_website' => $proposalSetting['company_website'] ?? '',
+                'employee_name' => $creatorUser->name ?? '',
+                'employee_email' => $creatorUser->email ?? '',
+                'employee_phone' => $creatorUser->phone ?? $creatorUser->mobile ?? '',
+                'proposal_number' => $proposal->proposal_number ?? '',
+                'proposal_date' => !empty($proposal->proposal_date) ? \Carbon\Carbon::parse($proposal->proposal_date)->format($dateFormat) : '',
+                'due_date' => !empty($proposal->due_date) ? \Carbon\Carbon::parse($proposal->due_date)->format($dateFormat) : '',
+                'proposal_validity' => $proposal->payment_terms ?? '',
+                'customer_name' => $customer->name ?? '',
+                'customer_email' => $customer->email ?? '',
+                'customer_phone' => $customer->phone ?? $customer->mobile ?? '',
+                'customer_address' => $customer->address ?? $customer->billing_address ?? '',
+                'total_amount' => !empty($proposal->total_amount) ? number_format((float) $proposal->total_amount, 2) : '',
+                'sub_total' => !empty($proposal->subtotal) ? number_format((float) $proposal->subtotal, 2) : '',
+                'total_tax' => !empty($proposal->tax_amount) ? number_format((float) $proposal->tax_amount, 2) : '',
+                'total_discount' => !empty($proposal->discount_amount) ? number_format((float) $proposal->discount_amount, 2) : '',
+            ];
+
+            $res = $content;
+
+            // Handle src="{company_logo}" and src="{proposal_logo}"
+            $res = preg_replace('/src=(["\'])\s*\{\s*company_logo\s*\}\s*\1/i', 'src=$1' . $companyLogoUrl . '$1', $res);
+            $res = preg_replace('/src=(["\'])\s*\{\s*proposal_logo\s*\}\s*\1/i', 'src=$1' . $proposalLogoUrl . '$1', $res);
+
+            // Handle standalone tags
+            $res = preg_replace('/\{\s*company_logo\s*\}/i', '<img src="' . $companyLogoUrl . '" alt="Company Logo" class="proposal-logo" style="max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
+            $res = preg_replace('/\{\s*proposal_logo\s*\}/i', '<img src="' . $proposalLogoUrl . '" alt="Proposal Logo" class="proposal-logo" style="max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
+
+            foreach ($values as $k => $v) {
+                $res = preg_replace('/\{\s*' . preg_quote($k, '/') . '\s*\}/i', (string) $v, $res);
+            }
+            // Any unresolved or empty shortcodes become empty string
+            $res = preg_replace('/\{[a-zA-Z0-9_\-\s]+\}/', '', $res);
+            return $res;
+        };
+
         $items = $proposal->items ?? collect();
         $otcItems = $items->filter(function ($i) {
             return ($i->section === 'otc' || $i->section === 'general' || !$i->section) && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
@@ -303,12 +364,22 @@
             $isFront = $pageType === 'front-page' || !empty($sec['is_front_page']) || str_contains(strtolower($sec['title'] ?? ''), 'front') || str_contains(strtolower($sec['title'] ?? ''), 'cover');
 
             if ($isFront) {
-                $renderablePages[] = [
-                    'key' => "front-{$sIdx}",
-                    'type' => 'front-page',
-                    'title' => $sec['title'] ?? 'Front Page',
-                    'background_image' => $sec['background_image'] ?? null,
-                ];
+                if (!empty($sec['content']) && trim(strip_tags($sec['content'])) !== '') {
+                    $renderablePages[] = [
+                        'key' => "content-{$sIdx}",
+                        'type' => 'content',
+                        'title' => $sec['title'] ?? 'Front Page',
+                        'content' => $sec['content'],
+                        'background_image' => $sec['background_image'] ?? null,
+                    ];
+                } else {
+                    $renderablePages[] = [
+                        'key' => "front-{$sIdx}",
+                        'type' => 'front-page',
+                        'title' => $sec['title'] ?? 'Front Page',
+                        'background_image' => $sec['background_image'] ?? null,
+                    ];
+                }
             } elseif ($pageType === 'otc' || $pageType === 'mrc') {
                 $isOtc = ($pageType === 'otc');
                 $targetItems = $isOtc ? $otcItems : $mrcItems;
@@ -789,8 +860,8 @@
                         style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 52mm); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
                         <div style="color: #334155; font-size: 14px; line-height: 1.6;">
                             <h3 style="font-size: 14px; font-weight: 700; color: #293240; margin-bottom: 12px;">
-                                {{ $page['title'] }}</h3>
-                            {!! $page['content'] !!}
+                                {{ $replaceProposalShortcodes($page['title']) }}</h3>
+                            {!! $replaceProposalShortcodes($page['content']) !!}
                         </div>
                      
                     </div>
@@ -803,7 +874,7 @@
                     <div class="quotation-page__body"
                         style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 52mm); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
                         <div style="color: #334155; font-size: 14px; line-height: 1.6;">
-                            {!! $page['content'] !!}
+                            {!! $replaceProposalShortcodes($page['content']) !!}
                         </div>
                     </div>
                 </div>

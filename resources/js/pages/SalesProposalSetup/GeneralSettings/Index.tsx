@@ -43,8 +43,13 @@ export default function GeneralSettings({ settings }: GeneralSettingsProps) {
             onSuccess: () => {
                 toast.success(t('General settings saved successfully.'));
             },
-            onError: () => {
-                toast.error(t('Failed to save general settings.'));
+            onError: (errs) => {
+                const firstErr = errs && Object.values(errs)[0];
+                if (firstErr) {
+                    toast.error(firstErr);
+                } else {
+                    toast.error(t('Failed to save general settings.'));
+                }
             },
         });
     };
@@ -134,7 +139,7 @@ export default function GeneralSettings({ settings }: GeneralSettingsProps) {
             <div className="flex justify-end pt-4 border-t">
                 <Button type="submit" size="sm" disabled={processing} className="gap-2">
                     <Save className="h-4 w-4" />
-                    {t('Save Chnages')}
+                    {t('Save Changes')}
                 </Button>
             </div>
         </form>

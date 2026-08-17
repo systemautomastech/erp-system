@@ -162,7 +162,6 @@ class SalesProposalController extends Controller
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
             $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
                 ->where('is_active', true)
-                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
                 ->orderBy('sort_order')
                 ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
             $proposalSetting = ProposalSetting::getSettings(creatorId());
@@ -289,7 +288,6 @@ class SalesProposalController extends Controller
 
             $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
                 ->where('is_active', true)
-                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
                 ->orderBy('sort_order')
                 ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
 
@@ -725,7 +723,6 @@ class SalesProposalController extends Controller
 
             $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
                 ->where('is_active', true)
-                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
                 ->orderBy('sort_order')
                 ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
 
@@ -755,7 +752,6 @@ class SalesProposalController extends Controller
 
             $defaultPages = ProposalDefaultPage::whereIn('creator_id', array_unique([Auth::id(), creatorId()]))
                 ->where('is_active', true)
-                ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
                 ->orderBy('sort_order')
                 ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order']);
 

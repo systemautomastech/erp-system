@@ -13,6 +13,7 @@ import {
     getCompanySetting,
     getImagePath,
 } from '@/utils/helpers';
+import { replaceProposalShortcodes } from '@/utils/proposalShortcodes';
 
 // =============================================================================
 // TYPES
@@ -90,6 +91,7 @@ export interface ProposalPreviewModalProps {
     }>;
     proposalSetting?: {
         logo_image?: string;
+        show_logo?: boolean | string | number;
         background_image?: string;
         template_color?: string;
     } | null;
@@ -319,6 +321,8 @@ const resolveItemDescription = (
 
 const resolveLogo = (proposalSetting?: ProposalPreviewModalProps['proposalSetting']): string =>
     proposalSetting?.logo_image ||
+    getCompanySetting('logo_dark') ||
+    getCompanySetting('logo_light') ||
     getCompanySetting('company_logo') ||
     getCompanySetting('company_dark_logo') ||
     getCompanySetting('logo') ||
@@ -345,12 +349,22 @@ const buildRenderablePages = (
             sec.title?.toLowerCase().includes('cover');
 
         if (isFront) {
-            pages.push({
-                key: `front-${sec.id || sIdx}`,
-                type: 'front-page',
-                title: sec.title,
-                background_image: sec.background_image,
-            });
+            if (sec.content && sec.content.trim().length > 0) {
+                pages.push({
+                    key: `content-${sec.id || sIdx}`,
+                    type: 'content',
+                    title: sec.title,
+                    content: sec.content,
+                    background_image: sec.background_image,
+                });
+            } else {
+                pages.push({
+                    key: `front-${sec.id || sIdx}`,
+                    type: 'front-page',
+                    title: sec.title,
+                    background_image: sec.background_image,
+                });
+            }
             return;
         }
 
@@ -493,12 +507,13 @@ interface PageShellProps {
     defaultBg?: string;
     isFrontPage?: boolean;
     templateColor: string;
+    headerLogo?: string;
     children: React.ReactNode;
     className?: string;
 }
 
 const PageShell = React.memo<PageShellProps>(
-    ({ pageKey, backgroundImage, defaultBg, isFrontPage = false, templateColor, children, className = '' }) => (
+    ({ pageKey, backgroundImage, defaultBg, isFrontPage = false, templateColor, headerLogo, children, className = '' }) => (
         <div
             key={pageKey}
             style={{
@@ -511,6 +526,18 @@ const PageShell = React.memo<PageShellProps>(
             } as React.CSSProperties}
             className={`proposal-preview-sheet bg-white text-slate-900 w-[210mm] h-[297mm] max-w-full shadow-2xl rounded-sm text-sm font-sans border border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden relative ${className}`}
         >
+            {headerLogo && !isFrontPage && (
+                <div
+                    className="absolute top-[8mm] right-[15mm] z-20 pointer-events-none flex items-center justify-end"
+                    style={{ maxHeight: '20mm', maxWidth: '60mm' }}
+                >
+                    <img
+                        src={getImagePath(headerLogo)}
+                        alt="Header Logo"
+                        className="max-h-[16mm] max-w-[55mm] object-contain"
+                    />
+                </div>
+            )}
             {children}
         </div>
     )
@@ -552,7 +579,7 @@ interface CoverPageProps {
     templateColor: string;
     logoImage: string;
     formData: ProposalFormData;
-    customer?: ProposalPreviewModalProps['customers'][number];
+    customer?: NonNullable<ProposalPreviewModalProps['customers']>[number];
     t: (key: string) => string;
 }
 
@@ -755,13 +782,14 @@ interface ChargesPageProps {
     page: RenderablePage;
     templateColor: string;
     defaultBg?: string;
+    headerLogo?: string;
     getItemName: (item: ProposalItem) => string;
     getItemDesc: (item: ProposalItem) => string;
     t: (key: string) => string;
 }
 
 const ChargesPage = React.memo<ChargesPageProps>(
-    ({ page, templateColor, defaultBg, getItemName, getItemDesc, t }) => {
+    ({ page, templateColor, defaultBg, headerLogo, getItemName, getItemDesc, t }) => {
         const chunkItems = page.chunkItems || [];
         const startIdx = page.startIndex || 0;
 
@@ -771,6 +799,7 @@ const ChargesPage = React.memo<ChargesPageProps>(
                 backgroundImage={page.background_image}
                 defaultBg={defaultBg}
                 templateColor={templateColor}
+                headerLogo={headerLogo}
             >
                 <PageBody>
                     <div>
@@ -915,8 +944,13 @@ interface ContentPageProps {
     page: RenderablePage;
     templateColor: string;
     defaultBg?: string;
+    headerLogo?: string;
     pageNum: number;
     totalPages: number;
+    formData?: ProposalFormData;
+    customer?: any;
+    totals?: ProposalTotals;
+    proposalSetting?: any;
     t: (key: string) => string;
 }
 
@@ -937,11 +971,13 @@ const CONTENT_PROSE_CLASSES = `
 `;
 
 const ContentPage = React.memo<ContentPageProps>(
-    ({ page, templateColor, defaultBg, pageNum, totalPages, t }) => {
+    ({ page, templateColor, defaultBg, headerLogo, pageNum, totalPages, formData, customer, totals, proposalSetting, t }) => {
         const emptyMessage =
             page.type === 'other-details'
                 ? t('Empty Other Details content...')
                 : t('Empty section content...');
+
+        const processedContent = replaceProposalShortcodes(page.content, { formData, customer, totals, proposalSetting });
 
         return (
             <PageShell
@@ -949,13 +985,14 @@ const ContentPage = React.memo<ContentPageProps>(
                 backgroundImage={page.background_image}
                 defaultBg={defaultBg}
                 templateColor={templateColor}
+                headerLogo={headerLogo}
             >
                 <PageBody>
                     <div>
-                        {page.content ? (
+                        {processedContent ? (
                             <div
                                 className={CONTENT_PROSE_CLASSES}
-                                dangerouslySetInnerHTML={{ __html: page.content }}
+                                dangerouslySetInnerHTML={{ __html: processedContent }}
                             />
                         ) : (
                             <p className="text-sm text-slate-400 italic py-8 text-center">{emptyMessage}</p>
@@ -995,6 +1032,16 @@ export default function ProposalPreviewModal({
 
     const logoImage = useMemo(() => resolveLogo(proposalSetting), [proposalSetting]);
     const defaultBgImage = proposalSetting?.background_image;
+
+    const isLogoEnabled = useMemo(() => {
+        return proposalSetting?.show_logo !== undefined
+            ? (proposalSetting.show_logo === '1' || proposalSetting.show_logo === true || proposalSetting.show_logo === 1 || proposalSetting.show_logo === 'true')
+            : true;
+    }, [proposalSetting?.show_logo]);
+
+    const headerLogo = useMemo(() => {
+        return (isLogoEnabled && logoImage) ? logoImage : '';
+    }, [isLogoEnabled, logoImage]);
 
     const customer = useMemo(
         () => resolveCustomer(customers, formData.customer_id),
@@ -1074,6 +1121,7 @@ export default function ProposalPreviewModal({
                                             page={page}
                                             templateColor={templateColor}
                                             defaultBg={defaultBgImage}
+                                            headerLogo={headerLogo}
                                             getItemName={getItemName}
                                             getItemDesc={getItemDesc}
                                             t={t}
@@ -1087,8 +1135,13 @@ export default function ProposalPreviewModal({
                                         page={page}
                                         templateColor={templateColor}
                                         defaultBg={defaultBgImage}
+                                        headerLogo={headerLogo}
                                         pageNum={pageNum}
                                         totalPages={totalPages}
+                                        formData={formData}
+                                        customer={customer}
+                                        totals={totals}
+                                        proposalSetting={proposalSetting}
                                         t={t}
                                     />
                                 );

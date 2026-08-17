@@ -16,43 +16,7 @@ class ProposalSetupController extends Controller
     {
         $settings = ProposalSetting::getSettings(Auth::id());
 
-        // Ensure fixed Front Page exists for creator
-        $frontPage = ProposalDefaultPage::where('creator_id', Auth::id())
-            ->where('page_type', 'front-page')
-            ->first();
-
-        if (!$frontPage) {
-            ProposalDefaultPage::create([
-                'title' => 'Front Page',
-                'content' => '<h1>Sales Proposal Cover Page</h1><p>Welcome to our proposal. Prepared specifically for your business.</p>',
-                'page_type' => 'front-page',
-                'is_active' => true,
-                'sort_order' => 1,
-                'creator_id' => Auth::id(),
-            ]);
-        }
-
-        // Ensure fixed Terms & Conditions page exists for creator
-        $termsPage = ProposalDefaultPage::where('creator_id', Auth::id())
-            ->where(function ($q) {
-                $q->where('page_type', 'terms-conditions')
-                  ->orWhere('title', 'Terms & Conditions');
-            })
-            ->first();
-
-        if (!$termsPage) {
-            ProposalDefaultPage::create([
-                'title' => 'Terms & Conditions',
-                'content' => '<h2>Terms & Conditions</h2><p>1. Proposal is valid for 30 days from issuance.<br/>2. Payment terms: 50% deposit upon acceptance, 50% on project completion.</p>',
-                'page_type' => 'terms-conditions',
-                'is_active' => true,
-                'sort_order' => 99,
-                'creator_id' => Auth::id(),
-            ]);
-        }
-
         $defaultPages = ProposalDefaultPage::where('creator_id', Auth::id())
-            ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 WHEN page_type = 'terms-conditions' THEN 2 ELSE 1 END")
             ->orderBy('sort_order')
             ->get();
 
@@ -71,6 +35,46 @@ class ProposalSetupController extends Controller
         return redirect()->back()->with('success', __('Settings saved successfully.'));
     }
 
+    private function getProposalVariables(): array
+    {
+        return [
+            'App Name' => 'app_name',
+            'Company Name' => 'company_name',
+            'Company Logo' => 'company_logo',
+            'Proposal Logo' => 'proposal_logo',
+            'Company Email' => 'company_email',
+            'Company Phone' => 'company_phone',
+            'Company Address' => 'company_address',
+            'Company Website' => 'company_website',
+            'Employee Name' => 'employee_name',
+            'Employee Email' => 'employee_email',
+            'Employee Phone' => 'employee_phone',
+            'Proposal Number' => 'proposal_number',
+            'Proposal Date' => 'proposal_date',
+            'Due Date' => 'due_date',
+            'Customer Name' => 'customer_name',
+            'Customer Email' => 'customer_email',
+            'Customer Phone' => 'customer_phone',
+            'Customer Address' => 'customer_address',
+            'Total Amount' => 'total_amount',
+            'Sub Total' => 'sub_total',
+            'Total Tax' => 'total_tax',
+            'Total Discount' => 'total_discount',
+        ];
+    }
+
+    public function createDefaultPage()
+    {
+        $settings = ProposalSetting::getSettings(Auth::id());
+        $maxSortOrder = ProposalDefaultPage::where('creator_id', Auth::id())->max('sort_order') ?? 0;
+
+        return Inertia::render('SalesProposalSetup/DefaultPages/Create', [
+            'settings' => $settings,
+            'nextSortOrder' => $maxSortOrder + 1,
+            'variables' => $this->getProposalVariables(),
+        ]);
+    }
+
     public function storeDefaultPage(StoreDefaultPageRequest $request)
     {
         $validated = $request->validated();
@@ -83,7 +87,18 @@ class ProposalSetupController extends Controller
             'sort_order' => $request->input('sort_order', 1),
         ]));
 
-        return redirect()->back()->with('success', __('Default page created successfully.'));
+        return redirect()->route('proposal-setup.index')->with('success', __('Default page created successfully.'));
+    }
+
+    public function editDefaultPage(ProposalDefaultPage $defaultPage)
+    {
+        $settings = ProposalSetting::getSettings(Auth::id());
+
+        return Inertia::render('SalesProposalSetup/DefaultPages/Edit', [
+            'settings' => $settings,
+            'defaultPage' => $defaultPage,
+            'variables' => $this->getProposalVariables(),
+        ]);
     }
 
     public function updateDefaultPage(UpdateDefaultPageRequest $request, ProposalDefaultPage $defaultPage)
@@ -97,15 +112,11 @@ class ProposalSetupController extends Controller
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $defaultPage->is_active,
         ]));
 
-        return redirect()->back()->with('success', __('Default page updated successfully.'));
+        return redirect()->route('proposal-setup.index')->with('success', __('Default page updated successfully.'));
     }
 
     public function destroyDefaultPage(ProposalDefaultPage $defaultPage)
     {
-        if ($defaultPage->page_type === 'front-page' || $defaultPage->page_type === 'terms-conditions') {
-            return redirect()->back()->with('error', __('This fixed default page cannot be deleted.'));
-        }
-
         $defaultPage->delete();
 
         return redirect()->back()->with('success', __('Default page deleted successfully.'));

@@ -3,9 +3,9 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
-import { SalesInvoiceItem } from '@/pages/Sales/types';
+import { ProposalItem } from '@/pages/SalesProposals/types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
-import InvoiceItemsTable from '@/pages/Sales/components/InvoiceItemsTable';
+import ProposalItemsTable from '@/pages/SalesProposals/components/ProposalItemsTable';
 import { useTaxCalculator } from '@/pages/Sales/components/TaxCalculator';
 import { formatCurrency } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
@@ -97,7 +97,7 @@ export default function Create() {
             tax_percentage: 0,
             tax_amount: 0,
             total_amount: 0
-        }] as SalesInvoiceItem[],
+        }] as ProposalItem[],
         proposal_content: [],
         other_details: '',
     });
@@ -446,7 +446,7 @@ export default function Create() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <InvoiceItemsTable
+                            <ProposalItemsTable
                                 items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
                                 onChange={(updatedOtcItems) => {
@@ -459,6 +459,7 @@ export default function Create() {
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="otc"
                             />
                         </CardContent>
                     </Card>
@@ -483,7 +484,7 @@ export default function Create() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <InvoiceItemsTable
+                            <ProposalItemsTable
                                 items={data.items.filter(i => i.section === 'mrc')}
                                 products={availableProducts}
                                 onChange={(updatedMrcItems) => {
@@ -496,6 +497,7 @@ export default function Create() {
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="mrc"
                             />
                         </CardContent>
                     </Card>
