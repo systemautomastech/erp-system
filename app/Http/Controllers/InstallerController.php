@@ -353,6 +353,33 @@ class InstallerController extends Controller
         return null;
     }
 
+    private function ensureAddOnsTableExists()
+    {
+        if (!Schema::hasTable('add_ons')) {
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+            } catch (\Exception $e) {
+                // Migration might fail or skip if record exists in migrations table
+            }
+
+            if (!Schema::hasTable('add_ons')) {
+                Schema::create('add_ons', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->id();
+                    $table->string('module');
+                    $table->string('name');
+                    $table->decimal('monthly_price', 8, 2)->default(0);
+                    $table->decimal('yearly_price', 8, 2)->default(0);
+                    $table->string('image')->nullable();
+                    $table->boolean('is_enable')->default(false);
+                    $table->boolean('for_admin')->default(false);
+                    $table->string('package_name')->nullable();
+                    $table->integer('priority')->default(0);
+                    $table->timestamps();
+                });
+            }
+        }
+    }
+
     private function enableModule($moduleName)
     {
         // Validate module name to prevent path traversal
@@ -360,10 +387,8 @@ class InstallerController extends Controller
             throw new \Exception('Invalid module name');
         }
 
-        // Ensure main migrations (such as create_add_ons_table) have run first
-        if (!Schema::hasTable('add_ons')) {
-            Artisan::call('migrate', ['--force' => true]);
-        }
+        // Ensure main migrations (such as create_add_ons_table) have run or table is explicitly created
+        $this->ensureAddOnsTableExists();
 
         $addon = AddOn::where('module', $moduleName)->first();
         $packageMigrationPath = 'packages/automas/' . $moduleName . '/src/Database/Migrations';

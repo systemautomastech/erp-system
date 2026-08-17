@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use App\Models\AddOn;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 
 class InstallCommand extends Command
 {
@@ -54,8 +56,6 @@ class InstallCommand extends Command
         $this->info('Application installed successfully!');
         return 0;
     }
-
-
 
     private function createInstalledFile()
     {
@@ -120,6 +120,33 @@ class InstallCommand extends Command
         return $modules;
     }
 
+    private function ensureAddOnsTableExists()
+    {
+        if (!Schema::hasTable('add_ons')) {
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+            } catch (\Exception $e) {
+                // Ignore migration error
+            }
+
+            if (!Schema::hasTable('add_ons')) {
+                Schema::create('add_ons', function (Blueprint $table) {
+                    $table->id();
+                    $table->string('module');
+                    $table->string('name');
+                    $table->decimal('monthly_price', 8, 2)->default(0);
+                    $table->decimal('yearly_price', 8, 2)->default(0);
+                    $table->string('image')->nullable();
+                    $table->boolean('is_enable')->default(false);
+                    $table->boolean('for_admin')->default(false);
+                    $table->string('package_name')->nullable();
+                    $table->integer('priority')->default(0);
+                    $table->timestamps();
+                });
+            }
+        }
+    }
+
     private function enableModule($moduleName)
     {
         // Validate module name to prevent path traversal
@@ -127,7 +154,11 @@ class InstallCommand extends Command
             throw new \Exception('Invalid module name');
         }
 
+        $this->ensureAddOnsTableExists();
+
         $addon = AddOn::where('module', $moduleName)->first();
+        $packageMigrationPath = 'packages/automas/' . $moduleName . '/src/Database/Migrations';
+
         if (empty($addon)) {
             $filePath = base_path('packages/automas/' . $moduleName . '/module.json');
 
@@ -142,7 +173,13 @@ class InstallCommand extends Command
                 throw new \Exception('Invalid module configuration');
             }
 
-            Artisan::call('package:seed ' . $moduleName);
+            if (file_exists(base_path($packageMigrationPath))) {
+                Artisan::call('migrate', [
+                    '--path' => $packageMigrationPath,
+                    '--force' => true,
+                ]);
+            }
+            Artisan::call('package:seed', ['packageName' => $moduleName]);
 
             $addon = new AddOn;
             $addon->module = $data['name'];
@@ -155,8 +192,13 @@ class InstallCommand extends Command
             $addon->is_enable = 1;
             $addon->save();
         } else {
-
-            Artisan::call('package:seed ' . $moduleName);
+            if (file_exists(base_path($packageMigrationPath))) {
+                Artisan::call('migrate', [
+                    '--path' => $packageMigrationPath,
+                    '--force' => true,
+                ]);
+            }
+            Artisan::call('package:seed', ['packageName' => $moduleName]);
 
             $addon->is_enable = 1;
             $addon->save();

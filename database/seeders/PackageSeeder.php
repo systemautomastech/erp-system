@@ -12,11 +12,37 @@ use App\Models\UserActiveModule;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 
 class PackageSeeder extends Seeder
 {
     public function run($userId = null): void
     {
+        if (!Schema::hasTable('add_ons')) {
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+            } catch (\Exception $e) {
+                // Ignore
+            }
+
+            if (!Schema::hasTable('add_ons')) {
+                Schema::create('add_ons', function (Blueprint $table) {
+                    $table->id();
+                    $table->string('module');
+                    $table->string('name');
+                    $table->decimal('monthly_price', 8, 2)->default(0);
+                    $table->decimal('yearly_price', 8, 2)->default(0);
+                    $table->string('image')->nullable();
+                    $table->boolean('is_enable')->default(false);
+                    $table->boolean('for_admin')->default(false);
+                    $table->string('package_name')->nullable();
+                    $table->integer('priority')->default(0);
+                    $table->timestamps();
+                });
+            }
+        }
+
         if(empty($userId)){
           $userId = User::where('email', 'company@example.com')->first()->id;
         }
