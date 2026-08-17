@@ -44,8 +44,8 @@ class PackageSeeder extends Seeder
         }
 
         if (empty($userId)) {
-            $companyUser = User::where('email', 'company@example.com')->first() 
-                ?? User::where('type', 'company')->first() 
+            $companyUser = User::where('email', 'company@automas.com')->first()
+                ?? User::where('type', 'company')->first()
                 ?? User::first();
             $userId = $companyUser ? $companyUser->id : null;
         }
@@ -53,7 +53,7 @@ class PackageSeeder extends Seeder
         $devPackagePath = \Illuminate\Support\Facades\File::directories($path);
 
         foreach ($devPackagePath as $package) {
-            $filePath = $package.'/module.json';
+            $filePath = $package . '/module.json';
             if (!file_exists($filePath)) {
                 continue;
             }
@@ -76,7 +76,7 @@ class PackageSeeder extends Seeder
 
             if (!empty($userId)) {
                 $activePackage = UserActiveModule::where('module', $data['name'])->where('user_id', $userId)->first();
-                if(empty($activePackage)){
+                if (empty($activePackage)) {
                     $activePackage = new UserActiveModule();
                     $activePackage->user_id = $userId;
                     $activePackage->module = $data['name'];
@@ -102,7 +102,7 @@ class PackageSeeder extends Seeder
         // static assignPlan
         if (Schema::hasTable('plans')) {
             $plan = Plan::where('custom_plan', true)->first();
-            $user = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first();
+            $user = User::where('email', 'company@automas.com')->first() ?? User::where('type', 'company')->first();
             if ($plan && $user) {
                 $user->active_plan = $plan->id;
                 $user->plan_expire_date = date('Y-m-d', strtotime('+10 month'));
@@ -112,7 +112,7 @@ class PackageSeeder extends Seeder
             }
         }
 
-        $user = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first();
+        $user = User::where('email', 'company@automas.com')->first() ?? User::where('type', 'company')->first();
         if ($user) {
             $modules = UserActiveModule::where('user_id', $user->id)->pluck('module')->toArray();
             $modulesStr = implode(',', $modules);

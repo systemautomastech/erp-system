@@ -17,10 +17,9 @@ class SalesDatabaseSeeder extends Seeder
         $this->call(EmailTemplatesSeeder::class);
         $this->call(NotificationsTableSeeder::class);
 
-        if(config('app.run_demo_seeder'))
-        {
+        if (config('app.run_demo_seeder')) {
             // Add here your demo data seeders
-            $companyUser = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first() ?? User::first();
+            $companyUser = User::where('email', 'company@automas.com')->first() ?? User::where('type', 'company')->first() ?? User::first();
             $userId = $companyUser ? $companyUser->id : 1;
             (new DemoAccountTypeSeeder())->run($userId);
             (new DemoAccountIndustrySeeder())->run($userId);

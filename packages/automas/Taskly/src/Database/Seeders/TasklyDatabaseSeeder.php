@@ -19,9 +19,8 @@ class TasklyDatabaseSeeder extends Seeder
         $this->call(EmailTemplatesSeeder::class);
         $this->call(NotificationsTableSeeder::class);
 
-        if(config('app.run_demo_seeder'))
-        {
-            $companyUser = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first() ?? User::first();
+        if (config('app.run_demo_seeder')) {
+            $companyUser = User::where('email', 'company@automas.com')->first() ?? User::where('type', 'company')->first() ?? User::first();
             $userId = $companyUser ? $companyUser->id : 1;
 
             TaskStage::defaultdata($userId);

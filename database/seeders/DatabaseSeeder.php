@@ -20,37 +20,9 @@ class DatabaseSeeder extends Seeder
         (new EmailTemplatesSeeder())->run();
         (new NotificationsTableSeeder())->run();
 
-        $companyUser = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first();
+        $companyUser = User::where('type', 'company')->first();
         if ($companyUser) {
             User::CompanySetting($companyUser->id);
-        }
-
-        if(config('app.run_demo_seeder'))
-        {
-            // // Pass $userId to your custom seeder
-
-
-            (new CouponSeeder())->run();
-            (new DemoUserSeeder())->run();
-
-            (new DemoStaffSeeder())->run($userId);
-            (new DemoLoginHistorySeeder())->run($userId);
-            (new DemoWarehouseSeeder())->run($userId);
-            (new HelpdeskCategorySeeder())->run();
-            (new HelpdeskTicketSeeder())->run($userId);
-            (new HelpdeskReplySeeder())->run($userId);
-            (new DemoOrderSeeder())->run($userId);
-            (new DemoCouponDetailsSeeder())->run();
-            (new DemoBankTransferSeeder())->run($userId);
-            (new MessengerSeeder())->run();
-            (new AIAgentChatSessionSeeder())->run($userId);
-            (new AIAgentChatMessageSeeder())->run($userId);
-
-             // temporary
-            // (new PackageSeeder())->run($userId);
-
-            // in this seeder product
-            (new DemoTransferSeeder())->run($userId);
         }
     }
 }
