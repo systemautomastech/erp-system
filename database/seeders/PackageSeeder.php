@@ -43,8 +43,11 @@ class PackageSeeder extends Seeder
             }
         }
 
-        if(empty($userId)){
-          $userId = User::where('email', 'company@example.com')->first()->id;
+        if (empty($userId)) {
+            $companyUser = User::where('email', 'company@example.com')->first() 
+                ?? User::where('type', 'company')->first() 
+                ?? User::first();
+            $userId = $companyUser ? $companyUser->id : null;
         }
         $path = base_path('packages/automas');
         $devPackagePath = \Illuminate\Support\Facades\File::directories($path);
@@ -71,12 +74,14 @@ class PackageSeeder extends Seeder
                 $addon->save();
             }
 
-            $activePackage = UserActiveModule::where('module', $data['name'])->where('user_id', $userId)->first();
-            if(empty($activePackage)){
-                $activePackage = new UserActiveModule();
-                $activePackage->user_id = $userId;
-                $activePackage->module = $data['name'];
-                $activePackage->save();
+            if (!empty($userId)) {
+                $activePackage = UserActiveModule::where('module', $data['name'])->where('user_id', $userId)->first();
+                if(empty($activePackage)){
+                    $activePackage = new UserActiveModule();
+                    $activePackage->user_id = $userId;
+                    $activePackage->module = $data['name'];
+                    $activePackage->save();
+                }
             }
         }
 
@@ -84,32 +89,43 @@ class PackageSeeder extends Seeder
         foreach ($allEnabled as $key => $value) {
             try {
                 Artisan::call('package:seed', ['packageName' => $value]);
-                $this->command->info("{$value} Seeder Run Successfully!");
+                if (isset($this->command) && $this->command) {
+                    $this->command->info("{$value} Seeder Run Successfully!");
+                }
             } catch (\Throwable $th) {
-                $this->command->error("Failed to seed package '{$value}': " . $th->getMessage());
+                if (isset($this->command) && $this->command) {
+                    $this->command->error("Failed to seed package '{$value}': " . $th->getMessage());
+                }
             }
         }
 
         // static assignPlan
-        $plan = Plan::where('custom_plan', true)->first();
-        $user = User::where('email', 'company@example.com')->first();
-        $user->active_plan = $plan->id;
-        $user->plan_expire_date = date('Y-m-d', strtotime('+10 month'));
-        $user->total_user = -1;
-        $user->storage_limit = 50000000;
-        $user->save();
-
-        $modules = UserActiveModule::where('user_id', $user->id)->pluck('module')->toArray();
-        $modules =  implode(',',$modules);
-        DefaultData::dispatch($user->id, $modules);
-        $client_role = Role::where('name', 'client')->where('created_by', $user->id)->first();
-        $staff_role = Role::where('name', 'staff')->where('created_by', $user->id)->first();
-
-        if (!empty($client_role)) {
-            GivePermissionToRole::dispatch($client_role->id, 'client', $modules);
+        if (Schema::hasTable('plans')) {
+            $plan = Plan::where('custom_plan', true)->first();
+            $user = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first();
+            if ($plan && $user) {
+                $user->active_plan = $plan->id;
+                $user->plan_expire_date = date('Y-m-d', strtotime('+10 month'));
+                $user->total_user = -1;
+                $user->storage_limit = 50000000;
+                $user->save();
+            }
         }
-        if (!empty($staff_role)) {
-            GivePermissionToRole::dispatch($staff_role->id, 'staff', $modules);
+
+        $user = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first();
+        if ($user) {
+            $modules = UserActiveModule::where('user_id', $user->id)->pluck('module')->toArray();
+            $modulesStr = implode(',', $modules);
+            DefaultData::dispatch($user->id, $modulesStr);
+            $client_role = Role::where('name', 'client')->where('created_by', $user->id)->first();
+            $staff_role = Role::where('name', 'staff')->where('created_by', $user->id)->first();
+
+            if (!empty($client_role)) {
+                GivePermissionToRole::dispatch($client_role->id, 'client', $modulesStr);
+            }
+            if (!empty($staff_role)) {
+                GivePermissionToRole::dispatch($staff_role->id, 'staff', $modulesStr);
+            }
         }
     }
 }

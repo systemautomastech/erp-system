@@ -522,8 +522,9 @@ if (!function_exists('SetConfigEmail')) {
             } else if (Auth::check()) {
                 $company_settings = getCompanyAllSetting();
             } else {
-                $user_id = User::where('type', 'superadmin')->first()->id;
-                $company_settings = getCompanyAllSetting($user_id);
+                $superAdmin = User::where('type', 'superadmin')->first();
+                $user_id = $superAdmin ? $superAdmin->id : null;
+                $company_settings = $user_id ? getCompanyAllSetting($user_id) : [];
             }
             if(empty($company_settings['email_host'])) {
                 // throw new \Exception(__('Email host is not configured'));

@@ -10,7 +10,8 @@ class HelpdeskCategorySeeder extends Seeder
 {
     public function run(): void
     {
-        $userId = User::where('email', 'superadmin@automas.com')->first()->id;
+        $admin = User::where('email', 'superadmin@automas.com')->first() ?? User::where('type', 'superadmin')->first() ?? User::first();
+        $userId = $admin ? $admin->id : 1;
         if (HelpdeskCategory::where('created_by', $userId)->exists()) {
             return;
         }

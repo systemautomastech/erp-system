@@ -17,7 +17,8 @@ class ProductServiceDatabaseSeeder extends Seeder
 
         if(config('app.run_demo_seeder'))
         {
-            $userId = User::where('email', 'company@example.com')->first()->id;
+            $companyUser = User::where('email', 'company@example.com')->first() ?? User::where('type', 'company')->first() ?? User::first();
+            $userId = $companyUser ? $companyUser->id : 1;
 
             (new DemoCategorySeeder())->run($userId);
             (new DemoTaxSeeder())->run($userId);
