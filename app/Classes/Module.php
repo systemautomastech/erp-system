@@ -5,6 +5,7 @@ namespace App\Classes;
 use App\Models\AddOn;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 
 class Module
 {
@@ -46,7 +47,9 @@ class Module
                     $this->name =  $name;
                     $this->alias =  $name;
                 } else {
-                    $this->addon = AddOn::where('module', $name)->orWhere('package_name', $name)->first();
+                    $this->addon = Schema::hasTable('add_ons')
+                        ? AddOn::where('module', $name)->orWhere('package_name', $name)->first()
+                        : null;
 
                     $addonJson = $this->json($name);
                     if ($addonJson) {
@@ -101,6 +104,9 @@ class Module
 
     public function allEnabled(): array
     {
+        if (!Schema::hasTable('add_ons')) {
+            return [];
+        }
 
         return AddOn::where('is_enable', 1)->orderBy('priority')->pluck('module')->toArray() ?? [];
 
@@ -108,6 +114,10 @@ class Module
 
     public function allEnabledAdmin(): array
     {
+        if (!Schema::hasTable('add_ons')) {
+            return [];
+        }
+
         return AddOn::where('for_admin', 1)->where('is_enable', 1)->orderBy('priority')->pluck('module')->toArray() ?? [];
     }
 
@@ -133,6 +143,9 @@ class Module
 
         if ($module) {
             if (!isset($cache[$module])) {
+                if (!Schema::hasTable('add_ons')) {
+                    return false;
+                }
 
                 $cache[$module] = Addon::where('module', $module)
                     ->where('is_enable', 1)

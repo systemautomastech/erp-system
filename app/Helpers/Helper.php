@@ -14,6 +14,7 @@ use Spatie\Permission\Models\Role;
 use App\Services\DynamicStorageService;
 use App\Services\StorageConfigService;
 use App\Models\EmailTemplate;
+use Illuminate\Support\Facades\Schema;
 
 
 if (!function_exists('creatorId')) {
@@ -739,11 +740,13 @@ if (!function_exists('ModulePriceByName')) {
         static $addons = [];
         static $resultArray = [];
         if (empty($resultArray)) {
-            $addons = AddOn::all()->toArray();
-            foreach ($addons as $item) {
-                if (isset($item['module'])) {
-                    $resultArray[$item['module']]['monthly_price'] = $item['monthly_price'];
-                    $resultArray[$item['module']]['yearly_price'] = $item['yearly_price'];
+            if (Schema::hasTable('add_ons')) {
+                $addons = AddOn::all()->toArray();
+                foreach ($addons as $item) {
+                    if (isset($item['module'])) {
+                        $resultArray[$item['module']]['monthly_price'] = $item['monthly_price'];
+                        $resultArray[$item['module']]['yearly_price'] = $item['yearly_price'];
+                    }
                 }
             }
         }

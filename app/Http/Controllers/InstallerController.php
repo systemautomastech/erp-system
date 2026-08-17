@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class InstallerController extends Controller
@@ -118,7 +119,7 @@ class InstallerController extends Controller
 
             return redirect('/install/addons');
         } catch (\Exception $e) {
-            return back()->withErrors(['database' => 'Database connection failed. Please check your database credentials.']);
+            return back()->withErrors(['database' => 'Database error: ' . $e->getMessage()]);
         }
     }
 
@@ -359,7 +360,14 @@ class InstallerController extends Controller
             throw new \Exception('Invalid module name');
         }
 
+        // Ensure main migrations (such as create_add_ons_table) have run first
+        if (!Schema::hasTable('add_ons')) {
+            Artisan::call('migrate', ['--force' => true]);
+        }
+
         $addon = AddOn::where('module', $moduleName)->first();
+        $packageMigrationPath = 'packages/automas/' . $moduleName . '/src/Database/Migrations';
+
         if (empty($addon)) {
             $filePath = base_path('packages/automas/' . $moduleName . '/module.json');
 
@@ -374,8 +382,13 @@ class InstallerController extends Controller
                 throw new \Exception('Invalid module configuration');
             }
 
-            Artisan::call('migrate --path=/packages/automas/' . $moduleName . '/src/Database/Migrations --force');
-            Artisan::call('package:seed ' . $moduleName);
+            if (file_exists(base_path($packageMigrationPath))) {
+                Artisan::call('migrate', [
+                    '--path' => $packageMigrationPath,
+                    '--force' => true,
+                ]);
+            }
+            Artisan::call('package:seed', ['packageName' => $moduleName]);
 
             $addon = new AddOn;
             $addon->module = $data['name'];
@@ -389,8 +402,13 @@ class InstallerController extends Controller
             $addon->is_enable = 1;
             $addon->save();
         } else {
-            Artisan::call('migrate --path=/packages/automas/' . $moduleName . '/src/Database/Migrations --force');
-            Artisan::call('package:seed ' . $moduleName);
+            if (file_exists(base_path($packageMigrationPath))) {
+                Artisan::call('migrate', [
+                    '--path' => $packageMigrationPath,
+                    '--force' => true,
+                ]);
+            }
+            Artisan::call('package:seed', ['packageName' => $moduleName]);
             $addon->is_enable = 1;
             $addon->save();
         }
