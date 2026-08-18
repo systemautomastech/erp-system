@@ -46,13 +46,8 @@ interface SalesProposal {
     customer_id: number;
     warehouse_id?: number;
     type?: string;
-<<<<<<< HEAD
     is_tax_enabled?: boolean | number;
     is_prepaid?: boolean | number;
-=======
-    is_tax_enabled?: boolean;
-    is_prepaid?: boolean;
->>>>>>> 457aa398e55824ae5f3c947d93b48ae4e1c50c37
     payment_terms?: string;
     notes?: string;
     items: any[];
@@ -72,7 +67,7 @@ interface EditProps {
 export default function Edit() {
     const { t } = useTranslation();
     const { proposal, customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<EditProps>().props;
-    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+    const [availableProducts, setAvailableProducts] = useState([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // Initialize proposal sections with existing proposal_content or fallback to defaultPages
@@ -112,7 +107,7 @@ export default function Edit() {
             const content = (item.content || item.proposal_content || '').trim();
             const pageType = item.page_type || '';
             return !['otc', 'mrc', 'other-details'].includes(pageType) &&
-                   !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+                !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
         });
 
         return filteredParsed.map((item: any, idx: number) => ({
@@ -289,13 +284,12 @@ export default function Edit() {
 
         transform((formData) => ({
             ...formData,
-<<<<<<< HEAD
             proposal_content: sections
                 .filter((item) => {
                     const content = (item.content || '').trim();
                     const pageType = item.page_type || '';
                     return !['otc', 'mrc', 'other-details'].includes(pageType) &&
-                           !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+                        !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
                 })
                 .map((item, index) => ({
                     title: item.title,
@@ -304,19 +298,10 @@ export default function Edit() {
                     background_image: item.background_image || '',
                     order: index + 1,
                 })),
-=======
-            proposal_content: sections.map((item, index) => ({
-                title: item.title,
-                content: item.content,
-                page_type: item.page_type,
-                background_image: item.background_image,
-                order: index + 1,
-            })),
-            tariffs: ((formData as any).tariffs || []).map((t: any, idx: number) => ({
+            tariffs: (formData.tariffs || []).map((t, idx) => ({
                 ...t,
                 sort_order: idx + 1,
             })),
->>>>>>> 457aa398e55824ae5f3c947d93b48ae4e1c50c37
         }));
 
         put(route('sales-proposals.update', proposal.id));
