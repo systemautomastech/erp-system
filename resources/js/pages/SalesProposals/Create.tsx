@@ -47,7 +47,7 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<CreateProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // Initialize proposal sections from default pages

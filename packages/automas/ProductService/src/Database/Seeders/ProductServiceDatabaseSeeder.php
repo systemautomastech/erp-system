@@ -14,15 +14,5 @@ class ProductServiceDatabaseSeeder extends Seeder
 
         $this->call(PermissionTableSeeder::class);
         $this->call(MarketplaceSettingSeeder::class);
-
-        if(config('app.run_demo_seeder'))
-        {
-            $userId = User::where('email', 'company@example.com')->first()->id;
-
-            (new DemoCategorySeeder())->run($userId);
-            (new DemoTaxSeeder())->run($userId);
-            (new DemoUnitSeeder())->run($userId);
-            (new DemoProductServiceItemSeeder())->run($userId);
-        }
     }
 }

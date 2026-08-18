@@ -155,7 +155,12 @@ return [
 
         'user_data_dir' => env('LARAVEL_PDF_CHROME_USER_DATA_DIR'),
 
-        'custom_flags' => [],
+        // 'custom_flags' => [],
+        'custom_flags' => [
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--renderer-process-limit=1',
+        ],
 
         'env_variables' => [],
     ],

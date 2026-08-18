@@ -18,20 +18,5 @@ class TasklyDatabaseSeeder extends Seeder
         $this->call(MarketplaceSettingSeeder::class);
         $this->call(EmailTemplatesSeeder::class);
         $this->call(NotificationsTableSeeder::class);
-
-        if(config('app.run_demo_seeder'))
-        {
-            $userId = User::where('email', 'company@example.com')->first()->id;
-
-            TaskStage::defaultdata($userId);
-            BugStage::defaultdata($userId);
-
-            (new DemoProjectSeeder())->run($userId);
-            (new DemoProjectMilestoneSeeder())->run($userId);
-            (new DemoProjectTaskSeeder())->run($userId);
-            (new DemoProjectBugSeeder())->run($userId);
-            (new DemoActivityLogSeeder())->run($userId);
-            (new DemoProjectPaymentSeeder())->run($userId);
-        }
     }
 }

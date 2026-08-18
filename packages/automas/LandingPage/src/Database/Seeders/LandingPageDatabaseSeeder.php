@@ -16,9 +16,5 @@ class LandingPageDatabaseSeeder extends Seeder
         $this->call(LandingPageSettingSeeder::class);
         $this->call(CustomPageSeeder::class);
         $this->call(MarketplaceSettingSeeder::class);
-        if(config('app.run_demo_seeder'))
-        {
-            $this->call(DemoNewsletterSubscriberSeeder::class);
-        }
     }
 }

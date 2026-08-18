@@ -18,7 +18,7 @@ class $PACKAGE_NAME$DatabaseSeeder extends Seeder
         if(config('app.run_demo_seeder'))
         {
             // Add here your demo data seeders
-            $userId = User::where('email', 'company@example.com')->first()->id;
+            $userId = User::where('email', 'company@automas.com')->first()->id;
             (new Demo$PACKAGE_NAME$ItemSeeder())->run($userId);
 
         }

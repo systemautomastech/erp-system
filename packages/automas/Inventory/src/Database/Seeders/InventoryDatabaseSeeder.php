@@ -14,13 +14,5 @@ class InventoryDatabaseSeeder extends Seeder
 
         $this->call(PermissionTableSeeder::class);
         $this->call(MarketplaceSettingSeeder::class);
-
-        if(config('app.run_demo_seeder'))
-        {
-            // Add here your demo data seeders
-            $userId = User::where('email', 'company@example.com')->first()->id;
-            // (new DemoInventoryItemSeeder())->run($userId);
-
-        }
     }
 }

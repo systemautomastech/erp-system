@@ -46,8 +46,13 @@ interface SalesProposal {
     customer_id: number;
     warehouse_id?: number;
     type?: string;
+<<<<<<< HEAD
     is_tax_enabled?: boolean | number;
     is_prepaid?: boolean | number;
+=======
+    is_tax_enabled?: boolean;
+    is_prepaid?: boolean;
+>>>>>>> 457aa398e55824ae5f3c947d93b48ae4e1c50c37
     payment_terms?: string;
     notes?: string;
     items: any[];
@@ -284,6 +289,7 @@ export default function Edit() {
 
         transform((formData) => ({
             ...formData,
+<<<<<<< HEAD
             proposal_content: sections
                 .filter((item) => {
                     const content = (item.content || '').trim();
@@ -298,6 +304,19 @@ export default function Edit() {
                     background_image: item.background_image || '',
                     order: index + 1,
                 })),
+=======
+            proposal_content: sections.map((item, index) => ({
+                title: item.title,
+                content: item.content,
+                page_type: item.page_type,
+                background_image: item.background_image,
+                order: index + 1,
+            })),
+            tariffs: ((formData as any).tariffs || []).map((t: any, idx: number) => ({
+                ...t,
+                sort_order: idx + 1,
+            })),
+>>>>>>> 457aa398e55824ae5f3c947d93b48ae4e1c50c37
         }));
 
         put(route('sales-proposals.update', proposal.id));
