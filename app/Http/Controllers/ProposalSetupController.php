@@ -14,9 +14,11 @@ class ProposalSetupController extends Controller
 {
     public function index()
     {
-        $settings = ProposalSetting::getSettings(Auth::id());
+        $settings = ProposalSetting::getSettings(creatorId());
 
-        $defaultPages = ProposalDefaultPage::where('creator_id', Auth::id())
+        $defaultPages = ProposalDefaultPage::with('creatorUser:id,name,email')
+            ->where('creator_id', creatorId())
+            ->where('created_by', Auth::id())
             ->orderBy('sort_order')
             ->get();
 
@@ -30,7 +32,7 @@ class ProposalSetupController extends Controller
     {
         $settingsData = $request->input('settings', $request->except(['_token', '_method']));
 
-        ProposalSetting::setSettings($settingsData, Auth::id());
+        ProposalSetting::setSettings($settingsData, creatorId());
 
         return redirect()->back()->with('success', __('Settings saved successfully.'));
     }
@@ -46,9 +48,9 @@ class ProposalSetupController extends Controller
             'Company Phone' => 'company_phone',
             'Company Address' => 'company_address',
             'Company Website' => 'company_website',
-            'Employee Name' => 'employee_name',
-            'Employee Email' => 'employee_email',
-            'Employee Phone' => 'employee_phone',
+            'User Name' => 'user_name',
+            'User Email' => 'user_email',
+            'User Phone' => 'user_phone',
             'Proposal Number' => 'proposal_number',
             'Proposal Date' => 'proposal_date',
             'Due Date' => 'due_date',
@@ -65,8 +67,8 @@ class ProposalSetupController extends Controller
 
     public function createDefaultPage()
     {
-        $settings = ProposalSetting::getSettings(Auth::id());
-        $maxSortOrder = ProposalDefaultPage::where('creator_id', Auth::id())->max('sort_order') ?? 0;
+        $settings = ProposalSetting::getSettings(creatorId());
+        $maxSortOrder = ProposalDefaultPage::where('creator_id', creatorId())->max('sort_order') ?? 0;
 
         return Inertia::render('SalesProposalSetup/DefaultPages/Create', [
             'settings' => $settings,
@@ -79,7 +81,8 @@ class ProposalSetupController extends Controller
     {
         $validated = $request->validated();
         ProposalDefaultPage::create(array_merge($validated, [
-            'creator_id' => Auth::id(),
+            'creator_id' => creatorId(),
+            'created_by' => Auth::id(),
             'page_type' => $request->input('page_type', 'general'),
             'content' => $request->input('content', ''),
             'background_image' => $request->input('background_image'),
@@ -90,9 +93,18 @@ class ProposalSetupController extends Controller
         return redirect()->route('proposal-setup.index')->with('success', __('Default page created successfully.'));
     }
 
+    private function authorizePage(ProposalDefaultPage $defaultPage): bool
+    {
+        return $defaultPage->creator_id == creatorId() && $defaultPage->created_by == Auth::id();
+    }
+
     public function editDefaultPage(ProposalDefaultPage $defaultPage)
     {
-        $settings = ProposalSetting::getSettings(Auth::id());
+        if (!$this->authorizePage($defaultPage)) {
+            return redirect()->route('proposal-setup.index')->with('error', __('Unauthorized access.'));
+        }
+
+        $settings = ProposalSetting::getSettings(creatorId());
 
         return Inertia::render('SalesProposalSetup/DefaultPages/Edit', [
             'settings' => $settings,
@@ -103,8 +115,14 @@ class ProposalSetupController extends Controller
 
     public function updateDefaultPage(UpdateDefaultPageRequest $request, ProposalDefaultPage $defaultPage)
     {
+        if (!$this->authorizePage($defaultPage)) {
+            return redirect()->route('proposal-setup.index')->with('error', __('Unauthorized access.'));
+        }
+
         $validated = $request->validated();
         $defaultPage->update(array_merge($validated, [
+            'creator_id' => creatorId(),
+            'created_by' => Auth::id(),
             'page_type' => $request->input('page_type', $defaultPage->page_type),
             'content' => $request->has('content') ? $request->input('content', '') : $defaultPage->content,
             'background_image' => $request->has('background_image') ? $request->input('background_image') : $defaultPage->background_image,
@@ -117,6 +135,10 @@ class ProposalSetupController extends Controller
 
     public function destroyDefaultPage(ProposalDefaultPage $defaultPage)
     {
+        if (!$this->authorizePage($defaultPage)) {
+            return redirect()->back()->with('error', __('Unauthorized access.'));
+        }
+
         $defaultPage->delete();
 
         return redirect()->back()->with('success', __('Default page deleted successfully.'));

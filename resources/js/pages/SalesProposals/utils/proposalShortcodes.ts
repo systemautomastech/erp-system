@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { getCompanySetting, getAdminSetting, getImagePath, formatDate, formatCurrency } from '@/utils/helpers';
 
 export interface ProposalShortcodeContext {
@@ -52,28 +53,41 @@ export const replaceProposalShortcodes = (
 ): string => {
   if (!content) return '';
 
-  const companyName = getCompanySetting('company_name', context.pageProps) || context.settings?.company_name || 'My Company Ltd.';
-  const companyEmail = getCompanySetting('company_email', context.pageProps) || context.settings?.company_email || 'info@company.com';
+  let pageProps = context.pageProps;
+  if (!pageProps) {
+    try {
+      const page = usePage();
+      pageProps = page?.props;
+    } catch {
+      // Fallback for non-React contexts or when outside Inertia Provider
+      if (typeof window !== 'undefined' && (window as any)?.__INITIAL_PAGE__?.props) {
+        pageProps = (window as any).__INITIAL_PAGE__.props;
+      }
+    }
+  }
+
+  const companyName = getCompanySetting('company_name', pageProps) || context.settings?.company_name || 'My Company Ltd.';
+  const companyEmail = getCompanySetting('company_email', pageProps) || context.settings?.company_email || 'info@company.com';
   const companyPhone =
-    getCompanySetting('company_telephone', context.pageProps) ||
-    getCompanySetting('company_phone', context.pageProps) ||
+    getCompanySetting('company_telephone', pageProps) ||
+    getCompanySetting('company_phone', pageProps) ||
     context.settings?.company_telephone ||
     context.settings?.company_phone ||
     '+880 1234-567890';
-  const companyAddress = getCompanySetting('company_address', context.pageProps) || context.settings?.company_address || '123 Main Street, Dhaka, Bangladesh';
-  const companyWebsite = getCompanySetting('company_website', context.pageProps) || context.settings?.company_website || 'https://www.example.com';
-  const appName = companyName || getAdminSetting('app_name', context.pageProps) || 'ERP System';
+  const companyAddress = getCompanySetting('company_address', pageProps) || context.settings?.company_address || '123 Main Street, Dhaka, Bangladesh';
+  const companyWebsite = getCompanySetting('company_website', pageProps) || context.settings?.company_website || 'https://www.example.com';
+  const appName = companyName || getAdminSetting('app_name', pageProps) || 'ERP System';
 
   const rawCompanyLogo =
-    getCompanySetting('logo_dark', context.pageProps) ||
-    getCompanySetting('logo_light', context.pageProps) ||
-    getCompanySetting('logo', context.pageProps) ||
-    getCompanySetting('company_logo', context.pageProps) ||
-    getCompanySetting('company_dark_logo', context.pageProps) ||
-    getCompanySetting('company_light_logo', context.pageProps) ||
-    getAdminSetting('logo_dark', context.pageProps) ||
-    getAdminSetting('logo_light', context.pageProps) ||
-    getAdminSetting('logo', context.pageProps) ||
+    getCompanySetting('logo_dark', pageProps) ||
+    getCompanySetting('logo_light', pageProps) ||
+    getCompanySetting('logo', pageProps) ||
+    getCompanySetting('company_logo', pageProps) ||
+    getCompanySetting('company_dark_logo', pageProps) ||
+    getCompanySetting('company_light_logo', pageProps) ||
+    getAdminSetting('logo_dark', pageProps) ||
+    getAdminSetting('logo_light', pageProps) ||
+    getAdminSetting('logo', pageProps) ||
     'uploads/logo/logo_dark.png';
   const companyLogoUrl = getImagePath(rawCompanyLogo);
 
@@ -110,16 +124,43 @@ export const replaceProposalShortcodes = (
     context.proposal?.customer_address ||
     '';
 
-  const employeeUser = context.creator || context.proposal?.creator || context.employee || context.pageProps?.auth?.user || {};
-  const employeeName = employeeUser?.name || context.formData?.creator_name || context.formData?.employee_name || '';
-  const employeeEmail = employeeUser?.email || context.formData?.creator_email || context.formData?.employee_email || '';
-  const employeePhone =
-    employeeUser?.mobile_no ||
-    employeeUser?.phone ||
-    employeeUser?.mobile ||
-    context.formData?.creator_phone ||
-    context.formData?.employee_phone ||
+  const authUser =
+    context.user ||
+    context.creator ||
+    context.author ||
+    context.proposal?.creator ||
+    context.proposal?.author ||
+    context.employee ||
+    pageProps?.auth?.user ||
+    (typeof window !== 'undefined' ? (window as any)?.__INITIAL_PAGE__?.props?.auth?.user : null) ||
+    {};
+
+  const employeeRecord = authUser?.employee || context.employeeRecord || null;
+
+  // Check if he is an employee: prefer employee info if available, otherwise user info
+  const userName =
+    authUser?.name ||
+    context.formData?.user_name ||
+    context.formData?.creator_name ||
     '';
+
+  const userEmail =
+    authUser?.email ||
+    context.formData?.user_email ||
+    context.formData?.creator_email ||
+    '';
+
+  const userPhone =
+    employeeRecord?.emergency_contact_number ||
+    authUser?.mobile_no ||
+    authUser?.phone ||
+    authUser?.mobile ||
+    authUser?.telephone ||
+    context.formData?.user_phone ||
+    context.formData?.creator_phone ||
+    '';
+
+  const userId = employeeRecord?.employee_id || (authUser?.id ? String(authUser.id) : (context.formData?.user_id || ''));
 
   const subTotal = context.totals?.subtotal ?? context.formData?.subtotal ?? context.proposal?.subtotal;
   const totalTax = context.totals?.tax_amount ?? context.totals?.taxAmount ?? context.formData?.tax_amount ?? context.proposal?.tax_amount;
@@ -134,9 +175,13 @@ export const replaceProposalShortcodes = (
     company_telephone: companyPhone,
     company_address: companyAddress,
     company_website: companyWebsite,
-    employee_name: employeeName,
-    employee_email: employeeEmail,
-    employee_phone: employeePhone,
+    user_id: userId,
+    user_name: userName,
+    user_email: userEmail,
+    user_phone: userPhone,
+    creator_name: userName,
+    creator_email: userEmail,
+    creator_phone: userPhone,
     proposal_subject: proposalSubject,
     proposal_number: proposalNumber,
     proposal_date: formattedProposalDate,

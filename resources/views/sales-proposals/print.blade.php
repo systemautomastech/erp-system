@@ -71,11 +71,12 @@
         $rawProposalLogo = $proposalSetting['logo_image'] ?? $rawCompanyLogo;
         $proposalLogoUrl = $getImagePath($rawProposalLogo) ?: $logoImage;
 
-        $creatorUser = \App\Models\User::find($proposal->creator_id ?? $proposal->created_by);
+        $authorUser = \App\Models\User::with('employee')->find($proposal->created_by ?? $proposal->creator_id);
+        $employeeRecord = $authorUser?->employee;
         $compPhone = $proposalSetting['company_telephone'] 
             ?? $proposalSetting['company_phone'] 
-            ?? company_setting('company_telephone', $proposal->created_by) 
-            ?? company_setting('company_phone', $proposal->created_by) 
+            ?? company_setting('company_telephone', $proposal->creator_id ?? $proposal->created_by) 
+            ?? company_setting('company_phone', $proposal->creator_id ?? $proposal->created_by) 
             ?? '';
 
         $custAddr = $customer->address ?? '';
@@ -87,10 +88,11 @@
             }
         }
 
-        $creatorName = $creatorUser?->name ?? 'Administrator';
-        $creatorDesignation = $creatorUser?->designation ?? 'Sales Representative';
-        $creatorEmail = $creatorUser?->email ?? '';
-        $creatorPhone = $creatorUser?->phone ?? '';
+        $authorName = $authorUser?->name ?? 'Administrator';
+        $authorDesignation = $employeeRecord?->designation?->name ?? $authorUser?->designation ?? 'Sales Representative';
+        $authorEmail = $authorUser?->email ?? '';
+        $authorPhone = $employeeRecord?->emergency_contact_number ?? $authorUser?->mobile_no ?? $authorUser?->phone ?? '';
+        $authorId = $employeeRecord?->employee_id ?? ($authorUser?->id ?? '');
 
         $rawDate = $proposal->proposal_date ?? $proposal->invoice_date ?? null;
         $rawDueDate = $proposal->due_date ?? null;
@@ -98,12 +100,12 @@
         $proposalDueDateFormatted = $rawDueDate ? \Carbon\Carbon::parse($rawDueDate)->format('j F Y') : '';
 
         $values = [
-            'company_name' => $proposalSetting['company_name'] ?? company_setting('company_name', $proposal->created_by) ?? config('app.name', 'Automas'),
-            'company_email' => $proposalSetting['company_email'] ?? company_setting('company_email', $proposal->created_by) ?? '',
+            'company_name' => $proposalSetting['company_name'] ?? company_setting('company_name', $proposal->creator_id ?? $proposal->created_by) ?? config('app.name', 'Automas'),
+            'company_email' => $proposalSetting['company_email'] ?? company_setting('company_email', $proposal->creator_id ?? $proposal->created_by) ?? '',
             'company_phone' => $compPhone,
             'company_telephone' => $compPhone,
-            'company_address' => $proposalSetting['company_address'] ?? company_setting('company_address', $proposal->created_by) ?? '',
-            'company_website' => $proposalSetting['company_website'] ?? company_setting('company_website', $proposal->created_by) ?? '',
+            'company_address' => $proposalSetting['company_address'] ?? company_setting('company_address', $proposal->creator_id ?? $proposal->created_by) ?? '',
+            'company_website' => $proposalSetting['company_website'] ?? company_setting('company_website', $proposal->creator_id ?? $proposal->created_by) ?? '',
             'proposal_number' => $proposal->proposal_number,
             'proposal_subject' => $proposal->subject,
             'subject' => $proposal->subject,
@@ -117,10 +119,14 @@
             'customer_email' => $customer->email ?? '',
             'customer_phone' => $customer->mobile_no ?? $customer->phone ?? '',
             'customer_address' => $custAddr,
-            'creator_name' => $creatorName,
-            'creator_designation' => $creatorDesignation,
-            'creator_email' => $creatorEmail,
-            'creator_phone' => $creatorPhone,
+            'user_id' => $authorId,
+            'user_name' => $authorName,
+            'user_email' => $authorEmail,
+            'user_phone' => $authorPhone,
+            'creator_name' => $authorName,
+            'creator_designation' => $authorDesignation,
+            'creator_email' => $authorEmail,
+            'creator_phone' => $authorPhone,
             'proposal_validity' => $proposal->payment_terms ?? '',
             'payment_terms' => $proposal->payment_terms ?? '',
             'terms' => $proposal->payment_terms ?? '',

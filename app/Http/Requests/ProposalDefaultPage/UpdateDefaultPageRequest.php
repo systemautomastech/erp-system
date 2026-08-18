@@ -23,7 +23,7 @@ class UpdateDefaultPageRequest extends FormRequest
     {
         if (!$this->has('creator_id') && auth()->check()) {
             $this->merge([
-                'creator_id' => auth()->id(),
+                'creator_id' => creatorId(),
             ]);
         }
     }
@@ -48,7 +48,7 @@ class UpdateDefaultPageRequest extends FormRequest
                 'integer',
                 'min:1',
                 Rule::unique('proposal_default_pages', 'sort_order')
-                    ->where(fn ($query) => $query->where('creator_id', auth()->id()))
+                    ->where(fn ($query) => $query->where('creator_id', creatorId()))
                     ->ignore($pageId),
             ],
             'creator_id' => 'nullable|exists:users,id',

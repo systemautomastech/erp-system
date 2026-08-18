@@ -87,11 +87,11 @@ export const defaultProposalVariableGroups: VariableGroup[] = [
         ],
     },
     {
-        title: 'Employee',
+        title: 'User',
         items: [
-            { label: 'Employee Name', key: 'employee_name' },
-            { label: 'Employee Email', key: 'employee_email' },
-            { label: 'Employee Phone', key: 'employee_phone' },
+            { label: 'User Name', key: 'user_name' },
+            { label: 'User Email', key: 'user_email' },
+            { label: 'User Phone', key: 'user_phone' },
         ],
     },
     {
@@ -307,7 +307,7 @@ const LiveA4Editor: React.FC<LiveA4EditorProps> = ({
 
 export default function Edit({ settings, defaultPage, variables }: EditProps) {
     const { t } = useTranslation();
-    const availableVariables = variables && Object.keys(variables).length > 0 ? variables : defaultProposalVariables;
+    const availableVariables = variables && Object.keys(variables).length > 0 ? variables : defaultProposalVariableGroups;
     const templateColor = settings?.template_color || '#E9591C';
     const defaultTemplateBg = settings?.background_image || '';
 

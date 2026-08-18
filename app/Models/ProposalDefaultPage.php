@@ -14,5 +14,16 @@ class ProposalDefaultPage extends Model
         'sort_order',
         'is_active',
         'creator_id',
+        'created_by',
     ];
+
+    public function company()
+    {
+        return $this->belongsTo(User::class, 'creator_id');
+    }
+
+    public function creatorUser()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

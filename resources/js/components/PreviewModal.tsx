@@ -149,17 +149,24 @@ export const FALLBACK_LOGO = 'uploads/logo/logo_dark.png';
 
 export const PROPOSAL_CONTENT_CLASSES = `
     text-slate-800 text-sm leading-normal
-    [&>p]:mb-2 [&>p:last-child]:mb-0
-    [&_p:empty]:min-h-[1.15em] [&_p:empty]:mb-0 [&_p:empty]:before:content-['\\00a0']
-    [&_p:has(>br:only-child)]:min-h-[1.15em] [&_p:has(>br:only-child)]:mb-0
-    [&>ul:not([class])]:list-disc [&>ul:not([class])]:pl-5 [&>ul:not([class])]:mb-3
-    [&>ol:not([class])]:list-decimal [&>ol:not([class])]:pl-5 [&>ol:not([class])]:mb-3
-    [&_table]:w-full [&_table]:text-xs [&_table]:border-collapse [&_table]:my-4 [&_table]:border [&_table]:border-slate-300 [&_table]:rounded-sm
+    [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2 [&_h1]:text-slate-900
+    [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h2]:text-slate-900
+    [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-1 [&_h3]:text-slate-900
+    [&_h4]:text-base [&_h4]:font-semibold [&_h4]:my-1 [&_h4]:text-slate-900
+    [&_p]:my-1 [&>p:first-child]:mt-0 [&>p:last-child]:mb-0
+    [&_p:empty]:min-h-[1.15em] [&_p:empty]:my-0 [&_p:empty]:before:content-['\\00a0']
+    [&_p:has(>br:only-child)]:min-h-[1.15em] [&_p:has(>br:only-child)]:my-0
+    [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2
+    [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
+    [&_li]:my-0.5
+    [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2
+    [&_table]:w-full [&_table]:table-auto [&_table]:border-collapse [&_table]:my-4 [&_table]:border [&_table]:border-slate-300
     [&_thead]:bg-[var(--template-color,#E9591C)] [&_thead]:text-white
     [&_thead_tr]:bg-[var(--template-color,#E9591C)] [&_thead_tr]:text-white
-    [&_th]:border [&_th]:border-slate-300 [&_th]:bg-[var(--template-color,#E9591C)] [&_th]:text-white [&_th]:font-semibold [&_th]:py-2 [&_th]:px-3 [&_th]:text-left
-    [&_td]:border [&_td]:border-slate-200 [&_td]:py-2 [&_td]:px-3 [&_td]:text-slate-700 [&_td]:text-xs
+    [&_th]:border [&_th]:border-slate-300 [&_th]:bg-[var(--template-color,#E9591C)] [&_th]:text-white [&_th]:font-bold [&_th]:p-2.5 [&_th]:text-left
+    [&_td]:border [&_td]:border-slate-300 [&_td]:p-2.5 [&_td]:text-slate-800
     [&_img]:inline-block [&_img]:align-middle [&_[style*="text-align:_center"]_img]:mx-auto [&_[style*="text-align:center"]_img]:mx-auto [&_.text-center_img]:mx-auto
+    [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800
 `;
 
 const PRINT_STYLES = `
@@ -332,10 +339,12 @@ const getPageBgStyle = (
     customBg?: string,
     defaultBg?: string
 ): React.CSSProperties => {
-    const bg = customBg || defaultBg;
-    if (!bg) return {};
+    const bg = (customBg && String(customBg).trim() !== '') ? customBg : defaultBg;
+    if (!bg || typeof bg !== 'string' || bg.trim() === '') return {};
+    const imgUrl = getImagePath(bg);
+    if (!imgUrl) return {};
     return {
-        backgroundImage: `url(${getImagePath(bg)})`,
+        backgroundImage: `url("${imgUrl}")`,
         backgroundSize: '100% 100%',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -770,10 +779,28 @@ export default function PreviewModal({
         [availableProducts]
     );
 
-    const customer = useMemo(
-        () => customers.find((c) => String(c.id) === String(formData?.customer_id)),
-        [customers, formData?.customer_id]
-    );
+    const customer = useMemo(() => {
+        if ((formData as any)?.customer_mode === 'new') {
+            return {
+                id: 0,
+                name: (formData as any)?.customer_name || '',
+                email: (formData as any)?.customer_email || '',
+                mobile_no: (formData as any)?.customer_phone || '',
+                phone: (formData as any)?.customer_phone || '',
+                address: (formData as any)?.customer_address || '',
+                type: (formData as any)?.customer_type || 'Individual',
+            };
+        }
+        return customers.find((c) => String(c.id) === String(formData?.customer_id));
+    }, [
+        customers,
+        formData?.customer_id,
+        (formData as any)?.customer_mode,
+        (formData as any)?.customer_name,
+        (formData as any)?.customer_email,
+        (formData as any)?.customer_phone,
+        (formData as any)?.customer_address,
+    ]);
 
     // Build Renderable Pages for Full Proposal Mode
     const renderablePages = useMemo(() => {

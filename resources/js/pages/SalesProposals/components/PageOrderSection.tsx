@@ -80,9 +80,9 @@ const defaultProposalVariables: Record<string, string> = {
     'Company Phone': 'company_phone',
     'Company Address': 'company_address',
     'Company Website': 'company_website',
-    'Employee Name': 'employee_name',
-    'Employee Email': 'employee_email',
-    'Employee Phone': 'employee_phone',
+    'User Name': 'user_name',
+    'User Email': 'user_email',
+    'User Phone': 'user_phone',
     'Proposal Number': 'proposal_number',
     'Proposal Date': 'proposal_date',
     'Due Date': 'due_date',
@@ -852,7 +852,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                                 <ProposalPreviewSheet
                                                                     key={pageIdx}
                                                                     pageKey={`page-order-preview-${pageIdx}`}
-                                                                    backgroundImage={modalBgImage}
+                                                                    backgroundImage={modalBackground}
                                                                     defaultBg={defaultTemplateBg}
                                                                     templateColor={templateColor}
                                                                     headerLogo={logoUrl}
@@ -863,7 +863,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                             <ProposalPreviewSheet
                                                                 key="page-order-preview-0"
                                                                 pageKey="page-order-preview-0"
-                                                                backgroundImage={modalBgImage}
+                                                                backgroundImage={modalBackground}
                                                                 defaultBg={defaultTemplateBg}
                                                                 templateColor={templateColor}
                                                                 headerLogo={logoUrl}

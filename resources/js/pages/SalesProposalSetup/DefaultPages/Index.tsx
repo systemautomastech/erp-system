@@ -28,6 +28,13 @@ interface ProposalDefaultPageItem {
     background_image?: string;
     sort_order: number;
     is_active: boolean;
+    creator_id?: number;
+    created_by?: number;
+    creator_user?: {
+        id: number;
+        name: string;
+        email: string;
+    };
 }
 
 interface DefaultPagesIndexProps {
