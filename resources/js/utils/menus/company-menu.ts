@@ -46,18 +46,18 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
         ],
     },
     {
-        title: t('Sales Invoice'),
+        title: t('Invoice'),
         icon: Receipt,
         permission: 'manage-sales-invoices',
         order: 35,
         children: [
             {
-                title: t('Sales Invoice'),
+                title: t('Invoice'),
                 href: route('sales-invoices.index'),
                 permission: 'manage-sales-invoices',
             },
             {
-                title: t('Sales Invoice Returns'),
+                title: t('Invoice Returns'),
                 href: route('sales-returns.index'),
                 permission: 'manage-sales-return-invoices',
             },

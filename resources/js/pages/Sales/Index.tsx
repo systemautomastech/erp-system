@@ -406,8 +406,8 @@ export default function Index() {
     return (
         <TooltipProvider>
             <AuthenticatedLayout
-                breadcrumbs={[{label: t('Sales Invoices')}]}
-                pageTitle={t('Manage Sales Invoices')}
+                breadcrumbs={[{label: t('Invoices')}]}
+                pageTitle={t('Manage Invoices')}
                 pageActions={
                     <div className="flex flex-wrap gap-2">
                         <TooltipProvider>
@@ -445,7 +445,7 @@ export default function Index() {
                     </div>
                 }
             >
-            <Head title={t('Sales Invoices')} />
+            <Head title={t('Invoices')} />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 {financeCards.map((card) => {
@@ -659,7 +659,7 @@ export default function Index() {
                                         onClearFilters={clearFilters}
                                         createPermission="create-sales-invoices"
                                         onCreateClick={() => router.visit(route('sales-invoices.create'))}
-                                        createButtonText={t('Create Sales Invoice')}
+                                        createButtonText={t('Create Invoice')}
                                         className="h-auto"
                                     />
                                 }
@@ -680,7 +680,7 @@ export default function Index() {
             <ConfirmationDialog
                 open={deleteState.isOpen}
                 onOpenChange={closeDeleteDialog}
-                title={t('Delete Sales Invoice')}
+                title={t('Delete Invoice')}
                 message={deleteState.message}
                 confirmText={t('Delete')}
                 onConfirm={confirmDelete}

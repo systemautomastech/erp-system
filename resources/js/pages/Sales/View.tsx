@@ -41,10 +41,10 @@ export default function View() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Sales Invoice'), url: route('sales-invoices.index')},
-                {label: t('Sales Invoice Details')}
+                {label: t('Invoice'), url: route('sales-invoices.index')},
+                {label: t('Invoice Details')}
             ]}
-            pageTitle={`${t('Sales Invoice')} #${invoice.invoice_number}`}
+            pageTitle={`${t('Invoice')} #${invoice.invoice_number}`}
             pageActions={
                 <Button
                     variant="outline"
@@ -56,7 +56,7 @@ export default function View() {
                 </Button>
             }
         >
-            <Head title={`${t('Sales Invoice')} #${invoice.invoice_number}`} />
+            <Head title={`${t('Invoice')} #${invoice.invoice_number}`} />
 
             <div className="space-y-6">
                 <Card>

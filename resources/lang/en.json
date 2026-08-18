@@ -1860,5 +1860,14 @@
     "VAT/Tax": "VAT/Tax",
     "Employee Name": "Employee Name",
     "Employee Email": "Employee Email",
-    "Employee Phone": "Employee Phone"
+    "Employee Phone": "Employee Phone",
+    "Sales Invoice": "Invoice",
+    "Sales Invoices": "Invoices",
+    "Create Sales Invoice": "Create Invoice",
+    "Edit Sales Invoice": "Edit Invoice",
+    "Delete Sales Invoice": "Delete Invoice",
+    "Manage Sales Invoices": "Manage Invoices",
+    "Sales Invoice Details": "Invoice Details",
+    "Sales Invoice Items": "Invoice Items",
+    "Sales Invoice Returns": "Invoice Returns"
 }

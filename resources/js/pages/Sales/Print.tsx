@@ -124,7 +124,7 @@ export default function Print() {
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title={t('Sales Invoice')} />
+            <Head title={t('Invoice')} />
 
             {isDownloading && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
