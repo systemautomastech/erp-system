@@ -14,6 +14,9 @@ import {
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog';
+import RichTextEditor from '@/components/ui/rich-text-editor';
+import MediaPicker from '@/components/MediaPicker';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
     FileText,
     Plus,
@@ -29,13 +32,19 @@ import {
     PenTool,
     Eye,
     X,
+    Settings,
+    Info,
+    Image as ImageIcon,
 } from 'lucide-react';
-import RichTextEditor from '@/components/ui/rich-text-editor';
-import MediaPicker from '@/components/MediaPicker';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getImagePath } from '@/utils/helpers';
-import { replaceProposalShortcodes } from '@/utils/proposalShortcodes';
+import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
+import {
+    ProposalPreviewSheet,
+    paginateDomContainer,
+    PROPOSAL_CONTENT_CLASSES,
+} from '@/components/PreviewModal';
 
 export interface ProposalSectionItem {
     id: string;
@@ -87,166 +96,7 @@ const defaultProposalVariables: Record<string, string> = {
     'Total Discount': 'total_discount',
 };
 
-const PROPOSAL_CONTENT_CLASSES = `
-    text-slate-800 text-sm leading-normal
-    [&>p]:mb-2 [&>p:last-child]:mb-0
-    [&_p:empty]:min-h-[1.15em] [&_p:empty]:mb-0 [&_p:empty]:before:content-['\\00a0']
-    [&_p:has(>br:only-child)]:min-h-[1.15em] [&_p:has(>br:only-child)]:mb-0
-    [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-3
-    [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-3
-    [&_li]:my-1
-    [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-slate-900 [&_h1]:my-3
-    [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-slate-900 [&_h2]:my-2.5
-    [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-slate-900 [&_h3]:my-2
-    [&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-slate-900 [&_h4]:my-1.5
-    [&_blockquote]:border-l-4 [&_blockquote]:border-[var(--template-color,#E9591C)] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3 [&_blockquote]:text-slate-600
-    [&_a]:text-blue-600 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-blue-800
-    [&_table]:w-full [&_table]:text-xs [&_table]:border-collapse [&_table]:my-4 [&_table]:border [&_table]:border-slate-300 [&_table]:rounded-sm [&_table]:overflow-hidden
-    [&_thead]:bg-[var(--template-color,#E9591C)] [&_thead]:text-white
-    [&_th]:border [&_th]:border-slate-300 [&_th]:bg-[var(--template-color,#E9591C)] [&_th]:text-white [&_th]:font-semibold [&_th]:py-2 [&_th]:px-3 [&_th]:text-left
-    [&_td]:border [&_td]:border-slate-200 [&_td]:py-2 [&_td]:px-3 [&_td]:text-slate-700 [&_td]:text-xs
-    [&_tr:first-child_th]:bg-[var(--template-color,#E9591C)] [&_tr:first-child_th]:text-white
-    [&_tr:first-child_td]:bg-[var(--template-color,#E9591C)] [&_tr:first-child_td]:text-white [&_tr:first-child_td]:font-semibold
-    [&_tr:not(:first-child):hover]:bg-slate-50/60
-`;
 
-/**
- * Paginates rendered DOM nodes from measuring container into A4 page chunks (~900px budget per page)
- */
-function paginateDomContainer(container: HTMLElement, maxPageHeight: number = 900): string[] {
-    const pages: string[] = [];
-    let currentPageHtml: string[] = [];
-    let currentPageAccumulatedHeight = 0;
-
-    const startNewPage = () => {
-        if (currentPageHtml.length > 0) {
-            pages.push(currentPageHtml.join(''));
-            currentPageHtml = [];
-            currentPageAccumulatedHeight = 0;
-        }
-    };
-
-    const processElement = (el: HTMLElement) => {
-        if (
-            el.classList?.contains('page-break') ||
-            el.style?.pageBreakAfter === 'always' ||
-            el.style?.pageBreakBefore === 'always' ||
-            el.style?.breakAfter === 'page' ||
-            el.style?.breakBefore === 'page'
-        ) {
-            startNewPage();
-            return;
-        }
-
-        const tag = el.tagName.toLowerCase();
-
-        // Wrapper elements -> unwrap and process individual child elements
-        if ((tag === 'div' || tag === 'section' || tag === 'article' || tag === 'main') && el.children.length > 0) {
-            Array.from(el.children).forEach((child) => processElement(child as HTMLElement));
-            return;
-        }
-
-        // Table splitting row-by-row
-        if (tag === 'table') {
-            const tableHeight = el.offsetHeight || 50;
-            if (currentPageAccumulatedHeight + tableHeight > maxPageHeight) {
-                const thead = el.querySelector('thead');
-                const theadHtml = thead ? thead.outerHTML : '';
-                const rows = Array.from(el.querySelectorAll('tbody > tr, tr'));
-                const tableClasses = el.getAttribute('class') || '';
-                const tableStyle = el.getAttribute('style') || '';
-
-                if (rows.length > 1) {
-                    let currentTableRows: string[] = [];
-                    let currentTableChunkHeight = thead ? (thead as HTMLElement).offsetHeight : 0;
-
-                    for (const row of rows) {
-                        if (row.parentElement?.tagName.toLowerCase() === 'thead') continue;
-
-                        const rowHeight = (row as HTMLElement).offsetHeight || 28;
-
-                        if (currentPageAccumulatedHeight + currentTableChunkHeight + rowHeight > maxPageHeight && (currentPageHtml.length > 0 || currentTableRows.length > 0)) {
-                            if (currentTableRows.length > 0) {
-                                currentPageHtml.push(`<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`);
-                                currentPageAccumulatedHeight += currentTableChunkHeight;
-                            }
-                            startNewPage();
-                            currentTableRows = [];
-                            currentTableChunkHeight = thead ? (thead as HTMLElement).offsetHeight : 0;
-                        }
-
-                        currentTableRows.push(row.outerHTML);
-                        currentTableChunkHeight += rowHeight;
-                    }
-
-                    if (currentTableRows.length > 0) {
-                        currentPageHtml.push(`<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`);
-                        currentPageAccumulatedHeight += currentTableChunkHeight;
-                    }
-                    return;
-                }
-            }
-        }
-
-        // List splitting item-by-item
-        if (tag === 'ul' || tag === 'ol') {
-            const listHeight = el.offsetHeight || 40;
-            if (currentPageAccumulatedHeight + listHeight > maxPageHeight) {
-                const items = Array.from(el.querySelectorAll(':scope > li'));
-                if (items.length > 1) {
-                    const listClasses = el.getAttribute('class') || '';
-                    const listStyle = el.getAttribute('style') || '';
-                    let currentListItems: string[] = [];
-                    let currentListChunkHeight = 0;
-
-                    for (const li of items) {
-                        const liHeight = (li as HTMLElement).offsetHeight || 22;
-
-                        if (currentPageAccumulatedHeight + currentListChunkHeight + liHeight > maxPageHeight && (currentPageHtml.length > 0 || currentListItems.length > 0)) {
-                            if (currentListItems.length > 0) {
-                                currentPageHtml.push(`<${tag} class="${listClasses}" style="${listStyle}">${currentListItems.join('')}</${tag}>`);
-                                currentPageAccumulatedHeight += currentListChunkHeight;
-                            }
-                            startNewPage();
-                            currentListItems = [];
-                            currentListChunkHeight = 0;
-                        }
-
-                        currentListItems.push(li.outerHTML);
-                        currentListChunkHeight += liHeight;
-                    }
-
-                    if (currentListItems.length > 0) {
-                        currentPageHtml.push(`<${tag} class="${listClasses}" style="${listStyle}">${currentListItems.join('')}</${tag}>`);
-                        currentPageAccumulatedHeight += currentListChunkHeight;
-                    }
-                    return;
-                }
-            }
-        }
-
-        // Standard block element (p, h1-h6, blockquote, img, etc.)
-        const elHeight = el.offsetHeight || 25;
-        const computedStyle = window.getComputedStyle(el);
-        const margin = (parseFloat(computedStyle.marginTop) || 0) + (parseFloat(computedStyle.marginBottom) || 0);
-        const totalElHeight = elHeight + margin;
-
-        if (currentPageAccumulatedHeight + totalElHeight > maxPageHeight && currentPageHtml.length > 0) {
-            startNewPage();
-        }
-
-        currentPageHtml.push(el.outerHTML);
-        currentPageAccumulatedHeight += totalElHeight;
-    };
-
-    Array.from(container.children).forEach((child) => processElement(child as HTMLElement));
-
-    if (currentPageHtml.length > 0) {
-        pages.push(currentPageHtml.join(''));
-    }
-
-    return pages.length > 0 ? pages : [container.innerHTML];
-}
 
 export default function PageOrderSection({ sections, setSections, defaultPages = [], proposalSetting: propSetting }: Props) {
     const { t } = useTranslation();
@@ -278,6 +128,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     // Editor mode ('rich' | 'code' | 'preview')
     const [editorMode, setEditorMode] = useState<'rich' | 'code' | 'preview'>('rich');
     const [editorKey, setEditorKey] = useState(0);
+    const [modalBgType, setModalBgType] = useState<'default' | 'custom'>('default');
 
     // Drag and drop state
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -334,19 +185,21 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         setEditorMode('rich');
         if (defaultPages && defaultPages.length > 0) {
             setAddTab('existing');
-            const firstNonFront = defaultPages.find(p => p.page_type !== 'front-page') || defaultPages[0];
-            setSelectedDefaultPage(firstNonFront);
-            setModalTitle(firstNonFront.title || '');
-            setModalContent(firstNonFront.content || '');
-            setModalBackground(firstNonFront.background_image || '');
-            setModalPageType(firstNonFront.page_type || 'general');
+            const firstPage = defaultPages[0];
+            setSelectedDefaultPage(firstPage);
+            setModalTitle(firstPage.title || '');
+            setModalContent(firstPage.content || '');
+            setModalBackground(firstPage.background_image || '');
+            setModalBgType(Boolean(firstPage.background_image && String(firstPage.background_image).trim() !== '') ? 'custom' : 'default');
+            setModalPageType(firstPage.page_type || 'content');
         } else {
             setAddTab('new');
             setSelectedDefaultPage(null);
             setModalTitle('');
             setModalContent('');
             setModalBackground('');
-            setModalPageType('general');
+            setModalBgType('default');
+            setModalPageType('content');
         }
         setIsModalOpen(true);
     };
@@ -357,6 +210,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         setModalTitle(page.title);
         setModalContent(page.content || '');
         setModalBackground(page.background_image || '');
+        setModalBgType(Boolean(page.background_image && String(page.background_image).trim() !== '') ? 'custom' : 'default');
         setModalPageType(page.page_type || 'general');
     };
 
@@ -378,6 +232,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         setModalTitle(sec.title);
         setModalContent(sec.content || '');
         setModalBackground(sec.background_image || '');
+        setModalBgType(Boolean(sec.background_image && String(sec.background_image).trim() !== '') ? 'custom' : 'default');
         setModalPageType(sec.page_type || 'general');
         setEditorMode('rich');
         setIsModalOpen(true);
@@ -391,12 +246,11 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         }
 
         if (modalMode === 'add') {
-            const isFront = modalPageType === 'front-page' || modalTitle.toLowerCase().includes('front page');
             const newSection: ProposalSectionItem = {
                 id: `sec-${Date.now()}`,
                 title: modalTitle.trim(),
                 content: modalContent,
-                page_type: isFront ? 'front-page' : modalPageType,
+                page_type: modalPageType || 'content',
                 background_image: modalBackground,
                 order: sections.length + 1,
             };
@@ -423,15 +277,23 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         setEditingSection(null);
     };
 
-    // Delete section
-    const handleRemoveSection = (id: string, pageType?: string) => {
-        if (pageType === 'otc' || pageType === 'mrc' || pageType === 'other-details') {
-            toast.error(t('Clear content from this section editor to remove this card.'));
+    // Delete section / Jump to section if dynamic
+    const handleRemoveSection = (sec: ProposalSectionItem) => {
+        if (sec.page_type === 'otc' || sec.page_type === 'mrc' || sec.page_type === 'other-details') {
+            const targetId = sec.page_type === 'otc' ? 'otc-section' : (sec.page_type === 'mrc' ? 'mrc-section' : 'other-details-section');
+            const el = document.getElementById(targetId);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('ring-4', 'ring-rose-500/50', 'transition-all');
+                setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500/50'), 2500);
+            }
+            const sectionName = sec.title || (sec.page_type === 'otc' ? 'One-Time Charges (OTC)' : (sec.page_type === 'mrc' ? 'Monthly Recurring Charges (MRC)' : 'Other Details'));
+            toast.info(t('To remove {{section}}, please delete all items or clear content from that section above.', { section: sectionName }));
             return;
         }
 
         setSections((prev) => {
-            const filtered = prev.filter((s) => s.id !== id);
+            const filtered = prev.filter((s) => s.id !== sec.id);
             return filtered.map((item, idx) => ({ ...item, order: idx + 1 }));
         });
         toast.success(t('Page removed.'));
@@ -525,7 +387,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         {sections.map((sec, index) => {
-                            const isFront = sec.page_type === 'front-page' || sec.title.toLowerCase().includes('front page');
+                            const isDynamicSection = sec.page_type === 'otc' || sec.page_type === 'mrc' || sec.page_type === 'other-details';
                             return (
                                 <div
                                     key={sec.id}
@@ -535,8 +397,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                     onDragEnd={handleDragEnd}
                                     className={cn(
                                         "group relative bg-card border rounded-xl p-3 flex flex-col justify-between gap-3 shadow-2xs hover:shadow-sm transition-all select-none",
-                                        draggedIndex === index ? "opacity-40 border-dashed border-primary ring-2 ring-primary/20" : "hover:border-primary/50",
-                                        isFront && "bg-primary/5 border-primary/30"
+                                        draggedIndex === index ? "opacity-40 border-dashed border-primary ring-2 ring-primary/20" : "hover:border-primary/50"
                                     )}
                                 >
                                     {/* Top Card Header */}
@@ -555,12 +416,6 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                 {sec.title}
                                             </h4>
                                         </div>
-
-                                        {isFront && (
-                                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 shrink-0">
-                                                {t('Cover')}
-                                            </Badge>
-                                        )}
                                         {sec.page_type === 'otc' && (
                                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/10 text-purple-600 border-purple-200 shrink-0">
                                                 {t('OTC')}
@@ -614,22 +469,21 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                 size="icon"
                                                 className="h-6 w-6 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
                                                 onClick={() => handleOpenEditModal(sec)}
-                                                title={t('Edit Page / Jump to Section')}
+                                                title={isDynamicSection ? t('Jump to Section') : t('Edit Page')}
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
                                             </Button>
-                                            {!isFront && sec.page_type !== 'otc' && sec.page_type !== 'mrc' && sec.page_type !== 'other-details' && (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                                                    onClick={() => handleRemoveSection(sec.id, sec.page_type)}
-                                                    title={t('Remove Page')}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
-                                            )}
+
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                                onClick={() => handleRemoveSection(sec)}
+                                                title={isDynamicSection ? t('Go to Section to Remove') : t('Remove Page')}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -667,7 +521,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                     onClick={() => {
                                         setAddTab('existing');
                                         if (defaultPages.length > 0) {
-                                            const first = defaultPages.find(p => p.page_type !== 'front-page') || defaultPages[0];
+                                            const first = defaultPages[0];
                                             handleSelectDefaultPage(first);
                                         }
                                     }}
@@ -791,22 +645,87 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                 value={modalTitle}
                                                 onChange={(e) => setModalTitle(e.target.value)}
                                                 placeholder={t('Enter page title')}
-                                                disabled={editingSection?.page_type === 'front-page'}
                                                 required
                                             />
                                         </div>
 
-                                        {/* Background Image Picker */}
-                                        <div className="space-y-1.5">
-                                            <Label className="text-sm font-medium">{t('Background Image')}</Label>
-                                            <MediaPicker
-                                                value={modalBackground}
-                                                onChange={(val) => setModalBackground(Array.isArray(val) ? val[0] : val)}
-                                                placeholder={t('Select Custom Background')}
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                {t('Optional custom background for this page. Overrides the template background image.')}
-                                            </p>
+                                        {/* Background Image Selection */}
+                                        <div className="space-y-2.5">
+                                            <Label className="text-sm font-medium flex items-center gap-1.5">
+                                                <ImageIcon className="h-4 w-4 text-primary" />
+                                                {t('Page Background')}
+                                            </Label>
+
+                                            <RadioGroup
+                                                value={modalBgType}
+                                                onValueChange={(val: 'default' | 'custom') => {
+                                                    setModalBgType(val);
+                                                    if (val === 'default') {
+                                                        setModalBackground('');
+                                                    }
+                                                }}
+                                                className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+                                            >
+                                                {/* Option 1: Default Background (Left) */}
+                                                <label
+                                                    htmlFor="modal-bg-type-default"
+                                                    className={cn(
+                                                        "relative flex items-center justify-between gap-2.5 p-3 rounded-xl border transition-all cursor-pointer select-none",
+                                                        modalBgType === 'default'
+                                                            ? "border-primary bg-primary/[0.03] ring-1 ring-primary/30 shadow-2xs"
+                                                            : "border-border hover:border-border/80 hover:bg-muted/30"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <RadioGroupItem value="default" id="modal-bg-type-default" className="shrink-0" />
+                                                        <div className="text-xs sm:text-sm font-medium text-foreground truncate">
+                                                            {t('Default Background')}
+                                                        </div>
+                                                    </div>
+                                                    <a
+                                                        href={route('proposal-setup.index')}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
+                                                        title={t('Change default background image in settings')}
+                                                    >
+                                                        <Settings className="h-3.5 w-3.5" />
+                                                    </a>
+                                                </label>
+
+                                                {/* Option 2: Custom Background (Right) */}
+                                                <label
+                                                    htmlFor="modal-bg-type-custom"
+                                                    className={cn(
+                                                        "relative flex items-center gap-2.5 p-3 rounded-xl border transition-all cursor-pointer select-none",
+                                                        modalBgType === 'custom'
+                                                            ? "border-primary bg-primary/[0.03] ring-1 ring-primary/30 shadow-2xs"
+                                                            : "border-border hover:border-border/80 hover:bg-muted/30"
+                                                    )}
+                                                >
+                                                    <RadioGroupItem value="custom" id="modal-bg-type-custom" className="shrink-0" />
+                                                    <div className="text-xs sm:text-sm font-medium text-foreground truncate">
+                                                        {t('Custom Background')}
+                                                    </div>
+                                                </label>
+                                            </RadioGroup>
+
+                                            {/* Upload Drawer when Custom is Selected */}
+                                            {modalBgType === 'custom' && (
+                                                <div className="p-3 rounded-xl border border-dashed border-primary/40 bg-card space-y-2 animate-in fade-in-50 duration-200">
+                                                    <MediaPicker
+                                                        value={modalBackground}
+                                                        onChange={(val) => setModalBackground(Array.isArray(val) ? val[0] : val)}
+                                                        placeholder={t('Select Custom Background')}
+                                                        showPreview={true}
+                                                    />
+                                                    <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300 bg-amber-500/10 px-2.5 py-1.5 rounded-lg border border-amber-500/20 font-medium">
+                                                        <Info className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                                        <span>{t('Up to 2MB (JPG, PNG, WebP). Recommended A4 size: 210mm × 297mm.')}</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Page Content Editor */}
@@ -930,104 +849,26 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                     <div className="p-4 sm:p-6 flex flex-col items-center gap-6 overflow-y-auto max-h-[600px] bg-slate-200/70 dark:bg-slate-900/60 rounded-lg shadow-inner">
                                                         {paginatedPreviewPages.length > 0 ? (
                                                             paginatedPreviewPages.map((pageHtml, pageIdx) => (
-                                                                <div
+                                                                <ProposalPreviewSheet
                                                                     key={pageIdx}
-                                                                    style={{
-                                                                        width: '210mm',
-                                                                        height: '297mm',
-                                                                        minHeight: '297mm',
-                                                                        maxHeight: '297mm',
-                                                                        boxSizing: 'border-box',
-                                                                        ...(bgUrl ? {
-                                                                            backgroundImage: `url(${bgUrl})`,
-                                                                            backgroundSize: '100% 100%',
-                                                                            backgroundPosition: 'center',
-                                                                            backgroundRepeat: 'no-repeat',
-                                                                        } : {})
-                                                                    }}
-                                                                    className="proposal-preview-sheet quotation-cover__sheet bg-white text-slate-900 max-w-full shadow-2xl rounded-sm text-sm font-sans border border-slate-300 dark:border-slate-800 shrink-0 relative overflow-hidden"
-                                                                >
-                                                                    {/* Top Right Header Logo */}
-                                                                    {logoUrl && (
-                                                                        <div
-                                                                            className="absolute top-[8mm] right-[15mm] z-20 pointer-events-none flex items-center justify-end"
-                                                                            style={{ maxHeight: '20mm', maxWidth: '60mm' }}
-                                                                        >
-                                                                            <img
-                                                                                src={logoUrl}
-                                                                                alt="Header Logo"
-                                                                                className="max-h-[16mm] max-w-[55mm] object-contain"
-                                                                            />
-                                                                        </div>
-                                                                    )}
-
-                                                                    {/* A4 Body Padding */}
-                                                                    <div
-                                                                        className="quotation-page__body"
-                                                                        style={{
-                                                                            position: 'relative',
-                                                                            zIndex: 1,
-                                                                            padding: '32mm 15mm 20mm',
-                                                                            height: '297mm',
-                                                                            maxHeight: '297mm',
-                                                                            boxSizing: 'border-box',
-                                                                        }}
-                                                                    >
-                                                                        <div
-                                                                            className={PROPOSAL_CONTENT_CLASSES}
-                                                                            dangerouslySetInnerHTML={{ __html: pageHtml }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
+                                                                    pageKey={`page-order-preview-${pageIdx}`}
+                                                                    backgroundImage={modalBgImage}
+                                                                    defaultBg={defaultTemplateBg}
+                                                                    templateColor={templateColor}
+                                                                    headerLogo={logoUrl}
+                                                                    content={pageHtml}
+                                                                />
                                                             ))
                                                         ) : (
-                                                            <div
-                                                                style={{
-                                                                    width: '210mm',
-                                                                    height: '297mm',
-                                                                    minHeight: '297mm',
-                                                                    maxHeight: '297mm',
-                                                                    boxSizing: 'border-box',
-                                                                    ...(bgUrl ? {
-                                                                        backgroundImage: `url(${bgUrl})`,
-                                                                        backgroundSize: '100% 100%',
-                                                                        backgroundPosition: 'center',
-                                                                        backgroundRepeat: 'no-repeat',
-                                                                    } : {})
-                                                                }}
-                                                                className="proposal-preview-sheet quotation-cover__sheet bg-white text-slate-900 max-w-full shadow-2xl rounded-sm text-sm font-sans border border-slate-300 dark:border-slate-800 shrink-0 relative overflow-hidden"
-                                                            >
-                                                                {/* Top Right Header Logo */}
-                                                                {logoUrl && (
-                                                                    <div
-                                                                        className="absolute top-[8mm] right-[15mm] z-20 pointer-events-none flex items-center justify-end"
-                                                                        style={{ maxHeight: '20mm', maxWidth: '60mm' }}
-                                                                    >
-                                                                        <img
-                                                                            src={logoUrl}
-                                                                            alt="Header Logo"
-                                                                            className="max-h-[16mm] max-w-[55mm] object-contain"
-                                                                        />
-                                                                    </div>
-                                                                )}
-
-                                                                <div
-                                                                    className="quotation-page__body"
-                                                                    style={{
-                                                                        position: 'relative',
-                                                                        zIndex: 1,
-                                                                        padding: '32mm 15mm 20mm',
-                                                                        height: '297mm',
-                                                                        maxHeight: '297mm',
-                                                                        boxSizing: 'border-box',
-                                                                    }}
-                                                                >
-                                                                    <div className="flex flex-col items-center justify-center py-24 text-muted-foreground text-sm italic">
-                                                                        <p className="text-slate-400">{t('No content entered yet.')}</p>
-                                                                        <p className="text-xs text-slate-400">{t('Switch to "HTML Code" or "Text Editor" to add page body content.')}</p>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                            <ProposalPreviewSheet
+                                                                key="page-order-preview-0"
+                                                                pageKey="page-order-preview-0"
+                                                                backgroundImage={modalBgImage}
+                                                                defaultBg={defaultTemplateBg}
+                                                                templateColor={templateColor}
+                                                                headerLogo={logoUrl}
+                                                                content={processedContent}
+                                                            />
                                                         )}
                                                     </div>
                                                 </div>

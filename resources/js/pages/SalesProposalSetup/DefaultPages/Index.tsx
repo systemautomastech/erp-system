@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import ProposalPreviewModal from '../components/ProposalPreviewModal';
+import PreviewModal from '@/components/PreviewModal';
 import {
     Eye,
     Pencil,
@@ -100,7 +100,7 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                 <div>
                     <h3 className="text-lg font-semibold tracking-tight">{t('Default Pages')}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                        {t('Manage default reusable pages and content templates for sales proposals.')}
+                        {t('Default reusable pages and contents for proposal template.')}
                     </p>
                 </div>
                 <Button asChild size="sm" className="gap-2 shadow-xs">
@@ -242,11 +242,11 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
             </div>
 
             {/* Reusable Proposal Preview Modal */}
-            <ProposalPreviewModal
+            <PreviewModal
                 open={isViewModalOpen}
                 onOpenChange={setIsViewModalOpen}
                 title={viewingPage?.title}
-                pageType={viewingPage?.page_type}
+                pageTitle={viewingPage?.title}
                 content={viewingPage?.content}
                 backgroundImage={viewingPage?.background_image}
                 settings={settings}

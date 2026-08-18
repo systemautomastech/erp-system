@@ -591,18 +591,27 @@ class SalesProposalController extends Controller
         foreach ($items as $item) {
             if (is_array($item)) {
                 $pageType = $item['page_type'] ?? 'content';
+                $title = trim((string) ($item['title'] ?? ''));
+                $htmlContent = $item['content'] ?? null;
+                $trimmedContent = trim((string) $htmlContent);
 
-                // Do not add items pages (otc, mrc) into contents table as they have their own items table
-                if (in_array($pageType, ['otc', 'mrc'])) {
+                // Do not add items pages (otc, mrc) or placeholder tokens into contents table
+                if (
+                    in_array($pageType, ['otc', 'mrc', 'other-details']) ||
+                    in_array($trimmedContent, ['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]']) ||
+                    (in_array($title, ['One-Time Charges (OTC)', 'Monthly Recurring Charges (MRC)', 'Other Details', 'OTHER DETAILS']) && in_array($trimmedContent, ['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]', '']))
+                ) {
                     continue;
                 }
 
                 $order = isset($item['order']) ? (int) $item['order'] : $savedOrder;
-                $title = $item['title'] ?? null;
-                $htmlContent = $item['content'] ?? null;
                 $bgImage = $item['background_image'] ?? null;
                 $jsonContent = json_encode($item);
             } else {
+                $trimmedContent = trim((string) $item);
+                if (in_array($trimmedContent, ['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'])) {
+                    continue;
+                }
                 $order = $savedOrder;
                 $title = null;
                 $htmlContent = (string) $item;

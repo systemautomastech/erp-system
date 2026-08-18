@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import ProposalPreviewModal from './components/ProposalPreviewModal';
+import PreviewModal from '@/components/PreviewModal';
 import ChargeItemsTable from './components/ChargeItemsTable';
 import PageOrderSection from './components/PageOrderSection';
 
@@ -101,35 +101,22 @@ export default function Edit() {
             }
         }
 
-        if (parsed && parsed.length > 0) {
-            return parsed.map((item: any, idx: number) => ({
-                id: `sec-${idx}-${Date.now()}`,
-                title: item.title,
-                content: item.content || '',
-                page_type: item.page_type,
-                background_image: item.background_image || '',
-                order: item.order || idx + 1,
-                isExpanded: false,
-            }));
-        }
+        const filteredParsed = (parsed || []).filter((item: any) => {
+            const content = (item.content || item.proposal_content || '').trim();
+            const pageType = item.page_type || '';
+            return !['otc', 'mrc', 'other-details'].includes(pageType) &&
+                   !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+        });
 
-        if (defaultPages && defaultPages.length > 0) {
-            const frontPage = defaultPages.find((p) => p.page_type === 'front-page' || p.title?.toLowerCase().includes('front') || p.title?.toLowerCase().includes('cover'));
-            if (frontPage) {
-                return [
-                    {
-                        id: `sec-${frontPage.id}-${Date.now()}`,
-                        title: frontPage.title,
-                        content: frontPage.content || '',
-                        page_type: 'front-page',
-                        background_image: frontPage.background_image || '',
-                        order: 1,
-                        isExpanded: true,
-                    },
-                ];
-            }
-        }
-        return [];
+        return filteredParsed.map((item: any, idx: number) => ({
+            id: `sec-${idx}-${Date.now()}`,
+            title: item.title || `Page ${idx + 1}`,
+            content: item.content || '',
+            page_type: item.page_type || 'content',
+            background_image: item.background_image || '',
+            order: item.order || idx + 1,
+            isExpanded: false,
+        }));
     });
 
     useFlashMessages();
@@ -295,13 +282,20 @@ export default function Edit() {
 
         transform((formData) => ({
             ...formData,
-            proposal_content: sections.map((item, index) => ({
-                title: item.title,
-                content: item.content,
-                page_type: item.page_type,
-                background_image: item.background_image,
-                order: index + 1,
-            })),
+            proposal_content: sections
+                .filter((item) => {
+                    const content = (item.content || '').trim();
+                    const pageType = item.page_type || '';
+                    return !['otc', 'mrc', 'other-details'].includes(pageType) &&
+                           !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+                })
+                .map((item, index) => ({
+                    title: item.title,
+                    content: item.content,
+                    page_type: item.page_type || 'content',
+                    background_image: item.background_image || '',
+                    order: index + 1,
+                })),
             tariffs: (formData.tariffs || []).map((t, idx) => ({
                 ...t,
                 sort_order: idx + 1,
@@ -659,7 +653,7 @@ export default function Edit() {
                     </div>
                 </form>
 
-                <ProposalPreviewModal
+                <PreviewModal
                     isOpen={isPreviewOpen}
                     onClose={() => setIsPreviewOpen(false)}
                     formData={{

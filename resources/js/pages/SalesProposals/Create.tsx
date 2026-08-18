@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import ProposalPreviewModal from './components/ProposalPreviewModal';
+import PreviewModal from '@/components/PreviewModal';
 import ChargeItemsTable from './components/ChargeItemsTable';
 import PageOrderSection from './components/PageOrderSection';
 
@@ -50,23 +50,18 @@ export default function Create() {
     const [availableProducts, setAvailableProducts] = useState([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-    // Initialize proposal sections (auto pre-populating Front Page if available)
+    // Initialize proposal sections from default pages
     const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
         if (defaultPages && defaultPages.length > 0) {
-            const frontPage = defaultPages.find((p) => p.page_type === 'front-page' || p.title?.toLowerCase().includes('front') || p.title?.toLowerCase().includes('cover'));
-            if (frontPage) {
-                return [
-                    {
-                        id: `sec-${frontPage.id}-${Date.now()}`,
-                        title: frontPage.title,
-                        content: frontPage.content || '',
-                        page_type: 'front-page',
-                        background_image: frontPage.background_image || '',
-                        order: 1,
-                        isExpanded: true,
-                    },
-                ];
-            }
+            return defaultPages.map((p, idx) => ({
+                id: `sec-${p.id || idx}-${Date.now()}`,
+                title: p.title,
+                content: p.content || '',
+                page_type: p.page_type || 'content',
+                background_image: p.background_image || '',
+                order: p.sort_order || idx + 1,
+                isExpanded: false,
+            }));
         }
         return [];
     });
@@ -232,11 +227,20 @@ export default function Create() {
 
         transform((formData) => ({
             ...formData,
-            proposal_content: sections.map((item, index) => ({
-                title: item.title,
-                content: item.content,
-                order: index + 1,
-            })),
+            proposal_content: sections
+                .filter((item) => {
+                    const content = (item.content || '').trim();
+                    const pageType = item.page_type || '';
+                    return !['otc', 'mrc', 'other-details'].includes(pageType) &&
+                           !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+                })
+                .map((item, index) => ({
+                    title: item.title,
+                    content: item.content,
+                    page_type: item.page_type || 'content',
+                    background_image: item.background_image || '',
+                    order: index + 1,
+                })),
             tariffs: (formData.tariffs || []).map((t, idx) => ({
                 ...t,
                 sort_order: idx + 1,
@@ -581,7 +585,7 @@ export default function Create() {
                     </div>
                 </form>
 
-                <ProposalPreviewModal
+                <PreviewModal
                     isOpen={isPreviewOpen}
                     onClose={() => setIsPreviewOpen(false)}
                     formData={data}

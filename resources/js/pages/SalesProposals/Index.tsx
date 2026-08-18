@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
-    Plus, FileText, Eye, Trash2, RefreshCw, Edit as EditIcon, Download, Send, Check, X, Receipt,
+    Plus, FileText, Eye, Trash2, RefreshCw, Edit as EditIcon, Download, Printer, Send, Check, X, Receipt,
     List, Columns3, FilePlus2, CheckCircle2, XCircle, AlertTriangle, Package, CreditCard, CalendarDays, Lightbulb, Clock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -205,27 +205,28 @@ export default function Index() {
     const renderActions = (item: SalesProposal) => (
         <TooltipProvider>
             {auth.user?.permissions?.includes('print-sales-proposals') && (
-                <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                    setIsDownloading(true);
-                                    const downloadUrl = route('sales-proposals.download-pdf', item.id);
-                                    const iframe = document.createElement('iframe');
-                                    iframe.style.display = 'none';
-                                    iframe.src = downloadUrl;
-                                    iframe.onload = () => {
-                                        setTimeout(() => setIsDownloading(false), 800);
-                                    };
-                                    document.body.appendChild(iframe);
-                                    setTimeout(() => {
-                                        setIsDownloading(false);
-                                        if (iframe.parentNode) {
-                                            document.body.removeChild(iframe);
-                                        }
-                                    }, 5000);
+                <>
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(route('sales-proposals.print', item.id) + '?print=1', '_blank')}
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                            >
+                                <Printer className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{t('Print Proposal')}</p></TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    window.location.href = route('sales-proposals.download-pdf', item.id);
                                 }}
                                 className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
                             >
@@ -234,7 +235,8 @@ export default function Index() {
                         </TooltipTrigger>
                         <TooltipContent><p>{t('Download PDF')}</p></TooltipContent>
                     </Tooltip>
-                )}
+                </>
+            )}
 
             {auth.user?.permissions?.includes('sent-sales-proposals') && item.status === 'draft' && (
                 <Tooltip delayDuration={0}>
@@ -452,6 +454,17 @@ export default function Index() {
                 }
             >
                 <Head title="Sales Proposals" />
+
+                {isDownloading && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                        <div className="bg-white p-6 rounded-lg shadow-lg">
+                            <div className="flex items-center space-x-3">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
                     {statCards.map((card) => {
