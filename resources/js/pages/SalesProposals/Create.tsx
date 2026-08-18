@@ -232,7 +232,7 @@ export default function Create() {
                     const content = (item.content || '').trim();
                     const pageType = item.page_type || '';
                     return !['otc', 'mrc', 'other-details'].includes(pageType) &&
-                           !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+                        !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
                 })
                 .map((item, index) => ({
                     title: item.title,
@@ -422,31 +422,31 @@ export default function Create() {
                             </CardTitle>
                             <div className="flex items-center gap-2">
                                 <Label htmlFor="enable-tax-toggle" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
-                                     {t('Enable Tax')}
-                                 </Label>
-                                 <Switch
-                                     id="enable-tax-toggle"
-                                     size="sm"
-                                     checked={data.is_tax_enabled}
-                                     onCheckedChange={(checked) => {
-                                         setData('is_tax_enabled', checked);
-                                         if (!checked) {
-                                             // When tax is disabled, set all items' tax_amount, tax_percentage to 0
-                                             const updatedItems = data.items.map(item => {
-                                                 const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-                                                 const discountAmount = (lineTotal * (Number(item.discount_percentage) || 0)) / 100;
-                                                 return {
-                                                     ...item,
-                                                     tax_percentage: 0,
-                                                     tax_amount: 0,
-                                                     total_amount: lineTotal - discountAmount,
-                                                     taxes: []
-                                                 };
-                                             });
-                                             setData('items', updatedItems);
-                                         }
-                                     }}
-                                 />
+                                    {t('Enable Tax')}
+                                </Label>
+                                <Switch
+                                    id="enable-tax-toggle"
+                                    size="sm"
+                                    checked={data.is_tax_enabled}
+                                    onCheckedChange={(checked) => {
+                                        setData('is_tax_enabled', checked);
+                                        if (!checked) {
+                                            // When tax is disabled, set all items' tax_amount, tax_percentage to 0
+                                            const updatedItems = data.items.map(item => {
+                                                const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+                                                const discountAmount = (lineTotal * (Number(item.discount_percentage) || 0)) / 100;
+                                                return {
+                                                    ...item,
+                                                    tax_percentage: 0,
+                                                    tax_amount: 0,
+                                                    total_amount: lineTotal - discountAmount,
+                                                    taxes: []
+                                                };
+                                            });
+                                            setData('items', updatedItems);
+                                        }
+                                    }}
+                                />
                             </div>
                         </CardHeader>
                         <CardContent>
