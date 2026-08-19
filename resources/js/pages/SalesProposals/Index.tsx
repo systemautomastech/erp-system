@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 interface SalesProposal {
     id: number;
     proposal_number: string;
+    subject?: string | null;
     proposal_date: string;
     due_date: string;
     customer?: { id: number; name: string; email: string; avatar?: string | null } | null;
@@ -334,32 +335,68 @@ export default function Index() {
 
     const tableColumns = [
         {
+            key: 'serial',
+            header: t('#'),
+            sortable: false,
+            className: 'w-12 text-center text-muted-foreground whitespace-nowrap',
+            render: (_: any, __: SalesProposal, index: number) => {
+                const currentPage = proposals?.current_page || 1;
+                const perPageNum = Number(proposals?.per_page) || 10;
+                return (currentPage - 1) * perPageNum + index + 1;
+            }
+        },
+        {
             key: 'proposal_number',
             header: t('Proposal Number'),
             sortable: true,
+            className: 'whitespace-nowrap',
             render: (value: string, proposal: SalesProposal) =>
                 auth.user?.permissions?.includes('view-sales-proposals') ? (
-                    <span className="text-blue-600 hover:text-blue-700 cursor-pointer" onClick={() => router.get(route('sales-proposals.show', proposal.id))}>{value}</span>
+                    <span
+                        className="text-primary hover:underline font-medium text-xs cursor-pointer inline-block"
+                        onClick={() => router.get(route('sales-proposals.show', proposal.id))}
+                    >
+                        {value}
+                    </span>
                 ) : (
-                    `${value}`
+                    <span className="font-medium text-xs">{value}</span>
                 )
         },
         {
             key: 'customer.name',
             header: t('Customer'),
             sortable: true,
-            render: (_: any, item: SalesProposal) => item.customer?.name || item.customer_name || '-'
+            className: 'min-w-[180px]',
+            render: (_: any, item: SalesProposal) => {
+                const name = item.customer?.name || item.customer_name || '-';
+                const email = item.customer?.email || item.customer_email || '';
+
+                return (
+                    <div className="flex flex-col">
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{name}</span>
+                        {email && (
+                            <span className="text-xs text-muted-foreground">{email}</span>
+                        )}
+                    </div>
+                );
+            }
         },
         {
-            key: 'proposal_date',
-            header: t('Proposal Date'),
+            key: 'subject',
+            header: t('Subject'),
             sortable: true,
-            render: (value: string) => formatDate(value)
+            className: 'min-w-[220px]',
+            render: (value: string) => (
+                <span className="text-slate-800 dark:text-slate-200" title={value || '-'}>
+                    {value || '-'}
+                </span>
+            )
         },
         {
             key: 'due_date',
             header: t('Due Date'),
             sortable: true,
+            className: 'whitespace-nowrap',
             render: (value: string, proposal: SalesProposal) => {
                 const isOverdue = proposal.display_status === 'overdue';
                 return (
@@ -368,7 +405,7 @@ export default function Index() {
                             {formatDate(value)}
                         </span>
                         {isOverdue && (
-                            <div className="text-xs text-red-600 font-medium mt-1">
+                            <div className="text-xs text-red-600 font-medium mt-0.5">
                                 {t('Overdue')}
                             </div>
                         )}
@@ -380,14 +417,16 @@ export default function Index() {
             key: 'total_amount',
             header: t('Total Amount'),
             sortable: true,
+            className: 'whitespace-nowrap font-medium',
             render: (value: number) => formatCurrency(value)
         },
         {
             key: 'status',
             header: t('Status'),
             sortable: true,
+            className: 'whitespace-nowrap',
             render: (value: string) => (
-                <span className={`px-2 py-1 rounded-full text-sm capitalize ${getProposalStatusColor(value)}`}>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getProposalStatusColor(value)}`}>
                     {value?.charAt(0).toUpperCase() + value?.slice(1)}
                 </span>
             )
@@ -395,8 +434,9 @@ export default function Index() {
         ...(canSeeActions ? [{
             key: 'actions',
             header: t('Actions'),
+            className: 'whitespace-nowrap text-right',
             render: (_: any, item: SalesProposal) => (
-                <div className="flex gap-1">{renderActions(item)}</div>
+                <div className="flex gap-1 justify-end">{renderActions(item)}</div>
             )
         }] : [])
     ];
@@ -610,30 +650,28 @@ export default function Index() {
 
                     <CardContent className="p-0">
                         {viewMode === 'list' ? (
-                            <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
-                                <div className="min-w-[1000px]">
-                                    <DataTable
-                                        data={proposals?.data || []}
-                                        columns={tableColumns}
-                                        onSort={handleSort}
-                                        sortKey={sortField}
-                                        sortDirection={sortDirection as 'asc' | 'desc'}
-                                        className="rounded-none"
-                                        emptyState={
-                                            <NoRecordsFound
-                                                icon={FileText}
-                                                title="No sales proposals found"
-                                                description="Get started by creating your first sales proposal."
-                                                hasFilters={hasActiveFilters}
-                                                onClearFilters={clearFilters}
-                                                createPermission="create-sales-proposals"
-                                                onCreateClick={() => router.visit(route('sales-proposals.create'))}
-                                                createButtonText="Create Sales Proposal"
-                                                className="h-auto"
-                                            />
-                                        }
-                                    />
-                                </div>
+                            <div className="overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent max-h-[70vh] rounded-none w-full">
+                                <DataTable
+                                    data={proposals?.data || []}
+                                    columns={tableColumns}
+                                    onSort={handleSort}
+                                    sortKey={sortField}
+                                    sortDirection={sortDirection as 'asc' | 'desc'}
+                                    className="rounded-none w-full min-w-full"
+                                    emptyState={
+                                        <NoRecordsFound
+                                            icon={FileText}
+                                            title="No sales proposals found"
+                                            description="Get started by creating your first sales proposal."
+                                            hasFilters={hasActiveFilters}
+                                            onClearFilters={clearFilters}
+                                            createPermission="create-sales-proposals"
+                                            onCreateClick={() => router.visit(route('sales-proposals.create'))}
+                                            createButtonText="Create Sales Proposal"
+                                            className="h-auto"
+                                        />
+                                    }
+                                />
                             </div>
                         ) : (
                             <div className="p-4">

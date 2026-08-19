@@ -219,7 +219,7 @@ const PRINT_STYLES = `
 
 export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = 900): string[] {
     const hasExplicitBreak = container.querySelector('.page-break, [style*="page-break"], [style*="break-after"], [style*="break-before"]');
-    
+
     // Extract any <style> tags so they apply across pages
     const styleTags = Array.from(container.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
 
@@ -422,6 +422,10 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
     pageKey,
     className = '',
 }) => {
+    const rawBg = (backgroundImage && String(backgroundImage).trim() !== '') ? backgroundImage : defaultBg;
+    const bgUrl = rawBg ? getImagePath(rawBg) : '';
+    const logoUrl = headerLogo ? getImagePath(headerLogo) : '';
+
     return (
         <div
             key={pageKey}
@@ -436,23 +440,45 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                 pageBreakInside: 'avoid',
                 breakInside: 'avoid-page',
                 '--template-color': templateColor,
-                ...getPageBgStyle(backgroundImage, defaultBg),
             } as React.CSSProperties}
             className={cn(
                 "proposal-preview-sheet proposal-cover__sheet bg-white text-slate-900 w-[210mm] h-[297mm] max-w-full shadow-2xl rounded-sm text-sm font-sans border border-slate-300 dark:border-slate-800 shrink-0 overflow-hidden relative",
                 className
             )}
         >
+            {/* Background Image Layer */}
+            {bgUrl && (
+                <div className="absolute inset-0 w-full h-full z-0 pointer-events-none overflow-hidden">
+                    <img
+                        src={bgUrl}
+                        alt="Page Background"
+                        className="w-full h-full object-fill block"
+                        onError={(e) => {
+                            const target = e.currentTarget;
+                            if (rawBg && !target.src.includes('/storage/media/')) {
+                                target.src = `/storage/media/${rawBg.split('/').pop()}`;
+                            }
+                        }}
+                    />
+                </div>
+            )}
+
             {/* Top Right Header Logo */}
-            {headerLogo && (
+            {logoUrl && (
                 <div
                     className="absolute top-[8mm] right-[15mm] z-20 pointer-events-none flex items-center justify-end"
                     style={{ maxHeight: '20mm', maxWidth: '60mm' }}
                 >
                     <img
-                        src={getImagePath(headerLogo)}
+                        src={logoUrl}
                         alt="Header Logo"
                         className="max-h-[16mm] max-w-[55mm] object-contain"
+                        onError={(e) => {
+                            const target = e.currentTarget;
+                            if (headerLogo && !target.src.includes('/storage/media/')) {
+                                target.src = `/storage/media/${headerLogo.split('/').pop()}`;
+                            }
+                        }}
                     />
                 </div>
             )}
@@ -477,6 +503,7 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                 ) : content ? (
                     <div
                         className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
+                        style={{ marginTop: '2rem' }}
                         dangerouslySetInnerHTML={{ __html: content }}
                     />
                 ) : null}
@@ -513,7 +540,7 @@ const ChargesPage = React.memo<ChargesPageProps>(
                 templateColor={templateColor}
                 headerLogo={headerLogo}
             >
-                <div>
+                <div style={{ marginTop: '2rem' }}>
                     <div className="font-bold mb-2 text-[#293240] text-sm">{page.title}</div>
 
                     <table
@@ -612,7 +639,7 @@ const ChargesPage = React.memo<ChargesPageProps>(
                         </div>
                     )}
                 </div>
-            </ProposalPreviewSheet>
+            </ProposalPreviewSheet >
         );
     }
 );
@@ -837,34 +864,35 @@ export default function PreviewModal({
         const items = formData.items || [];
         const otcItems = items.filter(
             (i) => (i.section === 'otc' || i.section === 'general' || !i.section) &&
-                   (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+                (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
         );
         const mrcItems = items.filter(
             (i) => i.section === 'mrc' &&
-                   (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+                (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
         );
 
         sections.forEach((sec, sIdx) => {
-            const pageType = sec.page_type || 'content';
             const rawContent = (sec.content || '').trim();
+            const isOtc = rawContent === '[OTC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('one-time charges'));
+            const isMrc = rawContent === '[MRC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('monthly recurring charges'));
+            const isOther = rawContent === '[OTHER_DETAILS_CONTENT]' || (sec.title && sec.title.toLowerCase().includes('other details'));
 
-            if (pageType === 'otc' || pageType === 'mrc') {
-                const secItems = pageType === 'otc' ? otcItems : mrcItems;
-                if (secItems.length === 0) return;
+            if (isOtc) {
+                if (otcItems.length === 0) return;
 
-                const itemChunks = chunkItemsByWeight(secItems, getItemDesc, 30);
+                const itemChunks = chunkItemsByWeight(otcItems, getItemDesc, 30);
                 const totalChunks = itemChunks.length;
-                const title = sec.title || (pageType === 'otc' ? t('ONE-TIME CHARGES (OTC)') : t('MONTHLY RECURRING CHARGES (MRC)'));
+                const title = sec.title || t('ONE-TIME CHARGES (OTC)');
 
-                const secSubtotal = secItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-                const secDiscount = secItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-                const secTax = secItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
+                const secSubtotal = otcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
+                const secDiscount = otcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+                const secTax = otcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
                 const secTotal = secSubtotal - secDiscount + secTax;
 
                 itemChunks.forEach((chk, cIdx) => {
                     pages.push({
-                        key: `${pageType}-chunk-${cIdx}-${sec.id || sIdx}`,
-                        type: pageType as 'otc' | 'mrc',
+                        key: `otc-chunk-${cIdx}-${sec.id || sIdx}`,
+                        type: 'otc',
                         title,
                         background_image: sec.background_image,
                         chunkItems: chk.items,
@@ -881,20 +909,48 @@ export default function PreviewModal({
                 return;
             }
 
-            if (pageType === 'other-details') {
+            if (isMrc) {
+                if (mrcItems.length === 0) return;
+
+                const itemChunks = chunkItemsByWeight(mrcItems, getItemDesc, 30);
+                const totalChunks = itemChunks.length;
+                const title = sec.title || t('MONTHLY RECURRING CHARGES (MRC)');
+
+                const secSubtotal = mrcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
+                const secDiscount = mrcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+                const secTax = mrcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
+                const secTotal = secSubtotal - secDiscount + secTax;
+
+                itemChunks.forEach((chk, cIdx) => {
+                    pages.push({
+                        key: `mrc-chunk-${cIdx}-${sec.id || sIdx}`,
+                        type: 'mrc',
+                        title,
+                        background_image: sec.background_image,
+                        chunkItems: chk.items,
+                        chunkIndex: cIdx,
+                        totalChunks,
+                        startIndex: chk.startIndex,
+                        isLastChunk: cIdx === totalChunks - 1,
+                        secSubtotal,
+                        secDiscount,
+                        secTax,
+                        secTotal,
+                    });
+                });
+                return;
+            }
+
+            if (isOther) {
                 if (formData.other_details || other_details) {
                     pages.push({
                         key: `other-details-${sec.id || sIdx}`,
                         type: 'other-details',
-                        title: t('OTHER DETAILS'),
+                        title: sec.title || t('OTHER DETAILS'),
                         content: formData.other_details || other_details || '',
                         background_image: sec.background_image,
                     });
                 }
-                return;
-            }
-
-            if (['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(rawContent)) {
                 return;
             }
 

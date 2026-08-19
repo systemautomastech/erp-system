@@ -1,28 +1,54 @@
 @php
-    $proposalSetting = $proposalSetting ?? \App\Models\ProposalSetting::getSettings($proposal->created_by);
+    $creatorId = $proposal->creator_id ?? $proposal->created_by ?? auth()->id();
+    $proposalSetting = $proposalSetting ?? \App\Models\ProposalSetting::getSettings($creatorId);
     $templateColor = $proposalSetting['template_color'] ?? '#E9591C';
 
-    $getImagePath = function ($path) {
+    $toDataUri = function ($fullFilePath) {
+        if (!file_exists($fullFilePath) || !is_readable($fullFilePath)) {
+            return null;
+        }
+        $mime = mime_content_type($fullFilePath) ?: 'image/jpeg';
+        $data = file_get_contents($fullFilePath);
+        return 'data:' . $mime . ';base64,' . base64_encode($data);
+    };
+
+    $getImagePath = function ($path) use ($toDataUri) {
         if (!$path)
             return '';
+
         $cleanPath = ltrim($path, '/');
+
+        // Check local storage files first to convert to base64 (avoids HTTP deadlock during PDF rendering)
+        $possibleLocalPaths = [
+            storage_path('app/public/media/' . basename($cleanPath)),
+            storage_path('app/public/' . $cleanPath),
+            public_path('storage/media/' . basename($cleanPath)),
+            public_path('storage/' . $cleanPath),
+            public_path($cleanPath),
+            public_path('uploads/' . $cleanPath),
+        ];
+
+        foreach ($possibleLocalPaths as $localPath) {
+            if (file_exists($localPath) && is_file($localPath)) {
+                $dataUri = $toDataUri($localPath);
+                if ($dataUri) {
+                    return $dataUri;
+                }
+            }
+        }
+
         if (str_starts_with($cleanPath, 'http://') || str_starts_with($cleanPath, 'https://')) {
             return $cleanPath;
         }
-        if (str_starts_with($cleanPath, 'storage/')) {
-            return asset($cleanPath);
+
+        if (function_exists('getImageUrlPrefix')) {
+            $prefix = getImageUrlPrefix();
+            if ($prefix) {
+                return rtrim($prefix, '/') . '/' . basename($cleanPath);
+            }
         }
-        if (str_starts_with($cleanPath, 'uploads/')) {
-            return asset($cleanPath);
-        }
-        // Check if file exists in media or general storage
-        if (file_exists(public_path('storage/media/' . $cleanPath))) {
-            return asset('storage/media/' . $cleanPath);
-        }
-        if (file_exists(public_path('storage/' . $cleanPath))) {
-            return asset('storage/' . $cleanPath);
-        }
-        return asset('storage/' . $cleanPath);
+
+        return \Illuminate\Support\Facades\Storage::url($cleanPath);
     };
 
     $showLogo = isset($proposalSetting['show_logo']) 
@@ -49,20 +75,20 @@
         return '';
     };
 
-    $companyName = \App\Models\ProposalSetting::getSettings($proposal->created_by)['company_name'] ?? config('app.name', 'Automas');
+    $companyName = $proposalSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
     $cleanCompName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
     $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($proposal->proposal_number)));
     $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
 
-    $replaceProposalShortcodes = function ($content) use ($proposal, $proposalSetting, $getImagePath, $logoImage, $templateColor) {
+    $replaceProposalShortcodes = function ($content) use ($proposal, $proposalSetting, $getImagePath, $logoImage, $templateColor, $creatorId) {
         if (empty($content)) return '';
         $customer = $proposal->customer ?? null;
         $dateFormat = $proposalSetting['dateFormat'] ?? 'Y-m-d';
 
-        $rawCompanyLogo = company_setting('logo_dark', $proposal->created_by)
-            ?? company_setting('logo_light', $proposal->created_by)
-            ?? company_setting('company_logo', $proposal->created_by)
-            ?? company_setting('logo', $proposal->created_by)
+        $rawCompanyLogo = company_setting('logo_dark', $creatorId)
+            ?? company_setting('logo_light', $creatorId)
+            ?? company_setting('company_logo', $creatorId)
+            ?? company_setting('logo', $creatorId)
             ?? admin_setting('logo_dark')
             ?? admin_setting('logo_light')
             ?? admin_setting('logo')
@@ -71,12 +97,12 @@
         $rawProposalLogo = $proposalSetting['logo_image'] ?? $rawCompanyLogo;
         $proposalLogoUrl = $getImagePath($rawProposalLogo) ?: $logoImage;
 
-        $authorUser = \App\Models\User::with('employee')->find($proposal->created_by ?? $proposal->creator_id);
+        $authorUser = \App\Models\User::with('employee')->find($creatorId);
         $employeeRecord = $authorUser?->employee;
         $compPhone = $proposalSetting['company_telephone'] 
             ?? $proposalSetting['company_phone'] 
-            ?? company_setting('company_telephone', $proposal->creator_id ?? $proposal->created_by) 
-            ?? company_setting('company_phone', $proposal->creator_id ?? $proposal->created_by) 
+            ?? company_setting('company_telephone', $creatorId) 
+            ?? company_setting('company_phone', $creatorId) 
             ?? '';
 
         $custAddr = $customer->address ?? '';
@@ -439,7 +465,6 @@
                 return is_array($decoded) ? $decoded : [
                     'title' => $c->title ?? '',
                     'content' => $c->content ?? $c->proposal_content ?? '',
-                    'page_type' => $c->page_type ?? 'content',
                     'background_image' => $c->background_image ?? null,
                     'order' => $c->order ?? 1,
                 ];
@@ -452,7 +477,6 @@
                     return is_array($decoded) ? $decoded : [
                         'title' => $c->title ?? '',
                         'content' => $c->content ?? $c->proposal_content ?? '',
-                        'page_type' => $c->page_type ?? 'content',
                         'background_image' => $c->background_image ?? null,
                         'order' => $c->order ?? 1,
                     ];
@@ -473,24 +497,7 @@
             $customContentPages = [];
         }
 
-        // Check if OTC / MRC / Other-details exist in saved contents
-        $hasOtcInContent = collect($customContentPages)->contains(fn($p) => in_array($p['page_type'] ?? '', ['otc']));
-        $hasMrcInContent = collect($customContentPages)->contains(fn($p) => in_array($p['page_type'] ?? '', ['mrc']));
-        $hasOtherInContent = collect($customContentPages)->contains(fn($p) => ($p['page_type'] ?? '') === 'other-details');
-
         $sectionsSource = $customContentPages;
-
-        if (!$hasOtcInContent && count($otcItems) > 0) {
-            $sectionsSource[] = ['id' => 'otc', 'title' => 'One-Time Charges (OTC)', 'page_type' => 'otc', 'order' => 100];
-        }
-
-        if (!$hasMrcInContent && count($mrcItems) > 0) {
-            $sectionsSource[] = ['id' => 'mrc', 'title' => 'Monthly Recurring Charges (MRC)', 'page_type' => 'mrc', 'order' => 101];
-        }
-
-        if (!$hasOtherInContent && !empty($proposal->other_details) && trim($proposal->other_details) !== '' && $proposal->other_details !== '<p></p>') {
-            $sectionsSource[] = ['id' => 'other', 'title' => 'OTHER DETAILS', 'page_type' => 'other-details', 'order' => 102];
-        }
 
         // Sort sections by order
         usort($sectionsSource, function ($a, $b) {
@@ -548,72 +555,85 @@
             return $chunks;
         };
 
-        // Build Renderable Pages Array matching ProposalPreviewModal
+        // Build Renderable Pages Array matching exact user section order
         $renderablePages = [];
         foreach ($sectionsSource as $sIdx => $sec) {
             $sec = (array) $sec;
-            $pageType = $sec['page_type'] ?? '';
+            $rawContent = trim((string)($sec['content'] ?? ''));
+            $title = $sec['title'] ?? '';
+            $isOtc = $rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false);
+            $isMrc = $rawContent === '[MRC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'monthly recurring charges') !== false);
+            $isOther = $rawContent === '[OTHER_DETAILS_CONTENT]' || (!empty($title) && stripos($title, 'other details') !== false);
 
-            if ($pageType === 'otc' || $pageType === 'mrc') {
-                $isOtc = ($pageType === 'otc');
-                $targetItems = $isOtc ? $otcItems : $mrcItems;
-                $targetSubtotal = $isOtc ? $otcSubtotal : $mrcSubtotal;
-                $targetDiscount = $isOtc ? $otcDiscount : $mrcDiscount;
-                $targetTax = $isOtc ? $otcTax : $mrcTax;
-                $targetTotal = $isOtc ? $otcTotal : $mrcTotal;
-                $title = $isOtc ? 'One-Time Charges (OTC)' : 'Monthly Recurring Charges (MRC)';
-
-                if (count($targetItems) === 0) {
-                    $renderablePages[] = [
-                        'key' => "{$pageType}-empty-{$sIdx}",
-                        'type' => $pageType,
-                        'title' => $title,
-                        'background_image' => $sec['background_image'] ?? null,
-                        'items' => [],
-                        'startIndex' => 0,
-                        'isLastChunk' => true,
-                        'subtotal' => 0,
-                        'discount' => 0,    
-                        'tax' => 0,
-                        'total' => 0,
-                    ];
-                } else {
-                    $itemChunks = $chunkItemsDynamic($targetItems);
+            if ($isOtc) {
+                if (count($otcItems) > 0) {
+                    $itemChunks = $chunkItemsDynamic($otcItems);
                     $totalChunks = count($itemChunks);
 
                     foreach ($itemChunks as $cIdx => $chk) {
                         $renderablePages[] = [
-                            'key' => "{$pageType}-chunk-{$cIdx}-{$sIdx}",
-                            'type' => $pageType,
-                            'title' => $title,
+                            'key' => "otc-chunk-{$cIdx}-{$sIdx}",
+                            'type' => 'otc',
+                            'title' => !empty($title) ? $title : 'One-Time Charges (OTC)',
                             'background_image' => $sec['background_image'] ?? null,
                             'items' => $chk['items'],
                             'startIndex' => $chk['startIndex'],
                             'isLastChunk' => ($cIdx === $totalChunks - 1),
-                            'subtotal' => $targetSubtotal,
-                            'discount' => $targetDiscount,
-                            'tax' => $targetTax,
-                            'total' => $targetTotal,
+                            'subtotal' => $otcSubtotal,
+                            'discount' => $otcDiscount,
+                            'tax' => $otcTax,
+                            'total' => $otcTotal,
                         ];
                     }
                 }
-            } elseif ($pageType === 'other-details') {
-                $renderablePages[] = [
-                    'key' => "other-{$sIdx}",
-                    'type' => 'other-details',
-                    'title' => 'OTHER DETAILS',
-                    'content' => $proposal->other_details ?? '',
-                    'background_image' => $sec['background_image'] ?? null,
-                ];
-            } else {
-                $renderablePages[] = [
-                    'key' => "content-{$sIdx}",
-                    'type' => 'content',
-                    'title' => $sec['title'] ?? '',
-                    'content' => $sec['content'] ?? '',
-                    'background_image' => $sec['background_image'] ?? null,
-                ];
+                continue;
             }
+
+            if ($isMrc) {
+                if (count($mrcItems) > 0) {
+                    $itemChunks = $chunkItemsDynamic($mrcItems);
+                    $totalChunks = count($itemChunks);
+
+                    foreach ($itemChunks as $cIdx => $chk) {
+                        $renderablePages[] = [
+                            'key' => "mrc-chunk-{$cIdx}-{$sIdx}",
+                            'type' => 'mrc',
+                            'title' => !empty($title) ? $title : 'Monthly Recurring Charges (MRC)',
+                            'background_image' => $sec['background_image'] ?? null,
+                            'items' => $chk['items'],
+                            'startIndex' => $chk['startIndex'],
+                            'isLastChunk' => ($cIdx === $totalChunks - 1),
+                            'subtotal' => $mrcSubtotal,
+                            'discount' => $mrcDiscount,
+                            'tax' => $mrcTax,
+                            'total' => $mrcTotal,
+                        ];
+                    }
+                }
+                continue;
+            }
+
+            if ($isOther) {
+                if (!empty($proposal->other_details) && trim($proposal->other_details) !== '' && $proposal->other_details !== '<p></p>') {
+                    $renderablePages[] = [
+                        'key' => "other-details-{$sIdx}",
+                        'type' => 'other-details',
+                        'title' => !empty($title) ? $title : 'OTHER DETAILS',
+                        'content' => $proposal->other_details,
+                        'background_image' => $sec['background_image'] ?? null,
+                    ];
+                }
+                continue;
+            }
+
+            // Normal Content Page
+            $renderablePages[] = [
+                'key' => "content-{$sIdx}",
+                'type' => 'content',
+                'title' => $title,
+                'content' => $sec['content'] ?? '',
+                'background_image' => $sec['background_image'] ?? null,
+            ];
         }
         $totalPages = count($renderablePages);
     @endphp
@@ -641,7 +661,7 @@
                     @endif
                     <div class="proposal-page__body"
                         style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div>
+                        <div style="margin-top:2rem">
                             <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #293240;">
                                 {{ $page['title'] }}
                             </div>
@@ -787,7 +807,7 @@
                     @endif
                     <div class="proposal-page__body"
                         style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div>
+                        <div style="margin-top:2rem">
                             <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #293240;">
                                 {{ $page['title'] }}
                             </div>
@@ -933,7 +953,7 @@
                     @endif
                     <div class="proposal-page__body"
                         style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div class="html-preview-container">
+                        <div class="html-preview-container" style="margin-top:2rem">
                             <h3 style="font-size: 14px; font-weight: 700; color: #293240; margin-bottom: 12px;">
                                 {{ $replaceProposalShortcodes($page['title']) }}</h3>
                             {!! $replaceProposalShortcodes($page['content']) !!}
@@ -957,7 +977,7 @@
                     @endif
                     <div class="proposal-page__body"
                         style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div class="html-preview-container">
+                        <div class="html-preview-container" style="margin-top:2rem">
                             {!! $replaceProposalShortcodes($page['content']) !!}
                         </div>
                     </div>
@@ -966,6 +986,7 @@
         @endforeach
     </div>
 
+    @if(empty($isServerPdf))
     <script>
         window.addEventListener('DOMContentLoaded', function () {
             var urlParams = new URLSearchParams(window.location.search);
@@ -976,6 +997,7 @@
             }
         });
     </script>
+    @endif
 </body>
 
 </html>

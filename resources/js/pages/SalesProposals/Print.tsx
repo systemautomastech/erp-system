@@ -82,53 +82,13 @@ export default function Print() {
                 id: String(dp.id),
                 title: dp.title,
                 content: dp.content,
-                page_type: dp.page_type || 'content',
                 background_image: dp.background_image,
                 order: dp.sort_order,
             }));
         }
 
-        // 3. Ensure OTC / MRC / other-details pages exist if items exist
-        const hasOtcInSections = loadedSections.some((s) => s.page_type === 'otc');
-        const hasMrcInSections = loadedSections.some((s) => s.page_type === 'mrc');
-        const hasOtherInSections = loadedSections.some((s) => s.page_type === 'other-details');
-
-        const items = proposal?.items || [];
-        const otcItems = items.filter((i: any) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.unit_price) > 0 || Number(i.product_id) > 0 || Boolean(i.product_description)));
-        const mrcItems = items.filter((i: any) => i.section === 'mrc' && (Number(i.unit_price) > 0 || Number(i.product_id) > 0 || Boolean(i.product_description)));
-
-        if (!hasOtcInSections && otcItems.length > 0) {
-            loadedSections.push({
-                id: 'otc-charges',
-                title: t('ONE-TIME CHARGES (OTC)'),
-                content: '[OTC_CHARGES_TABLE]',
-                page_type: 'otc',
-                order: 100,
-            });
-        }
-
-        if (!hasMrcInSections && mrcItems.length > 0) {
-            loadedSections.push({
-                id: 'mrc-charges',
-                title: t('MONTHLY RECURRING CHARGES (MRC)'),
-                content: '[MRC_CHARGES_TABLE]',
-                page_type: 'mrc',
-                order: 101,
-            });
-        }
-
-        if (!hasOtherInSections && proposal?.other_details && proposal.other_details.trim() !== '') {
-            loadedSections.push({
-                id: 'other-details',
-                title: t('OTHER DETAILS'),
-                content: proposal.other_details,
-                page_type: 'other-details',
-                order: 102,
-            });
-        }
-
         return loadedSections.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
-    }, [proposal, defaultPages, t]);
+    }, [proposal, defaultPages]);
 
     const formattedCustomers = useMemo(() => {
         if (customers.length > 0) return customers;

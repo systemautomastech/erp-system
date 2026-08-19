@@ -309,7 +309,6 @@ export default function Create({ settings, nextSortOrder = 1, variables }: Props
     const { data, setData, post, processing, errors } = useForm({
         title: '',
         content: '',
-        page_type: 'general',
         background_image: '',
         sort_order: nextSortOrder,
         is_active: true,

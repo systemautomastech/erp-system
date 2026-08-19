@@ -91,9 +91,8 @@ class SalesProposalController extends Controller
                     ->orWhere('created_by', creatorId());
             })
             ->where('is_active', true)
-            ->orderByRaw("CASE WHEN page_type = 'front-page' THEN 0 ELSE 1 END")
             ->orderBy('sort_order')
-            ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order', 'created_by', 'creator_id']);
+            ->get(['id', 'title', 'content', 'background_image', 'sort_order', 'created_by', 'creator_id']);
 
         return $proposal;
     }
