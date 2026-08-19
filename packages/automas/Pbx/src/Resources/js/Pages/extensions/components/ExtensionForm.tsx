@@ -185,14 +185,9 @@ export default function ExtensionForm({
                                     )}
                                     disabled={disabled}
                                 >
-                                    {user.name}
-                                    <br />
+                                    {user.name} -
                                     {user.email && (
-                                        <span className="text-xs text-muted-foreground">
-                                            {
-                                                user.email
-                                            }
-                                        </span>
+                                        <span className="text-xs text-muted-foreground"> {user.email}</span>
                                     )}
                                 </SelectItem>
                             );
