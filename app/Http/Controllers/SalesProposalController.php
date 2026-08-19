@@ -39,7 +39,7 @@ class SalesProposalController extends Controller
      */
     private function getProposalRelations(): array
     {
-        $relations = ['customer', 'author', 'items.product', 'items.taxes', 'warehouse'];
+        $relations = ['customer', 'items.product', 'items.taxes', 'warehouse'];
 
         if (Schema::hasTable('sales_proposal_tariffs')) {
             $relations[] = 'tariffs';
@@ -654,8 +654,8 @@ class SalesProposalController extends Controller
                     ->orWhereNull('type')
                     ->orWhereDoesntHave('warehouseStocks');
             })->with([
-                'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
-            ]);
+                        'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
+                    ]);
         }
 
         $products = $query->get()->map(function ($product) {
@@ -894,7 +894,7 @@ class SalesProposalController extends Controller
                     continue;
                 }
 
-                $order = isset($item['order']) && (int) $item['order'] > 0 ? (int) $item['order'] : $savedOrder;
+                $order = isset($item['order']) ? (int) $item['order'] : $savedOrder;
                 $title = $item['title'] ?? null;
                 $htmlContent = $item['content'] ?? null;
                 $bgImage = $item['background_image'] ?? null;
@@ -917,7 +917,7 @@ class SalesProposalController extends Controller
                 'proposal_content' => $htmlContent ?? $jsonContent,
                 'order' => $order,
             ]);
-            $savedOrder = max($savedOrder + 1, $order + 1);
+            $savedOrder++;
         }
     }
 }
