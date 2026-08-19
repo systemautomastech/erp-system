@@ -31,7 +31,11 @@ interface SalesProposal {
     proposal_number: string;
     proposal_date: string;
     due_date: string;
-    customer: { id: number; name: string; email: string; avatar?: string | null };
+    customer?: { id: number; name: string; email: string; avatar?: string | null } | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
     subtotal: number;
     tax_amount: number;
     discount_amount: number;

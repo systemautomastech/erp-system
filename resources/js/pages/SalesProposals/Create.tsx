@@ -47,7 +47,6 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<CreateProps>().props;
-    const { customFields } = useFormFields('SalesProposal');
     const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -103,6 +102,8 @@ export default function Create() {
         proposal_content: [],
         other_details: '',
     });
+
+    const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal' }, setData, errors, 'create', t);
 
     // Auto-sync OTC and MRC section cards into Page Order list when products exist in those tables
     useEffect(() => {

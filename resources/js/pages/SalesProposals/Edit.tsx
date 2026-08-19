@@ -43,7 +43,11 @@ interface SalesProposal {
     subject?: string;
     proposal_date: string;
     due_date: string;
-    customer_id: number;
+    customer_id?: number | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
     warehouse_id?: number;
     type?: string;
     is_tax_enabled?: boolean | number;
