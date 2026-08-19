@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { router, Link } from '@inertiajs/react';
+import { router, Link, usePage } from '@inertiajs/react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import PreviewModal from '@/components/PreviewModal';
+import { cn } from '@/lib/utils';
 import {
     Eye,
     Pencil,
@@ -30,6 +31,7 @@ interface ProposalDefaultPageItem {
     is_active: boolean;
     creator_id?: number;
     created_by?: number;
+    can_manage?: boolean;
     creator_user?: {
         id: number;
         name: string;
@@ -44,6 +46,7 @@ interface DefaultPagesIndexProps {
 
 export default function Index({ settings, defaultPages = [] }: DefaultPagesIndexProps) {
     const { t } = useTranslation();
+    const pageProps = usePage<any>().props;
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -161,6 +164,11 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                     </div>
                 ) : (
                     filteredPages.map((page) => {
+                        const isCompanyPage = page.created_by !== undefined && page.creator_id !== undefined && page.created_by === page.creator_id;
+                        const canManagePage = page.can_manage !== undefined 
+                            ? page.can_manage 
+                            : (page.created_by === undefined || (pageProps.auth?.user?.id ? page.created_by === pageProps.auth.user.id : true));
+
                         return (
                             <Card
                                 key={page.id}
@@ -173,9 +181,16 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                                                 {page.sort_order}
                                             </span>
                                             <div className="min-w-0">
-                                                <h4 className="font-semibold text-sm truncate text-foreground">
-                                                    {page.title}
-                                                </h4>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <h4 className="font-semibold text-sm truncate text-foreground">
+                                                        {page.title}
+                                                    </h4>
+                                                    {isCompanyPage && (
+                                                        <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                                            {t('Company Default')}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-center min-w-[36px] h-6 shrink-0">
@@ -184,9 +199,13 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                                             ) : (
                                                 <Switch
                                                     checked={page.is_active}
+                                                    disabled={!canManagePage}
                                                     onCheckedChange={(checked) => handleToggleStatus(page, checked)}
-                                                    className="transition-all duration-300 hover:scale-105 active:scale-95"
-                                                    title={page.is_active ? t('Deactivate Page') : t('Activate Page')}
+                                                    className={cn(
+                                                        "transition-all duration-300",
+                                                        canManagePage ? "hover:scale-105 active:scale-95" : "opacity-60 cursor-not-allowed"
+                                                    )}
+                                                    title={!canManagePage ? t('Only company admin can change status') : (page.is_active ? t('Deactivate Page') : t('Activate Page'))}
                                                 />
                                             )}
                                         </div>
@@ -218,27 +237,32 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
-                                            <Button
-                                                asChild
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                title={t('Edit Page')}
-                                            >
-                                                <Link href={route('proposal-setup.default-pages.edit', page.id)}>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                                onClick={() => openDeleteModal(page)}
-                                                title={t('Delete Page')}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+
+                                            {canManagePage && (
+                                                <>
+                                                    <Button
+                                                        asChild
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                        title={t('Edit Page')}
+                                                    >
+                                                        <Link href={route('proposal-setup.default-pages.edit', page.id)}>
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Link>
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                        onClick={() => openDeleteModal(page)}
+                                                        title={t('Delete Page')}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>

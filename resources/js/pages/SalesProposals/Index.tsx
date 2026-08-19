@@ -31,7 +31,11 @@ interface SalesProposal {
     proposal_number: string;
     proposal_date: string;
     due_date: string;
-    customer: { id: number; name: string; email: string; avatar?: string | null };
+    customer?: { id: number; name: string; email: string; avatar?: string | null } | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
     subtotal: number;
     tax_amount: number;
     discount_amount: number;
@@ -344,7 +348,7 @@ export default function Index() {
             key: 'customer.name',
             header: t('Customer'),
             sortable: true,
-            render: (_: any, item: SalesProposal) => item.customer?.name || '-'
+            render: (_: any, item: SalesProposal) => item.customer?.name || item.customer_name || '-'
         },
         {
             key: 'proposal_date',

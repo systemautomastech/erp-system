@@ -62,6 +62,8 @@ interface ProposalDefaultPage {
     page_type?: string;
     background_image?: string;
     sort_order?: number;
+    creator_id?: number;
+    created_by?: number;
 }
 
 interface Props {
@@ -589,7 +591,17 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                                 : "bg-card hover:bg-accent border-border"
                                                         )}
                                                     >
-                                                        <span className="truncate">{page.title}</span>
+                                                        <div className="flex items-center gap-1 min-w-0">
+                                                            <span className="truncate">{page.title}</span>
+                                                            {page.created_by !== undefined && page.creator_id !== undefined && page.created_by === page.creator_id && (
+                                                                <span className={cn(
+                                                                    "text-[8px] font-semibold uppercase px-1 py-0.2 rounded border shrink-0",
+                                                                    isSelected ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                                )}>
+                                                                    {t('Company')}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {isAlreadyAdded && (
                                                             <Badge
                                                                 variant="secondary"

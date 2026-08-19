@@ -14,11 +14,14 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        (new PermissionRoleSeeder())->run();
-        (new DefultSetting())->run();
-        (new PlanSeeder())->run();
-        (new EmailTemplatesSeeder())->run();
-        (new NotificationsTableSeeder())->run();
+        $this->call([
+            PermissionRoleSeeder::class,
+            DefultSetting::class,
+            PlanSeeder::class,
+            EmailTemplatesSeeder::class,
+            NotificationsTableSeeder::class,
+            DemoCompaniesSeeder::class,
+        ]);
 
         $companyUser = User::where('type', 'company')->first();
         if ($companyUser) {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProposalItem } from '../types';
-import ProductSelector from '@/pages/Sales/components/ProductSelector';
+import ProposalProductSelector from './ProposalProductSelector';
 import { calculateLineItemAmounts } from '@/pages/Sales/components/TaxCalculator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ interface Props {
     items: ProposalItem[];
     onChange: (items: ProposalItem[]) => void;
     errors?: any;
-    products?: Array<{ id: number; name: string; type?: string; description?: string; long_description?: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
+    products?: Array<{ id: number; name: string; type?: string; description?: string; long_description?: string; sale_price: number; unit?: string; unit_name?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
     showAddButton?: boolean;
     invoiceType?: string;
     onRefresh?: () => void | Promise<void>;
@@ -246,7 +246,7 @@ export default function ProposalItemsTable({ items, onChange, errors = {}, produ
                                         </div>
                                     </td>
                                     <td className="px-4 py-4 min-w-[280px]">
-                                        <ProductSelector
+                                        <ProposalProductSelector
                                             products={filteredProducts}
                                             value={item.product_id}
                                             onChange={(productId, product) => handleProductSelect(index, productId, product)}
@@ -276,18 +276,26 @@ export default function ProposalItemsTable({ items, onChange, errors = {}, produ
                                             {(() => {
                                                 const product = products.find(p => p.id === item.product_id);
                                                 const maxQty = product?.stock_quantity || 999999;
+                                                const unitDisplay = product?.unit_name || (!isNaN(Number(product?.unit)) ? '' : (product?.unit || ''));
                                                 return (
                                                     <div>
-                                                        <Input
-                                                            type="number"
-                                                            value={item.quantity}
-                                                            onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                                                            className="w-20 text-sm"
-                                                            min="1"
-                                                            max={maxQty}
-                                                            step="1"
-                                                            required
-                                                        />
+                                                        <div className="flex items-center gap-1">
+                                                            <Input
+                                                                type="number"
+                                                                value={item.quantity}
+                                                                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                                                                className="w-20 text-sm"
+                                                                min="1"
+                                                                max={maxQty}
+                                                                step="1"
+                                                                required
+                                                            />
+                                                            {unitDisplay ? (
+                                                                <span className="text-xs font-medium text-muted-foreground px-2 py-1 bg-muted/60 border border-border rounded h-9 inline-flex items-center min-w-[36px] justify-center whitespace-nowrap">
+                                                                    {unitDisplay}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
                                                         {product && (
                                                             <div className="text-xs text-muted-foreground mt-1">
                                                                 {t('Stock')}: {product.stock_quantity || 0}
