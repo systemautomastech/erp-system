@@ -439,10 +439,11 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                 breakAfter: 'page',
                 pageBreakInside: 'avoid',
                 breakInside: 'avoid-page',
+                fontFamily: '"Open Sans", sans-serif',
                 '--template-color': templateColor,
             } as React.CSSProperties}
             className={cn(
-                "proposal-preview-sheet proposal-cover__sheet bg-white text-slate-900 w-[210mm] h-[297mm] max-w-full shadow-2xl rounded-sm text-sm font-sans border border-slate-300 dark:border-slate-800 shrink-0 overflow-hidden relative",
+                "proposal-preview-sheet proposal-cover__sheet bg-white text-slate-900 w-[210mm] h-[297mm] max-w-full shadow-2xl rounded-sm text-sm border border-slate-300 dark:border-slate-800 shrink-0 overflow-hidden relative",
                 className
             )}
         >

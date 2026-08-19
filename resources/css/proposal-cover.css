@@ -1,9 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
 /* Pixel Perfect Proposal Sheet & Page Styles from ERP */
 .proposal-cover {
     margin: 0 auto;
     width: 210mm;
     min-height: 297mm;
     position: relative;
+    font-family: "Open Sans", sans-serif !important;
 }
 
 .proposal-cover__sheet,
@@ -16,6 +19,7 @@
     overflow: hidden !important;
     box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08);
     page-break-after: always;
+    font-family: "Open Sans", sans-serif !important;
 }
 
 .proposal-cover__topbar {

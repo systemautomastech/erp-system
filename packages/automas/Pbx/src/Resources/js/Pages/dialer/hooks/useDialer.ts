@@ -645,21 +645,12 @@ export function useDialer() {
         return
       }
 
-      callStore.currentNumber = target
-      callStore.caller = target
-      callStore.callStatus = 'calling'
-      callStore.agentStatus = 'busy'
-
-      forceStoreRender()
-
       await clickToCallWithLogging(
         target,
       )
     },
     [
       clickToCallWithLogging,
-      forceStoreRender,
-      callTransfer,
       number,
     ],
   )
@@ -736,31 +727,7 @@ export function useDialer() {
 
       if (!phoneNumber) return
 
-      setNumber(phoneNumber)
-
-      callStore.currentNumber =
-        phoneNumber
-
-      callStore.caller = phoneNumber
-
-      callStore.module =
-        item?.module ??
-        callStore.module
-
-      callStore.recordId =
-        item?.recordId ??
-        callStore.recordId
-
-      callStore.callStatus =
-        'calling'
-
-      callStore.agentStatus =
-        'busy'
-
-      setIsOpen(true)
       setActivePanel('dialpad')
-
-      forceStoreRender()
 
       void clickToCallWithLogging(
         phoneNumber,
@@ -773,7 +740,6 @@ export function useDialer() {
     },
     [
       clickToCallWithLogging,
-      forceStoreRender,
     ],
   )
 
@@ -1134,21 +1100,40 @@ export function useDialer() {
       forceStoreRender()
     }
 
-    const handleBeforeUnload =
-      (): void => {
-        if (
-          [
-            'active',
-            'ringing',
-            'calling',
-            'incoming',
-          ].includes(
-            callStore.callStatus,
-          )
-        ) {
-          terminateCurrentSession()
-        }
+    const handleBeforeUnload = (
+      event: BeforeUnloadEvent,
+    ): string | void => {
+      if (
+        [
+          'active',
+          'ringing',
+          'calling',
+          'incoming',
+        ].includes(
+          callStore.callStatus,
+        )
+      ) {
+        event.preventDefault()
+        event.returnValue =
+          'A call is currently in progress. Refreshing or leaving the page will end the call.'
+        return event.returnValue
       }
+    }
+
+    const handlePageHide = (): void => {
+      if (
+        [
+          'active',
+          'ringing',
+          'calling',
+          'incoming',
+        ].includes(
+          callStore.callStatus,
+        )
+      ) {
+        terminateCurrentSession()
+      }
+    }
 
     const handleOpenDialerPanel =
       (): void => {
@@ -1264,6 +1249,11 @@ export function useDialer() {
       handleBeforeUnload,
     )
 
+    window.addEventListener(
+      'pagehide',
+      handlePageHide,
+    )
+
     return () => {
       window.removeEventListener(
         'cti:registered',
@@ -1338,6 +1328,11 @@ export function useDialer() {
       window.removeEventListener(
         'beforeunload',
         handleBeforeUnload,
+      )
+
+      window.removeEventListener(
+        'pagehide',
+        handlePageHide,
       )
     }
   }, [

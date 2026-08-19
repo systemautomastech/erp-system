@@ -547,6 +547,69 @@ class SalesProposalController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+
+        if ($salesProposal->status !== 'accepted') {
+            return back()->with('error', __('Only accepted proposals can be converted to invoice.'));
+        }
+
+        if ($salesProposal->converted_to_invoice) {
+            return back()->with('error', __('Proposal already converted to invoice.'));
+        }
+
+        try {
+            $invoice = new SalesInvoice();
+            $invoice->customer_id = $salesProposal->customer_id;
+            $invoice->warehouse_id = $salesProposal->warehouse_id ?? 1;
+            $invoice->type = $salesProposal->type ?? 'product';
+            $invoice->invoice_date = now();
+            $invoice->due_date = $salesProposal->due_date;
+            $invoice->subtotal = $salesProposal->subtotal;
+            $invoice->tax_amount = $salesProposal->tax_amount;
+            $invoice->discount_amount = $salesProposal->discount_amount;
+            $invoice->total_amount = $salesProposal->total_amount;
+            $invoice->balance_amount = $salesProposal->total_amount;
+            $invoice->paid_amount = 0;
+            $invoice->payment_terms = $salesProposal->payment_terms;
+            $invoice->notes = $salesProposal->notes;
+            $invoice->status = 'draft';
+            $invoice->creator_id = creatorId();
+            $invoice->created_by = Auth::id();
+            $invoice->save();
+
+            foreach ($salesProposal->items as $proposalItem) {
+                $invoiceItem = new SalesInvoiceItem();
+                $invoiceItem->invoice_id = $invoice->id;
+                $invoiceItem->product_id = $proposalItem->product_id;
+                $invoiceItem->quantity = $proposalItem->quantity;
+                $invoiceItem->unit_price = $proposalItem->unit_price;
+                $invoiceItem->discount_percentage = $proposalItem->discount_percentage;
+                $invoiceItem->tax_percentage = $proposalItem->tax_percentage;
+                $invoiceItem->save();
+
+                foreach ($proposalItem->taxes as $tax) {
+                    $invoiceTax = new SalesInvoiceItemTax();
+                    $invoiceTax->item_id = $invoiceItem->id;
+                    $invoiceTax->tax_name = $tax->tax_name;
+                    $invoiceTax->tax_rate = $tax->tax_rate;
+                    $invoiceTax->save();
+                }
+            }
+
+            $salesProposal->update([
+                'converted_to_invoice' => true,
+                'invoice_id' => $invoice->id
+            ]);
+
+            try {
+                ConvertSalesProposal::dispatch($salesProposal, $invoice);
+            } catch (\Throwable $th) {
+                return back()->with('error', $th->getMessage());
+            }
+
+            return back()->with('success', __('Proposal converted to invoice successfully.'));
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     /**

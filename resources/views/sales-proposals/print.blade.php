@@ -202,6 +202,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales Proposal #{{ $proposal->proposal_number }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css'])
     <style>
         :root {
@@ -227,7 +230,7 @@
             margin: 0 !important;
             padding: 0 !important;
             width: 100%;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: "Open Sans", sans-serif !important;
             color: #1e293b;
         }
 
@@ -236,6 +239,7 @@
             margin: 0 auto;
             padding: 0;
             background-color: #ffffff;
+            font-family: "Open Sans", sans-serif !important;
         }
 
         .proposal-preview-sheet,

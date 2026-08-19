@@ -235,10 +235,10 @@ export default function ProposalItemsTable({ items, onChange, errors = {}, produ
                                                         size="sm"
                                                         onClick={() => onRefresh()}
                                                         disabled={isRefreshing}
-                                                        className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground gap-1 w-24 justify-start"
+                                                        className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground gap-1 w-24 justify-center"
                                                         title={t('Refresh items list')}
                                                     >
-                                                        <RefreshCw className={`h-3 w-3 shrink-0 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
+                                                        <RefreshCw className={`h-2 w-2 shrink-0 ${isRefreshing ? 'animate-spin text-primary' : ''}`} style={{ height: '10px', width: '10px' }} />
                                                         <span className={isRefreshing ? 'text-primary font-medium' : ''}>{t('Refresh')}</span>
                                                     </Button>
                                                 )}

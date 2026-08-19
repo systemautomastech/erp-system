@@ -300,7 +300,7 @@ export default function IncomingCallPopup({
                         {callerNumber}
                     </p>
 
-                                        {(isLead || isDeal) && (
+                    {(isLead || isDeal) && (
                         <div className="mt-3 flex justify-center">
                             <span
                                 className="

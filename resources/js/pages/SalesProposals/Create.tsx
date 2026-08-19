@@ -37,7 +37,7 @@ interface ProposalDefaultPage {
 }
 
 interface CreateProps {
-    customers: Array<{ id: number; name: string; email: string; [key: string]: any }>;
+    customers: Array<{ id: number; name: string; email: string;[key: string]: any }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
     defaultPages?: ProposalDefaultPage[];
     defaultTerms?: string | null;
@@ -324,7 +324,7 @@ export default function Create() {
                                                 const nextMode = data.customer_mode === 'new' ? 'existing' : 'new';
                                                 setData('customer_mode', nextMode);
                                             }}
-                                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                                            className="text-[11px] font-semibold text-primary flex items-center gap-1 cursor-pointer transition-colors"
                                         >
                                             {data.customer_mode === 'new' ? (
                                                 <>
@@ -334,7 +334,7 @@ export default function Create() {
                                             ) : (
                                                 <>
                                                     <UserPlus className="h-3 w-3" />
-                                                    {t('+ New Customer')}
+                                                    {t('New Customer')}
                                                 </>
                                             )}
                                         </button>
@@ -394,7 +394,7 @@ export default function Create() {
                                             )}
                                         </>
                                     ) : (
-                                        <div className="h-9 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
+                                        <div className="h-10 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
                                             <span className="flex items-center gap-1.5">
                                                 <UserPlus className="h-3.5 w-3.5" />
                                                 {data.customer_name || t('New Customer Mode')}
