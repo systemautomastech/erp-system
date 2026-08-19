@@ -376,71 +376,35 @@ class SalesInvoiceController extends Controller
         $totalTax = 0;
         $totalDiscount = 0;
 
-        if (is_array($items)) {
-            foreach ($items as $item) {
-                if (empty($item['product_id']) || (int)$item['product_id'] <= 0) {
-                    continue;
-                }
+        foreach ($items as $item) {
+            $lineTotal = $item['quantity'] * $item['unit_price'];
+            $discountAmount = ($lineTotal * ($item['discount_percentage'] ?? 0)) / 100;
+            $afterDiscount = $lineTotal - $discountAmount;
+            $taxAmount = ($afterDiscount * ($item['tax_percentage'] ?? 0)) / 100;
 
-                $quantity = max(1, (int) ($item['quantity'] ?? 1));
-                $unitPrice = max(0, (float) ($item['unit_price'] ?? 0));
-                $discountPct = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
-
-                $taxPct = (float) ($item['tax_percentage'] ?? 0);
-                if (isset($item['taxes']) && is_array($item['taxes']) && count($item['taxes']) > 0) {
-                    $taxPct = array_reduce($item['taxes'], function ($sum, $t) {
-                        return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
-                    }, 0);
-                }
-
-                $lineTotal = $quantity * $unitPrice;
-                $discountAmount = ($lineTotal * $discountPct) / 100;
-                $afterDiscount = $lineTotal - $discountAmount;
-                $taxAmount = ($afterDiscount * $taxPct) / 100;
-
-                $subtotal += $lineTotal;
-                $totalDiscount += $discountAmount;
-                $totalTax += $taxAmount;
-            }
+            $subtotal += $lineTotal;
+            $totalDiscount += $discountAmount;
+            $totalTax += $taxAmount;
         }
 
         return [
-            'subtotal' => round($subtotal, 2),
-            'tax_amount' => round($totalTax, 2),
-            'discount_amount' => round($totalDiscount, 2),
-            'total_amount' => round($subtotal + $totalTax - $totalDiscount, 2)
+            'subtotal' => $subtotal,
+            'tax_amount' => $totalTax,
+            'discount_amount' => $totalDiscount,
+            'total_amount' => $subtotal + $totalTax - $totalDiscount
         ];
     }
 
     private function createInvoiceItems($invoiceId, $items)
     {
-        if (!is_array($items)) {
-            return;
-        }
-
         foreach ($items as $itemData) {
-            if (empty($itemData['product_id']) || (int)$itemData['product_id'] <= 0) {
-                continue;
-            }
-
-            $quantity = max(1, (int) ($itemData['quantity'] ?? 1));
-            $unitPrice = max(0, (float) ($itemData['unit_price'] ?? 0));
-            $discountPct = max(0, min(100, (float) ($itemData['discount_percentage'] ?? 0)));
-
-            $taxPct = (float) ($itemData['tax_percentage'] ?? 0);
-            if (isset($itemData['taxes']) && is_array($itemData['taxes']) && count($itemData['taxes']) > 0) {
-                $taxPct = array_reduce($itemData['taxes'], function ($sum, $t) {
-                    return $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0);
-                }, 0);
-            }
-
             $item = new SalesInvoiceItem();
             $item->invoice_id = $invoiceId;
             $item->product_id = $itemData['product_id'];
-            $item->quantity = $quantity;
-            $item->unit_price = $unitPrice;
-            $item->discount_percentage = $discountPct;
-            $item->tax_percentage = $taxPct;
+            $item->quantity = $itemData['quantity'];
+            $item->unit_price = $itemData['unit_price'];
+            $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
+            $item->tax_percentage = $itemData['tax_percentage'] ?? 0;
             $item->save();
 
             // Store individual taxes
@@ -448,8 +412,8 @@ class SalesInvoiceController extends Controller
                 foreach ($itemData['taxes'] as $tax) {
                     $salesInvoiceItemTax = new SalesInvoiceItemTax();
                     $salesInvoiceItemTax->item_id = $item->id;
-                    $salesInvoiceItemTax->tax_name = $tax['tax_name'] ?? 'Tax';
-                    $salesInvoiceItemTax->tax_rate = (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0);
+                    $salesInvoiceItemTax->tax_name = $tax['tax_name'];
+                    $salesInvoiceItemTax->tax_rate = $tax['tax_rate'] ?? $tax['rate'] ?? 0;
                     $salesInvoiceItemTax->save();
                 }
             }

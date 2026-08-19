@@ -35,11 +35,11 @@ class HandleInertiaRequests extends Middleware
         if (!$this->isInstalled()) {
             return [];
         }
-        
+
         // Get locale and layout direction
         $locale = $request->user() ? ($request->user()->lang ?? $this->getSuperAdminLang()) : $this->getSuperAdminLang();
         app()->setLocale($locale);
-        
+
         // Get layout direction from user or auto-detect for guests
         $rtlLanguages = ['ar', 'he'];
         $layoutDirection = $request->user() && $request->user()->layout_direction
@@ -59,7 +59,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user()
                     ? array_merge(
-                        $request->user()->toArray(),
+                        $request->user()->loadMissing('employee')->toArray(),
                         [
                             'permissions' => $this->getUserPermissions($request->user()),
                             'roles' => $this->getUserRoles($request->user()),
@@ -76,10 +76,10 @@ class HandleInertiaRequests extends Middleware
                 'error' => $request->session()->get('error'),
             ],
             'packages' => (new Module())->allModules(),
-            'adminAllSetting' =>   $request->user() ?  getAdminAllSetting() : getAdminAllSetting(true),
+            'adminAllSetting' => $request->user() ? getAdminAllSetting() : getAdminAllSetting(true),
             'companyAllSetting' => $request->user() ? getCompanyAllSetting($request->user()->id) : [],
-            'imageUrlPrefix' =>  getImageUrlPrefix(),
-            'baseUrl' =>  url('/'),
+            'imageUrlPrefix' => getImageUrlPrefix(),
+            'baseUrl' => url('/'),
             'currencies' => config('default_currency.currencies', []),
             'availableLanguages' => $availableLanguages,
         ];
