@@ -41,6 +41,10 @@ class UpdateSalesProposalRequest extends FormRequest
             'tariffs.*.qty' => 'nullable|numeric|min:0',
             'tariffs.*.pulse_per_min' => 'nullable|string',
             'tariffs.*.sort_order' => 'nullable|integer',
+
+            'proposal_content' => 'nullable|array',
+            'proposal_content.*.content' => 'nullable|string',
+            'proposal_content.*.order' => 'nullable|integer',
         ];
     }
 

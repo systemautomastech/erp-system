@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/react';
 import MediaLibraryModal from '@/components/MediaLibraryModal';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Upload, Trash2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -18,9 +19,16 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
     const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
     const [isBgModalOpen, setIsBgModalOpen] = useState(false);
 
-    const { data, setData, post, processing } = useForm({
+    const { data, setData, post, processing } = useForm<{
+        settings: {
+            logo_image: string;
+            show_logo: boolean;
+            background_image: string;
+        }
+    }>({
         settings: {
             logo_image: settings?.logo_image ?? '',
+            show_logo: settings?.show_logo !== undefined ? Boolean(settings.show_logo === '1' || settings.show_logo === true || settings.show_logo === 1 || settings.show_logo === 'true') : true,
             background_image: settings?.background_image ?? '',
         }
     });
@@ -29,6 +37,7 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
         if (settings) {
             setData('settings', {
                 logo_image: settings.logo_image ?? '',
+                show_logo: settings.show_logo !== undefined ? Boolean(settings.show_logo === '1' || settings.show_logo === true || settings.show_logo === 1 || settings.show_logo === 'true') : true,
                 background_image: settings.background_image ?? '',
             });
         }
@@ -52,13 +61,20 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
         post(route('proposal-setup.update'), {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success(t('Images saved successfully.'));
+                toast.success(t('Settings saved successfully.'));
             },
-            onError: () => {
-                toast.error(t('Failed to save Images.'));
+            onError: (errs) => {
+                const firstErr = errs && Object.values(errs)[0];
+                if (firstErr) {
+                    toast.error(firstErr);
+                } else {
+                    toast.error(t('Failed to save Settings.'));
+                }
             },
         });
     };
+
+    const isShowLogo = Boolean(data.settings.show_logo);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -104,6 +120,23 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                             </>
                         )}
                     </div>
+
+                    {/* Show Logo in Template Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="show-logo-toggle" className="text-sm font-medium cursor-pointer">
+                                {t('Show Logo in Template')}
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Enable or disable displaying the logo on the template')}
+                            </p>
+                        </div>
+                        <Switch
+                            id="show-logo-toggle"
+                            checked={isShowLogo}
+                            onCheckedChange={(checked) => setData('settings', { ...data.settings, show_logo: checked })}
+                        />
+                    </div>
                 </div>
 
                 {/* PDF Background Image */}
@@ -131,7 +164,7 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                         ) : (
                             <>
                                 <Upload className="h-8 w-8 text-muted-foreground" />
-                                <p className="text-xs text-muted-foreground">{t('PNG, JPG or WEBP up to 4MB')}</p>
+                                <p className="text-xs text-muted-foreground">{t('PNG, JPG or WEBP up to 2MB')}</p>
                                 <Button
                                     type="button"
                                     variant="outline"

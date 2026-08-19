@@ -184,7 +184,9 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Proposal Setup
     Route::get('sales-proposal/settings', [ProposalSetupController::class, 'index'])->name('proposal-setup.index');
     Route::post('sales-proposal/settings', [ProposalSetupController::class, 'updateSettings'])->name('proposal-setup.update');
+    Route::get('sales-proposal/default-pages/create', [ProposalSetupController::class, 'createDefaultPage'])->name('proposal-setup.default-pages.create');
     Route::post('sales-proposal/default-pages', [ProposalSetupController::class, 'storeDefaultPage'])->name('proposal-setup.default-pages.store');
+    Route::get('sales-proposal/default-pages/{defaultPage}/edit', [ProposalSetupController::class, 'editDefaultPage'])->name('proposal-setup.default-pages.edit');
     Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'updateDefaultPage'])->name('proposal-setup.default-pages.update');
     Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'destroyDefaultPage'])->name('proposal-setup.default-pages.destroy');
 

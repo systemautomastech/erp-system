@@ -148,7 +148,6 @@ export default function MediaLibraryModal({
         
         // Show appropriate success/warning messages
         if (result.errors && result.errors.length > 0) {
-          toast.warning(result.message || `${result.data?.length || 0} uploaded, ${result.errors.length} failed`);
           result.errors.forEach((error: string) => {
             toast.error(error, { duration: 5000 });
           });
@@ -156,11 +155,12 @@ export default function MediaLibraryModal({
           toast.success(result.message || t(' file(s) uploaded successfully', { count: result.data?.length || 0 }));
         }
       } else {
-        toast.error(result.message || t('Upload failed'));
-        if (result.errors) {
+        if (result.errors && Array.isArray(result.errors) && result.errors.length > 0) {
           result.errors.forEach((error: string) => {
             toast.error(error, { duration: 5000 });
           });
+        } else {
+          toast.error(result.message || t('Upload failed'));
         }
       }
     } catch (error) {

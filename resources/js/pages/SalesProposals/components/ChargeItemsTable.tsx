@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { SalesInvoiceItem } from '@/pages/Sales/types';
+import { ProposalItem } from '../types';
 import ProductSelector from '@/pages/Sales/components/ProductSelector';
 import { calculateLineItemAmounts } from '@/pages/Sales/components/TaxCalculator';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,9 @@ import { formatCurrency } from '@/utils/helpers';
 interface Props {
     sectionType: 'otc' | 'mrc';
     title: string;
-    items: SalesInvoiceItem[];
-    allItems: SalesInvoiceItem[];
-    onAllItemsChange: (items: SalesInvoiceItem[]) => void;
+    items: ProposalItem[];
+    allItems: ProposalItem[];
+    onAllItemsChange: (items: ProposalItem[]) => void;
     products?: Array<{
         id: number;
         name: string;
@@ -47,7 +47,7 @@ export default function ChargeItemsTable({
     const { t } = useTranslation();
 
     const addChargeItem = () => {
-        const newItem: SalesInvoiceItem = {
+        const newItem: ProposalItem = {
             product_id: 0,
             section: sectionType,
             product_type: invoiceType || 'product',
@@ -73,7 +73,7 @@ export default function ChargeItemsTable({
         onAllItemsChange(updatedAll);
     };
 
-    const updateChargeItem = (targetItemIndex: number, field: keyof SalesInvoiceItem, value: any) => {
+    const updateChargeItem = (targetItemIndex: number, field: keyof ProposalItem, value: any) => {
         const sectionItems = allItems.filter(i => i.section === sectionType);
         const targetItem = sectionItems[targetItemIndex];
         if (!targetItem) return;

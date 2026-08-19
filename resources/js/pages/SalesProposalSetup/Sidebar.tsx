@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import {
     Settings,
     Image as ImageIcon,
-    File,
+    Layers,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -37,7 +37,7 @@ export default function SetupSidebar({ activeSection, onNavClick }: SetupSidebar
         {
             id: 'default-pages',
             label: t('Default Pages'),
-            icon: File,
+            icon: Layers,
         },
     ];
 

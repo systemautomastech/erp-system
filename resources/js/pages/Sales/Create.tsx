@@ -135,12 +135,12 @@ export default function Create() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                { label: t('Sales Invoice'), url: route('sales-invoices.index') },
-                { label: t('Create Sales Invoice') }
+                { label: t('Invoice'), url: route('sales-invoices.index') },
+                { label: t('Create Invoice') }
             ]}
-            pageTitle={t('Create Sales Invoice')}
+            pageTitle={t('Create Invoice')}
         >
-            <Head title={t('Create Sales Invoice')} />
+            <Head title={t('Create Invoice')} />
 
             <div>
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -149,7 +149,7 @@ export default function Create() {
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2 text-lg">
                                     <CalendarDays className="h-5 w-5" />
-                                    {t('Sales Invoice Details')}
+                                    {t('Invoice Details')}
                                 </CardTitle>
                                 <div className="flex items-center gap-2">
                                     <RadioGroup value={data.type} onValueChange={handleTypeChange} className="flex gap-4">
@@ -316,7 +316,7 @@ export default function Create() {
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2 text-lg">
                                     <Package className="h-5 w-5" />
-                                    {t('Sales Invoice Items')}
+                                    {t('Invoice Items')}
                                 </CardTitle>
                                 <Button
                                     type="button"

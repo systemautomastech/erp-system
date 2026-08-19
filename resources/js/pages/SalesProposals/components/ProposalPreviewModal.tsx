@@ -663,7 +663,7 @@ const CoverPage = React.memo<CoverPageProps>(({ page, templateColor, logoImage, 
                 <div className="quotation-cover__footer flex justify-between items-end gap-3 text-slate-600">
                     <div>
                         <strong className="text-slate-900">{t('Prepared by')}:</strong>{' '}
-                        {formData.creator_name || getCompanySetting('company_name') || t('Creator Name')}
+                        {formData.creator_name || formData.user_name || pageProps?.auth?.user?.name || getCompanySetting('company_name') || t('Creator Name')}
                     </div>
                     <div className="text-right">
                         <strong className="text-slate-900">{t('Subject')}:</strong>{' '}

@@ -3,9 +3,9 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
-import { SalesInvoiceItem } from '@/pages/Sales/types';
+import { ProposalItem } from '@/pages/SalesProposals/types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
-import InvoiceItemsTable from '@/pages/Sales/components/InvoiceItemsTable';
+import ProposalItemsTable from '@/pages/SalesProposals/components/ProposalItemsTable';
 import { useTaxCalculator } from '@/pages/Sales/components/TaxCalculator';
 import { formatCurrency } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import ProposalPreviewModal from './components/ProposalPreviewModal';
+import PreviewModal from '@/components/PreviewModal';
 import ChargeItemsTable from './components/ChargeItemsTable';
 import PageOrderSection from './components/PageOrderSection';
 
@@ -46,8 +46,8 @@ interface SalesProposal {
     customer_id: number;
     warehouse_id?: number;
     type?: string;
-    is_tax_enabled?: boolean;
-    is_prepaid?: boolean;
+    is_tax_enabled?: boolean | number;
+    is_prepaid?: boolean | number;
     payment_terms?: string;
     notes?: string;
     items: any[];
@@ -76,18 +76,29 @@ export default function Edit() {
         let parsed: any[] = [];
         if (Array.isArray(contentsRel) && contentsRel.length > 0) {
             parsed = contentsRel.map((c: any) => {
+                let dec: any = null;
                 if (c.proposal_content) {
                     try {
-                        const dec = typeof c.proposal_content === 'string' ? JSON.parse(c.proposal_content) : c.proposal_content;
-                        if (dec && typeof dec === 'object') return dec;
+                        dec = typeof c.proposal_content === 'string' ? JSON.parse(c.proposal_content) : c.proposal_content;
                     } catch (e) { }
                 }
+
+                if (dec && typeof dec === 'object' && !Array.isArray(dec)) {
+                    return {
+                        title: dec.title || c.title || '',
+                        content: dec.content || c.content || '',
+                        page_type: dec.page_type || c.page_type || 'content',
+                        background_image: dec.background_image || c.background_image || '',
+                        order: typeof c.order !== 'undefined' ? Number(c.order) : (typeof dec.order !== 'undefined' ? Number(dec.order) : 1),
+                    };
+                }
+
                 return {
                     title: c.title || '',
                     content: c.content || c.proposal_content || '',
                     page_type: c.page_type || 'content',
                     background_image: c.background_image || '',
-                    order: c.order || 1,
+                    order: typeof c.order !== 'undefined' ? Number(c.order) : 1,
                 };
             });
         } else {
@@ -103,35 +114,38 @@ export default function Edit() {
             }
         }
 
-        if (parsed && parsed.length > 0) {
-            return parsed.map((item: any, idx: number) => ({
-                id: `sec-${idx}-${Date.now()}`,
-                title: item.title,
-                content: item.content || '',
-                page_type: item.page_type,
-                background_image: item.background_image || '',
-                order: item.order || idx + 1,
-                isExpanded: false,
+        if (parsed.length === 0 && defaultPages && defaultPages.length > 0) {
+            parsed = defaultPages.map((p, idx) => ({
+                title: p.title,
+                content: p.content || '',
+                page_type: p.page_type || 'content',
+                background_image: p.background_image || '',
+                order: Number(p.sort_order) || idx + 1,
             }));
         }
 
-        if (defaultPages && defaultPages.length > 0) {
-            const frontPage = defaultPages.find((p) => p.page_type === 'front-page' || p.title?.toLowerCase().includes('front') || p.title?.toLowerCase().includes('cover'));
-            if (frontPage) {
-                return [
-                    {
-                        id: `sec-${frontPage.id}-${Date.now()}`,
-                        title: frontPage.title,
-                        content: frontPage.content || '',
-                        page_type: 'front-page',
-                        background_image: frontPage.background_image || '',
-                        order: 1,
-                        isExpanded: true,
-                    },
-                ];
-            }
-        }
-        return [];
+        const filteredParsed = (parsed || []).filter((item: any) => {
+            const content = (item.content || item.proposal_content || '').trim();
+            const pageType = item.page_type || '';
+            return !['otc', 'mrc', 'other-details'].includes(pageType) &&
+                !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+        });
+
+        filteredParsed.sort((a: any, b: any) => {
+            const orderA = typeof a.order === 'number' ? a.order : (parseInt(a.order, 10) || 0);
+            const orderB = typeof b.order === 'number' ? b.order : (parseInt(b.order, 10) || 0);
+            return orderA - orderB;
+        });
+
+        return filteredParsed.map((item: any, idx: number) => ({
+            id: `sec-${idx}-${Date.now()}`,
+            title: item.title || `Page ${idx + 1}`,
+            content: item.content || '',
+            page_type: item.page_type || 'content',
+            background_image: item.background_image || '',
+            order: typeof item.order === 'number' ? item.order : (parseInt(item.order, 10) || (idx + 1)),
+            isExpanded: false,
+        }));
     });
 
     useFlashMessages();
@@ -171,12 +185,12 @@ export default function Edit() {
             tax_percentage: 0,
             tax_amount: 0,
             total_amount: 0
-        }] as SalesInvoiceItem[],
+        }] as ProposalItem[],
         proposal_content: [],
         other_details: proposal.other_details || '',
     });
 
-    // Auto-sync OTC and MRC section cards into Page Order list when products exist in those tables
+    // Auto-sync OTC, MRC, and Other Details section cards into Page Order list when products exist in those tables
     useEffect(() => {
         const hasOtcItems = data.items.some(
             (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
@@ -189,6 +203,7 @@ export default function Edit() {
 
         setSections((prev) => {
             let updated = [...prev];
+            let changed = false;
 
             // OTC Card
             const otcIdx = updated.findIndex((s) => s.page_type === 'otc');
@@ -201,8 +216,10 @@ export default function Edit() {
                     order: updated.length + 1,
                     isExpanded: false,
                 });
+                changed = true;
             } else if (!hasOtcItems && otcIdx !== -1) {
                 updated = updated.filter((s) => s.page_type !== 'otc');
+                changed = true;
             }
 
             // MRC Card
@@ -216,8 +233,10 @@ export default function Edit() {
                     order: updated.length + 1,
                     isExpanded: false,
                 });
+                changed = true;
             } else if (!hasMrcItems && mrcIdx !== -1) {
                 updated = updated.filter((s) => s.page_type !== 'mrc');
+                changed = true;
             }
 
             // Other Details Card
@@ -231,10 +250,13 @@ export default function Edit() {
                     order: updated.length + 1,
                     isExpanded: false,
                 });
+                changed = true;
             } else if (!hasOtherDetails && otherIdx !== -1) {
                 updated = updated.filter((s) => s.page_type !== 'other-details');
+                changed = true;
             }
 
+            if (!changed) return prev;
             return updated.map((item, idx) => ({ ...item, order: idx + 1 }));
         });
     }, [data.items, data.other_details]);
@@ -295,19 +317,25 @@ export default function Edit() {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        transform((formData) => ({
-            ...formData,
-            proposal_content: sections.map((item, index) => ({
+        // Build proposal_content preserving the exact visual order of the sections array
+        const proposalContentPayload = sections
+            .filter((item) => {
+                const content = (item.content || '').trim();
+                const pageType = item.page_type || '';
+                return !['otc', 'mrc', 'other-details'].includes(pageType) &&
+                    !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+            })
+            .map((item, index) => ({
                 title: item.title,
                 content: item.content,
-                page_type: item.page_type,
-                background_image: item.background_image,
+                page_type: item.page_type || 'content',
+                background_image: item.background_image || '',
                 order: index + 1,
-            })),
-            tariffs: ((formData as any).tariffs || []).map((t: any, idx: number) => ({
-                ...t,
-                sort_order: idx + 1,
-            })),
+            }));
+
+        transform((formData) => ({
+            ...formData,
+            proposal_content: proposalContentPayload,
         }));
 
         put(route('sales-proposals.update', proposal.id));
@@ -358,7 +386,64 @@ export default function Edit() {
                                 </div>
                             </div>
 
+                            {/* Row 2: Customer, Proposal Date, Due Date, Warehouse */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div>
+                                    <Label htmlFor="customer_id" required>
+                                        {t('Customer')}
+                                    </Label>
+                                    <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('Select Customer')} />
+                                        </SelectTrigger>
+                                        <SelectContent searchable>
+                                            {customers?.map((customer) => (
+                                                <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                    {customer.name} - {customer.email}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.customer_id} />
+
+                                    {/* Selected Customer Card directly below customer select */}
+                                    {selectedCustomer && (
+                                        <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50/80 dark:bg-slate-900/40 text-xs space-y-1">
+                                            <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">
+                                                        <User className="w-2.5 h-2.5" />
+                                                    </div>
+                                                    <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs truncate">
+                                                        {selectedCustomer.name}
+                                                    </span>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-4 px-1 text-[10px] font-medium gap-0.5 shrink-0"
+                                                    onClick={() => setData('customer_id', '')}
+                                                >
+                                                    <X className="w-2.5 h-2.5" />
+                                                    {t('Clear')}
+                                                </Button>
+                                            </div>
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 truncate">
+                                                <div className="truncate">{selectedCustomer.email || '-'}</div>
+                                                {(selectedCustomer.mobile_no || selectedCustomer.phone) && (
+                                                    <div className="truncate">{selectedCustomer.mobile_no || selectedCustomer.phone}</div>
+                                                )}
+                                                {selectedCustomer.address && (
+                                                    <div className="text-slate-600 dark:text-slate-300 truncate" title={selectedCustomer.address}>
+                                                        {selectedCustomer.address}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div>
                                     <Label htmlFor="invoice_date" required>
                                         {t('Proposal Date')}
@@ -383,75 +468,6 @@ export default function Edit() {
                                         required
                                     />
                                     <InputError message={errors.due_date} />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="customer_id" required>
-                                        {t('Customer')}
-                                    </Label>
-                                    <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('Select Customer')} />
-                                        </SelectTrigger>
-                                        <SelectContent searchable>
-                                            {customers?.map((customer) => (
-                                                <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                    {customer.name} - {customer.email}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <InputError message={errors.customer_id} />
-
-                                    {selectedCustomer && (
-                                        <div className="mt-2.5 border border-slate-200 rounded-xl p-3 bg-slate-50/90 shadow-2xs w-full max-w-sm sm:max-w-md">
-                                            <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/80">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                                                        <User className="w-3.5 h-3.5" />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <h5 className="font-bold text-slate-900 text-xs truncate leading-tight">{selectedCustomer.name}</h5>
-                                                        <div className="text-[11px] text-slate-400 font-normal truncate">{selectedCustomer.email || '-'} | {selectedCustomer.mobile_no || selectedCustomer.phone || '-'}</div>
-                                                    </div>
-                                                </div>
-
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 h-6 px-2 text-[11px] font-semibold gap-1 shrink-0"
-                                                    onClick={() => setData('customer_id', '')}
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                    {t('Remove')}
-                                                </Button>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                                                <div className="col-span-2">
-                                                    <span className="text-slate-500 font-medium">{t('Address')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.address || selectedCustomer.billing_address || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('Division')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.division || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('District')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.district || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('Upazila')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.upazila || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('Zip Code')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.zip_code || selectedCustomer.zipcode || '-'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
 
                                 <div>
@@ -512,7 +528,7 @@ export default function Edit() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <InvoiceItemsTable
+                            <ProposalItemsTable
                                 items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
                                 onChange={(updatedOtcItems) => {
@@ -525,6 +541,7 @@ export default function Edit() {
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="otc"
                             />
                         </CardContent>
                     </Card>
@@ -549,7 +566,7 @@ export default function Edit() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <InvoiceItemsTable
+                            <ProposalItemsTable
                                 items={data.items.filter(i => i.section === 'mrc')}
                                 products={availableProducts}
                                 onChange={(updatedMrcItems) => {
@@ -562,6 +579,7 @@ export default function Edit() {
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="mrc"
                             />
                         </CardContent>
                     </Card>
@@ -588,6 +606,7 @@ export default function Edit() {
                         sections={sections as any}
                         setSections={setSections as any}
                         defaultPages={defaultPages}
+                        proposalSetting={proposalSetting}
                     />
 
                     {/* Additional Notes Section */}
@@ -659,7 +678,7 @@ export default function Edit() {
                     </div>
                 </form>
 
-                <ProposalPreviewModal
+                <PreviewModal
                     isOpen={isPreviewOpen}
                     onClose={() => setIsPreviewOpen(false)}
                     formData={{

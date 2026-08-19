@@ -6,7 +6,7 @@ import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { RefreshCw, Download, ArrowLeft } from 'lucide-react';
+import { RefreshCw, Download, ArrowLeft, Printer } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFormFields } from '@/hooks/useFormFields';
 
@@ -162,30 +162,26 @@ export default function View() {
                                     <div className="flex justify-between items-center">
                                         <div className="flex gap-2">
                                             {auth.user?.permissions?.includes('print-sales-proposals') && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setIsDownloading(true);
-                                                        const downloadUrl = route('sales-proposals.download-pdf', proposal.id);
-                                                        const iframe = document.createElement('iframe');
-                                                        iframe.style.display = 'none';
-                                                        iframe.src = downloadUrl;
-                                                        iframe.onload = () => {
-                                                            setTimeout(() => setIsDownloading(false), 800);
-                                                        };
-                                                        document.body.appendChild(iframe);
-                                                        setTimeout(() => {
-                                                            setIsDownloading(false);
-                                                            if (iframe.parentNode) {
-                                                                document.body.removeChild(iframe);
-                                                            }
-                                                        }, 5000);
-                                                    }}
-                                                >
-                                                    <Download className="h-4 w-4 mr-2" />
-                                                    {t('Download PDF')}
-                                                </Button>
+                                                <>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => window.open(route('sales-proposals.print', proposal.id) + '?print=1', '_blank')}
+                                                    >
+                                                        <Printer className="h-4 w-4 mr-2" />
+                                                        {t('Print')}
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            window.location.href = route('sales-proposals.download-pdf', proposal.id);
+                                                        }}
+                                                    >
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        {t('Download PDF')}
+                                                    </Button>
+                                                </>
                                             )}
                                             {auth.user?.permissions?.includes('convert-sales-proposals') && proposal.status === 'accepted' && !proposal.converted_to_invoice && (
                                                 <TooltipProvider>

@@ -66,7 +66,7 @@ class UpdateGeneralSettingRequest extends FormRequest
 
             'background_image.image' => __('The background must be an image file.'),
             'background_image.mimes' => __('The background image must be a file of type: jpeg, png, jpg, gif, svg, webp.'),
-            'background_image.max' => __('The background image may not be greater than 4MB.'),
+            'background_image.max' => __('The background image may not be greater than 2MB.'),
 
             'default_terms.string' => __('The default terms must be a valid text string.'),
 

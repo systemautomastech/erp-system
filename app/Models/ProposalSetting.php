@@ -14,7 +14,8 @@ class ProposalSetting extends Model
 
     public static function getSettings($creatorId = null)
     {
-        $creatorId = $creatorId ?? auth()->id();
+        $creatorId = $creatorId ?? (function_exists('creatorId') ? creatorId() : auth()->id());
+        $authId = auth()->id();
 
         $defaults = [
             'proposal_prefix' => 'PRO',
@@ -26,11 +27,12 @@ class ProposalSetting extends Model
             'default_terms' => '<h2>Terms & Conditions</h2><p>1. Proposal is valid for 30 days from issuance.<br/>2. Payment terms: 50% deposit upon acceptance, 50% on project completion.</p>',
         ];
 
-        if (!$creatorId) {
+        $targetIds = array_filter(array_unique([$creatorId, $authId]));
+        if (empty($targetIds)) {
             return $defaults;
         }
 
-        $dbSettings = static::where('creator_id', $creatorId)
+        $dbSettings = static::whereIn('creator_id', $targetIds)
             ->pluck('value', 'option')
             ->toArray();
 
@@ -39,7 +41,7 @@ class ProposalSetting extends Model
 
     public static function setSettings(array $settings, $creatorId = null)
     {
-        $creatorId = $creatorId ?? auth()->id();
+        $creatorId = $creatorId ?? (function_exists('creatorId') ? creatorId() : auth()->id());
 
         if (!$creatorId) {
             return;

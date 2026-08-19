@@ -134,6 +134,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function employee()
+    {
+        return $this->hasOne(\Automas\Hrm\Models\Employee::class, 'user_id');
+    }
+
     public static function CompanySetting($user_id)
     {
         $company_settings = [

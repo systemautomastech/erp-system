@@ -69,6 +69,11 @@ class SalesProposal extends Model
         return $this->belongsTo(User::class, 'customer_id');
     }
 
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'warehouse_id');

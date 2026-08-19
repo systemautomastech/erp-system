@@ -23,7 +23,7 @@ class StoreDefaultPageRequest extends FormRequest
     {
         if (!$this->has('creator_id') && auth()->check()) {
             $this->merge([
-                'creator_id' => auth()->id(),
+                'creator_id' => creatorId(),
             ]);
         }
     }
@@ -45,7 +45,7 @@ class StoreDefaultPageRequest extends FormRequest
                 'sometimes',
                 'integer',
                 'min:1',
-                Rule::unique('proposal_default_pages', 'sort_order')->where(fn ($query) => $query->where('creator_id', auth()->id())),
+                Rule::unique('proposal_default_pages', 'sort_order')->where(fn ($query) => $query->where('creator_id', creatorId())),
             ],
             'creator_id' => 'nullable|exists:users,id',
         ];

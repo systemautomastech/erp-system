@@ -113,12 +113,12 @@ export default function Edit() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Sales Invoice'), url: route('sales-invoices.index')},
-                {label: t('Edit Sales Invoice')}
+                {label: t('Invoice'), url: route('sales-invoices.index')},
+                {label: t('Edit Invoice')}
             ]}
-            pageTitle={t('Edit Sales Invoice')}
+            pageTitle={t('Edit Invoice')}
         >
-            <Head title={t('Edit Sales Invoice')} />
+            <Head title={t('Edit Invoice')} />
 
             <div>
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -126,7 +126,7 @@ export default function Edit() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-lg">
                                 <CalendarDays className="h-5 w-5" />
-                                {t('Sales Invoice Details')}
+                                {t('Invoice Details')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -269,7 +269,7 @@ export default function Edit() {
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2 text-lg">
                                     <Package className="h-5 w-5" />
-                                    {t('Sales Invoice Items')}
+                                    {t('Invoice Items')}
                                 </CardTitle>
                                 <Button
                                     type="button"

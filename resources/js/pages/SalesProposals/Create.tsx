@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
-import { SalesInvoiceItem } from '@/pages/Sales/types';
+import { ProposalItem } from '@/pages/SalesProposals/types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
-import InvoiceItemsTable from '@/pages/Sales/components/InvoiceItemsTable';
+import ProposalItemsTable from '@/pages/SalesProposals/components/ProposalItemsTable';
 import { useTaxCalculator } from '@/pages/Sales/components/TaxCalculator';
 import { formatCurrency } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
@@ -16,14 +16,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, X } from 'lucide-react';
+import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, Users, UserPlus, X } from 'lucide-react';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import ProposalPreviewModal from './components/ProposalPreviewModal';
+import PreviewModal from '@/components/PreviewModal';
 import ChargeItemsTable from './components/ChargeItemsTable';
 import PageOrderSection from './components/PageOrderSection';
 
@@ -37,7 +37,7 @@ interface ProposalDefaultPage {
 }
 
 interface CreateProps {
-    customers: Array<{ id: number; name: string; email: string }>;
+    customers: Array<{ id: number; name: string; email: string; [key: string]: any }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
     defaultPages?: ProposalDefaultPage[];
     defaultTerms?: string | null;
@@ -47,26 +47,22 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<CreateProps>().props;
+    const { customFields } = useFormFields('SalesProposal');
     const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-    // Initialize proposal sections (auto pre-populating Front Page if available)
+    // Initialize proposal sections from default pages
     const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
         if (defaultPages && defaultPages.length > 0) {
-            const frontPage = defaultPages.find((p) => p.page_type === 'front-page' || p.title?.toLowerCase().includes('front') || p.title?.toLowerCase().includes('cover'));
-            if (frontPage) {
-                return [
-                    {
-                        id: `sec-${frontPage.id}-${Date.now()}`,
-                        title: frontPage.title,
-                        content: frontPage.content || '',
-                        page_type: 'front-page',
-                        background_image: frontPage.background_image || '',
-                        order: 1,
-                        isExpanded: true,
-                    },
-                ];
-            }
+            return defaultPages.map((p, idx) => ({
+                id: `sec-${p.id || idx}-${Date.now()}`,
+                title: p.title,
+                content: p.content || '',
+                page_type: p.page_type || 'content',
+                background_image: p.background_image || '',
+                order: p.sort_order || idx + 1,
+                isExpanded: false,
+            }));
         }
         return [];
     });
@@ -78,7 +74,13 @@ export default function Create() {
         subject: '',
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
+        customer_mode: 'existing' as 'existing' | 'new',
         customer_id: '',
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
+        customer_type: 'Individual',
+        customer_address: '',
         warehouse_id: '',
         type: 'product',
         is_tax_enabled: true,
@@ -97,7 +99,7 @@ export default function Create() {
             tax_percentage: 0,
             tax_amount: 0,
             total_amount: 0
-        }] as SalesInvoiceItem[],
+        }] as ProposalItem[],
         proposal_content: [],
         other_details: '',
     });
@@ -150,7 +152,7 @@ export default function Create() {
             const otherIdx = updated.findIndex((s) => s.page_type === 'other-details');
             if (hasOtherDetails && otherIdx === -1) {
                 updated.push({
-                    id: `sec-other-${Date.now()}`,
+                    id: `sec-other-details-${Date.now()}`,
                     title: 'Other Details',
                     content: '[OTHER_DETAILS_CONTENT]',
                     page_type: 'other-details',
@@ -161,70 +163,72 @@ export default function Create() {
                 updated = updated.filter((s) => s.page_type !== 'other-details');
             }
 
-            return updated.map((item, idx) => ({ ...item, order: idx + 1 }));
+            return updated;
         });
     }, [data.items, data.other_details]);
 
-    // Selected Customer Details
-    const selectedCustomer: any = customers?.find((c: any) => String(c.id) === String(data.customer_id));
-
-    // Get custom fields using useFormFields hook
-    const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal' }, setData, errors, 'create', t);
-
+    // Fetch warehouse products
     const [isRefreshingProducts, setIsRefreshingProducts] = useState(false);
+    const fetchWarehouseProducts = async (warehouseId: string) => {
+        if (!warehouseId) {
+            setAvailableProducts([]);
+            return;
+        }
 
-    const refreshProducts = async () => {
-        setIsRefreshingProducts(true);
-        const startTime = Date.now();
         try {
-            const url = data.warehouse_id
-                ? route('sales-proposals.warehouse.products') + `?warehouse_id=${data.warehouse_id}`
-                : route('sales-proposals.warehouse.products');
-            const response = await fetch(url);
-            const warehouseProducts = await response.json();
-            setAvailableProducts(Array.isArray(warehouseProducts) ? warehouseProducts : []);
+            setIsRefreshingProducts(true);
+            const response = await fetch(route('sales-proposals.warehouse.products') + `?warehouse_id=${warehouseId}`);
+            if (!response.ok) throw new Error('Failed to fetch products');
+            const data = await response.json();
+            setAvailableProducts(Array.isArray(data) ? data : []);
         } catch (error) {
-            console.error('Failed to refresh products:', error);
+            console.error('Error fetching warehouse products:', error);
+            setAvailableProducts([]);
         } finally {
-            const elapsed = Date.now() - startTime;
-            if (elapsed < 500) {
-                setTimeout(() => setIsRefreshingProducts(false), 500 - elapsed);
-            } else {
-                setIsRefreshingProducts(false);
-            }
+            setIsRefreshingProducts(false);
         }
     };
 
-    const handleWarehouseChange = async (warehouseId: string) => {
-        setData('warehouse_id', warehouseId);
-
-        if (warehouseId) {
-            try {
-                const response = await fetch(route('sales-proposals.warehouse.products') + `?warehouse_id=${warehouseId}`);
-                const warehouseProducts = await response.json();
-                setAvailableProducts(warehouseProducts);
-                console.log('warehouseProducts', warehouseProducts);
-            } catch (error) {
-                console.error('Failed to fetch warehouse products:', error);
-                setAvailableProducts([]);
-            }
-        } else {
-            setAvailableProducts([]);
+    const refreshProducts = () => {
+        if (data.warehouse_id) {
+            fetchWarehouseProducts(data.warehouse_id);
+        } else if (data.type === 'service') {
+            fetchServiceProducts();
         }
+    };
 
-        // Reset items when warehouse changes
-        setData('items', [{
-            product_id: 0,
-            section: 'general',
-            product_type: 'product',
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }]);
+    useEffect(() => {
+        if (data.warehouse_id) {
+            fetchWarehouseProducts(data.warehouse_id);
+        }
+    }, [data.warehouse_id]);
+
+    const fetchServiceProducts = async () => {
+        try {
+            setIsRefreshingProducts(true);
+            const response = await fetch(route('sales-proposals.services'));
+            if (!response.ok) throw new Error('Failed to fetch services');
+            const data = await response.json();
+            setAvailableProducts(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching service products:', error);
+            setAvailableProducts([]);
+        } finally {
+            setIsRefreshingProducts(false);
+        }
+    };
+
+    const handleWarehouseChange = (value: string) => {
+        setData((prev) => ({
+            ...prev,
+            warehouse_id: value,
+            items: prev.items.map((item) => ({
+                ...item,
+                product_id: 0,
+                unit_price: 0,
+                total_amount: 0,
+            })),
+        }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -232,21 +236,42 @@ export default function Create() {
 
         transform((formData) => ({
             ...formData,
-            proposal_content: sections.map((item, index) => ({
-                title: item.title,
-                content: item.content,
-                order: index + 1,
-            })),
-            tariffs: ((formData as any).tariffs || []).map((t: any, idx: number) => ({
-                ...t,
-                sort_order: idx + 1,
-            })),
+            proposal_content: sections
+                .filter((item) => {
+                    const content = (item.content || '').trim();
+                    const pageType = item.page_type || '';
+                    return !['otc', 'mrc', 'other-details'].includes(pageType) &&
+                        !['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'].includes(content);
+                })
+                .map((item, index) => ({
+                    title: item.title,
+                    content: item.content,
+                    page_type: item.page_type || 'content',
+                    background_image: item.background_image || '',
+                    order: index + 1,
+                })),
         }));
 
         post(route('sales-proposals.store'));
     };
 
     const totals = useTaxCalculator(data.items);
+
+    const selectedCustomer = useMemo(() => {
+        if (data.customer_mode === 'new') {
+            if (!data.customer_name && !data.customer_email) return null;
+            return {
+                id: 0,
+                name: data.customer_name,
+                email: data.customer_email,
+                mobile_no: data.customer_phone,
+                phone: data.customer_phone,
+                address: data.customer_address,
+                type: data.customer_type,
+            };
+        }
+        return customers?.find((c: any) => c.id.toString() === data.customer_id) || null;
+    }, [data.customer_mode, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.customer_type, data.customer_address, customers]);
 
     return (
         <AuthenticatedLayout
@@ -267,7 +292,8 @@ export default function Create() {
                                 {t('Sales Proposal Details')}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-5">
+                            {/* Row 1: Proposal Number & Subject */}
                             <div className="flex flex-col md:flex-row gap-4 border-b pb-4 items-start">
                                 <div className="w-full md:w-64 shrink-0">
                                     <Label htmlFor="proposal_number">{t('Proposal Number')}</Label>
@@ -291,7 +317,101 @@ export default function Create() {
                                 </div>
                             </div>
 
+                            {/* Row 2: Customer, Proposal Date, Due Date, Warehouse */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <Label htmlFor="customer_id" required className="mb-0">
+                                            {t('Customer')}
+                                        </Label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const nextMode = data.customer_mode === 'new' ? 'existing' : 'new';
+                                                setData('customer_mode', nextMode);
+                                            }}
+                                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            {data.customer_mode === 'new' ? (
+                                                <>
+                                                    <Users className="h-3 w-3" />
+                                                    {t('Select Existing')}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <UserPlus className="h-3 w-3" />
+                                                    {t('+ New Customer')}
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {data.customer_mode === 'existing' ? (
+                                        <>
+                                            <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={t('Select Customer')} />
+                                                </SelectTrigger>
+                                                <SelectContent searchable>
+                                                    {customers?.map((customer) => (
+                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                            {customer.name} - {customer.email}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError message={errors.customer_id} />
+
+                                            {/* Selected Customer Card directly below customer select */}
+                                            {selectedCustomer && (
+                                                <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50/80 dark:bg-slate-900/40 text-xs space-y-1">
+                                                    <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">
+                                                                <User className="w-2.5 h-2.5" />
+                                                            </div>
+                                                            <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs truncate">
+                                                                {selectedCustomer.name}
+                                                            </span>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-4 px-1 text-[10px] font-medium gap-0.5 shrink-0"
+                                                            onClick={() => setData('customer_id', '')}
+                                                        >
+                                                            <X className="w-2.5 h-2.5" />
+                                                            {t('Clear')}
+                                                        </Button>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 truncate">
+                                                        <div className="truncate">{selectedCustomer.email || '-'}</div>
+                                                        {(selectedCustomer.mobile_no || selectedCustomer.phone) && (
+                                                            <div className="truncate">{selectedCustomer.mobile_no || selectedCustomer.phone}</div>
+                                                        )}
+                                                        {selectedCustomer.address && (
+                                                            <div className="text-slate-600 dark:text-slate-300 truncate" title={selectedCustomer.address}>
+                                                                {selectedCustomer.address}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="h-9 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <UserPlus className="h-3.5 w-3.5" />
+                                                {data.customer_name || t('New Customer Mode')}
+                                            </span>
+                                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                                {t('New')}
+                                            </Badge>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div>
                                     <Label htmlFor="invoice_date" required>
                                         {t('Proposal Date')}
@@ -319,75 +439,6 @@ export default function Create() {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="customer_id" required>
-                                        {t('Customer')}
-                                    </Label>
-                                    <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('Select Customer')} />
-                                        </SelectTrigger>
-                                        <SelectContent searchable>
-                                            {customers?.map((customer) => (
-                                                <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                    {customer.name} - {customer.email}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <InputError message={errors.customer_id} />
-
-                                    {selectedCustomer && (
-                                        <div className="mt-2.5 border border-slate-200 rounded-xl p-3 bg-slate-50/90 shadow-2xs w-full max-w-sm sm:max-w-md">
-                                            <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/80">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                                                        <User className="w-3.5 h-3.5" />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <h5 className="font-bold text-slate-900 text-xs truncate leading-tight">{selectedCustomer.name}</h5>
-                                                        <div className="text-[11px] text-slate-400 font-normal truncate">{selectedCustomer.email || '-'} | {selectedCustomer.mobile_no || selectedCustomer.phone || '-'}</div>
-                                                    </div>
-                                                </div>
-
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 h-6 px-2 text-[11px] font-semibold gap-1 shrink-0"
-                                                    onClick={() => setData('customer_id', '')}
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                    {t('Remove')}
-                                                </Button>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                                                <div className="col-span-2">
-                                                    <span className="text-slate-500 font-medium">{t('Address')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.address || selectedCustomer.billing_address || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('Division')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.division || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('District')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.district || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('Upazila')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.upazila || '-'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500 font-medium">{t('Zip Code')}: </span>
-                                                    <span className="text-slate-800 font-medium">{selectedCustomer.zip_code || selectedCustomer.zipcode || '-'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div>
                                     <Label htmlFor="warehouse_id" required>
                                         {t('Warehouse')}
                                     </Label>
@@ -406,6 +457,102 @@ export default function Create() {
                                     <InputError message={errors.warehouse_id} />
                                 </div>
                             </div>
+
+                            {/* New Customer Form Row when New Mode is Active */}
+                            {data.customer_mode === 'new' && (
+                                <div className="p-3 rounded-xl border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200">
+                                    <div className="flex items-center justify-between pb-1 border-b border-primary/10">
+                                        <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                                            <UserPlus className="h-3.5 w-3.5" />
+                                            {t('New Customer Details')}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                                        {/* Name */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_name" required className="text-xs">
+                                                {t('Customer Name')}
+                                            </Label>
+                                            <Input
+                                                id="customer_name"
+                                                value={data.customer_name}
+                                                onChange={(e) => setData('customer_name', e.target.value)}
+                                                placeholder={t('Name')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_name} />
+                                        </div>
+
+                                        {/* Email */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_email" required className="text-xs">
+                                                {t('Email')}
+                                            </Label>
+                                            <Input
+                                                id="customer_email"
+                                                type="email"
+                                                value={data.customer_email}
+                                                onChange={(e) => setData('customer_email', e.target.value)}
+                                                placeholder="email@example.com"
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_email} />
+                                        </div>
+
+                                        {/* Phone */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_phone" required className="text-xs">
+                                                {t('Phone')}
+                                            </Label>
+                                            <Input
+                                                id="customer_phone"
+                                                value={data.customer_phone}
+                                                onChange={(e) => setData('customer_phone', e.target.value)}
+                                                placeholder={t('Phone')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_phone} />
+                                        </div>
+
+                                        {/* Customer Type */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_type" className="text-xs">
+                                                {t('Customer Type')}
+                                            </Label>
+                                            <Select value={data.customer_type} onValueChange={(val) => setData('customer_type', val)}>
+                                                <SelectTrigger id="customer_type" className="h-8 text-xs">
+                                                    <SelectValue placeholder={t('Type')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Individual">{t('Individual')}</SelectItem>
+                                                    <SelectItem value="Business">{t('Business')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError message={errors.customer_type} />
+                                        </div>
+
+                                        {/* Address */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_address" required className="text-xs">
+                                                {t('Address')}
+                                            </Label>
+                                            <Input
+                                                id="customer_address"
+                                                value={data.customer_address}
+                                                onChange={(e) => setData('customer_address', e.target.value)}
+                                                placeholder={t('Address')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_address} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -418,35 +565,35 @@ export default function Create() {
                             </CardTitle>
                             <div className="flex items-center gap-2">
                                 <Label htmlFor="enable-tax-toggle" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
-                                     {t('Enable Tax')}
-                                 </Label>
-                                 <Switch
-                                     id="enable-tax-toggle"
-                                     size="sm"
-                                     checked={data.is_tax_enabled}
-                                     onCheckedChange={(checked) => {
-                                         setData('is_tax_enabled', checked);
-                                         if (!checked) {
-                                             // When tax is disabled, set all items' tax_amount, tax_percentage to 0
-                                             const updatedItems = data.items.map(item => {
-                                                 const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-                                                 const discountAmount = (lineTotal * (Number(item.discount_percentage) || 0)) / 100;
-                                                 return {
-                                                     ...item,
-                                                     tax_percentage: 0,
-                                                     tax_amount: 0,
-                                                     total_amount: lineTotal - discountAmount,
-                                                     taxes: []
-                                                 };
-                                             });
-                                             setData('items', updatedItems);
-                                         }
-                                     }}
-                                 />
+                                    {t('Enable Tax')}
+                                </Label>
+                                <Switch
+                                    id="enable-tax-toggle"
+                                    size="sm"
+                                    checked={data.is_tax_enabled}
+                                    onCheckedChange={(checked) => {
+                                        setData('is_tax_enabled', checked);
+                                        if (!checked) {
+                                            // When tax is disabled, set all items' tax_amount, tax_percentage to 0
+                                            const updatedItems = data.items.map(item => {
+                                                const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+                                                const discountAmount = (lineTotal * (Number(item.discount_percentage) || 0)) / 100;
+                                                return {
+                                                    ...item,
+                                                    tax_percentage: 0,
+                                                    tax_amount: 0,
+                                                    total_amount: lineTotal - discountAmount,
+                                                    taxes: []
+                                                };
+                                            });
+                                            setData('items', updatedItems);
+                                        }
+                                    }}
+                                />
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <InvoiceItemsTable
+                            <ProposalItemsTable
                                 items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
                                 onChange={(updatedOtcItems) => {
@@ -459,6 +606,7 @@ export default function Create() {
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="otc"
                             />
                         </CardContent>
                     </Card>
@@ -483,7 +631,7 @@ export default function Create() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <InvoiceItemsTable
+                            <ProposalItemsTable
                                 items={data.items.filter(i => i.section === 'mrc')}
                                 products={availableProducts}
                                 onChange={(updatedMrcItems) => {
@@ -496,6 +644,7 @@ export default function Create() {
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="mrc"
                             />
                         </CardContent>
                     </Card>
@@ -522,6 +671,7 @@ export default function Create() {
                         sections={sections as any}
                         setSections={setSections as any}
                         defaultPages={defaultPages}
+                        proposalSetting={proposalSetting}
                     />
 
                     {/* Additional Notes Section */}
@@ -579,7 +729,7 @@ export default function Create() {
                     </div>
                 </form>
 
-                <ProposalPreviewModal
+                <PreviewModal
                     isOpen={isPreviewOpen}
                     onClose={() => setIsPreviewOpen(false)}
                     formData={data}
