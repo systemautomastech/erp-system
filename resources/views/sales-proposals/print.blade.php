@@ -115,10 +115,10 @@
             'proposal_due_date' => $proposalDueDateFormatted,
             'due_date' => $proposalDueDateFormatted,
             'valid_until' => $proposalDueDateFormatted,
-            'customer_name' => $customer->name ?? '',
-            'customer_email' => $customer->email ?? '',
-            'customer_phone' => $customer->mobile_no ?? $customer->phone ?? '',
-            'customer_address' => $custAddr,
+            'customer_name' => $customer->name ?? $proposal->customer_name ?? '',
+            'customer_email' => $customer->email ?? $proposal->customer_email ?? '',
+            'customer_phone' => $customer->mobile_no ?? $customer->phone ?? $proposal->customer_phone ?? '',
+            'customer_address' => !empty($custAddr) ? $custAddr : ($proposal->customer_address ?? ''),
             'user_id' => $authorId,
             'user_name' => $authorName,
             'user_email' => $authorEmail,
@@ -332,7 +332,7 @@
             margin-left: 0 !important;
         }
 
-        /* HTML Preview Container Typography */
+        /* HTML Preview Container Typography matching Unified Preview Modal */
         .html-preview-container {
             font-size: 14px;
             line-height: 1.5;
@@ -340,10 +340,23 @@
             width: 100%;
         }
 
-        .html-preview-container > p { margin-bottom: 0.5rem; }
+        .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+        .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+        .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; color: #0f172a; }
+        .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; color: #0f172a; }
+        .html-preview-container p { margin: 4px 0; }
+        .html-preview-container > p:first-child { margin-top: 0; }
         .html-preview-container > p:last-child { margin-bottom: 0; }
-        .html-preview-container p:empty { min-height: 1.15em; margin-bottom: 0; }
+        .html-preview-container p:empty { min-height: 1.15em; margin: 0; }
         .html-preview-container p:empty::before { content: "\00a0"; }
+        .html-preview-container ul { list-style-type: disc; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
+        .html-preview-container ol { list-style-type: decimal; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
+        .html-preview-container li { margin-top: 2px; margin-bottom: 2px; }
+        .html-preview-container blockquote { border-left: 4px solid #cbd5e1; padding-left: 16px; font-style: italic; margin: 8px 0; }
+        .html-preview-container a { color: #2563eb; text-decoration: underline; }
+        .html-preview-container table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #cbd5e1; }
+        .html-preview-container th { border: 1px solid #cbd5e1; padding: 8px 10px; font-weight: 600; text-align: left; }
+        .html-preview-container td { border: 1px solid #cbd5e1; padding: 8px 10px; color: #1e293b; }
 
         @media print {
             @page {
@@ -459,26 +472,11 @@
         if (empty($customContentPages) || !is_array($customContentPages)) {
             $customContentPages = [];
         }
-        // Filter out placeholder charges tokens from customContentPages
-        $customContentPages = array_values(array_filter($customContentPages, function ($p) {
-            $content = trim((string)($p['content'] ?? ''));
-            $pageType = $p['page_type'] ?? '';
-            $title = trim((string)($p['title'] ?? ''));
-            if (in_array($pageType, ['otc', 'mrc', 'other-details'])) {
-                return false;
-            }
-            if (in_array($content, ['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]'])) {
-                return false;
-            }
-            if (in_array($title, ['One-Time Charges (OTC)', 'Monthly Recurring Charges (MRC)', 'Other Details', 'OTHER DETAILS']) && in_array($content, ['[OTC_CHARGES_TABLE]', '[MRC_CHARGES_TABLE]', '[OTHER_DETAILS_CONTENT]', ''])) {
-                return false;
-            }
-            return true;
-        }));
 
-        // Check if OTC / MRC / Terms exist
+        // Check if OTC / MRC / Other-details exist in saved contents
         $hasOtcInContent = collect($customContentPages)->contains(fn($p) => in_array($p['page_type'] ?? '', ['otc']));
         $hasMrcInContent = collect($customContentPages)->contains(fn($p) => in_array($p['page_type'] ?? '', ['mrc']));
+        $hasOtherInContent = collect($customContentPages)->contains(fn($p) => ($p['page_type'] ?? '') === 'other-details');
 
         $sectionsSource = $customContentPages;
 
@@ -490,11 +488,8 @@
             $sectionsSource[] = ['id' => 'mrc', 'title' => 'Monthly Recurring Charges (MRC)', 'page_type' => 'mrc', 'order' => 101];
         }
 
-        if (!empty($proposal->other_details) && trim($proposal->other_details) !== '' && $proposal->other_details !== '<p></p>') {
-            $hasOtherInContent = collect($sectionsSource)->contains(fn($p) => ($p['page_type'] ?? '') === 'other-details');
-            if (!$hasOtherInContent) {
-                $sectionsSource[] = ['id' => 'other', 'title' => 'OTHER DETAILS', 'page_type' => 'other-details', 'order' => 102];
-            }
+        if (!$hasOtherInContent && !empty($proposal->other_details) && trim($proposal->other_details) !== '' && $proposal->other_details !== '<p></p>') {
+            $sectionsSource[] = ['id' => 'other', 'title' => 'OTHER DETAILS', 'page_type' => 'other-details', 'order' => 102];
         }
 
         // Sort sections by order
@@ -692,6 +687,7 @@
                                             @php
                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
                                                 $pDesc = $item->product->description ?? $item->product_description ?? '';
+                                                $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
                                             <tr>
@@ -706,7 +702,7 @@
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
-                                                    {{ $item->quantity }}</td>
+                                                    {{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                                 <td
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">
                                                     {{ number_format($item->unit_price, 2) }}</td>
@@ -835,9 +831,10 @@
                                         @endphp
                                         @foreach($page['items'] as $index => $item)
                                             @php
-                                                $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                $pDesc = $item->product->description ?? $item->product_description ?? '';
-                                                $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                                 $pDesc = $item->product->description ?? $item->product_description ?? '';
+                                                 $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
                                             <tr>
                                                 <td
@@ -851,7 +848,7 @@
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
-                                                    {{ $item->quantity }}</td>
+                                                    {{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                                 <td
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">
                                                     {{ number_format($item->unit_price, 2) }}</td>

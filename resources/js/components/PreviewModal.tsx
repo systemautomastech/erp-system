@@ -35,6 +35,8 @@ export interface ProposalItem {
     description?: string;
     product_description?: string;
     quantity?: number;
+    unit?: string;
+    unit_name?: string;
     unit_price?: number;
     total_amount?: number;
     discount_amount?: number;
@@ -43,6 +45,12 @@ export interface ProposalItem {
     product?: {
         name?: string;
         description?: string;
+        unit?: string;
+        unit_name?: string;
+        unit_relation?: {
+            id?: number;
+            unit_name?: string;
+        };
     };
 }
 
@@ -488,11 +496,12 @@ interface ChargesPageProps {
     headerLogo?: string;
     getItemName: (item: ProposalItem) => string;
     getItemDesc: (item: ProposalItem) => string;
+    getItemUnit: (item: ProposalItem) => string;
     t: (key: string) => string;
 }
 
 const ChargesPage = React.memo<ChargesPageProps>(
-    ({ page, templateColor, defaultBg, headerLogo, getItemName, getItemDesc, t }) => {
+    ({ page, templateColor, defaultBg, headerLogo, getItemName, getItemDesc, getItemUnit, t }) => {
         const chunkItems = page.chunkItems || [];
         const startIdx = page.startIndex || 0;
 
@@ -522,10 +531,10 @@ const ChargesPage = React.memo<ChargesPageProps>(
                                 <th className="py-2 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '22%' }}>
                                     {t('Item / Service')}
                                 </th>
-                                <th className="py-2 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '38%' }}>
+                                <th className="py-2 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '36%' }}>
                                     {t('Description')}
                                 </th>
-                                <th className="py-2 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '7%', whiteSpace: 'nowrap' }}>
+                                <th className="py-2 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '9%', whiteSpace: 'nowrap' }}>
                                     {t('Qty.')}
                                 </th>
                                 <th className="py-2 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
@@ -539,6 +548,7 @@ const ChargesPage = React.memo<ChargesPageProps>(
                         <tbody>
                             {chunkItems.map((item, idx) => {
                                 const qty = Number(item.quantity) || 1;
+                                const unit = getItemUnit(item);
                                 const price = Number(item.unit_price) || 0;
                                 const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
                                 const desc = getItemDesc(item);
@@ -557,8 +567,8 @@ const ChargesPage = React.memo<ChargesPageProps>(
                                                 dangerouslySetInnerHTML={{ __html: desc || '-' }}
                                             />
                                         </td>
-                                        <td className="py-2 px-1 text-center border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            {qty}
+                                        <td className="py-2 px-1 text-center border border-slate-200 align-top whitespace-nowrap" style={{ fontSize: '10px' }}>
+                                            {qty}{unit ? ` ${unit}` : ''}
                                         </td>
                                         <td className="py-2 px-2 text-right border border-slate-200 align-top" style={{ fontSize: '10px' }}>
                                             {formatAmountOnly(price)}
@@ -779,6 +789,23 @@ export default function PreviewModal({
         [availableProducts]
     );
 
+    const getItemUnit = useCallback(
+        (item: ProposalItem): string => {
+            if (item.unit_name) return item.unit_name;
+            if (item.unit && isNaN(Number(item.unit))) return item.unit;
+            if (item.product?.unit_relation?.unit_name) return item.product.unit_relation.unit_name;
+            if (item.product?.unit_name) return item.product.unit_name;
+            if (item.product?.unit && isNaN(Number(item.product.unit))) return item.product.unit;
+            if (item.product_id && availableProducts.length > 0) {
+                const found: any = availableProducts.find((p) => String(p.id) === String(item.product_id));
+                if (found?.unit_name) return found.unit_name;
+                if (found?.unit && isNaN(Number(found.unit))) return found.unit;
+            }
+            return '';
+        },
+        [availableProducts]
+    );
+
     const customer = useMemo(() => {
         if ((formData as any)?.customer_mode === 'new') {
             return {
@@ -963,6 +990,7 @@ export default function PreviewModal({
                                     headerLogo={headerLogo}
                                     getItemName={getItemName}
                                     getItemDesc={getItemDesc}
+                                    getItemUnit={getItemUnit}
                                     t={t}
                                 />
                             );

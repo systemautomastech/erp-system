@@ -344,7 +344,7 @@ export default function Index() {
             key: 'customer.name',
             header: t('Customer'),
             sortable: true,
-            render: (_: any, item: SalesProposal) => item.customer?.name || '-'
+            render: (_: any, item: SalesProposal) => item.customer?.name || item.customer_name || '-'
         },
         {
             key: 'proposal_date',
