@@ -147,159 +147,17 @@ const LiveA4Editor: React.FC<LiveA4EditorProps> = ({
         syncChanges();
     };
 
-    const applyFormat = (command: string, value: string = '') => {
-        document.execCommand(command, false, value);
-        syncChanges();
-    };
-
     return (
-        <div className="flex flex-col h-full w-full">
-            {/* Visual Formatting Toolbar */}
-            <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 rounded-t-lg sticky top-0 z-30 shadow-xs">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('bold'); }}
-                    title="Bold (Ctrl+B)"
-                >
-                    <Bold className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('italic'); }}
-                    title="Italic (Ctrl+I)"
-                >
-                    <Italic className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('underline'); }}
-                    title="Underline (Ctrl+U)"
-                >
-                    <Underline className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('strikeThrough'); }}
-                    title="Strikethrough"
-                >
-                    <Strikethrough className="h-3.5 w-3.5" />
-                </Button>
-
-                <div className="w-px h-5 bg-border mx-1" />
-
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('justifyLeft'); }}
-                    title="Align Left"
-                >
-                    <AlignLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('justifyCenter'); }}
-                    title="Align Center"
-                >
-                    <AlignCenter className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('justifyRight'); }}
-                    title="Align Right"
-                >
-                    <AlignRight className="h-3.5 w-3.5" />
-                </Button>
-
-                <div className="w-px h-5 bg-border mx-1" />
-
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('insertUnorderedList'); }}
-                    title="Bullet List"
-                >
-                    <List className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('insertOrderedList'); }}
-                    title="Numbered List"
-                >
-                    <ListOrdered className="h-3.5 w-3.5" />
-                </Button>
-
-                <div className="w-px h-5 bg-border mx-1" />
-
-                <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-muted-foreground font-medium">Color:</span>
-                    <input
-                        type="color"
-                        onChange={(e) => applyFormat('foreColor', e.target.value)}
-                        className="w-6 h-6 border rounded cursor-pointer p-0 bg-transparent"
-                        title="Text Color"
-                    />
-                </div>
-
-                <div className="w-px h-5 bg-border mx-1" />
-
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('undo'); }}
-                    title="Undo (Ctrl+Z)"
-                >
-                    <Undo className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-slate-700 dark:text-slate-200"
-                    onMouseDown={(e) => { e.preventDefault(); applyFormat('redo'); }}
-                    title="Redo (Ctrl+Y)"
-                >
-                    <Redo className="h-3.5 w-3.5" />
-                </Button>
-            </div>
-
-            {/* Editable Content */}
-            <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onFocus={handleFocus}
-                onInput={handleInput}
-                onBlur={handleBlur}
-                className={cn("outline-none p-2 min-h-[400px] cursor-text", className)}
-            />
-        </div>
+        <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onFocus={handleFocus}
+            onInput={handleInput}
+            onBlur={handleBlur}
+            className={cn("outline-none w-full min-h-[400px] cursor-text", className)}
+            style={{ marginTop: '2rem' }}
+        />
     );
 };
 
