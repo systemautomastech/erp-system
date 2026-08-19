@@ -78,17 +78,19 @@ class SalesProposalController extends Controller
      */
     public function index(Request $request)
     {
-        if (!Auth::user()->can('manage-sales-proposals')) {
+        $user = Auth::user();
+
+        if (!$user->can('manage-sales-proposals')) {
             return back()->with('error', __('Permission denied'));
         }
 
         $baseQuery = SalesProposal::with(['customer', 'items'])
-            ->where(function ($query) {
-                if (Auth::user()->can('manage-any-sales-proposals')) {
+            ->where(function ($query) use ($user) {
+                if ($user->can('manage-any-sales-proposals')) {
                     $query->where('creator_id', creatorId());
-                } elseif (Auth::user()->can('manage-own-sales-proposals')) {
+                } elseif ($user->can('manage-own-sales-proposals')) {
                     $query->where('created_by', Auth::id())->orWhere('customer_id', Auth::id());
-                    if (Auth::user()->type === 'client') {
+                    if ($user->type === 'client') {
                         $query->where('status', '!=', 'draft');
                     }
                 } else {
