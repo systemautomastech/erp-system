@@ -21,32 +21,6 @@ export interface ProposalShortcodeContext {
   [key: string]: any;
 }
 
-const formatLongDate = (dateStr: any): string => {
-  if (!dateStr) return '';
-  const str = String(dateStr).trim();
-  const match = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-  if (match) {
-    const year = match[1];
-    const month = months[parseInt(match[2], 10) - 1] || match[2];
-    const day = parseInt(match[3], 10);
-    return `${day} ${month} ${year}`;
-  }
-  try {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) {
-      const day = d.getDate();
-      const month = months[d.getMonth()];
-      const year = d.getFullYear();
-      return `${day} ${month} ${year}`;
-    }
-  } catch (e) {}
-  return str;
-};
-
 export const replaceProposalShortcodes = (
   content: string | undefined | null,
   context: ProposalShortcodeContext = {}
@@ -97,9 +71,9 @@ export const replaceProposalShortcodes = (
   const proposalSubject = context.formData?.subject || context.proposal?.subject || '';
   const proposalNumber = context.formData?.proposal_number || context.proposal?.proposal_number || '';
   const proposalDate = context.formData?.invoice_date || context.formData?.proposal_date || context.proposal?.proposal_date || context.proposal?.invoice_date;
-  const formattedProposalDate = proposalDate ? formatLongDate(proposalDate) : '';
+  const formattedProposalDate = proposalDate ? formatDate(proposalDate, pageProps) : '';
   const dueDate = context.formData?.due_date || context.proposal?.due_date;
-  const formattedDueDate = dueDate ? formatLongDate(dueDate) : '';
+  const formattedDueDate = dueDate ? formatDate(dueDate, pageProps) : '';
 
   const customer = context.customer || context.formData?.customer || context.proposal?.customer || {};
   const customerName = customer?.name || context.formData?.customer_name || context.proposal?.customer_name || '';

@@ -497,18 +497,18 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
 
             {/* FULL-FEATURED PAGE CREATION & EDIT MODAL (Identical to Default Pages Create View) */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="max-w-6xl max-h-[94vh] flex flex-col p-0 gap-0 overflow-hidden bg-background border-border shadow-2xl">
+                <DialogContent className="max-w-6xl max-h-[94vh] flex flex-col p-0 gap-0 overflow-hidden bg-background border-border shadow-2xl [&>button]:top-4.5 [&>button]:right-4.5">
                     {/* Modal Header */}
-                    <DialogHeader className="p-4 sm:px-6 border-b bg-background flex flex-row items-center justify-between space-y-0 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <DialogHeader className="p-4 sm:pl-6 sm:pr-14 border-b bg-background flex flex-row items-center justify-between space-y-0 shrink-0 gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
                                 {modalMode === 'add' ? <BookOpen className="h-5 w-5" /> : <Pencil className="h-5 w-5 text-blue-600" />}
                             </div>
-                            <div>
-                                <DialogTitle className="text-base font-semibold">
+                            <div className="min-w-0">
+                                <DialogTitle className="text-base font-semibold truncate">
                                     {modalMode === 'add' ? t('Add Page to Proposal') : t('Edit Proposal Page')}
                                 </DialogTitle>
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-muted-foreground truncate">
                                     {modalMode === 'add'
                                         ? t('Create a custom proposal page or load from existing default pages.')
                                         : t('Customize title, background, and content for this page.')}
@@ -517,7 +517,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                         </div>
 
                         {modalMode === 'add' && defaultPages.length > 0 && (
-                            <div className="flex items-center bg-muted/60 p-1 rounded-lg border border-border">
+                            <div className="flex items-center bg-muted/60 p-1 rounded-lg border border-border shrink-0">
                                 <button
                                     type="button"
                                     onClick={() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import MediaLibraryModal from '@/components/MediaLibraryModal';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ interface LogoTemplatesProps {
 
 export default function LogoTemplates({ settings }: LogoTemplatesProps) {
     const { t } = useTranslation();
+    const pageProps = usePage().props;
 
     const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
     const [isBgModalOpen, setIsBgModalOpen] = useState(false);
@@ -43,15 +44,23 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
         }
     }, [settings]);
 
-    const handleSelectLogo = (url: string | string[]) => {
+    const cleanFileName = (url: string | string[]) => {
         const selected = Array.isArray(url) ? url[0] : url;
-        setData('settings', { ...data.settings, logo_image: selected || '' });
+        if (!selected) return '';
+        if (selected.includes('/')) {
+            const parts = selected.split('/');
+            return parts[parts.length - 1];
+        }
+        return selected;
+    };
+
+    const handleSelectLogo = (url: string | string[]) => {
+        setData('settings', { ...data.settings, logo_image: cleanFileName(url) });
         setIsLogoModalOpen(false);
     };
 
     const handleSelectBg = (url: string | string[]) => {
-        const selected = Array.isArray(url) ? url[0] : url;
-        setData('settings', { ...data.settings, background_image: selected || '' });
+        setData('settings', { ...data.settings, background_image: cleanFileName(url) });
         setIsBgModalOpen(false);
     };
 
@@ -90,9 +99,15 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                         {data.settings.logo_image ? (
                             <div className="relative group w-full flex justify-center p-2">
                                 <img
-                                    src={getImagePath(data.settings.logo_image)}
+                                    src={getImagePath(data.settings.logo_image, pageProps)}
                                     alt="Header Logo"
                                     className="max-h-28 object-contain rounded"
+                                    onError={(e) => {
+                                        const target = e.currentTarget;
+                                        if (!target.src.includes('/storage/media/')) {
+                                            target.src = `/storage/media/${data.settings.logo_image.split('/').pop()}`;
+                                        }
+                                    }}
                                 />
                                 <Button
                                     type="button"
@@ -146,9 +161,15 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                         {data.settings.background_image ? (
                             <div className="relative group w-full flex justify-center p-2">
                                 <img
-                                    src={getImagePath(data.settings.background_image)}
+                                    src={getImagePath(data.settings.background_image, pageProps)}
                                     alt="Background Image"
                                     className="max-h-28 object-contain rounded"
+                                    onError={(e) => {
+                                        const target = e.currentTarget;
+                                        if (!target.src.includes('/storage/media/')) {
+                                            target.src = `/storage/media/${data.settings.background_image.split('/').pop()}`;
+                                        }
+                                    }}
                                 />
                                 <Button
                                     type="button"

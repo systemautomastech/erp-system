@@ -326,7 +326,6 @@ export default function Edit({ settings, defaultPage, variables }: EditProps) {
     const { data, setData, put, processing, errors } = useForm({
         title: defaultPage.title || '',
         content: defaultPage.content || '',
-        page_type: defaultPage.page_type || 'general',
         background_image: defaultPage.background_image || '',
         sort_order: defaultPage.sort_order || 1,
         is_active: Boolean(defaultPage.is_active),
