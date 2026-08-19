@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { SalesInvoiceItem } from '@/pages/Sales/types';
-import ProductSelector from '@/pages/Sales/components/ProductSelector';
+import { ProposalItem } from '../types';
+import ProposalProductSelector from './ProposalProductSelector';
 import { calculateLineItemAmounts } from '@/pages/Sales/components/TaxCalculator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +12,15 @@ import { formatCurrency } from '@/utils/helpers';
 interface Props {
     sectionType: 'otc' | 'mrc';
     title: string;
-    items: SalesInvoiceItem[];
-    allItems: SalesInvoiceItem[];
-    onAllItemsChange: (items: SalesInvoiceItem[]) => void;
+    items: ProposalItem[];
+    allItems: ProposalItem[];
+    onAllItemsChange: (items: ProposalItem[]) => void;
     products?: Array<{
         id: number;
         name: string;
         sale_price: number;
         unit?: string;
+        unit_name?: string;
         type?: string;
         stock_quantity?: number;
         taxes?: Array<{ id: number; tax_name: string; rate: number }>;
@@ -47,7 +48,7 @@ export default function ChargeItemsTable({
     const { t } = useTranslation();
 
     const addChargeItem = () => {
-        const newItem: SalesInvoiceItem = {
+        const newItem: ProposalItem = {
             product_id: 0,
             section: sectionType,
             product_type: invoiceType || 'product',
@@ -73,7 +74,7 @@ export default function ChargeItemsTable({
         onAllItemsChange(updatedAll);
     };
 
-    const updateChargeItem = (targetItemIndex: number, field: keyof SalesInvoiceItem, value: any) => {
+    const updateChargeItem = (targetItemIndex: number, field: keyof ProposalItem, value: any) => {
         const sectionItems = allItems.filter(i => i.section === sectionType);
         const targetItem = sectionItems[targetItemIndex];
         if (!targetItem) return;
@@ -266,22 +267,35 @@ export default function ChargeItemsTable({
                                             </div>
                                         </td>
                                         <td className="p-2 min-w-[220px]">
-                                            <ProductSelector
+                                            <ProposalProductSelector
                                                 products={filteredProducts}
                                                 value={item.product_id}
                                                 onChange={(productId, product) => handleProductSelect(index, productId, product)}
                                             />
                                         </td>
-                                        <td className="p-2 text-center">
-                                            <Input
-                                                type="number"
-                                                value={item.quantity}
-                                                onChange={(e) => updateChargeItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                                                className="w-16 h-8 text-xs text-center"
-                                                min="1"
-                                                step="1"
-                                                required
-                                            />
+                                        <td className="p-2">
+                                            {(() => {
+                                                const product = products.find(p => p.id === item.product_id);
+                                                const unitDisplay = product?.unit_name || (!isNaN(Number(product?.unit)) ? '' : (product?.unit || ''));
+                                                return (
+                                                    <div className="flex items-center gap-1 justify-center">
+                                                        <Input
+                                                            type="number"
+                                                            value={item.quantity}
+                                                            onChange={(e) => updateChargeItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                                                            className="w-16 h-8 text-xs text-center"
+                                                            min="1"
+                                                            step="1"
+                                                            required
+                                                        />
+                                                        {unitDisplay ? (
+                                                            <span className="text-[11px] font-medium text-muted-foreground px-1.5 py-1 bg-muted/60 border border-border rounded h-8 inline-flex items-center min-w-[36px] justify-center whitespace-nowrap">
+                                                                {unitDisplay}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="p-2">
                                             <Input

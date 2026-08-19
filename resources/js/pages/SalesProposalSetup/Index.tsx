@@ -17,22 +17,39 @@ export default function Index({ settings, defaultPages = [] }: Props) {
     const { t } = useTranslation();
     const [activeSection, setActiveSection] = useState('general-settings');
 
+    const isClickScrollingRef = React.useRef(false);
+
     const handleNavClick = (id: string) => {
         setActiveSection(id);
+        isClickScrollingRef.current = true;
         const element = document.getElementById(id);
         if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => {
+                isClickScrollingRef.current = false;
+            }, 800);
+        } else {
+            isClickScrollingRef.current = false;
         }
     };
 
     useEffect(() => {
         const handleScroll = () => {
+            if (isClickScrollingRef.current) return;
+
+            // If user scrolled close to the bottom of the page, activate the last section
+            const isBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100;
+            if (isBottom) {
+                setActiveSection('default-pages');
+                return;
+            }
+
             const sections = ['general-settings', 'logo-template', 'default-pages'];
             for (const sectionId of sections) {
                 const element = document.getElementById(sectionId);
                 if (element) {
                     const rect = element.getBoundingClientRect();
-                    if (rect.top <= 150 && rect.bottom >= 150) {
+                    if (rect.top <= 200 && rect.bottom > 100) {
                         setActiveSection(sectionId);
                         break;
                     }
@@ -40,7 +57,7 @@ export default function Index({ settings, defaultPages = [] }: Props) {
             }
         };
 
-        window.addEventListener('scroll', handleScroll);
+        window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
@@ -59,7 +76,7 @@ export default function Index({ settings, defaultPages = [] }: Props) {
 
                 <div className="flex-1 space-y-8">
                     {/* 1. General Settings Section */}
-                    <section id="general-settings">
+                    <section id="general-settings" className="scroll-mt-6">
                         <Card className="shadow-sm">
                             <CardContent className="p-6">
                                 <GeneralSettings settings={settings} />
@@ -68,7 +85,7 @@ export default function Index({ settings, defaultPages = [] }: Props) {
                     </section>
 
                     {/* 2. Logo & Template Section */}
-                    <section id="logo-template">
+                    <section id="logo-template" className="scroll-mt-6">
                         <Card className="shadow-sm">
                             <CardContent className="p-6">
                                 <LogoTemplates settings={settings} />
@@ -77,7 +94,7 @@ export default function Index({ settings, defaultPages = [] }: Props) {
                     </section>
 
                     {/* 3. Default Pages Section */}
-                    <section id="default-pages">
+                    <section id="default-pages" className="scroll-mt-6">
                         <Card className="shadow-sm">
                             <CardContent className="p-6">
                                 <DefaultPages defaultPages={defaultPages} settings={settings || {}} />

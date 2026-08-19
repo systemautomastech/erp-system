@@ -1,3 +1,174 @@
+@php
+    $proposalSetting = $proposalSetting ?? \App\Models\ProposalSetting::getSettings($proposal->created_by);
+    $templateColor = $proposalSetting['template_color'] ?? '#E9591C';
+
+    $getImagePath = function ($path) {
+        if (!$path)
+            return '';
+        $cleanPath = ltrim($path, '/');
+        if (str_starts_with($cleanPath, 'http://') || str_starts_with($cleanPath, 'https://')) {
+            return $cleanPath;
+        }
+        if (str_starts_with($cleanPath, 'storage/')) {
+            return asset($cleanPath);
+        }
+        if (str_starts_with($cleanPath, 'uploads/')) {
+            return asset($cleanPath);
+        }
+        // Check if file exists in media or general storage
+        if (file_exists(public_path('storage/media/' . $cleanPath))) {
+            return asset('storage/media/' . $cleanPath);
+        }
+        if (file_exists(public_path('storage/' . $cleanPath))) {
+            return asset('storage/' . $cleanPath);
+        }
+        return asset('storage/' . $cleanPath);
+    };
+
+    $showLogo = isset($proposalSetting['show_logo']) 
+        ? in_array($proposalSetting['show_logo'], [1, '1', true, 'true'], true)
+        : true;
+    $rawLogo = $proposalSetting['logo_image'] ?? $proposalSetting['company_logo'] ?? '';
+    $logoImage = $rawLogo ? $getImagePath($rawLogo) : asset('uploads/logo/logo_dark.png');
+    $headerLogoUrl = ($showLogo && $rawLogo) ? $getImagePath($rawLogo) : '';
+
+    $defaultBgImage = $proposalSetting['background_image'] ?? '';
+    $getPageBgUrl = function ($customBg = null) use ($getImagePath, $defaultBgImage) {
+        $activeBg = !empty($customBg) ? $customBg : $defaultBgImage;
+        if ($activeBg) {
+            return $getImagePath($activeBg);
+        }
+        return '';
+    };
+    $getPageBgStyle = function ($customBg = null) use ($getImagePath, $defaultBgImage) {
+        $activeBg = !empty($customBg) ? $customBg : $defaultBgImage;
+        if ($activeBg) {
+            $url = $getImagePath($activeBg);
+            return "background-image: url('{$url}') !important; background-size: 100% 100% !important; background-position: center !important; background-repeat: no-repeat !important;";
+        }
+        return '';
+    };
+
+    $companyName = \App\Models\ProposalSetting::getSettings($proposal->created_by)['company_name'] ?? config('app.name', 'Automas');
+    $cleanCompName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
+    $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($proposal->proposal_number)));
+    $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
+
+    $replaceProposalShortcodes = function ($content) use ($proposal, $proposalSetting, $getImagePath, $logoImage, $templateColor) {
+        if (empty($content)) return '';
+        $customer = $proposal->customer ?? null;
+        $dateFormat = $proposalSetting['dateFormat'] ?? 'Y-m-d';
+
+        $rawCompanyLogo = company_setting('logo_dark', $proposal->created_by)
+            ?? company_setting('logo_light', $proposal->created_by)
+            ?? company_setting('company_logo', $proposal->created_by)
+            ?? company_setting('logo', $proposal->created_by)
+            ?? admin_setting('logo_dark')
+            ?? admin_setting('logo_light')
+            ?? admin_setting('logo')
+            ?? 'uploads/logo/logo_dark.png';
+        $companyLogoUrl = $getImagePath($rawCompanyLogo) ?: asset('uploads/logo/logo_dark.png');
+        $rawProposalLogo = $proposalSetting['logo_image'] ?? $rawCompanyLogo;
+        $proposalLogoUrl = $getImagePath($rawProposalLogo) ?: $logoImage;
+
+        $authorUser = \App\Models\User::with('employee')->find($proposal->created_by ?? $proposal->creator_id);
+        $employeeRecord = $authorUser?->employee;
+        $compPhone = $proposalSetting['company_telephone'] 
+            ?? $proposalSetting['company_phone'] 
+            ?? company_setting('company_telephone', $proposal->creator_id ?? $proposal->created_by) 
+            ?? company_setting('company_phone', $proposal->creator_id ?? $proposal->created_by) 
+            ?? '';
+
+        $custAddr = $customer->address ?? '';
+        if (empty($custAddr) && !empty($customer->billing_address)) {
+            if (is_array($customer->billing_address)) {
+                $custAddr = trim(($customer->billing_address['address_line_1'] ?? '') . ' ' . ($customer->billing_address['city'] ?? '') . ' ' . ($customer->billing_address['state'] ?? '') . ' ' . ($customer->billing_address['zip_code'] ?? ''));
+            } else {
+                $custAddr = (string) $customer->billing_address;
+            }
+        }
+
+        $authorName = $authorUser?->name ?? 'Administrator';
+        $authorDesignation = $employeeRecord?->designation?->name ?? $authorUser?->designation ?? 'Sales Representative';
+        $authorEmail = $authorUser?->email ?? '';
+        $authorPhone = $employeeRecord?->emergency_contact_number ?? $authorUser?->mobile_no ?? $authorUser?->phone ?? '';
+        $authorId = $employeeRecord?->employee_id ?? ($authorUser?->id ?? '');
+
+        $rawDate = $proposal->proposal_date ?? $proposal->invoice_date ?? null;
+        $rawDueDate = $proposal->due_date ?? null;
+        $proposalDateFormatted = $rawDate ? \Carbon\Carbon::parse($rawDate)->format('j F Y') : '';
+        $proposalDueDateFormatted = $rawDueDate ? \Carbon\Carbon::parse($rawDueDate)->format('j F Y') : '';
+
+        $values = [
+            'company_name' => $proposalSetting['company_name'] ?? company_setting('company_name', $proposal->creator_id ?? $proposal->created_by) ?? config('app.name', 'Automas'),
+            'company_email' => $proposalSetting['company_email'] ?? company_setting('company_email', $proposal->creator_id ?? $proposal->created_by) ?? '',
+            'company_phone' => $compPhone,
+            'company_telephone' => $compPhone,
+            'company_address' => $proposalSetting['company_address'] ?? company_setting('company_address', $proposal->creator_id ?? $proposal->created_by) ?? '',
+            'company_website' => $proposalSetting['company_website'] ?? company_setting('company_website', $proposal->creator_id ?? $proposal->created_by) ?? '',
+            'proposal_number' => $proposal->proposal_number,
+            'proposal_subject' => $proposal->subject,
+            'subject' => $proposal->subject,
+            'proposal_date' => $proposalDateFormatted,
+            'date' => $proposalDateFormatted,
+            'invoice_date' => $proposalDateFormatted,
+            'proposal_due_date' => $proposalDueDateFormatted,
+            'due_date' => $proposalDueDateFormatted,
+            'valid_until' => $proposalDueDateFormatted,
+            'customer_name' => $customer->name ?? $proposal->customer_name ?? '',
+            'customer_email' => $customer->email ?? $proposal->customer_email ?? '',
+            'customer_phone' => $customer->mobile_no ?? $customer->phone ?? $proposal->customer_phone ?? '',
+            'customer_address' => !empty($custAddr) ? $custAddr : ($proposal->customer_address ?? ''),
+            'user_id' => $authorId,
+            'user_name' => $authorName,
+            'user_email' => $authorEmail,
+            'user_phone' => $authorPhone,
+            'creator_name' => $authorName,
+            'creator_designation' => $authorDesignation,
+            'creator_email' => $authorEmail,
+            'creator_phone' => $authorPhone,
+            'proposal_validity' => $proposal->payment_terms ?? '',
+            'payment_terms' => $proposal->payment_terms ?? '',
+            'terms' => $proposal->payment_terms ?? '',
+            'subtotal' => !empty($proposal->subtotal) ? number_format((float) $proposal->subtotal, 2) : '',
+            'sub_total' => !empty($proposal->subtotal) ? number_format((float) $proposal->subtotal, 2) : '',
+            'tax_amount' => !empty($proposal->tax_amount) ? number_format((float) $proposal->tax_amount, 2) : '',
+            'total_tax' => !empty($proposal->tax_amount) ? number_format((float) $proposal->tax_amount, 2) : '',
+            'discount_amount' => !empty($proposal->discount_amount) ? number_format((float) $proposal->discount_amount, 2) : '',
+            'total_discount' => !empty($proposal->discount_amount) ? number_format((float) $proposal->discount_amount, 2) : '',
+            'total_amount' => !empty($proposal->total_amount) ? number_format((float) $proposal->total_amount, 2) : '',
+            'total' => !empty($proposal->total_amount) ? number_format((float) $proposal->total_amount, 2) : '',
+        ];
+
+        $res = $content;
+
+        // Ensure any embedded CSS variables match template color
+        $res = preg_replace('/--sp-accent-color:\s*#[a-f0-9]{3,8}/i', '--sp-accent-color: ' . $templateColor, $res);
+
+        // Handle attributes
+        $res = preg_replace('/src=(["\'])\s*\{\s*company_logo\s*\}\s*\1/i', 'src=$1' . $companyLogoUrl . '$1', $res);
+        $res = preg_replace('/src=(["\'])\s*\{\s*proposal_logo\s*\}\s*\1/i', 'src=$1' . $proposalLogoUrl . '$1', $res);
+
+        // Handle standalone tags
+        if ($companyLogoUrl) {
+            $res = preg_replace('/\{\s*company_logo\s*\}/i', '<img src="' . $companyLogoUrl . '" alt="Company Logo" class="proposal-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
+        } else {
+            $res = preg_replace('/\{\s*company_logo\s*\}/i', '', $res);
+        }
+
+        if ($proposalLogoUrl) {
+            $res = preg_replace('/\{\s*proposal_logo\s*\}/i', '<img src="' . $proposalLogoUrl . '" alt="Proposal Logo" class="proposal-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
+        } else {
+            $res = preg_replace('/\{\s*proposal_logo\s*\}/i', '', $res);
+        }
+
+        foreach ($values as $k => $v) {
+            $valStr = ($v !== null && $v !== '') ? (string) $v : '';
+            $res = preg_replace('/\{\s*' . preg_quote($k, '/') . '\s*\}/i', $valStr, $res);
+        }
+        return $res;
+    };
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 
@@ -7,6 +178,17 @@
     <title>Sales Proposal #{{ $proposal->proposal_number }}</title>
     @vite(['resources/css/app.css'])
     <style>
+        :root {
+            --template-color: {{ $templateColor }} !important;
+            --sp-accent-color: {{ $templateColor }} !important;
+            --sp-text-title: #111827;
+            --sp-text-sub: #64748b;
+            --sp-text-body: #334155;
+            --sp-border: #e5e7eb;
+            --sp-bg-light-1: #f9fafb;
+            --sp-bg-light-2: #eef2f7;
+        }
+
         * {
             box-sizing: border-box !important;
             -webkit-print-color-adjust: exact !important;
@@ -20,6 +202,7 @@
             padding: 0 !important;
             width: 100%;
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #1e293b;
         }
 
         .print-container {
@@ -30,71 +213,154 @@
         }
 
         .proposal-preview-sheet,
-        .quotation-cover__sheet {
+        .proposal-cover__sheet {
             width: 210mm;
-            min-height: 297mm;
-            height: 297mm;
+            min-height: 296mm;
+            height: 296mm;
+            max-height: 296mm;
             background-color: #ffffff;
             margin: 0 auto;
-            page-break-after: always !important;
-            break-after: page !important;
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid-page;
             box-shadow: none !important;
             border: none !important;
             position: relative !important;
             overflow: hidden !important;
+            box-sizing: border-box !important;
+            --template-color: {{ $templateColor }} !important;
+            --sp-accent-color: {{ $templateColor }} !important;
         }
 
-        .quotation-cover__submitted {
+        .proposal-page__body {
             position: relative !important;
-            border: 1px solid #e5e7eb;
-            padding: 25px;
-            background: linear-gradient(135deg, rgba(249, 250, 251, 0.9), rgba(238, 242, 247, 0.9));
-            border-radius: .25rem;
-            text-align: center;
-            margin-bottom: 16px;
-            overflow: hidden;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            z-index: 1 !important;
+            padding: 32mm 15mm 20mm !important;
+            height: 296mm !important;
+            max-height: 296mm !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
         }
 
-        .quotation-cover__submitted::before {
-            content: "";
-            position: absolute !important;
-            top: -60px;
-            left: -15%;
-            width: 130%;
-            height: 180px;
-            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 1200 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%239ca3af' stroke-width='1'%3E%3Cpath d='M0,150 C250,20 950,280 1200,120' opacity='0.5'/%3E%3Cpath d='M0,170 C300,40 900,300 1200,140' opacity='0.4'/%3E%3Cpath d='M0,190 C350,60 850,320 1200,160' opacity='0.3'/%3E%3C/g%3E%3C/svg%3E");
-            transform: scaleY(-1);
-            background-size: cover;
-            background-repeat: no-repeat;
-            pointer-events: none;
-            z-index: 0;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+        .proposal-preview-sheet:last-child,
+        .proposal-cover__sheet:last-child {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
         }
 
-        .quotation-cover__submitted > * {
-            position: relative;
-            z-index: 1;
+        /* Dynamic Table Header Coloring */
+        .proposal-preview-sheet table thead,
+        .proposal-preview-sheet table thead tr,
+        .proposal-preview-sheet table thead th,
+        .proposal-preview-sheet table th,
+        .proposal-page__body table thead,
+        .proposal-page__body table thead tr,
+        .proposal-page__body table thead th,
+        .proposal-page__body table th,
+        .html-preview-container table thead,
+        .html-preview-container table thead tr,
+        .html-preview-container table thead th,
+        .html-preview-container table th {
+            background-color: {{ $templateColor }} !important;
+            color: #ffffff !important;
         }
 
-        svg {
-            display: inline-block;
-            shape-rendering: geometricPrecision !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+        .proposal-preview-sheet table thead th,
+        .proposal-preview-sheet table th,
+        .proposal-page__body table thead th,
+        .proposal-page__body table th,
+        .html-preview-container table thead th,
+        .html-preview-container table th {
+            color: #ffffff !important;
+            font-weight: 600;
         }
 
-        .quotation-cover__watermark circle,
-        .quotation-cover__watermark_bottom circle,
-        .quotation-cover__shape circle {
-            vector-effect: non-scaling-stroke;
+        /* Accent & Badge Dynamic Coloring */
+        .sp-doc-badge-label {
+            color: {{ $templateColor }} !important;
         }
+
+        .sp-doc-accent-line {
+            background-color: {{ $templateColor }} !important;
+            background: {{ $templateColor }} !important;
+        }
+
+        .sp-doc-date-tag {
+            border-color: {{ $templateColor }} !important;
+            color: {{ $templateColor }} !important;
+        }
+
+        /* Ensure images and logos respect parent text alignment (center/left/right) */
+        .proposal-preview-sheet img,
+        .proposal-page__body img,
+        img.proposal-logo,
+        .proposal-logo {
+            display: inline-block !important;
+            vertical-align: middle;
+        }
+
+        .proposal-preview-sheet [style*="text-align: center"] img,
+        .proposal-preview-sheet [style*="text-align:center"] img,
+        .proposal-page__body [style*="text-align: center"] img,
+        .proposal-page__body [style*="text-align:center"] img,
+        .text-center img {
+            display: inline-block !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+
+        .proposal-preview-sheet [style*="text-align: right"] img,
+        .proposal-preview-sheet [style*="text-align:right"] img,
+        .proposal-page__body [style*="text-align: right"] img,
+        .proposal-page__body [style*="text-align:right"] img,
+        .text-right img {
+            display: inline-block !important;
+            margin-left: auto !important;
+            margin-right: 0 !important;
+        }
+
+        .proposal-preview-sheet [style*="text-align: left"] img,
+        .proposal-preview-sheet [style*="text-align:left"] img,
+        .proposal-page__body [style*="text-align: left"] img,
+        .proposal-page__body [style*="text-align:left"] img,
+        .text-left img {
+            display: inline-block !important;
+            margin-right: auto !important;
+            margin-left: 0 !important;
+        }
+
+        /* HTML Preview Container Typography matching Unified Preview Modal */
+        .html-preview-container {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #1e293b;
+            width: 100%;
+        }
+
+        .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+        .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+        .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; color: #0f172a; }
+        .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; color: #0f172a; }
+        .html-preview-container p { margin: 4px 0; }
+        .html-preview-container > p:first-child { margin-top: 0; }
+        .html-preview-container > p:last-child { margin-bottom: 0; }
+        .html-preview-container p:empty { min-height: 1.15em; margin: 0; }
+        .html-preview-container p:empty::before { content: "\00a0"; }
+        .html-preview-container ul { list-style-type: disc; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
+        .html-preview-container ol { list-style-type: decimal; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
+        .html-preview-container li { margin-top: 2px; margin-bottom: 2px; }
+        .html-preview-container blockquote { border-left: 4px solid #cbd5e1; padding-left: 16px; font-style: italic; margin: 8px 0; }
+        .html-preview-container a { color: #2563eb; text-decoration: underline; }
+        .html-preview-container table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #cbd5e1; }
+        .html-preview-container th { border: 1px solid #cbd5e1; padding: 8px 10px; font-weight: 600; text-align: left; }
+        .html-preview-container td { border: 1px solid #cbd5e1; padding: 8px 10px; color: #1e293b; }
 
         @media print {
             @page {
-                size: A4 portrait;
+                size: 210mm 297mm;
                 margin: 0;
             }
 
@@ -106,56 +372,46 @@
                 padding: 0 !important;
                 background-color: #ffffff !important;
             }
+
+            .proposal-preview-sheet,
+            .proposal-cover__sheet {
+                width: 210mm !important;
+                height: 297mm !important;
+                min-height: 297mm !important;
+                max-height: 297mm !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-sizing: border-box !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid-page !important;
+                overflow: hidden !important;
+            }
+
+            .proposal-page__body {
+                position: relative !important;
+                z-index: 1 !important;
+                padding: 32mm 15mm 20mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+            }
+
+            .proposal-preview-sheet:last-child,
+            .proposal-cover__sheet:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
         }
     </style>
 </head>
 
 <body>
     @php
-        $proposalSetting = $proposalSetting ?? \App\Models\ProposalSetting::getSettings($proposal->created_by);
-        $templateColor = $proposalSetting['template_color'] ?? '#E9591C';
-
-        $getImagePath = function ($path) {
-            if (!$path)
-                return '';
-            $cleanPath = ltrim($path, '/');
-            if (str_starts_with($cleanPath, 'http://') || str_starts_with($cleanPath, 'https://')) {
-                return $cleanPath;
-            }
-            if (str_starts_with($cleanPath, 'storage/')) {
-                return asset($cleanPath);
-            }
-            if (str_starts_with($cleanPath, 'uploads/')) {
-                return asset($cleanPath);
-            }
-            // Check if file exists in media or general storage
-            if (file_exists(public_path('storage/media/' . $cleanPath))) {
-                return asset('storage/media/' . $cleanPath);
-            }
-            if (file_exists(public_path('storage/' . $cleanPath))) {
-                return asset('storage/' . $cleanPath);
-            }
-            return asset('storage/' . $cleanPath);
-        };
-
-        $rawLogo = $proposalSetting['logo_image'] ?? '';
-        $logoImage = $rawLogo ? $getImagePath($rawLogo) : asset('uploads/logo/logo_dark.png');
-
-        $defaultBgImage = $proposalSetting['background_image'] ?? '';
-        $getPageBgStyle = function ($customBg = null, $isFrontPage = false) use ($getImagePath, $defaultBgImage) {
-            $activeBg = !empty($customBg) ? $customBg : (!$isFrontPage ? $defaultBgImage : null);
-            if ($activeBg) {
-                $url = $getImagePath($activeBg);
-                return "background-image: url('{$url}') !important; background-size: 100% 100% !important; background-position: center !important; background-repeat: no-repeat !important;";
-            }
-            return '';
-        };
-
-        $companyName = \App\Models\ProposalSetting::getSettings($proposal->created_by)['company_name'] ?? config('app.name', 'Automas');
-        $cleanCompName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
-        $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($proposal->proposal_number)));
-        $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
-
         $items = $proposal->items ?? collect();
         $otcItems = $items->filter(function ($i) {
             return ($i->section === 'otc' || $i->section === 'general' || !$i->section) && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
@@ -213,16 +469,16 @@
             }
         }
 
-        // Check if OTC / MRC / Terms exist
+        if (empty($customContentPages) || !is_array($customContentPages)) {
+            $customContentPages = [];
+        }
+
+        // Check if OTC / MRC / Other-details exist in saved contents
         $hasOtcInContent = collect($customContentPages)->contains(fn($p) => in_array($p['page_type'] ?? '', ['otc']));
         $hasMrcInContent = collect($customContentPages)->contains(fn($p) => in_array($p['page_type'] ?? '', ['mrc']));
-        $hasFrontInContent = collect($customContentPages)->contains(fn($p) => in_array($p['page_type'] ?? '', ['front-page']) || str_contains(strtolower($p['title'] ?? ''), 'front') || str_contains(strtolower($p['title'] ?? ''), 'cover'));
+        $hasOtherInContent = collect($customContentPages)->contains(fn($p) => ($p['page_type'] ?? '') === 'other-details');
 
         $sectionsSource = $customContentPages;
-
-        if (!$hasFrontInContent) {
-            array_unshift($sectionsSource, ['id' => 'fp', 'title' => 'Front Page', 'page_type' => 'front-page', 'order' => 0]);
-        }
 
         if (!$hasOtcInContent && count($otcItems) > 0) {
             $sectionsSource[] = ['id' => 'otc', 'title' => 'One-Time Charges (OTC)', 'page_type' => 'otc', 'order' => 100];
@@ -232,11 +488,8 @@
             $sectionsSource[] = ['id' => 'mrc', 'title' => 'Monthly Recurring Charges (MRC)', 'page_type' => 'mrc', 'order' => 101];
         }
 
-        if (!empty($proposal->other_details) && trim($proposal->other_details) !== '' && $proposal->other_details !== '<p></p>') {
-            $hasOtherInContent = collect($sectionsSource)->contains(fn($p) => ($p['page_type'] ?? '') === 'other-details');
-            if (!$hasOtherInContent) {
-                $sectionsSource[] = ['id' => 'other', 'title' => 'OTHER DETAILS', 'page_type' => 'other-details', 'order' => 102];
-            }
+        if (!$hasOtherInContent && !empty($proposal->other_details) && trim($proposal->other_details) !== '' && $proposal->other_details !== '<p></p>') {
+            $sectionsSource[] = ['id' => 'other', 'title' => 'OTHER DETAILS', 'page_type' => 'other-details', 'order' => 102];
         }
 
         // Sort sections by order
@@ -300,16 +553,8 @@
         foreach ($sectionsSource as $sIdx => $sec) {
             $sec = (array) $sec;
             $pageType = $sec['page_type'] ?? '';
-            $isFront = $pageType === 'front-page' || !empty($sec['is_front_page']) || str_contains(strtolower($sec['title'] ?? ''), 'front') || str_contains(strtolower($sec['title'] ?? ''), 'cover');
 
-            if ($isFront) {
-                $renderablePages[] = [
-                    'key' => "front-{$sIdx}",
-                    'type' => 'front-page',
-                    'title' => $sec['title'] ?? 'Front Page',
-                    'background_image' => $sec['background_image'] ?? null,
-                ];
-            } elseif ($pageType === 'otc' || $pageType === 'mrc') {
+            if ($pageType === 'otc' || $pageType === 'mrc') {
                 $isOtc = ($pageType === 'otc');
                 $targetItems = $isOtc ? $otcItems : $mrcItems;
                 $targetSubtotal = $isOtc ? $otcSubtotal : $mrcSubtotal;
@@ -377,145 +622,25 @@
         @foreach($renderablePages as $pIdx => $page)
             @php
                 $pageNum = $pIdx + 1;
-                $isFrontPage = ($page['type'] === 'front-page');
-                $pageBgStyle = $getPageBgStyle($page['background_image'], $isFrontPage);
-                $hasCustomFrontBg = !empty($page['background_image']);
+                $sheetBgUrl = $getPageBgUrl($page['background_image'] ?? null);
             @endphp
 
-            {{-- 1. COVER PAGE --}}
-            @if($isFrontPage)
-                <div class="quotation-cover__sheet"
-                    style="width: 210mm; min-height: 297mm; height: 297mm; background-color: #ffffff; position: relative; overflow: hidden; page-break-after: always; box-sizing: border-box; {{ $pageBgStyle }}">
-                    @if(!$hasCustomFrontBg)
-                        <div class="quotation-cover__topbar"
-                            style="position: absolute; top: 0; left: 0; right: 0; height: 10px; background: linear-gradient(90deg, {{ $templateColor }}, #fffb00); z-index: 1; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-                        </div>
-
-                        <svg class="quotation-cover__shape quotation-cover__shape--top"
-                            width="240" height="240"
-                            style="position: absolute; top: -46px; left: -46px; width: 240px; height: 240px; z-index: 1; pointer-events: none;"
-                            viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="40" cy="40" r="180" stroke="{{ $templateColor }}" stroke-width="28" fill="none"></circle>
-                            <circle cx="80" cy="80" r="120" stroke="#111827" stroke-width="14" fill="none"></circle>
-                            <circle cx="110" cy="110" r="70" stroke="{{ $templateColor }}" stroke-width="10" fill="none"></circle>
-                        </svg>
-
-                        <svg class="quotation-cover__shape quotation-cover__shape--bottom"
-                            width="240" height="240"
-                            style="position: absolute; right: -30px; bottom: -30px; width: 240px; height: 240px; transform: rotate(180deg); opacity: 0.5; z-index: 1; pointer-events: none;"
-                            viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="40" cy="40" r="180" stroke="{{ $templateColor }}" stroke-width="28" fill="none"></circle>
-                            <circle cx="80" cy="80" r="120" stroke="#111827" stroke-width="14" fill="none"></circle>
-                            <circle cx="110" cy="110" r="70" stroke="{{ $templateColor }}" stroke-width="10" fill="none"></circle>
-                        </svg>
-
-                        <svg class="quotation-cover__watermark"
-                            width="150" height="150"
-                            style="position: absolute; right: 22mm; top: 76mm; width: 150px; height: 150px; opacity: 0.15; z-index: 1; pointer-events: none;"
-                            viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="100" cy="100" r="72" stroke="{{ $templateColor }}" stroke-width="16" fill="none"></circle>
-                            <circle cx="100" cy="100" r="42" stroke="#111827" stroke-width="10" fill="none"></circle>
-                        </svg>
-
-                        <svg class="quotation-cover__watermark_bottom"
-                            width="150" height="150"
-                            style="position: absolute; left: 0.5rem; bottom: 7.5rem; width: 150px; height: 150px; opacity: 0.18; z-index: 1; pointer-events: none;"
-                            viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="100" cy="100" r="72" stroke="{{ $templateColor }}" stroke-width="16" fill="none"></circle>
-                            <circle cx="100" cy="100" r="42" stroke="#111827" stroke-width="10" fill="none"></circle>
-                        </svg>
-                    @endif
-
-                    <div class="quotation-cover__body"
-                        style="padding: 10mm 20mm; position: relative; z-index: 2; min-height: calc(297mm - 10px); display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; background: transparent;">
-                        <div style="text-align: right; margin-bottom: 15mm;">
-                            <img src="{{ $logoImage }}" alt="Company Logo"
-                                style="max-height: 60px; object-fit: contain; margin-left: auto;">
-                        </div>
-
-                        <div style="position: relative;">
-                            <div
-                                style="letter-spacing: .18em; font-size: .8rem; color: {{ $templateColor }}; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">
-                                Financial Proposal
-                            </div>
-
-                            <h1
-                                style="font-size: 2.2rem; line-height: 1.15; color: #111827; font-weight: 700; margin: 0 0 8px 0;">
-                                {{ $proposal->subject ?? 'Subject' }}
-                            </h1>
-
-                            <div style="font-size: 1.1rem; color: #64748b; font-weight: 600; margin-bottom: 16px;">
-                                Quotation & Commercial Proposal
-                            </div>
-
-                            <div
-                                style="width: 90px; height: 4px; border-radius: 999px; background: {{ $templateColor }}; margin-bottom: 24px;">
-                            </div>
-
-                            <div style="margin-bottom: 30px;">
-                                <span
-                                    style="display: inline-block; border: 1px solid {{ $templateColor }}; padding: .4rem .85rem; font-size: .8rem; font-weight: 600; color: {{ $templateColor }}; background: #ffffff; border-radius: 0.25rem;">
-                                    {{ $proposal->proposal_date ? date('M d, Y', strtotime($proposal->proposal_date)) : date('M d, Y') }}
-                                </span>
-                            </div>
-
-                            <div class="quotation-cover__submitted"
-                                style="border: 1px solid #e5e7eb; padding: 25px; background: linear-gradient(135deg, rgba(249, 250, 251, 0.9), rgba(238, 242, 247, 0.9)); border-radius: .25rem; text-align: center; margin-bottom: 16px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-                                <div
-                                    style="text-transform: uppercase; color: #64748b; font-weight: 700; font-size: 12px; margin-bottom: 8px; text-decoration: underline;">
-                                    Submitted To
-                                </div>
-                                <h2 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 4px 0;">
-                                    {{ $proposal->customer->name ?? 'Client Name' }}
-                                </h2>
-                                <p style="color: #475569; font-size: 12px; margin: 0;">
-                                    {{ $proposal->customer->address ?? $proposal->customer->email ?? 'Client Address' }}
-                                </p>
-                            </div>
-
-                            <div style="border: 1px solid #dee2e6; padding: 20px; border-radius: .25rem; text-align: center; margin-bottom: 16px;">
-                                <div
-                                    style="text-transform: uppercase; color: #64748b; font-weight: 700; font-size: 12px; margin-bottom: 10px; text-decoration: underline;">
-                                    Prepared By
-                                </div>
-                                <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
-                                    {{ $companyName }}
-                                </div>
-                                <div style="font-size: 12px; color: #334155; line-height: 1.5;">
-                                    <div style="margin-bottom: 4px;">
-                                        <strong>Corporate Office:</strong>
-                                        {{ company_setting('company_address', $proposal->created_by) ?? 'Company Address' }}
-                                    </div>
-                                    <div style="margin-bottom: 4px;">
-                                        <span>
-                                            <strong>Web:</strong> {{ company_setting('company_website', $proposal->created_by) ?? 'www.example.com' }}
-                                        </span>
-                                        &nbsp;&nbsp;&nbsp;&nbsp;
-                                        <span>
-                                            <strong>Email:</strong> {{ company_setting('company_email', $proposal->created_by) ?? 'info@example.com' }}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <strong>Phone:</strong> {{ company_setting('company_telephone', $proposal->created_by) ?? (company_setting('company_phone', $proposal->created_by) ?? 'Company Phone') }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div
-                            style="margin-top: auto; padding-top: 14px; border-top: 1px solid #dee2e6; font-size: 13px; display: flex; justify-content: space-between; color: #475569;">
-                            <div><strong>Prepared by:</strong> {{ $companyName }}</div>
-                            <div><strong>Subject:</strong> {{ $proposal->subject ?? 'Subject' }}</div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- 2. OTC CHARGES SHEET --}}
-            @elseif($page['type'] === 'otc')
+            {{-- 1. OTC CHARGES SHEET --}}
+            @if($page['type'] === 'otc')
                 <div class="proposal-preview-sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; page-break-after: always; position: relative; overflow: hidden; {{ $pageBgStyle }}">
-                    <div class="quotation-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 52mm); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
+                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                    @if(!empty($sheetBgUrl))
+                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        </div>
+                    @endif
+                    @if(!empty($headerLogoUrl))
+                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        </div>
+                    @endif
+                    <div class="proposal-page__body"
+                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
                             <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #293240;">
                                 {{ $page['title'] }}
@@ -562,6 +687,7 @@
                                             @php
                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
                                                 $pDesc = $item->product->description ?? $item->product_description ?? '';
+                                                $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
                                             <tr>
@@ -576,7 +702,7 @@
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
-                                                    {{ $item->quantity }}</td>
+                                                    {{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                                 <td
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">
                                                     {{ number_format($item->unit_price, 2) }}</td>
@@ -648,9 +774,19 @@
                 {{-- 3. MRC CHARGES SHEET --}}
             @elseif($page['type'] === 'mrc')
                 <div class="proposal-preview-sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; page-break-after: always; position: relative; overflow: hidden; {{ $pageBgStyle }}">
-                    <div class="quotation-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 52mm); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
+                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                    @if(!empty($sheetBgUrl))
+                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        </div>
+                    @endif
+                    @if(!empty($headerLogoUrl))
+                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        </div>
+                    @endif
+                    <div class="proposal-page__body"
+                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
                             <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #293240;">
                                 {{ $page['title'] }}
@@ -695,9 +831,10 @@
                                         @endphp
                                         @foreach($page['items'] as $index => $item)
                                             @php
-                                                $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                $pDesc = $item->product->description ?? $item->product_description ?? '';
-                                                $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                                 $pDesc = $item->product->description ?? $item->product_description ?? '';
+                                                 $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
                                             <tr>
                                                 <td
@@ -711,7 +848,7 @@
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
-                                                    {{ $item->quantity }}</td>
+                                                    {{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                                 <td
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">
                                                     {{ number_format($item->unit_price, 2) }}</td>
@@ -776,40 +913,69 @@
                                     @endif
                                 </tbody>
                             </table>
-
                         </div>
                     </div>
                 </div>
 
                 {{-- 4. OTHER DETAILS SHEET --}}
             @elseif($page['type'] === 'other-details')
-                <div class="proposal-preview-sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; page-break-after: always; position: relative; overflow: hidden; {{ $pageBgStyle }}">
-                    <div class="quotation-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 52mm); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div style="color: #334155; font-size: 14px; line-height: 1.6;">
-                            <h3 style="font-size: 14px; font-weight: 700; color: #293240; margin-bottom: 12px;">
-                                {{ $page['title'] }}</h3>
-                            {!! $page['content'] !!}
+                <div class="proposal-preview-sheet proposal-cover__sheet"
+                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                    @if(!empty($sheetBgUrl))
+                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
                         </div>
-                     
+                    @endif
+                    @if(!empty($headerLogoUrl))
+                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        </div>
+                    @endif
+                    <div class="proposal-page__body"
+                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div class="html-preview-container">
+                            <h3 style="font-size: 14px; font-weight: 700; color: #293240; margin-bottom: 12px;">
+                                {{ $replaceProposalShortcodes($page['title']) }}</h3>
+                            {!! $replaceProposalShortcodes($page['content']) !!}
+                        </div>
                     </div>
                 </div>
 
                 {{-- 5. CONTENT / DEFAULT PAGES --}}
             @else
-                <div class="proposal-preview-sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; page-break-after: always; position: relative; overflow: hidden; {{ $pageBgStyle }}">
-                    <div class="quotation-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 52mm); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div style="color: #334155; font-size: 14px; line-height: 1.6;">
-                            {!! $page['content'] !!}
+                <div class="proposal-preview-sheet proposal-cover__sheet"
+                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                    @if(!empty($sheetBgUrl))
+                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        </div>
+                    @endif
+                    @if(!empty($headerLogoUrl))
+                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        </div>
+                    @endif
+                    <div class="proposal-page__body"
+                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div class="html-preview-container">
+                            {!! $replaceProposalShortcodes($page['content']) !!}
                         </div>
                     </div>
                 </div>
             @endif
         @endforeach
     </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', function () {
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('print') === '1' || urlParams.has('print')) {
+                setTimeout(function () {
+                    window.print();
+                }, 400);
+            }
+        });
+    </script>
 </body>
 
 </html>

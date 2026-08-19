@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { Extension } from '@tiptap/core'
 
 import { Strike } from '@tiptap/extension-strike'
 import { Highlight } from '@tiptap/extension-highlight'
@@ -14,7 +15,30 @@ import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { Button } from './button'
 import { cn } from '@/lib/utils'
-import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, Quote, Undo, Redo, Link as LinkIcon, Palette, Heading1, Heading2, Heading3, Table as TableIcon, Plus, Trash2 } from 'lucide-react'
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Strikethrough,
+  Highlighter,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  List,
+  ListOrdered,
+  Quote,
+  Undo,
+  Redo,
+  Link as LinkIcon,
+  Table as TableIcon,
+  Plus,
+  Trash2,
+  Heading1,
+  Heading2,
+  Heading3,
+  Baseline,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   Select,
@@ -24,6 +48,56 @@ import {
   SelectValue,
 } from './select'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
+
+// Custom TipTap Extension for Line Height / Line Spacing
+export const LineHeight = Extension.create({
+  name: 'lineHeight',
+  addOptions() {
+    return {
+      types: ['paragraph', 'heading'],
+      defaultLineHeight: 'normal',
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          lineHeight: {
+            default: null,
+            parseHTML: (element) => element.style.lineHeight || null,
+            renderHTML: (attributes) => {
+              if (!attributes.lineHeight) {
+                return {};
+              }
+              return {
+                style: `line-height: ${attributes.lineHeight}`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setLineHeight:
+        (lineHeight: string) =>
+        ({ commands }: any) => {
+          return this.options.types.every((type: string) =>
+            commands.updateAttributes(type, { lineHeight })
+          );
+        },
+      unsetLineHeight:
+        () =>
+        ({ commands }: any) => {
+          return this.options.types.every((type: string) =>
+            commands.resetAttributes(type, 'lineHeight')
+          );
+        },
+    };
+  },
+});
 
 interface TableGridPickerProps {
   editor: any
@@ -292,6 +366,7 @@ export function RichTextEditor({
       }),
       Color,
       TextStyle,
+      LineHeight.configure({ types: ['paragraph', 'heading'] }),
       Table.configure({
         resizable: true,
         HTMLAttributes: {
@@ -315,13 +390,13 @@ export function RichTextEditor({
       onChange?.(editor.getHTML())
     },
     onSelectionUpdate: () => {
-      // Re-render toolbar reactively whenever cursor/selection moves inside or outside table
       setSelectionUpdateCount((prev) => prev + 1);
     },
     editorProps: {
       attributes: {
         class: cn(
           'focus:outline-none prose prose-sm max-w-none [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:my-0.5 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-1 [&_table]:w-full [&_table]:table-auto [&_table]:border-collapse [&_table]:my-4 [&_table]:border [&_table]:border-slate-300 [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-2.5 [&_th]:text-left [&_th]:font-bold [&_td]:border [&_td]:border-slate-300 [&_td]:p-2.5',
+          '[&_p:empty]:min-h-[1.15em] [&_p:empty]:my-0 [&_p:empty]:before:content-["\\00a0"] [&_p:has(>br:only-child)]:min-h-[1.15em] [&_p:has(>br:only-child)]:my-0',
           minimal ? 'min-h-[36px] p-1.5 text-xs [&_p]:my-0.5' : 'min-h-[140px] p-3 text-sm [&_p]:my-1'
         ),
       },
@@ -342,6 +417,12 @@ export function RichTextEditor({
     if (editor.isActive('heading', { level: 2 })) return 'h2';
     if (editor.isActive('heading', { level: 3 })) return 'h3';
     return 'p';
+  };
+
+  const getLineHeightValue = () => {
+    const pLineHeight = editor.getAttributes('paragraph').lineHeight;
+    const hLineHeight = editor.getAttributes('heading').lineHeight;
+    return pLineHeight || hLineHeight || 'normal';
   };
 
   const isTableActive = editor.isActive('table');
@@ -399,7 +480,7 @@ export function RichTextEditor({
           </Button>
         </div>
       ) : (
-        <div className="border-b p-2 flex flex-wrap items-center gap-1">
+        <div className="border-b p-2 flex flex-wrap items-center gap-1.5 bg-slate-50/50">
           {/* Heading Dropdown */}
           <Select
             value={getHeadingValue()}
@@ -410,7 +491,7 @@ export function RichTextEditor({
               else editor.chain().focus().setParagraph().run();
             }}
           >
-            <SelectTrigger className="h-8 w-[125px] text-xs">
+            <SelectTrigger className="h-8 w-[120px] text-xs bg-white">
               <SelectValue placeholder={t('Paragraph')} />
             </SelectTrigger>
             <SelectContent>
@@ -418,6 +499,33 @@ export function RichTextEditor({
               <SelectItem value="h1">{t('Heading 1')}</SelectItem>
               <SelectItem value="h2">{t('Heading 2')}</SelectItem>
               <SelectItem value="h3">{t('Heading 3')}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Line Height / Line Spacing Dropdown */}
+          <Select
+            value={getLineHeightValue()}
+            onValueChange={(val) => {
+              if (val === 'normal') {
+                (editor.chain().focus() as any).unsetLineHeight().run();
+              } else {
+                (editor.chain().focus() as any).setLineHeight(val).run();
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 w-[115px] text-xs bg-white gap-1.5" title={t('Line Spacing')}>
+              <Baseline className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+              <SelectValue placeholder={t('Spacing')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="normal">{t('Normal')}</SelectItem>
+              <SelectItem value="1.0">{t('Single (1.0)')}</SelectItem>
+              <SelectItem value="1.2">{t('1.2')}</SelectItem>
+              <SelectItem value="1.4">{t('1.4')}</SelectItem>
+              <SelectItem value="1.6">{t('1.6')}</SelectItem>
+              <SelectItem value="1.8">{t('1.8')}</SelectItem>
+              <SelectItem value="2.0">{t('Double (2.0)')}</SelectItem>
+              <SelectItem value="2.5">{t('2.5')}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -456,7 +564,7 @@ export function RichTextEditor({
             <Heading3 className="h-4 w-4" />
           </Button>
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5" />
           <TableGridPicker editor={editor} onInsertTable={(rows, cols) => {
             editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
           }} />
@@ -562,7 +670,7 @@ export function RichTextEditor({
             </div>
           )}
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5" />
           <Button
             type="button"
             variant="ghost"
@@ -613,7 +721,7 @@ export function RichTextEditor({
           >
             <Highlighter className="h-4 w-4" />
           </Button>
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5" />
           <Button
             type="button"
             variant="ghost"
@@ -654,7 +762,7 @@ export function RichTextEditor({
           >
             <AlignJustify className="h-4 w-4" />
           </Button>
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5" />
           <Button
             type="button"
             variant="ghost"
@@ -685,7 +793,7 @@ export function RichTextEditor({
           >
             <Quote className="h-4 w-4" />
           </Button>
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5" />
           <Button
             type="button"
             variant="ghost"
@@ -717,7 +825,7 @@ export function RichTextEditor({
             className="w-8 h-8 border rounded cursor-pointer"
             title={t('Text Color')}
           />
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5" />
           <Button
             type="button"
             variant="ghost"
@@ -743,7 +851,8 @@ export function RichTextEditor({
 
       <div className={cn(
         "prose prose-sm max-w-none resize-y overflow-auto",
-        minimal ? "min-h-[38px] p-1.5 [&_p]:my-0.5 text-xs" : "min-h-[120px] p-2.5 [&_p]:my-1 text-sm",
+        minimal ? "min-h-[38px] p-1.5 [&_p]:my-0.5 text-xs" : "min-h-[140px] p-3 text-sm [&_p]:my-1",
+        "[&_p:empty]:min-h-[1.15em] [&_p:empty]:my-0 [&_p:empty]:before:content-['\\00a0'] [&_p:has(>br:only-child)]:min-h-[1.15em] [&_p:has(>br:only-child)]:my-0",
         "[&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:my-0.5",
         "[&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer hover:[&_a]:text-blue-800",
         "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-1",

@@ -18,7 +18,14 @@ class ProposalSetupController extends Controller
 
         $defaultPages = ProposalDefaultPage::with('creatorUser:id,name,email')
             ->where('creator_id', creatorId())
+<<<<<<< HEAD
             ->where('created_by', Auth::id())
+=======
+            ->where(function ($query) {
+                $query->where('created_by', Auth::id())
+                    ->orWhere('created_by', creatorId());
+            })
+>>>>>>> 89160eb208d713f7b346ef21a2341adfaa0c5bda
             ->orderBy('sort_order')
             ->get();
 

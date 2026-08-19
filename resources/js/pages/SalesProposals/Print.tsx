@@ -1,329 +1,193 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import html2pdf from 'html2pdf.js';
-import { formatCurrency, formatDate, getCompanySetting } from '@/utils/helpers';
-import { useFormFields } from '@/hooks/useFormFields';
+import PreviewModal, { ProposalPreviewSection } from '@/components/PreviewModal';
 
-interface SalesProposal {
+interface ProposalDefaultPage {
     id: number;
-    proposal_number: string;
-    proposal_date: string;
-    due_date: string;
-    customer: { id: number; name: string; email: string };
-    subtotal: number;
-    tax_amount: number;
-    discount_amount: number;
-    total_amount: number;
-    status: string;
-    payment_terms?: string;
-    notes?: string;
-    warehouse?: { id: number; name: string };
-    items?: Array<{
-        id: number;
-        product_id: number;
-        quantity: number;
-        unit_price: number;
-        discount_percentage: number;
-        discount_amount: number;
-        tax_percentage: number;
-        tax_amount: number;
-        total_amount: number;
-        product?: {
-            id: number;
-            name: string;
-            sku?: string;
-        };
-        taxes?: Array<{
-            id: number;
-            tax_name: string;
-            tax_rate: number;
-        }>;
-    }>;
+    title: string;
+    content: string;
+    page_type?: string;
+    background_image?: string;
+    sort_order: number;
 }
 
 interface PrintProps {
-    proposal: SalesProposal;
+    proposal: any;
+    customers?: Array<{ id: number; name: string; email: string; address?: string }>;
+    warehouses?: Array<{ id: number; name: string; address?: string }>;
+    defaultPages?: ProposalDefaultPage[];
+    proposalSetting?: any;
     [key: string]: any;
 }
 
 export default function Print() {
     const { t } = useTranslation();
-    const { proposal } = usePage<PrintProps>().props;
-    const [isDownloading, setIsDownloading] = useState(false);
-    const [fieldsLoaded, setFieldsLoaded] = useState(false);
+    const { proposal, customers = [], warehouses = [], defaultPages = [], proposalSetting } = usePage<PrintProps>().props;
 
-    const customFields = useFormFields('getCustomFields', { ...proposal, module: 'General', sub_module: 'Proposal', id: proposal.id, isPrint: true }, () => { }, {}, 'view', t);
+    const sections = useMemo<ProposalPreviewSection[]>(() => {
+        let loadedSections: ProposalPreviewSection[] = [];
 
-    useEffect(() => {
-        if (customFields && customFields.length >= 0) {
-            setFieldsLoaded(true);
-        }
-    }, [customFields]);
-
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('download') === 'pdf' && fieldsLoaded) {
-            setTimeout(() => downloadPDF(), 1000);
-        }
-    }, [fieldsLoaded]);
-
-    const downloadPDF = async () => {
-        setIsDownloading(true);
-
-        const printContent = document.querySelector('.proposal-container');
-        if (printContent) {
-            const opt = {
-                margin: 0.25,
-                filename: `sales-proposal-${proposal.proposal_number}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-            };
-
+        // 1. Check if proposal has saved contents
+        if (proposal?.contents && Array.isArray(proposal.contents) && proposal.contents.length > 0) {
+            loadedSections = proposal.contents.map((c: any) => {
+                let parsed: any = null;
+                if (typeof c.proposal_content === 'string') {
+                    try {
+                        parsed = JSON.parse(c.proposal_content);
+                    } catch (e) {
+                        parsed = null;
+                    }
+                }
+                if (parsed && typeof parsed === 'object') {
+                    return {
+                        id: String(c.id || Math.random()),
+                        title: parsed.title || c.title || '',
+                        content: parsed.content || c.content || '',
+                        page_type: parsed.page_type || c.page_type || 'content',
+                        background_image: parsed.background_image || c.background_image || undefined,
+                        order: c.order ?? 1,
+                    };
+                }
+                return {
+                    id: String(c.id || Math.random()),
+                    title: c.title || '',
+                    content: c.content || c.proposal_content || '',
+                    page_type: c.page_type || 'content',
+                    background_image: c.background_image || undefined,
+                    order: c.order ?? 1,
+                };
+            });
+        } else if (proposal?.proposal_content) {
             try {
-                await html2pdf().set(opt).from(printContent as HTMLElement).save();
-                setTimeout(() => window.close(), 1000);
-            } catch (error) {
-                console.error('PDF generation failed:', error);
-            }
+                const parsed = typeof proposal.proposal_content === 'string'
+                    ? JSON.parse(proposal.proposal_content)
+                    : proposal.proposal_content;
+                if (Array.isArray(parsed)) {
+                    loadedSections = parsed.map((p: any, idx: number) => ({
+                        id: String(p.id || idx + 1),
+                        title: p.title || '',
+                        content: p.content || '',
+                        page_type: p.page_type || 'content',
+                        background_image: p.background_image || undefined,
+                        order: p.order ?? idx + 1,
+                    }));
+                }
+            } catch (e) {}
         }
 
-        setIsDownloading(false);
-    };
+        // 2. If no custom sections, load from defaultPages
+        if (loadedSections.length === 0 && defaultPages && defaultPages.length > 0) {
+            loadedSections = defaultPages.map((dp) => ({
+                id: String(dp.id),
+                title: dp.title,
+                content: dp.content,
+                page_type: dp.page_type || 'content',
+                background_image: dp.background_image,
+                order: dp.sort_order,
+            }));
+        }
+
+        // 3. Ensure OTC / MRC / other-details pages exist if items exist
+        const hasOtcInSections = loadedSections.some((s) => s.page_type === 'otc');
+        const hasMrcInSections = loadedSections.some((s) => s.page_type === 'mrc');
+        const hasOtherInSections = loadedSections.some((s) => s.page_type === 'other-details');
+
+        const items = proposal?.items || [];
+        const otcItems = items.filter((i: any) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.unit_price) > 0 || Number(i.product_id) > 0 || Boolean(i.product_description)));
+        const mrcItems = items.filter((i: any) => i.section === 'mrc' && (Number(i.unit_price) > 0 || Number(i.product_id) > 0 || Boolean(i.product_description)));
+
+        if (!hasOtcInSections && otcItems.length > 0) {
+            loadedSections.push({
+                id: 'otc-charges',
+                title: t('ONE-TIME CHARGES (OTC)'),
+                content: '[OTC_CHARGES_TABLE]',
+                page_type: 'otc',
+                order: 100,
+            });
+        }
+
+        if (!hasMrcInSections && mrcItems.length > 0) {
+            loadedSections.push({
+                id: 'mrc-charges',
+                title: t('MONTHLY RECURRING CHARGES (MRC)'),
+                content: '[MRC_CHARGES_TABLE]',
+                page_type: 'mrc',
+                order: 101,
+            });
+        }
+
+        if (!hasOtherInSections && proposal?.other_details && proposal.other_details.trim() !== '') {
+            loadedSections.push({
+                id: 'other-details',
+                title: t('OTHER DETAILS'),
+                content: proposal.other_details,
+                page_type: 'other-details',
+                order: 102,
+            });
+        }
+
+        return loadedSections.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+    }, [proposal, defaultPages, t]);
+
+    const formattedCustomers = useMemo(() => {
+        if (customers.length > 0) return customers;
+        if (proposal?.customer) return [proposal.customer];
+        return [];
+    }, [customers, proposal?.customer]);
+
+    const totals = useMemo(() => {
+        return {
+            subtotal: Number(proposal?.subtotal || 0),
+            tax_amount: Number(proposal?.tax_amount || 0),
+            discount_amount: Number(proposal?.discount_amount || 0),
+            total_amount: Number(proposal?.total_amount || 0),
+        };
+    }, [proposal]);
+
+    const formData = useMemo(() => {
+        return {
+            ...proposal,
+            id: proposal?.id,
+            proposal_number: proposal?.proposal_number,
+            subject: proposal?.subject,
+            invoice_date: proposal?.proposal_date || proposal?.invoice_date,
+            due_date: proposal?.due_date,
+            customer_id: proposal?.customer_id,
+            warehouse_id: proposal?.warehouse_id,
+            payment_terms: proposal?.payment_terms,
+            notes: proposal?.notes,
+            other_details: proposal?.other_details,
+            items: (proposal?.items || []).map((i: any) => ({
+                id: i.id,
+                product_id: i.product_id,
+                product_name: i.product?.name || i.name,
+                description: i.description || i.product_description,
+                product_description: i.product?.description || i.description,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                discount_amount: i.discount_amount,
+                tax_amount: i.tax_amount,
+                total_amount: i.total_amount,
+                section: i.section,
+                product: i.product,
+            })),
+        };
+    }, [proposal]);
 
     return (
-        <div className="min-h-screen bg-white">
-            <Head title={t('Sales Proposal')} />
-
-            {isDownloading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="proposal-container bg-white max-w-4xl mx-auto p-8">
-                <div className="flex justify-between items-start mb-8">
-                    <div className="w-1/2">
-                        <h1 className="text-2xl font-bold mb-4">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
-                        <div className="text-sm space-y-1">
-                            {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
-                            {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
-                                <p>
-                                    {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
-                                </p>
-                            )}
-                            {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
-                            {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
-                            {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
-                            {getCompanySetting('registration_number') && <p>{t('Registration')}: {getCompanySetting('registration_number')}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right w-1/2">
-                        <h2 className="text-2xl font-bold mb-2">{t('SALES PROPOSAL')}</h2>
-                        <p className="text-lg font-semibold">#{proposal.proposal_number}</p>
-                        <div className="text-sm mt-2 space-y-1">
-                            <p>{t('Date')}: {formatDate(proposal.proposal_date)}</p>
-                            <p>{t('Due')}: {formatDate(proposal.due_date)}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-between mb-8">
-                    <div className="w-1/2">
-                        <h3 className="font-bold mb-3">{t('PROPOSAL TO')}</h3>
-                        <div className="text-sm space-y-1">
-                            <p className="font-semibold">{proposal.customer?.name}</p>
-                            <p>{proposal.customer?.email}</p>
-                        </div>
-                    </div>
-                    <div className="text-right w-1/2">
-                        <h3 className="font-bold mb-3">{t('WAREHOUSE')}</h3>
-                        <div className="text-sm space-y-1">
-                            <p>{proposal.warehouse?.name || '-'}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Custom Fields Display */}
-                {customFields && customFields.length > 0 && (
-                    <div className="mb-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            {customFields.map((field) => (
-                                <div key={field.id} className="space-y-1">
-                                    <div className="font-semibold text-gray-700">{(field as any).name || (field as any).label || 'Custom Field'}:</div>
-                                    <div className="text-gray-900">{field.component}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <div className="mb-8">
-                    <table className="w-full table-fixed">
-                        <thead>
-                            <tr className="border-b border-gray-300">
-                                <th className="text-left py-3 font-bold">{t('ITEM')}</th>
-                                <th className="text-center py-3 font-bold">{t('QTY')}</th>
-                                <th className="text-right py-3 font-bold">{t('PRICE')}</th>
-                                <th className="text-right py-3 font-bold">{t('DISCOUNT')}</th>
-                                <th className="text-right py-3 font-bold">{t('TAX')}</th>
-                                <th className="text-right py-3 font-bold">{t('TOTAL')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {proposal.items?.map((item, index) => (
-                                <tr key={index} className="page-break-inside-avoid">
-                                    <td className="py-4">
-                                        <div className="font-semibold">{item.product?.name}</div>
-                                        {item.product?.sku && (
-                                            <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
-                                        )}
-                                    </td>
-                                    <td className="text-center py-4">{item.quantity}</td>
-                                    <td className="text-right py-4">{formatCurrency(item.unit_price)}</td>
-                                    <td className="text-right py-4">
-                                        {item.discount_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.discount_percentage}%</div>
-                                                <div className="text-sm font-medium">-{formatCurrency(item.discount_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4">
-                                        {item.taxes && item.taxes.length > 0 ? (
-                                            <>
-                                                {item.taxes.map((tax, taxIndex) => (
-                                                    <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
-                                                ))}
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : item.tax_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.tax_percentage}%</div>
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4 font-semibold">{formatCurrency(item.total_amount)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="flex justify-end mb-4 page-break-inside-avoid">
-                    <div className="w-80 page-break-inside-avoid">
-                        <div className="border border-gray-400 p-4 page-break-inside-avoid">
-                            <div className="space-y-2">
-                                <div className="flex justify-between">
-                                    <span>{t('Subtotal')}:</span>
-                                    <span>{formatCurrency(proposal.subtotal)}</span>
-                                </div>
-                                {proposal.discount_amount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>{t('Discount')}:</span>
-                                        <span>-{formatCurrency(proposal.discount_amount)}</span>
-                                    </div>
-                                )}
-                                {proposal.tax_amount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>{t('Tax')}:</span>
-                                        <span>{formatCurrency(proposal.tax_amount)}</span>
-                                    </div>
-                                )}
-                                <div className="border-t border-gray-400 pt-2 mt-2">
-                                    <div className="flex justify-between font-bold text-lg">
-                                        <span>{t('TOTAL')}:</span>
-                                        <span>{formatCurrency(proposal.total_amount)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="border-t border-gray-400 pt-4 text-center">
-                    <p className="font-semibold">{t('PAYMENT TERMS')}: {proposal.payment_terms || t('Net 30 Days')}</p>
-                    <p className="text-sm mt-2">{t('Thank you for your business!')}</p>
-                </div>
-            </div>
-
-            <style>{`
-                body {
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                    font-family: Arial, sans-serif;
-                }
-
-                @page {
-                    margin: 0.5in;
-                    size: A4;
-                }
-
-                .proposal-container {
-                    max-width: 100%;
-                    margin: 0;
-                    box-shadow: none;
-                }
-
-                .proposal-container table {
-                    width: 100%;
-                    table-layout: auto;
-                    border-collapse: collapse;
-                    margin: 12px 0;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 6px;
-                    overflow: hidden;
-                }
-
-                .proposal-container tr:first-child,
-                .proposal-container th {
-                    background-color: var(--primary, #0f172a) !important;
-                    color: #ffffff !important;
-                    padding: 8px 12px;
-                    text-align: left;
-                    font-size: 11px;
-                    font-weight: bold;
-                    border: 1px solid #e2e8f0;
-                }
-
-                .proposal-container tr:first-child td {
-                    background-color: var(--primary, #0f172a) !important;
-                    color: #ffffff !important;
-                    font-weight: bold;
-                }
-
-                .proposal-container td {
-                    padding: 8px 12px;
-                    font-size: 11px;
-                    border: 1px solid #e2e8f0;
-                }
-
-                .page-break-inside-avoid {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
-
-                @media print {
-                    body {
-                        background: white;
-                    }
-
-                    .proposal-container {
-                        box-shadow: none;
-                    }
-                }
-            `}</style>
-        </div>
+        <>
+            <Head title={`${t('Sales Proposal')} - ${proposal?.proposal_number || ''}`} />
+            <PreviewModal
+                inline={true}
+                formData={formData}
+                sections={sections}
+                customers={formattedCustomers}
+                warehouses={warehouses}
+                totals={totals}
+                proposalSetting={proposalSetting}
+                other_details={proposal?.other_details}
+            />
+        </>
     );
 }

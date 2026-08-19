@@ -20,9 +20,14 @@ class StoreSalesProposalRequest extends FormRequest
             'customer_id' => 'required_unless:customer_mode,new|nullable|integer|exists:users,id',
             'customer_name' => 'required_if:customer_mode,new|nullable|string|max:255',
             'customer_email' => 'required_if:customer_mode,new|nullable|email|max:255',
+<<<<<<< HEAD
             'customer_phone' => 'nullable|string|max:50',
             'customer_type' => 'nullable|string|max:50',
             'customer_address' => 'nullable|string',
+=======
+            'customer_phone' => 'required_if:customer_mode,new|nullable|string|max:50',
+            'customer_address' => 'required_if:customer_mode,new|nullable|string',
+>>>>>>> 89160eb208d713f7b346ef21a2341adfaa0c5bda
             'type' => 'required|in:product,service',
             'warehouse_id' => 'required_if:type,product|nullable|integer|exists:warehouses,id',
             'payment_terms' => 'nullable|string|max:255',

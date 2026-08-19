@@ -1,14 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatCurrency } from '@/utils/helpers';
 
 interface Product {
     id: number;
     name: string;
     sale_price: number;
     unit?: string;
-    taxes?: Array<{id: number; tax_name: string; rate: number}>;
+    taxes?: Array<{ id: number; tax_name: string; rate: number }>;
 }
 
 interface Props {
@@ -17,7 +16,7 @@ interface Props {
     onChange: (productId: number, product?: Product) => void;
 }
 
-export default function ProductSelector({ products, value, onChange }: Props) {
+export default function ProposalProductSelector({ products, value, onChange }: Props) {
     const { t } = useTranslation();
 
     const handleChange = (productId: string) => {
@@ -34,7 +33,7 @@ export default function ProductSelector({ products, value, onChange }: Props) {
             <SelectContent searchable>
                 {products.map((product) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
-                        {product.name} - {formatCurrency(product.sale_price || 0)}
+                        {product.name}
                     </SelectItem>
                 ))}
             </SelectContent>

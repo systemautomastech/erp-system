@@ -1,0 +1,240 @@
+/* Pixel Perfect Proposal Sheet & Page Styles from ERP */
+.proposal-cover {
+    margin: 0 auto;
+    width: 210mm;
+    min-height: 297mm;
+    position: relative;
+}
+
+.proposal-cover__sheet,
+.proposal-preview-sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08);
+    page-break-after: always;
+}
+
+.proposal-cover__topbar {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: linear-gradient(90deg, #E9591C, #fffb00);
+    z-index: 1;
+}
+
+.proposal-cover__body {
+    padding: 10mm 20mm;
+    position: relative !important;
+    z-index: 2;
+    min-height: calc(297mm - 10px);
+    display: flex;
+    flex-direction: column;
+}
+
+.proposal-page__body {
+    position: relative !important;
+    z-index: 1;
+    padding: 32mm 15mm 20mm;
+    min-height: calc(297mm - 20mm);
+    box-sizing: border-box;
+}
+
+.logo-container {
+    margin-bottom: 20mm;
+    text-align: right;
+}
+
+.proposal-cover__logo {
+    max-height: 70px;
+    object-fit: contain;
+}
+
+.proposal-cover__label {
+    letter-spacing: .18em;
+    font-size: .8rem;
+    color: #E9591C !important;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.proposal-cover__title {
+    font-size: 2.2rem;
+    line-height: 1.15;
+    max-width: 75%;
+    color: #111827;
+    font-weight: 700;
+}
+
+.proposal-cover__line {
+    width: 90px;
+    height: 4px;
+    border-radius: 999px;
+    background: #E9591C;
+}
+
+.proposal-cover__date {
+    display: inline-block;
+    border: 1px solid #E9591C;
+    padding: .4rem .85rem;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: #111827;
+    background: #ffffff;
+    border-radius: 0.25rem;
+}
+
+.proposal-cover__box {
+    border: 1px solid #dee2e6;
+    border-radius: .25rem;
+    background: #ffffff00;
+}
+
+.proposal-cover__submitted {
+    position: relative !important;
+    padding: 40px 25px;
+    overflow: hidden !important;
+    border: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, #f9fafb, #eef2f7);
+    border-radius: .25rem;
+}
+
+.proposal-cover__prepared {
+    padding: 1.5rem;
+}
+
+.proposal-cover__watermark,
+.proposal-cover__shape {
+    position: absolute !important;
+    pointer-events: none !important;
+    z-index: 1;
+}
+
+.proposal-cover__shape--top {
+    position: absolute !important;
+    top: -46px !important;
+    left: -46px !important;
+    width: 240px !important;
+    opacity: 1 !important;
+}
+
+.proposal-cover__shape--bottom {
+    position: absolute !important;
+    right: -30px !important;
+    bottom: -30px !important;
+    width: 240px !important;
+    transform: rotate(180deg) !important;
+    opacity: .5 !important;
+}
+
+.proposal-cover__watermark {
+    position: absolute !important;
+    right: 22mm !important;
+    top: 76mm !important;
+    width: 150px !important;
+    height: 150px !important;
+    opacity: .05 !important;
+}
+
+.proposal-cover__watermark_bottom {
+    position: absolute !important;
+    left: 0.5rem !important;
+    bottom: 7.5rem !important;
+    width: 150px !important;
+    height: 150px !important;
+    opacity: .08 !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+}
+
+.proposal-cover__footer {
+    margin-top: auto;
+    padding-top: .875rem;
+    border-top: 1px solid #dee2e6;
+    font-size: .875rem;
+}
+
+/* Dynamic Table Header Coloring */
+.proposal-preview-sheet table thead,
+.proposal-preview-sheet table thead tr,
+.proposal-preview-sheet table thead th,
+.proposal-preview-sheet table th,
+.proposal-page__body table thead,
+.proposal-page__body table thead tr,
+.proposal-page__body table thead th,
+.proposal-page__body table th,
+.html-preview-container table thead,
+.html-preview-container table thead tr,
+.html-preview-container table thead th,
+.html-preview-container table th,
+.prose table thead,
+.prose table thead tr,
+.prose table thead th,
+.prose table th {
+    background-color: var(--template-color, #E9591C) !important;
+    color: #ffffff !important;
+}
+
+.proposal-preview-sheet table thead th,
+.proposal-preview-sheet table th,
+.proposal-page__body table thead th,
+.proposal-page__body table th,
+.html-preview-container table thead th,
+.html-preview-container table th,
+.prose table thead th,
+.prose table th {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+/* Ensure images and logos respect parent text alignment (center/left/right) */
+.proposal-preview-sheet img,
+.proposal-page__body img,
+.prose img,
+img.proposal-logo,
+.proposal-logo {
+    display: inline-block !important;
+    vertical-align: middle;
+}
+
+.proposal-preview-sheet [style*="text-align: center"] img,
+.proposal-preview-sheet [style*="text-align:center"] img,
+.proposal-page__body [style*="text-align: center"] img,
+.proposal-page__body [style*="text-align:center"] img,
+.prose [style*="text-align: center"] img,
+.prose [style*="text-align:center"] img,
+.text-center img {
+    display: inline-block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+.proposal-preview-sheet [style*="text-align: right"] img,
+.proposal-preview-sheet [style*="text-align:right"] img,
+.proposal-page__body [style*="text-align: right"] img,
+.proposal-page__body [style*="text-align:right"] img,
+.prose [style*="text-align: right"] img,
+.prose [style*="text-align:right"] img,
+.text-right img {
+    display: inline-block !important;
+    margin-left: auto !important;
+    margin-right: 0 !important;
+}
+
+.proposal-preview-sheet [style*="text-align: left"] img,
+.proposal-preview-sheet [style*="text-align:left"] img,
+.proposal-page__body [style*="text-align: left"] img,
+.proposal-page__body [style*="text-align:left"] img,
+.prose [style*="text-align: left"] img,
+.prose [style*="text-align:left"] img,
+.text-left img {
+    display: inline-block !important;
+    margin-right: auto !important;
+    margin-left: 0 !important;
+}
