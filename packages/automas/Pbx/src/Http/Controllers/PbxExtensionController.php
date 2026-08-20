@@ -83,7 +83,7 @@ class PbxExtensionController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $setting = PbxSetting::query()->forCreator($user->created_by)->first();
+        $setting = PbxSetting::query()->where('created_by', creatorId())->first();
 
         $canCreateExtension = $setting !== null
             && $extensions->total() < (int) $setting->max_extensions;
