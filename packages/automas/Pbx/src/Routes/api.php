@@ -6,8 +6,7 @@ use Automas\Pbx\Http\Controllers\ClickToCallController;
 use Automas\Pbx\Http\Controllers\CallerLookupController;
 
 Route::middleware([
-    'web',
-    'auth',
+    'auth:sanctum',
     'verified',
     'PlanModuleCheck:Pbx',
 ])->group(function () {
