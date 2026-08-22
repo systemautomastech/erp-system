@@ -14,7 +14,8 @@ interface Language {
     flag?: string;
 }
 
-const getCountryFlag = (countryCode: string): string => {
+const getCountryFlag = (countryCode?: string): string => {
+    if (!countryCode || typeof countryCode !== 'string') return '🌐';
     const codePoints = countryCode
         .toUpperCase()
         .split('')
@@ -29,9 +30,13 @@ export function LanguageSwitcher() {
     const [showCreateModal, setShowCreateModal] = useState(false);
 
     // Use availableLanguages from props instead of static languagesData
-    const languages: Language[] = (availableLanguages || languagesData)
-        .filter((lang: Language) => lang.enabled !== false)
-        .map((lang: Language) => ({
+    const rawLanguages = Array.isArray(availableLanguages)
+        ? availableLanguages
+        : (Array.isArray(languagesData) ? languagesData : Object.values(languagesData || {}));
+
+    const languages: Language[] = rawLanguages
+        .filter((lang: any) => lang && typeof lang === 'object' && lang.code && lang.enabled !== false)
+        .map((lang: any) => ({
             ...lang,
             flag: getCountryFlag(lang.countryCode)
         }));

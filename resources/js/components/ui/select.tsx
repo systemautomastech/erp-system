@@ -261,8 +261,7 @@ const SelectContent = React.forwardRef<
             "relative z-50",
             "max-h-[var(--radix-select-content-available-height)]",
             "min-w-[var(--radix-select-trigger-width)]",
-            "w-[var(--radix-select-trigger-width)]",
-            "max-w-[min(500px,calc(100vw-2rem))]",
+            "w-max max-w-[min(600px,calc(100vw-2rem))]",
             "overflow-hidden rounded-md border",
             "bg-popover text-popover-foreground shadow-md",
 

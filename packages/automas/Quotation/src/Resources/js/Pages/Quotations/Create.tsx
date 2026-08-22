@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Head, useForm, usePage, router } from '@inertiajs/react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
+import { route } from 'ziggy-js';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
-import { QuotationItem } from './types';
+import { QuotationItem, QuotationDefaultPage } from './types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import QuotationItemsTable from './components/QuotationItemsTable';
-import { useTaxCalculator } from './components/TaxCalculator';
-import { formatCurrency } from '@/utils/helpers';
+import PageOrderSection from './components/PageOrderSection';
+import PreviewModal from '@/components/PreviewModal';
+import { useTaxCalculator } from '@/pages/Sales/components/TaxCalculator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,99 +16,276 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package } from 'lucide-react';
-import { useFormFields } from '@/hooks/useFormFields';
+import { Switch } from '@/components/ui/switch';
+import RichTextEditor from '@/components/ui/rich-text-editor';
+import { CalendarDays, FileText, Eye, User, Users, UserPlus, X } from 'lucide-react';
+
 
 interface CreateProps {
-    customers: Array<{id: number; name: string; email: string}>;
-    warehouses: Array<{id: number; name: string; address: string}>;
+    customers: Array<{ id: number; name: string; email: string;[key: string]: any }>;
+    warehouses: Array<{ id: number; name: string; address: string }>;
+    defaultPages?: QuotationDefaultPage[];
+    defaultTerms?: string | null;
+    quotationSetting?: any;
+    QuotationSetting?: any;
     [key: string]: any;
 }
 
 export default function Create() {
     const { t } = useTranslation();
-    const { customers, warehouses } = usePage<CreateProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
+    const { customers, warehouses, defaultPages = [], defaultTerms, quotationSetting, QuotationSetting } = usePage<CreateProps>().props;
+    const activeSetting = quotationSetting || QuotationSetting;
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+    // Initialize Quotation sections from default pages
+    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
+        if (defaultPages && defaultPages.length > 0) {
+            return defaultPages.map((p, idx) => ({
+                id: `sec-${p.id || idx}-${Date.now()}`,
+                title: p.title,
+                content: p.content || '',
+                page_type: p.page_type || 'content',
+                background_image: p.background_image || '',
+                order: p.sort_order || idx + 1,
+                isExpanded: false,
+            }));
+        }
+        return [];
+    });
 
     useFlashMessages();
-    const { data, setData, post, processing, errors } = useForm({
-        invoice_date: new Date().toISOString().split('T')[0],
+    const { data, setData, post, processing, errors, transform } = useForm({
+        quotation_id: '',
+        reference: '',
+        subject: '',
+        quotation_date: new Date().toISOString().split('T')[0],
         due_date: '',
+        customer_type: 'existing' as 'existing' | 'new',
         customer_id: '',
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
+        customer_address: '',
         warehouse_id: '',
+        is_tax_enabled: true,
+        is_prepaid: false,
         payment_terms: '',
         notes: '',
         items: [{
             product_id: 0,
+            section: 'general',
+            product_type: 'product',
+            product_description: '',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
             discount_amount: 0,
             tax_percentage: 0,
             tax_amount: 0,
-            total_amount: 0
-        }] as QuotationItem[]
+            total_amount: 0,
+        }] as QuotationItem[],
+        other_details: '',
     });
 
+    // Auto-sync OTC and MRC section cards into Page Order list when products exist in those tables
+    useEffect(() => {
+        const hasOtcItems = data.items.some(
+            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+        );
+        const hasMrcItems = data.items.some(
+            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+        );
 
-    // Custom fields hook
-    const customFields = useFormFields('getCustomFields', { ...data, module: 'Quotation', sub_module: 'Quotation' }, setData, errors, 'create', t);
+        const hasOtherDetails = Boolean(data.other_details && data.other_details.trim() !== '' && data.other_details !== '<p></p>');
 
-    // Calendar sync fields
-    const calendarFields = useFormFields('getCalendarSyncFields', data, setData, errors, 'create', t, 'Quotation');
+        setSections((prev) => {
+            let updated = [...prev];
 
-    // AI hooks for quotation fields - only for notes
-    const notesAI = useFormFields('aiField', data, setData, errors, 'create', 'notes', 'Notes', 'quotation', 'quotation');
-
-
-    const handleWarehouseChange = async (warehouseId: string) => {
-        setData('warehouse_id', warehouseId);
-
-        if (warehouseId) {
-            try {
-                const response = await fetch(route('quotations.warehouse.products') + `?warehouse_id=${warehouseId}`);
-                const warehouseProducts = await response.json();
-                setAvailableProducts(warehouseProducts);
-            } catch (error) {
-                console.error('Failed to fetch warehouse products:', error);
-                setAvailableProducts([]);
+            // OTC Card
+            const otcIdx = updated.findIndex((s) => s.page_type === 'otc');
+            if (hasOtcItems && otcIdx === -1) {
+                updated.push({
+                    id: `sec-otc-${Date.now()}`,
+                    title: 'One-Time Charges (OTC)',
+                    content: '[OTC_CHARGES_TABLE]',
+                    page_type: 'otc',
+                    order: updated.length + 1,
+                    isExpanded: false,
+                });
+            } else if (!hasOtcItems && otcIdx !== -1) {
+                updated = updated.filter((s) => s.page_type !== 'otc');
             }
-        } else {
+
+            // MRC Card
+            const mrcIdx = updated.findIndex((s) => s.page_type === 'mrc');
+            if (hasMrcItems && mrcIdx === -1) {
+                updated.push({
+                    id: `sec-mrc-${Date.now()}`,
+                    title: 'Monthly Recurring Charges (MRC)',
+                    content: '[MRC_CHARGES_TABLE]',
+                    page_type: 'mrc',
+                    order: updated.length + 1,
+                    isExpanded: false,
+                });
+            } else if (!hasMrcItems && mrcIdx !== -1) {
+                updated = updated.filter((s) => s.page_type !== 'mrc');
+            }
+
+            // Other Details Card
+            const otherIdx = updated.findIndex((s) => s.page_type === 'other-details');
+            if (hasOtherDetails && otherIdx === -1) {
+                updated.push({
+                    id: `sec-other-details-${Date.now()}`,
+                    title: 'Other Details',
+                    content: '[OTHER_DETAILS_CONTENT]',
+                    page_type: 'other-details',
+                    order: updated.length + 1,
+                    isExpanded: false,
+                });
+            } else if (!hasOtherDetails && otherIdx !== -1) {
+                updated = updated.filter((s) => s.page_type !== 'other-details');
+            }
+
+            return updated;
+        });
+    }, [data.items, data.other_details]);
+
+    // Fetch warehouse products
+    const [isRefreshingProducts, setIsRefreshingProducts] = useState(false);
+    const fetchWarehouseProducts = async (warehouseId: string) => {
+        if (!warehouseId) {
             setAvailableProducts([]);
+            return;
         }
 
-        setData('items', [{
-            product_id: 0,
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }]);
+        try {
+            setIsRefreshingProducts(true);
+            const response = await fetch(route('quotations.warehouse.products') + `?warehouse_id=${warehouseId}`);
+            if (!response.ok) throw new Error('Failed to fetch products');
+            const data = await response.json();
+            setAvailableProducts(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching warehouse products:', error);
+            setAvailableProducts([]);
+        } finally {
+            setIsRefreshingProducts(false);
+        }
     };
 
+    const refreshProducts = () => {
+        if (data.warehouse_id) {
+            fetchWarehouseProducts(data.warehouse_id);
+        }
+    };
 
+    useEffect(() => {
+        if (data.warehouse_id) {
+            fetchWarehouseProducts(data.warehouse_id);
+        }
+    }, [data.warehouse_id]);
+
+    const handleWarehouseChange = (value: string) => {
+        setData((prev) => ({
+            ...prev,
+            warehouse_id: value,
+            items: prev.items.map((item) => ({
+                ...item,
+                product_id: 0,
+                unit_price: 0,
+                total_amount: 0,
+            })),
+        }));
+    };
+
+    const handleTaxToggle = (checked: boolean) => {
+        setData('is_tax_enabled', checked);
+        const updatedItems = data.items.map((item) => {
+            const qty = Number(item.quantity) || 0;
+            const price = Number(item.unit_price) || 0;
+            const disc = Number(item.discount_percentage) || 0;
+            const lineTotal = qty * price;
+            const discountAmount = (lineTotal * disc) / 100;
+            const discountedTotal = lineTotal - discountAmount;
+
+            if (!checked) {
+                return {
+                    ...item,
+                    tax_percentage: 0,
+                    tax_amount: 0,
+                    total_amount: discountedTotal,
+                    taxes: [],
+                };
+            }
+
+            const product = availableProducts.find((p) => String(p.id) === String(item.product_id));
+            const prodTaxes = product?.taxes || [];
+            const totalTaxRate = prodTaxes.reduce((sum: number, tax: any) => sum + (Number(tax.rate) || 0), 0);
+            const taxes = prodTaxes.map((tax: any) => ({
+                tax_name: tax.tax_name,
+                tax_rate: tax.rate,
+            }));
+            const taxRate = totalTaxRate > 0 ? totalTaxRate : (Number(item.tax_percentage) || 0);
+            const taxAmount = (discountedTotal * taxRate) / 100;
+
+            return {
+                ...item,
+                tax_percentage: taxRate,
+                tax_amount: taxAmount,
+                total_amount: discountedTotal + taxAmount,
+                taxes: taxes.length > 0 ? taxes : (item.taxes || []),
+            };
+        });
+        setData('items', updatedItems);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        transform((formData) => ({
+            ...formData,
+            quotation_date: formData.quotation_date,
+            contents: sections.map((item, index) => ({
+                title: item.title,
+                content: item.content,
+                page_type: item.page_type || 'content',
+                background_image: item.background_image || '',
+                sort_order: index + 1,
+            })),
+        }));
+
         post(route('quotations.store'));
     };
 
     const totals = useTaxCalculator(data.items);
 
+    const selectedCustomer = useMemo(() => {
+        if (data.customer_type === 'new') {
+            if (!data.customer_name && !data.customer_email) return null;
+            return {
+                id: 0,
+                name: data.customer_name,
+                email: data.customer_email,
+                mobile_no: data.customer_phone,
+                phone: data.customer_phone,
+                address: data.customer_address,
+                type: data.customer_type,
+            };
+        }
+        return customers?.find((c: any) => c.id.toString() === data.customer_id) || null;
+    }, [data.customer_type, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.customer_address, customers]);
+
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Quotations'), url: route('quotations.index')},
-                {label: t('Create Quotation')}
+                { label: t('Sales Quotation'), url: route('quotations.index') },
+                { label: t('Create') }
             ]}
-            pageTitle={t('Create Quotation')}
+            pageTitle={t('Create Sales Quotation')}
         >
-            <Head title={t('Create Quotation')} />
+            <Head title={t('Create Sales Quotation')} />
 
             <div>
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -114,22 +293,140 @@ export default function Create() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-lg">
                                 <CalendarDays className="h-5 w-5" />
-                                {t('Quotation Details')}
+                                {t('Sales Quotation Details')}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-5">
+                            {/* Row 1: Quotation Number & Subject */}
+                            <div className="flex flex-col md:flex-row gap-4 border-b pb-4 items-start">
+                                <div className="w-full md:w-64 shrink-0">
+                                    <Label htmlFor="quotation_number">{t('Quotation Number')}</Label>
+                                    <Input
+                                        id="quotation_number"
+                                        value={`${activeSetting?.quotation_prefix ?? 'QT-'}${activeSetting?.quotation_starting_number ?? '1001'}-${data.quotation_date || new Date().toISOString().split('T')[0]}`}
+                                        readOnly
+                                        className="bg-muted cursor-not-allowed font-mono text-xs"
+                                    />
+                                </div>
+
+                                <div className="w-full flex-1">
+                                    <Label htmlFor="subject">{t('Subject')}</Label>
+                                    <Input
+                                        id="subject"
+                                        value={data.subject}
+                                        onChange={(e) => setData('subject', e.target.value)}
+                                        placeholder={t('e.g., Quotation for IP PABX Service')}
+                                    />
+                                    <InputError message={errors.subject} />
+                                </div>
+                            </div>
+
+                            {/* Row 2: Customer, Quotation Date, Due Date, Warehouse */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <div>
-                                    <Label htmlFor="invoice_date" required>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <Label htmlFor="customer_id" required className="mb-0">
+                                            {t('Customer')}
+                                        </Label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const nextMode = data.customer_type === 'new' ? 'existing' : 'new';
+                                                setData('customer_type', nextMode);
+                                            }}
+                                            className="text-[11px] font-semibold text-primary flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            {data.customer_type === 'new' ? (
+                                                <>
+                                                    <Users className="h-3 w-3" />
+                                                    {t('Select Existing')}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <UserPlus className="h-3 w-3" />
+                                                    {t('New Customer')}
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {data.customer_type === 'existing' ? (
+                                        <>
+                                            <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={t('Select Customer')} />
+                                                </SelectTrigger>
+                                                <SelectContent searchable>
+                                                    {customers?.map((customer) => (
+                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                            {customer.name} - {customer.email}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError message={errors.customer_id} />
+
+                                            {/* Selected Customer Card directly below customer select */}
+                                            {selectedCustomer && (
+                                                <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50/80 dark:bg-slate-900/40 text-xs space-y-1">
+                                                    <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">
+                                                                <User className="w-2.5 h-2.5" />
+                                                            </div>
+                                                            <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs truncate">
+                                                                {selectedCustomer.name}
+                                                            </span>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-4 px-1 text-[10px] font-medium gap-0.5 shrink-0"
+                                                            onClick={() => setData('customer_id', '')}
+                                                        >
+                                                            <X className="w-2.5 h-2.5" />
+                                                            {t('Clear')}
+                                                        </Button>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 truncate">
+                                                        <div className="truncate">{selectedCustomer.email || '-'}</div>
+                                                        {(selectedCustomer.mobile_no || selectedCustomer.phone) && (
+                                                            <div className="truncate">{selectedCustomer.mobile_no || selectedCustomer.phone}</div>
+                                                        )}
+                                                        {selectedCustomer.address && (
+                                                            <div className="text-slate-600 dark:text-slate-300 truncate" title={selectedCustomer.address}>
+                                                                {selectedCustomer.address}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="h-10 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <UserPlus className="h-3.5 w-3.5" />
+                                                {data.customer_name || t('New Customer Mode')}
+                                            </span>
+                                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                                {t('New')}
+                                            </Badge>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="quotation_date" required>
                                         {t('Quotation Date')}
                                     </Label>
                                     <DatePicker
-                                        id="invoice_date"
-                                        value={data.invoice_date}
-                                        onChange={(value) => setData('invoice_date', value)}
+                                        id="quotation_date"
+                                        value={data.quotation_date}
+                                        onChange={(value) => setData('quotation_date', value)}
                                         required
                                     />
-                                    <InputError message={errors.invoice_date} />
+                                    <InputError message={errors.quotation_date} />
                                 </div>
 
                                 <div>
@@ -146,25 +443,6 @@ export default function Create() {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="customer_id" required>
-                                        {t('Customer')}
-                                    </Label>
-                                    <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('Select Customer')} />
-                                        </SelectTrigger>
-                                        <SelectContent searchable>
-                                            {customers.map((customer) => (
-                                                <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                    {customer.name} - {customer.email}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <InputError message={errors.customer_id} />
-                                </div>
-
-                                <div>
                                     <Label htmlFor="warehouse_id" required>
                                         {t('Warehouse')}
                                     </Label>
@@ -172,10 +450,10 @@ export default function Create() {
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('Select Warehouse')} />
                                         </SelectTrigger>
-                                        <SelectContent>
-                                            {warehouses.map((warehouse) => (
+                                        <SelectContent searchable>
+                                            {warehouses?.map((warehouse) => (
                                                 <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                    {warehouse.name} - {warehouse.address}
+                                                    {warehouse.name}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -184,152 +462,239 @@ export default function Create() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div>
-                                    <Label htmlFor="payment_terms">
-                                        {t('Payment Terms')}
-                                    </Label>
-                                    <Input
-                                        id="payment_terms"
-                                        value={data.payment_terms}
-                                        onChange={(e) => setData('payment_terms', e.target.value)}
-                                        placeholder={t('e.g., Net 30')}
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className="flex gap-2 items-start">
-                                        <div className="flex-1">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <Label htmlFor="notes">
-                                                    {t('Notes')}
-                                                </Label>
-                                                <div className="flex gap-2">
-                                                    {notesAI.map(field => <div key={field.id}>{field.component}</div>)}
-                                                </div>
-                                            </div>
-                                            <Textarea
-                                                id="notes"
-                                                value={data.notes}
-                                                onChange={(e) => setData('notes', e.target.value)}
-                                                rows={2}
-                                                placeholder={t('Additional notes...')}
-                                            />
+                            {/* New Customer Form Row when New Mode is Active */}
+                            {data.customer_type === 'new' && (
+                                <div className="p-3 rounded-xl border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200">
+                                    <div className="flex items-center justify-between pb-1 border-b border-primary/10">
+                                        <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                                            <UserPlus className="h-3.5 w-3.5" />
+                                            {t('New Customer Details')}
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            {/* Custom Fields */}
-                            {customFields.length > 0 && (
-                                <div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                        {customFields.map((field) => (
-                                            <div key={field.id}>
-                                                {field.component}
-                                            </div>
-                                        ))}
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                                        {/* Name */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_name" required className="text-xs">
+                                                {t('Customer Name')}
+                                            </Label>
+                                            <Input
+                                                id="customer_name"
+                                                value={data.customer_name}
+                                                onChange={(e) => setData('customer_name', e.target.value)}
+                                                placeholder={t('Name')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_name} />
+                                        </div>
+
+                                        {/* Email */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_email" required className="text-xs">
+                                                {t('Email')}
+                                            </Label>
+                                            <Input
+                                                id="customer_email"
+                                                type="email"
+                                                value={data.customer_email}
+                                                onChange={(e) => setData('customer_email', e.target.value)}
+                                                placeholder="email@example.com"
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_email} />
+                                        </div>
+
+                                        {/* Phone */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_phone" required className="text-xs">
+                                                {t('Phone')}
+                                            </Label>
+                                            <Input
+                                                id="customer_phone"
+                                                value={data.customer_phone}
+                                                onChange={(e) => setData('customer_phone', e.target.value)}
+                                                placeholder={t('Phone')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_phone} />
+                                        </div>
+
+                                        {/* Address */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_address" required className="text-xs">
+                                                {t('Address')}
+                                            </Label>
+                                            <Input
+                                                id="customer_address"
+                                                value={data.customer_address}
+                                                onChange={(e) => setData('customer_address', e.target.value)}
+                                                placeholder={t('Address')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_address} />
+                                        </div>
                                     </div>
                                 </div>
                             )}
-                            {/* Calendar Sync Field */}
-                            <div className="mt-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {calendarFields.map((field) => (
-                                        <div className='m-3' key={field.id}>
-                                            {field.component}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Package className="h-5 w-5" />
-                                    {t('Quotation Items')}
-                                </CardTitle>
-                                <Button
-                                    type="button"
-                                    onClick={() => {
-                                        const newItem = {
-                                            product_id: 0,
-                                            quantity: 1,
-                                            unit_price: 0,
-                                            discount_percentage: 0,
-                                            discount_amount: 0,
-                                            tax_percentage: 0,
-                                            tax_amount: 0,
-                                            total_amount: 0
-                                        };
-                                        setData('items', [...data.items, newItem]);
-                                    }}
-                                    variant="default"
+                    {/* 1. One-Time Charge (OTC) Card */}
+                    <Card id="otc-section" className="transition-all duration-300">
+                        <CardHeader className="flex flex-row items-center justify-between pb-3">
+                            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                <FileText className="h-5 w-5" />
+                                {t('One-Time Charges (OTC)')}
+                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="enable-tax-toggle" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
+                                    {t('Enable VAT/Tax')}
+                                </Label>
+                                <Switch
+                                    id="enable-tax-toggle"
                                     size="sm"
-                                >
-                                    + {t('Add Item')}
-                                </Button>
+                                    checked={data.is_tax_enabled}
+                                    onCheckedChange={handleTaxToggle}
+                                />
                             </div>
                         </CardHeader>
                         <CardContent>
                             <QuotationItemsTable
-                                items={data.items}
-                                onChange={(items) => setData('items', items)}
-                                errors={errors}
+                                items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
-                                showAddButton={false}
+                                onChange={(updatedOtcItems) => {
+                                    const formattedOtc = updatedOtcItems.map(i => ({ ...i, section: 'otc' }));
+                                    const mrcItems = data.items.filter(i => i.section === 'mrc');
+                                    setData('items', [...formattedOtc, ...mrcItems]);
+                                }}
+                                errors={errors}
+                                onRefresh={refreshProducts}
+                                isRefreshing={isRefreshingProducts}
+                                isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="otc"
                             />
+                        </CardContent>
+                    </Card>
 
-                            <div className="mt-6 flex justify-end">
-                                <div className="w-80 bg-muted/30 rounded-lg p-4">
-                                    <h3 className="font-semibold mb-3">{t('Quotation Summary')}</h3>
-                                    <div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">{t('Subtotal')}</span>
-                                            <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">{t('Discount')}</span>
-                                            <span className="font-medium text-red-600">-{formatCurrency(totals.discountAmount)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">{t('Tax')}</span>
-                                            <span className="font-medium">{formatCurrency(totals.taxAmount)}</span>
-                                        </div>
-                                        <Separator className="my-2" />
-                                        <div className="flex justify-between">
-                                            <span className="font-semibold">{t('Total')}</span>
-                                            <span className="font-bold text-lg">{formatCurrency(totals.total)}</span>
-                                        </div>
-                                    </div>
-                                </div>
+                    {/* 2. Monthly Recurring Charge (MRC) Card */}
+                    <Card id="mrc-section" className="transition-all duration-300">
+                        <CardHeader className="flex flex-row items-center justify-between pb-3">
+                            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                <FileText className="h-5 w-5" />
+                                {t('Monthly Recurring Charges (MRC)')}
+                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="prepaid-toggle" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
+                                    {t('Prepaid')}
+                                </Label>
+                                <Switch
+                                    id="prepaid-toggle"
+                                    size="sm"
+                                    checked={data.is_prepaid}
+                                    onCheckedChange={(checked) => setData('is_prepaid', checked)}
+                                />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <QuotationItemsTable
+                                items={data.items.filter(i => i.section === 'mrc')}
+                                products={availableProducts}
+                                onChange={(updatedMrcItems) => {
+                                    const formattedMrc = updatedMrcItems.map(i => ({ ...i, section: 'mrc' }));
+                                    const otcItems = data.items.filter(i => i.section !== 'mrc');
+                                    setData('items', [...otcItems, ...formattedMrc]);
+                                }}
+                                errors={errors}
+                                onRefresh={refreshProducts}
+                                isRefreshing={isRefreshingProducts}
+                                isTaxEnabled={data.is_tax_enabled}
+                                defaultSection="mrc"
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* Other Details Card */}
+                    <Card id="other-details-section">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <FileText className="h-5 w-5" />
+                                {t('Other Details')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <RichTextEditor
+                                content={data.other_details || ''}
+                                onChange={(val) => setData('other_details', val)}
+                                placeholder={t('Enter other details...')}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* Page Order Section */}
+                    <PageOrderSection
+                        sections={sections as any}
+                        setSections={setSections as any}
+                        defaultPages={defaultPages}
+                        quotationSetting={activeSetting}
+                    />
+
+                    {/* Additional Notes Section */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">{t('Notes')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div>
+                                <Textarea
+                                    id="notes"
+                                    value={data.notes}
+                                    onChange={(e) => setData('notes', e.target.value)}
+                                    placeholder={t('Enter additional notes...')}
+                                    rows={4}
+                                />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-muted-foreground">
-                            {data.items.length} {t('items added')}
-                        </div>
-                        <div className="flex gap-3">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => window.history.back()}
-                            >
-                                {t('Cancel')}
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={processing || data.items.length === 0}
-                            >
-                                {processing ? t('Creating...') : t('Create')}
-                            </Button>
-                        </div>
+                    <div className="flex items-center justify-end gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => window.history.back()}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setIsPreviewOpen(true)}
+                            className="gap-2"
+                        >
+                            <Eye className="h-4 w-4" />
+                            {t('Preview')}
+                        </Button>
+                        <Button type="submit" disabled={processing}>
+                            {t('Create')}
+                        </Button>
                     </div>
                 </form>
+
+                <PreviewModal
+                    isOpen={isPreviewOpen}
+                    onClose={() => setIsPreviewOpen(false)}
+                    formData={data}
+                    sections={sections}
+                    customers={customers}
+                    warehouses={warehouses}
+                    availableProducts={availableProducts}
+                    totals={totals}
+                    proposalSetting={activeSetting}
+                    other_details={data.other_details}
+                />
             </div>
         </AuthenticatedLayout>
     );

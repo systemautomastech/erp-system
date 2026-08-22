@@ -21,9 +21,13 @@ class SalesQuotation extends Model
         'revision_number',
         'parent_quotation_id',
         'quotation_date',
-        'customer_id',
-        'warehouse_id',
         'due_date',
+        'customer_id',
+        'customer_name',
+        'customer_email',
+        'customer_phone',
+        'customer_address',
+        'warehouse_id',
         'subtotal',
         'tax_amount',
         'discount_amount',
@@ -55,9 +59,24 @@ class SalesQuotation extends Model
         return $this->belongsTo(User::class, 'customer_id');
     }
 
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'creator_id');
+    }
+
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(SalesQuotationItem::class, 'quotation_id');
+    }
+
+    public function contents(): HasMany
+    {
+        return $this->hasMany(SalesQuotationContent::class, 'quotation_id')->orderBy('sort_order');
     }
 
     public function warehouse(): BelongsTo
@@ -91,23 +110,24 @@ class SalesQuotation extends Model
         });
     }
 
-    public static function generateQuotationNumber(): string
+    public static function generateQuotationNumber($date = null): string
     {
-        $year = date('Y');
-        $month = date('m');
-        $lastQuotation = static::where('quotation_number', 'like', "QT-{$year}-{$month}-%")
-            ->where('created_by', creatorId())
-            ->orderBy('quotation_number', 'desc')
-            ->first();
+        $creatorId = creatorId();
+        $dateFormatted = $date ? date('Y-m-d', strtotime($date)) : date('Y-m-d');
 
-        if ($lastQuotation) {
-            $lastNumber = (int) substr($lastQuotation->quotation_number, -3);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($creatorId, $dateFormatted) {
+            $settings = QuotationSetting::getSettings($creatorId);
 
-        return "QT-{$year}-{$month}-" . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            $prefix = $settings['quotation_prefix'] ?? 'QT-';
+            $startingNumber = (int) ($settings['quotation_starting_number'] ?? 1001);
+
+            $nextNumber = $startingNumber + 1;
+            QuotationSetting::setSettings([
+                'quotation_starting_number' => (string) $nextNumber,
+            ], $creatorId);
+
+            return "{$prefix}{$startingNumber}-{$dateFormatted}";
+        });
     }
     public static function GivePermissionToRoles($role_id = null, $rolename = null)
     {

@@ -14,8 +14,6 @@ class SalesQuotationItemTax extends Model
         'item_id',
         'tax_name',
         'tax_rate',
-        'creator_id',
-        'created_by'
     ];
 
     protected $casts = [

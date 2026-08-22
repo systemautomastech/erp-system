@@ -62,7 +62,7 @@ export default function ProposalItemsTable({ items, onChange, errors = {}, produ
         }
 
         if (field === 'unit_price' || field === 'quantity' || field === 'discount_percentage' || field === 'tax_percentage') {
-            item.quantity = Number(item.quantity) || 0;
+            item.quantity = Math.min(Math.max(Number(item.quantity) || 0, 0), 999999);
             item.unit_price = Number(item.unit_price) || 0;
             item.discount_percentage = Number(item.discount_percentage) || 0;
             item.tax_percentage = isTaxEnabled ? (Number(item.tax_percentage) || 0) : 0;
@@ -275,7 +275,6 @@ export default function ProposalItemsTable({ items, onChange, errors = {}, produ
                                         <td className="px-4 py-4">
                                             {(() => {
                                                 const product = products.find(p => p.id === item.product_id);
-                                                const maxQty = product?.stock_quantity || 999999;
                                                 const unitDisplay = product?.unit_name || (!isNaN(Number(product?.unit)) ? '' : (product?.unit || ''));
                                                 return (
                                                     <div>
@@ -283,10 +282,13 @@ export default function ProposalItemsTable({ items, onChange, errors = {}, produ
                                                             <Input
                                                                 type="number"
                                                                 value={item.quantity}
-                                                                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value) || 0;
+                                                                    updateItem(index, 'quantity', Math.min(Math.max(val, 0), 999999));
+                                                                }}
                                                                 className="w-20 text-sm"
                                                                 min="1"
-                                                                max={maxQty}
+                                                                max="999999"
                                                                 step="1"
                                                                 required
                                                             />

@@ -256,6 +256,7 @@ class PermissionRoleSeeder extends Seeder
 
             // Sales Proposal Management
             ['name' => 'manage-sales-proposals', 'module' => 'sales-proposals', 'label' => 'Manage Sales Proposals'],
+            ['name' => 'manage-proposal-system-setup', 'module' => 'sales-proposals', 'label' => 'Manage Proposal System Setup'],
             ['name' => 'manage-any-sales-proposals', 'module' => 'sales-proposals', 'label' => 'Manage All Sales Proposals'],
             ['name' => 'manage-own-sales-proposals', 'module' => 'sales-proposals', 'label' => 'Manage Own Sales Proposals'],
             ['name' => 'view-sales-proposals', 'module' => 'sales-proposals', 'label' => 'View Sales Proposals'],
@@ -499,6 +500,7 @@ class PermissionRoleSeeder extends Seeder
                     'approve-sales-returns-invoices',
                     'complete-sales-returns-invoices',
                     'manage-sales-proposals',
+                    'manage-proposal-system-setup',
                     'manage-any-sales-proposals',
                     'manage-own-sales-proposals',
                     'view-sales-proposals',

@@ -1,20 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
-import { Quotation } from './types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import { formatCurrency, formatDate } from '@/utils/helpers';
-import { getStatusBadgeClasses } from './utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { FileText, Download, Send, RefreshCw } from 'lucide-react';
+import { RefreshCw, Download, ArrowLeft, Printer } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFormFields } from '@/hooks/useFormFields';
-import { usePageButtons } from '@/hooks/usePageButtons';
+
+interface SalesQuotation {
+    id: number;
+    quotation_number: string;
+    quotation_date: string;
+    due_date: string;
+    customer: { id: number; name: string; email: string };
+    subtotal: number;
+    tax_amount: number;
+    discount_amount: number;
+    total_amount: number;
+    status: string;
+    converted_to_invoice: boolean;
+    invoice_id?: number;
+    notes?: string;
+    payment_terms?: string;
+    warehouse?: { id: number; name: string };
+    items?: Array<{
+        id: number;
+        product_id: number;
+        quantity: number;
+        unit_price: number;
+        discount_percentage: number;
+        discount_amount: number;
+        tax_percentage: number;
+        tax_amount: number;
+        total_amount: number;
+        product?: {
+            id: number;
+            name: string;
+            sku?: string;
+            description?: string;
+        };
+        taxes?: Array<{
+            id: number;
+            tax_name: string;
+            tax_rate: number;
+        }>;
+    }>;
+}
 
 interface ViewProps {
-    quotation: Quotation;
+    quotation: SalesQuotation;
     auth: any;
     [key: string]: any;
 }
@@ -22,55 +59,64 @@ interface ViewProps {
 export default function View() {
     const { t } = useTranslation();
     const { quotation, auth } = usePage<ViewProps>().props;
-
-    // Custom fields hook
-    const customFields = useFormFields('getCustomFields', { ...quotation, module: 'Quotation', sub_module: 'Quotation', id: quotation.id }, () => { }, {}, 'view', t);
-
-    // signature
-    const signatureStatusButtons = usePageButtons('signatureViewBtn', {
-        invoice: quotation,
-        invoiceType: 'quotation'
-    });
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useFlashMessages();
 
-    const downloadPDF = () => {
-        const printUrl = route('quotations.print', quotation.id) + '?download=pdf';
-        window.open(printUrl, '_blank');
+    const customFields = useFormFields('getCustomFields', { module: 'General', sub_module: 'quotation', id: quotation.id }, () => {}, {}, 'view', t);
+
+    const getquotationStatusColor = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case 'draft': return 'bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm';
+            case 'sent': return 'bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-sm';
+            case 'accepted': return 'bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm';
+            case 'rejected': return 'bg-red-100 text-red-700 px-2 py-1 rounded-full text-sm';
+            case 'expired': return 'bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-sm';
+            default: return 'bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm';
+        }
     };
 
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Quotations'), url: route('quotations.index')},
-                {label: t('Quotation Details')}
+                {label: t('Sales quotation'), url: route('quotations.index')},
+                {label: t('Sales quotation Details')}
             ]}
-            pageTitle={`${t('Quotation')} #${quotation.quotation_number}`}
+            pageTitle={`${t('Sales quotation')} #${quotation.quotation_number}`}
+            pageActions={
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.visit(route('quotations.index'))}
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    {t('Back')}
+                </Button>
+            }
         >
-            <Head title={`${t('Quotation')} #${quotation.quotation_number}`} />
+            <Head title={`${t('Sales quotation')} #${quotation.quotation_number}`} />
+
+            {isDownloading && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                    <div className="bg-white p-6 rounded-lg shadow-lg">
+                        <div className="flex items-center space-x-3">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-6">
                 <Card>
                     <CardContent className="p-6">
                         <div className="flex justify-between items-center mb-6">
                             <div>
-                                <div className="flex items-center gap-2">
-                                    <p className="text-lg text-muted-foreground">#{quotation.quotation_number}</p>
-                                    {quotation.revision_number > 1 && (
-                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                            v{quotation.revision_number}
-                                        </span>
-                                    )}
-                                </div>
-                                {quotation.parent_quotation_id && (
-                                    <p className="text-sm mt-1">
-                                        {t('Revision of')} #{quotation.parent_quotation?.quotation_number}
-                                    </p>
-                                )}
+                                <p className="text-lg text-muted-foreground">#{quotation.quotation_number}</p>
                             </div>
                             <div className="flex items-center gap-4">
-                                <span className={getStatusBadgeClasses(quotation.status)}>
-                                    {t(quotation.status.toUpperCase())}
+                                <span className={getquotationStatusColor(quotation.status)}>
+                                    {quotation.status?.charAt(0).toUpperCase() + quotation.status?.slice(1)}
                                 </span>
                                 <div className="text-right">
                                     <div className="text-2xl font-bold">{formatCurrency(quotation.total_amount)}</div>
@@ -79,41 +125,20 @@ export default function View() {
                             </div>
                         </div>
 
-                        <div className={`grid grid-cols-1 gap-6 ${quotation.customer_details?.billing_address || quotation.customer_details?.shipping_address ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                             <div>
                                 <h3 className="font-semibold mb-2">{t('CUSTOMER')}</h3>
                                 <div className="text-sm space-y-1">
                                     <div className="font-medium">{quotation.customer?.name}</div>
                                     <div className="text-muted-foreground">{quotation.customer?.email}</div>
                                 </div>
-                                {quotation.customer_details?.billing_address && (
-                                    <div className="mt-3">
-                                        <div className="font-medium text-sm mb-1">{t('Billing Address')}</div>
-                                        <div className="text-sm text-muted-foreground space-y-1">
-                                            <div>{quotation.customer_details.billing_address.name}</div>
-                                            <div>{quotation.customer_details.billing_address.address_line_1}</div>
-                                            <div>{quotation.customer_details.billing_address.city}, {quotation.customer_details.billing_address.state} {quotation.customer_details.billing_address.zip_code}</div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
-
-                            {quotation.customer_details?.shipping_address && (
-                                <div>
-                                    <h3 className="font-semibold mb-2">{t('SHIPPING ADDRESS')}</h3>
-                                    <div className="text-sm text-muted-foreground space-y-1">
-                                        <div>{quotation.customer_details.shipping_address.name}</div>
-                                        <div>{quotation.customer_details.shipping_address.address_line_1}</div>
-                                        <div>{quotation.customer_details.shipping_address.city}, {quotation.customer_details.shipping_address.state} {quotation.customer_details.shipping_address.zip_code}</div>
-                                    </div>
-                                </div>
-                            )}
 
                             <div>
                                 <h3 className="font-semibold mb-2">{t('DETAILS')}</h3>
                                 <div className="space-y-1 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">{t('Quotation Date')}</span>
+                                        <span className="text-muted-foreground">{t('quotation Date')}</span>
                                         <span>{formatDate(quotation.quotation_date)}</span>
                                     </div>
                                     <div className="flex justify-between">
@@ -135,18 +160,30 @@ export default function View() {
                                 </div>
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex gap-2">
                                             {auth.user?.permissions?.includes('print-quotations') && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={downloadPDF}
-                                                >
-                                                    <Download className="h-4 w-4 mr-2" />
-                                                    {t('Download PDF')}
-                                                </Button>
+                                                <>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => window.open(route('quotations.print', quotation.id) + '?print=1', '_blank')}
+                                                    >
+                                                        <Printer className="h-4 w-4 mr-2" />
+                                                        {t('Print')}
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            window.location.href = route('quotations.download-pdf', quotation.id);
+                                                        }}
+                                                    >
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        {t('Download PDF')}
+                                                    </Button>
+                                                </>
                                             )}
-                                            {!quotation.converted_to_invoice && auth.user?.permissions?.includes('convert-to-invoice-quotations') && quotation.status === 'accepted' && (
+                                            {auth.user?.permissions?.includes('convert-quotations') && quotation.status === 'accepted' && !quotation.converted_to_invoice && (
                                                 <TooltipProvider>
                                                     <Tooltip delayDuration={0}>
                                                         <TooltipTrigger asChild>
@@ -163,35 +200,20 @@ export default function View() {
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                            <p>{t('Convert to Invoice')}</p>
+                                                            <p>{t('Convert this quotation to an invoice')}</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>
                                             )}
-
                                         </div>
                                         <div className="text-right">
                                             <div className="text-xl font-bold text-blue-600">{formatCurrency(quotation.total_amount)}</div>
-                                            <div className="text-sm text-muted-foreground">{t('Quotation Amount')}</div>
+                                            <div className="text-sm text-muted-foreground">{t('quotation Amount')}</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        {/* Custom Fields */}
-                        {customFields && customFields.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm space-y-1">
-                                {customFields.map((field, index) => (
-                                    <div key={index} className="space-y-2">
-                                        <label className="font-medium">{field.label}</label>
-                                        <div className="text-muted-foreground">
-                                            {field.component}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
 
                         {quotation.notes && (
                             <div className="mt-4 pt-4 border-t">
@@ -199,18 +221,29 @@ export default function View() {
                                 <span className="text-sm text-muted-foreground ml-2">{quotation.notes}</span>
                             </div>
                         )}
-                        
-                        {/* Signature */}
-                        {signatureStatusButtons.length > 0 && signatureStatusButtons.map((button) => (
-                            <div key={button.id}>{button.component}</div>
-                        ))}
+
+                        {/* Custom Fields */}
+                        {customFields.length > 0 && (
+                            <div className="mt-4 pt-4 border-t">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {customFields.map((field, index) => (
+                                        <div key={index} className="space-y-2">
+                                            <label className="font-medium text-sm">{(field as any).name || (field as any).label || 'Custom Field'}</label>
+                                            <div className="text-sm text-muted-foreground ml-2">
+                                                {field.component}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader>
                         <h3 className="text-lg font-semibold">
-                            {t('Quotation Items')}
+                            {t('quotation Items')}
                         </h3>
                     </CardHeader>
                     <CardContent>
@@ -307,8 +340,6 @@ export default function View() {
                     </CardContent>
                 </Card>
             </div>
-
-
         </AuthenticatedLayout>
     );
 }

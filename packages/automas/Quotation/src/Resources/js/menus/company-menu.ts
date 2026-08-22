@@ -9,7 +9,18 @@ export const quotationCompanyMenu = (t: (key: string) => string) => [
         title: t('Quotation'),
         icon: FileCheck,
         permission: 'manage-quotations',
-        href: route('quotations.index'),
-        order: 260,
+        order: 25,
+        children: [
+            {
+                title: t('Quotation'),
+                href: route('quotations.index'),
+                permission: 'manage-quotations',
+            },
+            {
+                title: t('System Setup'),
+                href: route('quotation-setup.index'),
+                permission: 'manage-quotations',
+            },
+        ],
     },
-];
+];
