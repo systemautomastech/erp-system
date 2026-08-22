@@ -7,6 +7,7 @@ use Automas\Pbx\Http\Controllers\CallerLookupController;
 use Automas\Pbx\Http\Controllers\PbxExtensionController;
 
 Route::middleware([
+    'web',
     'auth',
     'verified',
     'PlanModuleCheck:Pbx',
