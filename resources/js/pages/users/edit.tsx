@@ -1,5 +1,5 @@
 import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useForm } from "@inertiajs/react";
+import { useForm, usePage } from "@inertiajs/react";
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,19 @@ import { EditUserProps, EditUserFormData } from './types';
 
 export default function Edit({ user, onSuccess, roles = {} }: EditUserProps) {
     const { t } = useTranslation();
+    const { auth } = usePage().props as any;
+    const isSuperAdmin = auth.user?.type === 'superadmin';
+
+    // Find initial role ID for the user
+    const initialRoleId = user.roles && user.roles.length > 0
+        ? String(user.roles[0].id)
+        : (Object.entries(roles).find(([id, label]) => label.toLowerCase() === user.type?.toLowerCase() || id === user.type)?.[0] || '');
+
     const { data, setData, put, processing, errors } = useForm<EditUserFormData>({
         name: user.name,
         email: user.email,
-        mobile_no: user.mobile_no,
+        mobile_no: user.mobile_no || '',
+        type: initialRoleId,
         is_enable_login: user.is_enable_login,
     });
 
@@ -65,6 +74,25 @@ export default function Edit({ user, onSuccess, roles = {} }: EditUserProps) {
                         error={errors.mobile_no}
                     />
                 </div>
+
+                {!isSuperAdmin && Object.keys(roles).length > 0 && (
+                    <div>
+                        <Label htmlFor="edit_type">{t('Role')}</Label>
+                        <Select value={data.type || ''} onValueChange={(value) => setData('type', value)}>
+                            <SelectTrigger id="edit_type">
+                                <SelectValue placeholder={t('Select Role')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.entries(roles).map(([id, label]) => (
+                                    <SelectItem key={id} value={String(id)}>
+                                        {label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.type} />
+                    </div>
+                )}
 
                 <div>
                     <Label htmlFor="edit_is_enable_login">{t('Login Status')}</Label>

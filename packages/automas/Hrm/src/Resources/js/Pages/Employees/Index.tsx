@@ -136,7 +136,7 @@ export default function Index() {
             sortable: false,
             render: (value: any, row: any) => (
                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 border flex items-center justify-center">
-                    {row.user.avatar ? (
+                    {row.user?.avatar ? (
                         <img
                             src={getImagePath(row.user.avatar)}
                             alt="Avatar"

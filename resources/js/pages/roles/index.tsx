@@ -294,20 +294,20 @@ export default function Index() {
                                                         <div className="flex items-center gap-1">
                                                             {role.users && role.users.length > 0 ? (
                                                                 <div className="flex -space-x-1">
-                                                                    {role.users.slice(0, 4).map((user: any) => (
+                                                                     {role.users.filter((user: any) => Boolean(user)).slice(0, 4).map((user: any) => (
                                                                         <TooltipProvider key={user.id}>
                                                                             <Tooltip delayDuration={0}>
                                                                                 <TooltipTrigger>
                                                                                     <div className="h-8 w-8 rounded-full border-2 border-background overflow-hidden">
                                                                                         <img
-                                                                                            src={user.avatar ? getImagePath(user.avatar) : getImagePath('avatar.png')}
-                                                                                            alt={user.name}
+                                                                                            src={user?.avatar ? getImagePath(user.avatar) : getImagePath('avatar.png')}
+                                                                                            alt={user?.name || 'User'}
                                                                                             className="h-full w-full object-cover"
                                                                                         />
                                                                                     </div>
                                                                                 </TooltipTrigger>
                                                                                 <TooltipContent>
-                                                                                    <p>{user.name}</p>
+                                                                                    <p>{user?.name || 'User'}</p>
                                                                                 </TooltipContent>
                                                                             </Tooltip>
                                                                         </TooltipProvider>
