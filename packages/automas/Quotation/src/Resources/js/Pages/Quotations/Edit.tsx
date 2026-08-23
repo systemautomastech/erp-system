@@ -695,6 +695,7 @@ export default function Edit() {
                             <QuotationItemsTable
                                 items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
+                                warehouseId={data.warehouse_id}
                                 onChange={(updatedOtcItems) => {
                                     const formattedOtc = updatedOtcItems.map(i => ({ ...i, section: 'otc' }));
                                     const mrcItems = data.items.filter(i => i.section === 'mrc');
@@ -733,6 +734,7 @@ export default function Edit() {
                             <QuotationItemsTable
                                 items={data.items.filter(i => i.section === 'mrc')}
                                 products={availableProducts}
+                                warehouseId={data.warehouse_id}
                                 onChange={(updatedMrcItems) => {
                                     const formattedMrc = updatedMrcItems.map(i => ({ ...i, section: 'mrc' }));
                                     const otcItems = data.items.filter(i => i.section !== 'mrc');

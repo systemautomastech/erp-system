@@ -325,7 +325,7 @@ class QuotationController extends Controller
         $defaultPages = $this->quotationServices->getActiveDefaultPages($quotationAuthorId);
         $quotationSetting = $this->quotationServices->getQuotationSetting();
 
-        return Inertia::render('Quotation/Quotations/Print', [
+        return view('sales-quotations.print', [
             'quotation' => $quotation,
             'defaultPages' => $defaultPages,
             'quotationSetting' => $quotationSetting,
@@ -348,10 +348,10 @@ class QuotationController extends Controller
         $sanitizedQuotationNumber = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($quotation->quotation_number)));
         $filename = "quotation_{$sanitizedCompanyName}_{$sanitizedQuotationNumber}.pdf";
 
-        return Pdf::view('sales-proposals.print', [
-            'proposal' => $quotation,
+        return Pdf::view('sales-quotations.print', [
+            'quotation' => $quotation,
             'defaultPages' => $defaultPages,
-            'proposalSetting' => $quotationSetting,
+            'quotationSetting' => $quotationSetting,
             'isServerPdf' => true,
         ])
             ->format('a4')

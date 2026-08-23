@@ -18,13 +18,14 @@ interface Props {
     products?: Array<{ id: number; name: string; type?: string; description?: string; long_description?: string; sale_price: number; unit?: string; unit_name?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
     showAddButton?: boolean;
     invoiceType?: string;
+    warehouseId?: string | number | null;
     onRefresh?: () => void | Promise<void>;
     isRefreshing?: boolean;
     isTaxEnabled?: boolean;
     defaultSection?: string;
 }
 
-export default function QuotationItemsTable({ items, onChange, errors = {}, products = [], showAddButton = true, invoiceType = 'product', onRefresh, isRefreshing = false, isTaxEnabled = true, defaultSection = 'otc' }: Props) {
+export default function QuotationItemsTable({ items, onChange, errors = {}, products = [], showAddButton = true, invoiceType = 'product', warehouseId, onRefresh, isRefreshing = false, isTaxEnabled = true, defaultSection = 'otc' }: Props) {
     const { t } = useTranslation();
 
     const addItem = () => {
@@ -249,6 +250,7 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
                                         <QuotationProductSelector
                                             products={filteredProducts}
                                             value={item.product_id}
+                                            warehouseId={warehouseId}
                                             onChange={(productId, product) => handleProductSelect(index, productId, product)}
                                         />
                                         <InputError message={errors[`items.${index}.product_id`]} />

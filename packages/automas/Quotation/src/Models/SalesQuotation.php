@@ -2,6 +2,7 @@
 
 namespace Automas\Quotation\Models;
 
+use App\Models\SalesProposal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,14 +21,19 @@ class SalesQuotation extends Model
         'quotation_number',
         'revision_number',
         'parent_quotation_id',
+        'proposal_id',
         'quotation_date',
         'due_date',
+        'customer_type',
         'customer_id',
         'customer_name',
         'customer_email',
         'customer_phone',
         'customer_address',
         'warehouse_id',
+        'is_recurring',
+        'is_prepaid',
+        'is_tax_enabled',
         'subtotal',
         'tax_amount',
         'discount_amount',
@@ -50,8 +56,16 @@ class SalesQuotation extends Model
             'tax_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',
+            'is_recurring' => 'boolean',
+            'is_prepaid' => 'boolean',
+            'is_tax_enabled' => 'boolean',
             'converted_to_invoice' => 'boolean',
         ];
+    }
+
+    public function proposal(): BelongsTo
+    {
+        return $this->belongsTo(SalesProposal::class, 'parent_quotation_id');
     }
 
     public function customer(): BelongsTo

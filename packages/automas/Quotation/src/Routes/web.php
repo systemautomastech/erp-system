@@ -24,6 +24,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Quotation'])->gro
 
     Route::resource('quotations', QuotationController::class);
     Route::get('quotations/{quotation}/print', [QuotationController::class, 'print'])->name('quotations.print');
+    Route::get('quotations/{quotation}/download-pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.download-pdf');
     Route::post('quotations/{quotation}/sent', [QuotationController::class, 'sent'])->name('quotations.sent');
     Route::post('quotations/{quotation}/approve', [QuotationController::class, 'approve'])->name('quotations.approve');
     Route::post('quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
