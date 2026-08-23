@@ -20,19 +20,21 @@ use App\Events\DestroyPurchaseInvoice;
 use App\Events\PostPurchaseInvoice;
 use App\Events\EditPurchaseInvoice;
 use App\Models\EmailTemplate;
+use App\Models\PurchaseInvoiceSetup;
+use Spatie\LaravelPdf\Facades\Pdf;
 
 
 class PurchaseInvoiceController extends Controller
 {
     private function checkInvoiceAccess(PurchaseInvoice $purchaseInvoice)
     {
-        if(Auth::user()->can('manage-any-purchase-invoices')) {
+        if (Auth::user()->can('manage-any-purchase-invoices')) {
             return true;
-        } elseif(Auth::user()->can('manage-own-purchase-invoices')) {
-            if($purchaseInvoice->creator_id != Auth::id() && $purchaseInvoice->vendor_id != Auth::id()) {
+        } elseif (Auth::user()->can('manage-own-purchase-invoices')) {
+            if ($purchaseInvoice->creator_id != Auth::id() && $purchaseInvoice->vendor_id != Auth::id()) {
                 return false;
             }
-            if($purchaseInvoice->creator_id != Auth::id() && Auth::user()->type == 'vendor' && $purchaseInvoice->status == 'draft') {
+            if ($purchaseInvoice->creator_id != Auth::id() && Auth::user()->type == 'vendor' && $purchaseInvoice->status == 'draft') {
                 return false;
             }
             return true;
@@ -41,15 +43,15 @@ class PurchaseInvoiceController extends Controller
     }
     public function index(Request $request)
     {
-        if(Auth::user()->can('manage-purchase-invoices')){
+        if (Auth::user()->can('manage-purchase-invoices')) {
             $baseQuery = PurchaseInvoice::with(['vendor', 'items'])
-                ->where(function($q) {
-                    if(Auth::user()->can('manage-any-purchase-invoices')) {
+                ->where(function ($q) {
+                    if (Auth::user()->can('manage-any-purchase-invoices')) {
                         $q->where('created_by', creatorId());
-                    } elseif(Auth::user()->can('manage-own-purchase-invoices')) {
-                        $q->where('creator_id', Auth::id())->orWhere('vendor_id',Auth::id());
-                        if(Auth::user()->type == 'vendor') {
-                            $q->where('status','!=', 'draft');
+                    } elseif (Auth::user()->can('manage-own-purchase-invoices')) {
+                        $q->where('creator_id', Auth::id())->orWhere('vendor_id', Auth::id());
+                        if (Auth::user()->type == 'vendor') {
+                            $q->where('status', '!=', 'draft');
                         }
                     } else {
                         $q->whereRaw('1 = 0');
@@ -100,8 +102,8 @@ class PurchaseInvoiceController extends Controller
             if ($request->status) {
                 if ($request->status === 'overdue') {
                     $query->where('due_date', '<', $today)
-                    ->whereIn('status', ['posted', 'partial'])
-                    ->where('balance_amount', '>', 0);
+                        ->whereIn('status', ['posted', 'partial'])
+                        ->where('balance_amount', '>', 0);
                 } else {
                     $query->where('status', $request->status);
                 }
@@ -175,53 +177,53 @@ class PurchaseInvoiceController extends Controller
                 'vendorSummaries' => $vendorSummaries,
                 'filters' => $request->only(['vendor_id', 'warehouse_id', 'status', 'search', 'date_range'])
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function create()
     {
-        if(Auth::user()->can('create-purchase-invoices')){
+        if (Auth::user()->can('create-purchase-invoices')) {
             $vendors = User::where('type', 'vendor')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
             $products = ProductServiceItem::select('id', 'name', 'sku', 'purchase_price', 'tax_ids', 'unit', 'type')
-            ->where('is_active', true)->where('created_by', creatorId())
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'purchase_price' => $product->purchase_price,
-                    'unit' => $product->unit,
-                    'type' => $product->type,
-                    'taxes' => $product->taxes->map(function ($tax) {
-                        return [
-                            'id' => $tax->id,
-                            'tax_name' => $tax->tax_name,
-                            'rate' => $tax->rate
-                        ];
-                    })
-                ];
-            });
+                ->where('is_active', true)->where('created_by', creatorId())
+                ->get()
+                ->map(function ($product) {
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'purchase_price' => $product->purchase_price,
+                        'unit' => $product->unit,
+                        'type' => $product->type,
+                        'taxes' => $product->taxes->map(function ($tax) {
+                            return [
+                                'id' => $tax->id,
+                                'tax_name' => $tax->tax_name,
+                                'rate' => $tax->rate
+                            ];
+                        })
+                    ];
+                });
 
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
+            $setupSettings = PurchaseInvoiceSetup::getSettings(creatorId());
 
             return Inertia::render('Purchase/Create', [
                 'vendors' => $vendors,
                 'products' => $products,
                 'warehouses' => $warehouses,
+                'default_payment_terms' => $setupSettings['purchase_invoice_default_payment_terms'] ?? '',
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function store(StorePurchaseInvoiceRequest $request)
     {
-        if(Auth::user()->can('create-purchase-invoices')){
+        if (Auth::user()->can('create-purchase-invoices')) {
             $totals = $this->calculateTotals($request->items);
 
             $invoice = new PurchaseInvoice();
@@ -246,7 +248,7 @@ class PurchaseInvoiceController extends Controller
             try {
                 CreatePurchaseInvoice::dispatch($request, $invoice);
                 // Send purchase invoice mail
-                if(company_setting('Purchase Invoice') == 'on') {
+                if (company_setting('Purchase Invoice') == 'on') {
                     $emailData = [
                         'invoice_number' => $invoice->invoice_number ?? null,
                         'purchase_vendor_name' => $invoice->vendor->name ?? null,
@@ -254,9 +256,9 @@ class PurchaseInvoiceController extends Controller
                         'discount_amount' => $totals['discount_amount'] ?? null,
                         'total_amount' => $totals['total_amount'] ?? null,
                     ];
-                   
+
                     $message = EmailTemplate::sendEmailTemplate('Purchase Invoice', [$invoice->vendor->email], $emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
+                    if ($message['is_success'] == false && !empty($message['error'])) {
                         return back()
                             ->with('success', __('The purchase invoice has been created successfully.'))
                             ->with('error', $message['error']);
@@ -268,16 +270,15 @@ class PurchaseInvoiceController extends Controller
 
             return redirect()->route('purchase-invoices.index')->with('success', __('The purchase invoice has been created successfully.'));
 
-        }
-        else{
+        } else {
             return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
         }
     }
 
     public function show(PurchaseInvoice $purchaseInvoice)
     {
-        if(Auth::user()->can('view-purchase-invoices') && $purchaseInvoice->created_by == creatorId()){
-            if(!$this->checkInvoiceAccess($purchaseInvoice)) {
+        if (Auth::user()->can('view-purchase-invoices') && $purchaseInvoice->created_by == creatorId()) {
+            if (!$this->checkInvoiceAccess($purchaseInvoice)) {
                 return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
             }
 
@@ -286,16 +287,15 @@ class PurchaseInvoiceController extends Controller
             return Inertia::render('Purchase/View', [
                 'invoice' => $purchaseInvoice
             ]);
-        }
-        else{
+        } else {
             return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
         }
     }
 
     public function edit(PurchaseInvoice $purchaseInvoice)
     {
-        if(Auth::user()->can('edit-purchase-invoices') && $purchaseInvoice->created_by == creatorId()){
-            if(!$this->checkInvoiceAccess($purchaseInvoice)) {
+        if (Auth::user()->can('edit-purchase-invoices') && $purchaseInvoice->created_by == creatorId()) {
+            if (!$this->checkInvoiceAccess($purchaseInvoice)) {
                 return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
             }
 
@@ -337,15 +337,14 @@ class PurchaseInvoiceController extends Controller
                 'products' => $products,
                 'warehouses' => $warehouses,
             ]);
-        }
-        else{
+        } else {
             return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
         }
     }
 
     public function update(UpdatePurchaseInvoiceRequest $request, PurchaseInvoice $purchaseInvoice)
     {
-        if(Auth::user()->can('edit-purchase-invoices') && $purchaseInvoice->created_by == creatorId()){
+        if (Auth::user()->can('edit-purchase-invoices') && $purchaseInvoice->created_by == creatorId()) {
             if ($purchaseInvoice->status != 'draft') {
                 return redirect()->route('purchase-invoices.index')->with('error', __('Cannot update posted invoice.'));
             }
@@ -372,15 +371,14 @@ class PurchaseInvoiceController extends Controller
             UpdatePurchaseInvoice::dispatch($request, $purchaseInvoice);
 
             return redirect()->route('purchase-invoices.index')->with('success', __('The purchase invoice details are updated successfully.'));
-        }
-        else{
+        } else {
             return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
         }
     }
 
     public function destroy(PurchaseInvoice $purchaseInvoice)
     {
-        if(Auth::user()->can('delete-purchase-invoices')){
+        if (Auth::user()->can('delete-purchase-invoices')) {
             if ($purchaseInvoice->status === 'posted') {
                 return back()->withErrors(['error' => __('Cannot delete posted invoice.')]);
             }
@@ -391,8 +389,7 @@ class PurchaseInvoiceController extends Controller
             $purchaseInvoice->delete();
 
             return redirect()->route('purchase-invoices.index')->with('success', __('The purchase invoice has been deleted.'));
-        }
-        else{
+        } else {
             return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
         }
     }
@@ -449,37 +446,85 @@ class PurchaseInvoiceController extends Controller
 
     public function post(PurchaseInvoice $purchaseInvoice)
     {
-        if(Auth::user()->can('post-purchase-invoices')){
-        if ($purchaseInvoice->status !== 'draft') {
-            return back()->withErrors(['error' => __('Only draft invoices can be posted.')]);
-        }
+        if (Auth::user()->can('post-purchase-invoices')) {
+            if ($purchaseInvoice->status !== 'draft') {
+                return back()->withErrors(['error' => __('Only draft invoices can be posted.')]);
+            }
 
-        try {
-            PostPurchaseInvoice::dispatch($purchaseInvoice);
-        } catch (\Throwable $th) {
-            return back()->with('error', $th->getMessage());
-        }
+            try {
+                PostPurchaseInvoice::dispatch($purchaseInvoice);
+            } catch (\Throwable $th) {
+                return back()->with('error', $th->getMessage());
+            }
 
-        $purchaseInvoice->update(['status' => 'posted']);
+            $purchaseInvoice->update(['status' => 'posted']);
 
-        return back()->with('success', __('The purchase invoice has been posted successfully.'));
-        }
-        else{
+            return back()->with('success', __('The purchase invoice has been posted successfully.'));
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function print(PurchaseInvoice $purchaseInvoice)
     {
-        if(Auth::user()->can('print-purchase-invoices')){
+        if (Auth::user()->can('print-purchase-invoices')) {
             $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product', 'items.taxes', 'warehouse']);
 
-            return Inertia::render('Purchase/Print', [
-                'invoice' => $purchaseInvoice
+            $creatorId = $purchaseInvoice->created_by ?? creatorId();
+            $purchaseInvoiceSetting = PurchaseInvoiceSetup::getSettings($creatorId);
+            return view('purchase.print', [
+                'invoice' => $purchaseInvoice,
+                'purchaseInvoiceSetting' => $purchaseInvoiceSetting,
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
+
+    public function downloadPdf(PurchaseInvoice $purchaseInvoice)
+    {
+        if (Auth::user()->can('print-purchase-invoices')) {
+            $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product', 'items.taxes', 'warehouse']);
+
+            $creatorId = $purchaseInvoice->created_by ?? creatorId();
+            $purchaseInvoiceSetting = PurchaseInvoiceSetup::getSettings($creatorId);
+
+            $filename = "purchase-invoice-{$purchaseInvoice->invoice_number}.pdf";
+
+            return Pdf::view('purchase.print', [
+                'invoice' => $purchaseInvoice,
+                'purchaseInvoiceSetting' => $purchaseInvoiceSetting,
+                'isServerPdf' => true,
+            ])
+                ->format('a4')
+                ->margins(0, 0, 0, 0)
+                ->download($filename);
+        } else {
+            return back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function setup()
+    {
+        if (Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
+            $settings = PurchaseInvoiceSetup::getSettings(creatorId());
+            return Inertia::render('Purchase/SystemSetup/Index', [
+                'settings' => $settings,
+            ]);
+        } else {
+            return back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function updateSetup(Request $request)
+    {
+        if (Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
+            $settings = $request->input('settings', $request->except(['_token', '_method']));
+            PurchaseInvoiceSetup::setSettings($settings, creatorId());
+            return redirect()->back()->with('success', __('Purchase Invoice setup updated successfully.'));
+        } else {
+            return redirect()->back()->with('error', __('Permission denied'));
+        }
+    }
 }
+

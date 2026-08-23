@@ -1,289 +1,126 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import html2pdf from 'html2pdf.js';
-import { formatCurrency, formatDate, getCompanySetting } from '@/utils/helpers';
-import { Quotation } from './types';
-import { useFormFields } from '@/hooks/useFormFields';
-import { usePageButtons } from '@/hooks/usePageButtons';
+import PreviewModal, { ProposalPreviewSection as QuotationPreviewSection } from '@/components/PreviewModal';
+import { QuotationDefaultPage, SalesQuotation } from './types';
 
 interface PrintProps {
-    quotation: Quotation;
+    quotation: SalesQuotation;
+    customers?: Array<{ id: number; name: string; email: string; address?: string }>;
+    warehouses?: Array<{ id: number; name: string; address?: string }>;
+    defaultPages?: QuotationDefaultPage[];
+    quotationSetting?: any;
     [key: string]: any;
 }
 
 export default function Print() {
     const { t } = useTranslation();
-    const { quotation } = usePage<PrintProps>().props;
-    const [isDownloading, setIsDownloading] = useState(false);
-    const [fieldsLoaded, setFieldsLoaded] = useState(false);
+    const { quotation, customers = [], warehouses = [], defaultPages = [], quotationSetting } = usePage<PrintProps>().props;
 
-    // signature    
-    const signaturePrintButtons = usePageButtons('signaturePrintBtn', {
-        invoice: quotation,
-        invoiceType: 'quotation'
-    });
+    const sections = useMemo<QuotationPreviewSection[]>(() => {
+        let loadedSections: QuotationPreviewSection[] = [];
 
-    // Custom fields hook
-        const customFields = useFormFields('getCustomFields', { ...quotation, module: 'Quotation', sub_module: 'Quotation', id: quotation.id }, () => { }, {}, 'view', t);
-    
-        useEffect(() => {
-            // Set fields loaded when custom fields are available
-            if (customFields && customFields.length >= 0) {
-                setFieldsLoaded(true);
-            }
-        }, [customFields]);
-
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('download') === 'pdf') {
-            setTimeout(() => downloadPDF(), 2000);
-        }
-    }, []);
-
-    const downloadPDF = async () => {
-        setIsDownloading(true);
-
-        const printContent = document.querySelector('.quotation-container');
-        if (printContent) {
-            const opt = {
-                margin: 0.25,
-                filename: `quotation-${quotation.quotation_number}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-            };
-
-            try {
-                await html2pdf().set(opt).from(printContent as HTMLElement).save();
-                setTimeout(() => window.close(), 1000);
-            } catch (error) {
-                console.error('PDF generation failed:', error);
-            }
+        // 1. Check if quotation has saved contents
+        if (quotation?.contents && Array.isArray(quotation.contents) && quotation.contents.length > 0) {
+            loadedSections = quotation.contents.map((c: any) => {
+                let parsed: any = null;
+                if (typeof c.quotation_content === 'string') {
+                    try {
+                        parsed = JSON.parse(c.quotation_content);
+                    } catch (e) {
+                        parsed = null;
+                    }
+                }
+                if (parsed && typeof parsed === 'object') {
+                    return {
+                        id: String(c.id || Math.random()),
+                        title: parsed.title || c.title || '',
+                        content: parsed.content || c.content || '',
+                        page_type: parsed.page_type || c.page_type || 'content',
+                        background_image: parsed.background_image || c.background_image || undefined,
+                        order: c.sort_order ?? c.order ?? 1,
+                    };
+                }
+                return {
+                    id: String(c.id || Math.random()),
+                    title: c.title || '',
+                    content: c.content || c.quotation_content || '',
+                    page_type: c.page_type || 'content',
+                    background_image: c.background_image || undefined,
+                    order: c.sort_order ?? c.order ?? 1,
+                };
+            });
         }
 
-        setIsDownloading(false);
-    };
+        // 2. If no custom sections, load from defaultPages
+        if (loadedSections.length === 0 && defaultPages && defaultPages.length > 0) {
+            loadedSections = defaultPages.map((dp) => ({
+                id: String(dp.id),
+                title: dp.title,
+                content: dp.content,
+                background_image: dp.background_image,
+                order: dp.sort_order,
+            }));
+        }
+
+        return loadedSections.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+    }, [quotation, defaultPages]);
+
+    const formattedCustomers = useMemo(() => {
+        if (customers.length > 0) return customers;
+        if (quotation?.customer) return [quotation.customer];
+        return [];
+    }, [customers, quotation?.customer]);
+
+    const totals = useMemo(() => {
+        return {
+            subtotal: Number(quotation?.subtotal || 0),
+            tax_amount: Number(quotation?.tax_amount || 0),
+            discount_amount: Number(quotation?.discount_amount || 0),
+            total_amount: Number(quotation?.total_amount || 0),
+        };
+    }, [quotation]);
+
+    const formData = useMemo(() => {
+        return {
+            ...quotation,
+            id: quotation?.id,
+            quotation_number: quotation?.quotation_number,
+            invoice_date: quotation?.quotation_date,
+            due_date: quotation?.due_date,
+            customer_id: quotation?.customer_id,
+            warehouse_id: quotation?.warehouse_id,
+            payment_terms: quotation?.payment_terms,
+            notes: quotation?.notes,
+            items: (quotation?.items || []).map((i: any) => ({
+                id: i.id,
+                product_id: i.product_id,
+                product_name: i.product?.name || i.name,
+                description: i.description || i.product_description,
+                product_description: i.product?.description || i.description,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                discount_amount: i.discount_amount,
+                tax_amount: i.tax_amount,
+                total_amount: i.total_amount,
+                section: i.section,
+                product: i.product,
+            })),
+        };
+    }, [quotation]);
 
     return (
-        <div className="min-h-screen bg-white">
-            <Head title={t('Quotation')} />
-
-            {isDownloading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="quotation-container bg-white max-w-4xl mx-auto p-12">
-                <div className="flex justify-between items-start mb-12">
-                    <div className="w-1/2">
-                        <h1 className="text-2xl font-bold mb-4">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
-                        <div className="text-sm space-y-1">
-                            {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
-                            {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
-                                <p>
-                                    {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
-                                </p>
-                            )}
-                            {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
-                            {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
-                            {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
-                            {getCompanySetting('registration_number') && <p>{t('Registration')}: {getCompanySetting('registration_number')}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right w-1/2">
-                        <h2 className="text-2xl font-bold mb-2">{t('QUOTATION')}</h2>
-                        <p className="text-lg font-semibold">#{quotation.quotation_number}</p>
-                        <div className="text-sm mt-2 space-y-1">
-                            <p>{t('Date')}: {formatDate(quotation.quotation_date)}</p>
-                            <p>{t('Due Date')}: {formatDate(quotation.due_date)}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-between mb-12">
-                    <div className="w-1/2">
-                        <h3 className="font-bold mb-3">{t('QUOTE TO')}</h3>
-                        <div className="text-sm space-y-1">
-                            <p className="font-semibold">{quotation.customer?.name}</p>
-                            <p>{quotation.customer?.email}</p>
-                            {quotation.customer_details?.billing_address && (
-                                <>
-                                    <p>{quotation.customer_details.billing_address.name}</p>
-                                    <p>{quotation.customer_details.billing_address.address_line_1}</p>
-                                    <p>{quotation.customer_details.billing_address.city}, {quotation.customer_details.billing_address.state} {quotation.customer_details.billing_address.zip_code}</p>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <div className="text-right w-1/2">
-                        <h3 className="font-bold mb-3">{t('SHIP TO')}</h3>
-                        <div className="text-sm space-y-1">
-                            {quotation.customer_details?.shipping_address ? (
-                                <>
-                                    <p className="font-semibold">{quotation.customer_details.shipping_address.name}</p>
-                                    <p>{quotation.customer_details.shipping_address.address_line_1}</p>
-                                    <p>{quotation.customer_details.shipping_address.city}, {quotation.customer_details.shipping_address.state} {quotation.customer_details.shipping_address.zip_code}</p>
-                                </>
-                            ) : (
-                                <p className="text-gray-500">{t('Same as billing address')}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Custom Fields Display */}
-                {customFields && customFields.length > 0 && (
-                    <div className="mb-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            {customFields.map((field) => (
-                                <div key={field.id} className="space-y-1">
-                                    <div className="font-semibold text-gray-700">{(field as any).name || (field as any).label || ''}:</div>
-                                    <div className="text-gray-900">{field.component}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <div className="mb-8">
-                    <table className="w-full table-fixed">
-                        <thead>
-                            <tr className="border-b border-gray-300">
-                                <th className="text-left py-3 font-bold">{t('ITEM')}</th>
-                                <th className="text-center py-3 font-bold">{t('QTY')}</th>
-                                <th className="text-right py-3 font-bold">{t('PRICE')}</th>
-                                <th className="text-right py-3 font-bold">{t('DISCOUNT')}</th>
-                                <th className="text-right py-3 font-bold">{t('TAX')}</th>
-                                <th className="text-right py-3 font-bold">{t('TOTAL')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {quotation.items?.map((item, index) => (
-                                <tr key={index} className="page-break-inside-avoid">
-                                    <td className="py-4">
-                                        <div className="font-semibold">{item.product?.name}</div>
-                                        {item.product?.sku && (
-                                            <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
-                                        )}
-                                    </td>
-                                    <td className="text-center py-4">{item.quantity}</td>
-                                    <td className="text-right py-4">{formatCurrency(item.unit_price)}</td>
-                                    <td className="text-right py-4">
-                                        {item.discount_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.discount_percentage}%</div>
-                                                <div className="text-sm font-medium">-{formatCurrency(item.discount_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4">
-                                        {item.taxes && item.taxes.length > 0 ? (
-                                            <>
-                                                {item.taxes.map((tax, taxIndex) => (
-                                                    <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
-                                                ))}
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : item.tax_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.tax_percentage}%</div>
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4 font-semibold">{formatCurrency(item.total_amount)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="flex justify-end mb-8">
-                    <div className="w-80">
-                        <div className="border border-gray-400 p-4">
-                            <div className="space-y-2">
-                                <div className="flex justify-between">
-                                    <span>{t('Subtotal')}:</span>
-                                    <span>{formatCurrency(quotation.subtotal)}</span>
-                                </div>
-                                {quotation.discount_amount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>{t('Discount')}:</span>
-                                        <span>-{formatCurrency(quotation.discount_amount)}</span>
-                                    </div>
-                                )}
-                                {quotation.tax_amount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>{t('Tax')}:</span>
-                                        <span>{formatCurrency(quotation.tax_amount)}</span>
-                                    </div>
-                                )}
-                                <div className="border-t border-gray-400 pt-2 mt-2">
-                                    <div className="flex justify-between font-bold text-lg">
-                                        <span>{t('TOTAL')}:</span>
-                                        <span>{formatCurrency(quotation.total_amount)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="border-t border-gray-400 pt-6 text-center">
-                    
-                    {/* Signature */}
-                    {signaturePrintButtons.length > 0 && signaturePrintButtons.map((button) => (
-                        <div key={button.id}>{button.component}</div>
-                    ))}
-                    <p className="font-semibold">{t('PAYMENT TERMS')}: {quotation.payment_terms || t('Net 30 Days')}</p>
-                    <p className="text-sm mt-2">{t('Thank you for your business!')}</p>
-                </div>
-            </div>
-
-            <style>{`
-                body {
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                    font-family: Arial, sans-serif;
-                }
-
-                @page {
-                    margin: 0.25in;
-                    size: A4;
-                }
-
-                .quotation-container {
-                    max-width: 100%;
-                    margin: 0;
-                    box-shadow: none;
-                }
-
-                .page-break-inside-avoid {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
-
-                @media print {
-                    body {
-                        background: white;
-                    }
-
-                    .quotation-container {
-                        box-shadow: none;
-                    }
-                }
-            `}</style>
-        </div>
+        <>
+            <Head title={`${t('Sales Quotation')} - ${quotation?.quotation_number || ''}`} />
+            <PreviewModal
+                inline={true}
+                formData={formData}
+                sections={sections}
+                customers={formattedCustomers}
+                warehouses={warehouses}
+                totals={totals}
+                proposalSetting={quotationSetting}
+            />
+        </>
     );
 }

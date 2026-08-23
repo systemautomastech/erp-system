@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
 import { CalendarDays, Building2, User, Package } from 'lucide-react';
+import RichTextEditor from '@/components/ui/rich-text-editor';
 
 interface EditProps {
     invoice: PurchaseInvoice;
@@ -158,19 +159,19 @@ export default function Edit() {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div>
+                                <div className="space-y-2">
                                     <Label htmlFor="payment_terms">
                                         {t('Payment Terms')}
                                     </Label>
-                                    <Input
-                                        id="payment_terms"
-                                        value={data.payment_terms}
-                                        onChange={(e) => setData('payment_terms', e.target.value)}
-                                        placeholder={t('e.g., Net 30')}
+                                    <RichTextEditor
+                                        content={data.payment_terms}
+                                        onChange={(val) => setData('payment_terms', val)}
+                                        placeholder={t('Enter invoice payment terms...')}
                                     />
+                                    <InputError message={errors.payment_terms} />
                                 </div>
 
-                                <div>
+                                <div className="space-y-2">
                                     <Label htmlFor="notes">
                                         {t('Notes')}
                                     </Label>
@@ -178,9 +179,10 @@ export default function Edit() {
                                         id="notes"
                                         value={data.notes}
                                         onChange={(e) => setData('notes', e.target.value)}
-                                        rows={2}
+                                        rows={4}
                                         placeholder={t('Additional notes...')}
                                     />
+                                    <InputError message={errors.notes} />
                                 </div>
                             </div>
 

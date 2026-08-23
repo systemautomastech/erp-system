@@ -23,7 +23,11 @@ use App\Models\SalesProposalItem;
 use App\Models\SalesProposalItemTax;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\QuotationServices;
 use Automas\ProductService\Models\ProductServiceItem;
+use Automas\Quotation\Models\SalesQuotation;
+use Automas\Quotation\Models\SalesQuotationItem;
+use Automas\Quotation\Models\SalesQuotationItemTax;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,18 +37,18 @@ use Spatie\LaravelPdf\Facades\Pdf;
 
 class SalesProposalController extends Controller
 {
+    public function __construct(
+        protected
+        QuotationServices $quotationService
+    ) {
+    }
+
     /**
      * Get common relationships loaded for proposal views and exports.
      */
     private function getProposalRelations(): array
     {
-        $relations = ['customer', 'items.product.unitRelation', 'items.taxes', 'warehouse'];
-
-        if (Schema::hasTable('sales_proposal_contents')) {
-            $relations[] = 'contents';
-        }
-
-        return $relations;
+        return ['customer', 'items.product.unitRelation', 'items.taxes', 'warehouse'];
     }
 
     /**
@@ -484,129 +488,96 @@ class SalesProposalController extends Controller
         }
 
         if ($salesProposal->status !== 'accepted') {
-            return back()->with('error', __('Only accepted proposals can be converted to invoice.'));
+            return back()->with('error', __('Only accepted proposals can be converted to quotation.'));
         }
 
-        if ($salesProposal->converted_to_invoice) {
-            return back()->with('error', __('Proposal already converted to invoice.'));
+        if ($salesProposal->converted_to_quotation || !empty($salesProposal->quotation_id)) {
+            return back()->with('error', __('Proposal already converted.'));
         }
 
         try {
-            DB::transaction(function () use ($salesProposal, &$invoice) {
-                $invoice = new SalesInvoice();
-                $invoice->customer_id = $salesProposal->customer_id;
-                $invoice->warehouse_id = $salesProposal->warehouse_id ?? 1;
-                $invoice->type = $salesProposal->type ?? 'product';
-                $invoice->invoice_date = now();
-                $invoice->due_date = $salesProposal->due_date;
-                $invoice->subtotal = $salesProposal->subtotal;
-                $invoice->tax_amount = $salesProposal->tax_amount;
-                $invoice->discount_amount = $salesProposal->discount_amount;
-                $invoice->total_amount = $salesProposal->total_amount;
-                $invoice->balance_amount = $salesProposal->total_amount;
-                $invoice->paid_amount = 0;
-                $invoice->payment_terms = $salesProposal->payment_terms;
-                $invoice->notes = $salesProposal->notes;
-                $invoice->status = 'draft';
-                $invoice->creator_id = creatorId();
-                $invoice->created_by = Auth::id();
-                $invoice->save();
+            $user = Auth::user();
 
+            $quotation = DB::transaction(function () use ($salesProposal, $user) {
+                // Determine Customer Type and Info
+                $isNewCustomer = empty($salesProposal->customer_id) && (!empty($salesProposal->customer_name) || !empty($salesProposal->customer_email));
+                $customerType = $isNewCustomer ? 'new' : 'existing';
+
+                $quotation = new SalesQuotation();
+                $quotation->parent_quotation_id = $salesProposal->id;
+                $quotation->customer_type = $customerType;
+                $quotation->customer_id = $salesProposal->customer_id;
+                $quotation->customer_name = $salesProposal->customer_name;
+                $quotation->customer_email = $salesProposal->customer_email;
+                $quotation->customer_phone = $salesProposal->customer_phone;
+                $quotation->customer_address = $salesProposal->customer_address;
+                $quotation->warehouse_id = $salesProposal->warehouse_id;
+                $quotation->quotation_date = now()->format('Y-m-d');
+                $quotation->due_date = $salesProposal->due_date ? $salesProposal->due_date->format('Y-m-d') : null;
+                $quotation->is_recurring = (bool) ($salesProposal->is_recurring ?? false);
+                $quotation->is_prepaid = (bool) ($salesProposal->is_prepaid ?? false);
+                $quotation->is_tax_enabled = (bool) ($salesProposal->is_tax_enabled ?? true);
+                $quotation->payment_terms = $salesProposal->payment_terms;
+                $quotation->notes = $salesProposal->notes;
+                $quotation->subtotal = $salesProposal->subtotal ?? 0;
+                $quotation->tax_amount = $salesProposal->tax_amount ?? 0;
+                $quotation->discount_amount = $salesProposal->discount_amount ?? 0;
+                $quotation->total_amount = $salesProposal->total_amount ?? 0;
+                $quotation->status = 'draft';
+                $quotation->creator_id = creatorId();
+                $quotation->created_by = Auth::id();
+                $quotation->save();
+
+                // Save items exactly from proposal items (including OTC/MRC sections and item taxes)
                 foreach ($salesProposal->items as $proposalItem) {
-                    $invoiceItem = new SalesInvoiceItem();
-                    $invoiceItem->invoice_id = $invoice->id;
-                    $invoiceItem->product_id = $proposalItem->product_id;
-                    $invoiceItem->quantity = $proposalItem->quantity;
-                    $invoiceItem->unit_price = $proposalItem->unit_price;
-                    $invoiceItem->discount_percentage = $proposalItem->discount_percentage;
-                    $invoiceItem->tax_percentage = $proposalItem->tax_percentage;
-                    $invoiceItem->save();
+                    $quotationItem = new SalesQuotationItem();
+                    $quotationItem->quotation_id = $quotation->id;
+                    $quotationItem->product_id = $proposalItem->product_id;
+                    $quotationItem->section = $proposalItem->section ?? 'general';
+                    $quotationItem->item_type = $proposalItem->product_type ?? 'product';
+                    $quotationItem->description = $proposalItem->description;
+                    $quotationItem->quantity = $proposalItem->quantity ?? 1;
+                    $quotationItem->unit_price = $proposalItem->unit_price ?? 0;
+                    $quotationItem->discount_percentage = $proposalItem->discount_percentage ?? 0;
+                    $quotationItem->discount_amount = $proposalItem->discount_amount ?? 0;
+                    $quotationItem->tax_percentage = $proposalItem->tax_percentage ?? 0;
+                    $quotationItem->tax_amount = $proposalItem->tax_amount ?? 0;
+                    $quotationItem->total_amount = $proposalItem->total_amount ?? 0;
+                    $quotationItem->save();
 
                     foreach ($proposalItem->taxes as $tax) {
-                        $invoiceTax = new SalesInvoiceItemTax();
-                        $invoiceTax->item_id = $invoiceItem->id;
-                        $invoiceTax->tax_name = $tax->tax_name;
-                        $invoiceTax->tax_rate = $tax->tax_rate;
-                        $invoiceTax->save();
+                        $quotationTax = new SalesQuotationItemTax();
+                        $quotationTax->item_id = $quotationItem->id;
+                        $quotationTax->tax_name = $tax->tax_name;
+                        $quotationTax->tax_rate = $tax->tax_rate;
+                        $quotationTax->save();
                     }
                 }
 
+                // If default pages exist for quotation with background image, save quotation default pages
+                $defaultPages = $this->quotationService->getActiveDefaultPages(Auth::id());
+                if ($defaultPages && $defaultPages->count() > 0) {
+                    $contentsPayload = $defaultPages->map(function ($page, $index) {
+                        return [
+                            'title' => $page->title,
+                            'content' => $page->content ?? '',
+                            'page_type' => $page->page_type ?? 'content',
+                            'background_image' => $page->background_image ?? '',
+                            'order' => $page->sort_order ?? $index + 1,
+                        ];
+                    })->toArray();
+                    $this->quotationService->saveQuotationPageContents($quotation->id, $contentsPayload);
+                }
+
                 $salesProposal->update([
-                    'converted_to_invoice' => true,
-                    'invoice_id' => $invoice->id
+                    'converted_to_quotation' => true,
+                    'quotation_id' => $quotation->id,
                 ]);
+
+                return $quotation;
             });
 
-            try {
-                ConvertSalesProposal::dispatch($salesProposal, $invoice);
-            } catch (\Throwable $th) {
-                return back()->with('error', $th->getMessage());
-            }
-
-            return back()->with('success', __('Proposal converted to invoice successfully.'));
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        if ($salesProposal->status !== 'accepted') {
-            return back()->with('error', __('Only accepted proposals can be converted to invoice.'));
-        }
-
-        if ($salesProposal->converted_to_invoice) {
-            return back()->with('error', __('Proposal already converted to invoice.'));
-        }
-
-        try {
-            $invoice = new SalesInvoice();
-            $invoice->customer_id = $salesProposal->customer_id;
-            $invoice->warehouse_id = $salesProposal->warehouse_id ?? 1;
-            $invoice->type = $salesProposal->type ?? 'product';
-            $invoice->invoice_date = now();
-            $invoice->due_date = $salesProposal->due_date;
-            $invoice->subtotal = $salesProposal->subtotal;
-            $invoice->tax_amount = $salesProposal->tax_amount;
-            $invoice->discount_amount = $salesProposal->discount_amount;
-            $invoice->total_amount = $salesProposal->total_amount;
-            $invoice->balance_amount = $salesProposal->total_amount;
-            $invoice->paid_amount = 0;
-            $invoice->payment_terms = $salesProposal->payment_terms;
-            $invoice->notes = $salesProposal->notes;
-            $invoice->status = 'draft';
-            $invoice->creator_id = creatorId();
-            $invoice->created_by = Auth::id();
-            $invoice->save();
-
-            foreach ($salesProposal->items as $proposalItem) {
-                $invoiceItem = new SalesInvoiceItem();
-                $invoiceItem->invoice_id = $invoice->id;
-                $invoiceItem->product_id = $proposalItem->product_id;
-                $invoiceItem->quantity = $proposalItem->quantity;
-                $invoiceItem->unit_price = $proposalItem->unit_price;
-                $invoiceItem->discount_percentage = $proposalItem->discount_percentage;
-                $invoiceItem->tax_percentage = $proposalItem->tax_percentage;
-                $invoiceItem->save();
-
-                foreach ($proposalItem->taxes as $tax) {
-                    $invoiceTax = new SalesInvoiceItemTax();
-                    $invoiceTax->item_id = $invoiceItem->id;
-                    $invoiceTax->tax_name = $tax->tax_name;
-                    $invoiceTax->tax_rate = $tax->tax_rate;
-                    $invoiceTax->save();
-                }
-            }
-
-            $salesProposal->update([
-                'converted_to_invoice' => true,
-                'invoice_id' => $invoice->id
-            ]);
-
-            try {
-                ConvertSalesProposal::dispatch($salesProposal, $invoice);
-            } catch (\Throwable $th) {
-                return back()->with('error', $th->getMessage());
-            }
-
-            return back()->with('success', __('Proposal converted to invoice successfully.'));
+            return back()->with('success', __('Proposal converted to quotation successfully.'));
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -776,8 +747,8 @@ class SalesProposalController extends Controller
                     ->orWhereNull('type')
                     ->orWhereDoesntHave('warehouseStocks');
             })->with([
-                'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
-            ]);
+                        'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
+                    ]);
         }
 
         $products = $productsQuery->get()->map(function ($product) {

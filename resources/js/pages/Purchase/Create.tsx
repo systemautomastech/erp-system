@@ -18,17 +18,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
 import { CalendarDays, Building2, User, FileText, Package } from 'lucide-react';
+import RichTextEditor from '@/components/ui/rich-text-editor';
 
 interface CreateProps {
     vendors: Array<{ id: number; name: string; email: string }>;
     products: Array<{ id: number; name: string; sku: string; purchase_price: number; unit: string; type: string; taxes: Array<{ id: number; tax_name: string; rate: number }> }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
+    default_payment_terms?: string;
     [key: string]: any;
 }
 
 export default function Create() {
     const { t } = useTranslation();
-    const { vendors, products, warehouses } = usePage<CreateProps>().props;
+    const { vendors, products, warehouses, default_payment_terms } = usePage<CreateProps>().props;
 
     useFlashMessages();
     const { data, setData, post, processing, errors } = useForm({
@@ -36,7 +38,7 @@ export default function Create() {
         due_date: '',
         vendor_id: '',
         warehouse_id: '',
-        payment_terms: '',
+        payment_terms: default_payment_terms || '',
         notes: '',
         items: [{
             product_id: 0,
@@ -153,19 +155,19 @@ export default function Create() {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div>
+                                <div className="space-y-2">
                                     <Label htmlFor="payment_terms">
                                         {t('Payment Terms')}
                                     </Label>
-                                    <Input
-                                        id="payment_terms"
-                                        value={data.payment_terms}
-                                        onChange={(e) => setData('payment_terms', e.target.value)}
-                                        placeholder={t('e.g., Net 30')}
+                                    <RichTextEditor
+                                        content={data.payment_terms}
+                                        onChange={(val) => setData('payment_terms', val)}
+                                        placeholder={t('Enter invoice payment terms...')}
                                     />
+                                    <InputError message={errors.payment_terms} />
                                 </div>
 
-                                <div>
+                                <div className="space-y-2">
                                     <Label htmlFor="notes">
                                         {t('Notes')}
                                     </Label>
@@ -173,9 +175,10 @@ export default function Create() {
                                         id="notes"
                                         value={data.notes}
                                         onChange={(e) => setData('notes', e.target.value)}
-                                        rows={2}
+                                        rows={4}
                                         placeholder={t('Additional notes...')}
                                     />
+                                    <InputError message={errors.notes} />
                                 </div>
                             </div>
 

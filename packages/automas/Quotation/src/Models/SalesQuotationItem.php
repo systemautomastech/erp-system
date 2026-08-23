@@ -15,6 +15,9 @@ class SalesQuotationItem extends Model
     protected $fillable = [
         'quotation_id',
         'product_id',
+        'section',
+        'item_type',
+        'description',
         'quantity',
         'unit_price',
         'discount_percentage',
@@ -22,12 +25,10 @@ class SalesQuotationItem extends Model
         'tax_percentage',
         'tax_amount',
         'total_amount',
-        'creator_id',
-        'created_by'
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
+        'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'discount_percentage' => 'decimal:2',
         'discount_amount' => 'decimal:2',

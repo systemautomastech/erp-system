@@ -127,12 +127,15 @@ export default function View() {
                                         <span className="text-muted-foreground">{t('Warehouse')}</span>
                                         <span>{invoice.warehouse?.name || '-'}</span>
                                     </div>
-                                    {invoice.payment_terms && (
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">{t('Terms')}</span>
-                                            <span>{invoice.payment_terms}</span>
-                                        </div>
-                                    )}
+                                     {invoice.payment_terms && (
+                                         <div className="flex justify-between items-start gap-2">
+                                             <span className="text-muted-foreground shrink-0">{t('Terms')}:</span>
+                                             <div
+                                                 className="text-right text-xs prose prose-xs max-w-none text-slate-700"
+                                                 dangerouslySetInnerHTML={{ __html: invoice.payment_terms }}
+                                             />
+                                         </div>
+                                     )}
                                 </div>
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">

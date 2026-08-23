@@ -1,4 +1,4 @@
-import { LayoutGrid, Users, Warehouse, ArrowRightLeft, Package, Tag, Tags, Shield, Settings, Image, CreditCard, Headphones, ShoppingCart, Kanban, Calendar, MessageCircle, Replace, Receipt, Bot } from 'lucide-react';
+import { LayoutGrid, Users, Warehouse, ArrowRightLeft, Package, Tag, Tags, Shield, Settings, Image, CreditCard, Headphones, ShoppingCart, Kanban, Calendar, MessageCircle, Replace, Receipt, Bot, FileCheck } from 'lucide-react';
 import { NavItem } from '@/types';
 
 export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
@@ -41,10 +41,11 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
             {
                 title: t('System Setup'),
                 href: route('proposal-setup.index'),
-                permission: 'manage-sales-proposals',
+                permission: 'manage-proposal-system-setup',
             },
         ],
     },
+
     {
         title: t('Invoice'),
         icon: Receipt,
@@ -88,6 +89,11 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
                 title: t('Transfers'),
                 href: route('transfers.index'),
                 permission: 'manage-transfers',
+            },
+            {
+                title: t('System Setup'),
+                href: route('purchase-invoice-setup.index'),
+                permission: 'manage-purchase-invoices',
             },
         ],
     },

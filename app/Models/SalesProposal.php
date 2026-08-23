@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Automas\Account\Models\Customer;
+use Automas\Quotation\Models\SalesQuotation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +32,8 @@ class SalesProposal extends Model
         'discount_amount',
         'total_amount',
         'status',
+        'converted_to_quotation',
+        'quotation_id',
         'converted_to_invoice',
         'converted_to_deal',
         'notes',
@@ -44,6 +47,7 @@ class SalesProposal extends Model
         'is_recurring' => 'boolean',
         'is_prepaid' => 'boolean',
         'is_tax_enabled' => 'boolean',
+        'converted_to_quotation' => 'boolean',
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
@@ -91,6 +95,11 @@ class SalesProposal extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(SalesInvoice::class, 'converted_to_invoice');
+    }
+
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(SalesQuotation::class, 'quotation_id');
     }
 
     public function isOverdue(): bool

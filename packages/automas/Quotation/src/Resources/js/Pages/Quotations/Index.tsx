@@ -1,101 +1,189 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
+import { differenceInDays } from 'date-fns';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
-import { usePageButtons } from '@/hooks/usePageButtons';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PerPageSelector } from '@/components/ui/per-page-selector';
+import { formatDate, formatCurrency, getImagePath } from '@/utils/helpers';
 import AuthenticatedLayout from "@/layouts/authenticated-layout";
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Send, Check, X, RefreshCw, Copy, PlusCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+    Plus, FileText, Eye, Trash2, RefreshCw, Edit as EditIcon, Download, Printer, Send, Check, X, Receipt,
+    List, Columns3, FilePlus2, CheckCircle2, XCircle, AlertTriangle, Package, CreditCard, CalendarDays, Lightbulb, Clock
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FilterButton } from '@/components/ui/filter-button';
-import { Pagination } from "@/components/ui/pagination";
+import { DataTable } from "@/components/ui/data-table";
 import { SearchInput } from "@/components/ui/search-input";
-import { ListGridToggle } from '@/components/ui/list-grid-toggle';
-import { formatCurrency, formatDate } from '@/utils/helpers';
-import { getStatusBadgeClasses } from './utils';
+import { PerPageSelector } from "@/components/ui/per-page-selector";
+import { FilterButton } from '@/components/ui/filter-button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import NoRecordsFound from '@/components/no-records-found';
-import { Quotation, QuotationFilters } from './types';
+import { Pagination } from "@/components/ui/pagination";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { usePageButtons } from '@/hooks/usePageButtons';
+import { cn } from '@/lib/utils';
 
-interface QuotationIndexProps {
-    quotations: {
-        data: Quotation[];
-        links: any[];
-        meta: any;
-    };
-    customers: Array<{ id: number; name: string; email: string }>;
-    auth: any;
-    [key: string]: any;
+interface SalesQuotation {
+    id: number;
+    quotation_number: string;
+    subject?: string | null;
+    quotation_date: string;
+    due_date: string;
+    customer?: { id: number; name: string; email: string; avatar?: string | null } | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
+    subtotal: number;
+    tax_amount: number;
+    discount_amount: number;
+    total_amount: number;
+    payment_terms?: string | null;
+    items?: { id: number }[];
+    status: string;
+    display_status: string;
+    converted_to_invoice: boolean;
+    invoice_id?: number;
+    created_at: string;
+    updated_at: string;
 }
+
+interface QuotationFilters {
+    search: string;
+    status: string;
+    customer_id: string;
+    date_range: string;
+    date_from?: string;
+    date_to?: string;
+}
+
+interface QuotationStats {
+    total_count: number;
+    total_value: number;
+    overdue_count: number;
+    draft_count: number;
+    draft_value: number;
+    sent_count: number;
+    sent_value: number;
+    accepted_count: number;
+    accepted_value: number;
+    accepted_active_count: number;
+    rejected_count: number;
+    rejected_value: number;
+}
+
+const STATUS_COLUMNS = [
+    { key: 'draft', label: 'Draft', chip: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' },
+    { key: 'sent', label: 'Sent', chip: 'bg-blue-100 text-blue-700', dot: 'bg-blue-400' },
+    { key: 'accepted', label: 'Accepted', chip: 'bg-green-100 text-green-700', dot: 'bg-green-400' },
+    { key: 'rejected', label: 'Rejected', chip: 'bg-red-100 text-red-700', dot: 'bg-red-400' },
+] as const;
 
 export default function Index() {
     const { t } = useTranslation();
-    const { quotations, customers, auth } = usePage<QuotationIndexProps>().props;
-    const urlParams = new URLSearchParams(window.location.search);
+    const { quotations: rawQuotations, proposals: rawProposals, auth, customers, stats, boardData } = usePage<any>().props;
+    const quotations = rawQuotations || rawProposals;
+
+    const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
 
     const [filters, setFilters] = useState<QuotationFilters>({
         search: urlParams.get('search') || '',
-        customer_id: urlParams.get('customer_id') || '',
         status: urlParams.get('status') || '',
-        date_range: urlParams.get('date_range') || ''
+        customer_id: urlParams.get('customer_id') || '',
+        date_range: (() => {
+            const fromDate = urlParams.get('date_from');
+            const toDate = urlParams.get('date_to');
+            return (fromDate && toDate) ? `${fromDate} - ${toDate}` : '';
+        })()
     });
 
     const [perPage] = useState(urlParams.get('per_page') || '10');
     const [sortField, setSortField] = useState(urlParams.get('sort') || '');
-    const [sortDirection, setSortDirection] = useState(urlParams.get('direction') || 'asc');
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>(urlParams.get('view') as 'list' | 'grid' || 'list');
+    const [sortDirection, setSortDirection] = useState(urlParams.get('direction') || 'desc');
+
+    const [viewMode, setViewMode] = useState<'board' | 'list'>(urlParams.get('view') as 'board' | 'list' || 'list');
     const [showFilters, setShowFilters] = useState(false);
+    const [convertState, setConvertState] = useState({ isOpen: false, quotationId: null as number | null });
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useFlashMessages();
-
-    // signature
-    const SignatureButtons = ({ quotation }: { quotation: Quotation }) => {
-        const signatureButtons = usePageButtons('signatureBtn', { invoice: quotation });
-
-        return (
-            <>
-                {signatureButtons.map((button) => (
-                    <div key={button.id}>{button.component}</div>
-                ))}
-            </>
-        );
-    };
-
-    const pageButtons = usePageButtons('quotationBtn', 'Quotation data');
-    const googleDriveButtons = usePageButtons('googleDriveBtn', { module: 'Quotation', settingKey: 'GoogleDrive Quotation' });
-    const oneDriveButtons = usePageButtons('oneDriveBtn', { module: 'Quotation', settingKey: 'OneDrive Quotation' });
-    const dropboxBtn = usePageButtons('dropboxBtn', { module: 'Quotation', settingKey: 'Dropbox Quotation' });
-    const boxBtn = usePageButtons('boxBtn', { module: 'Quotation', settingKey: 'Box Quotation' });
-
+    const googleDriveButtons = usePageButtons('googleDriveBtn', { module: 'quotation', settingKey: 'GoogleDrive quotation' });
+    const oneDriveButtons = usePageButtons('oneDriveBtn', { module: 'quotation', settingKey: 'OneDrive quotation' });
+    const dropboxBtn = usePageButtons('dropboxBtn', { module: 'quotation', settingKey: 'Dropbox quotation' });
+    const boxBtn = usePageButtons('boxBtn', { module: 'quotation', settingKey: 'Box quotation' });
     const { deleteState, openDeleteDialog, closeDeleteDialog, confirmDelete } = useDeleteHandler({
         routeName: 'quotations.destroy',
-        defaultMessage: t('Are you sure you want to delete this quotation?')
+        defaultMessage: 'Are you sure you want to delete this sales quotation?'
     });
 
-    const [duplicateState, setDuplicateState] = useState({ isOpen: false, quotationId: null });
-
-    const openDuplicateDialog = (quotationId: number) => {
-        setDuplicateState({ isOpen: true, quotationId });
-    };
-
-    const closeDuplicateDialog = () => {
-        setDuplicateState({ isOpen: false, quotationId: null });
-    };
-
-    const confirmDuplicate = () => {
-        if (duplicateState.quotationId) {
-            router.post(route('quotations.duplicate', duplicateState.quotationId));
+    const getquotationStatusColor = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case 'draft': return 'bg-gray-100 text-gray-700';
+            case 'sent': return 'bg-blue-100 text-blue-700';
+            case 'accepted': return 'bg-green-100 text-green-700';
+            case 'rejected': return 'bg-red-100 text-red-700';
+            case 'expired': return 'bg-orange-100 text-orange-700';
+            default: return 'bg-gray-100 text-gray-700';
         }
-        closeDuplicateDialog();
     };
 
-    const [convertState, setConvertState] = useState({ isOpen: false, quotationId: null });
+    const navigate = (params: Record<string, any>) => {
+        router.get(route('quotations.index'), params, {
+            preserveState: false,
+            replace: true
+        });
+    };
+
+    const handleFilter = () => {
+        const filterParams: Record<string, any> = { ...filters };
+
+        if (filters.date_range) {
+            const [fromDate, toDate] = filters.date_range.split(' - ');
+            filterParams.date_from = fromDate;
+            filterParams.date_to = toDate;
+        }
+        delete filterParams.date_range;
+
+        navigate({ ...filterParams, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode });
+    };
+
+    const handleSort = (field: string) => {
+        const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
+        setSortField(field);
+        setSortDirection(direction);
+        navigate({ ...filters, per_page: perPage, sort: field, direction, view: viewMode });
+    };
+
+    const clearFilters = () => {
+        setFilters({ search: '', status: '', customer_id: '', date_range: '' });
+        navigate({ per_page: perPage, view: viewMode });
+    };
+
+    const handleViewChange = (view: 'board' | 'list') => {
+        setViewMode(view);
+        if (view === 'board') {
+            setFilters({ search: '', status: '', customer_id: '', date_range: '' });
+            setShowFilters(false);
+            navigate({ view: 'board' });
+        } else {
+            navigate({ ...filters, per_page: perPage, view: 'list' });
+        }
+    };
+
+    const filterByStatus = (status: string) => {
+        setFilters({ ...filters, status });
+        setViewMode('list');
+        navigate({ ...filters, status, per_page: perPage, view: 'list' });
+    };
+
+    const showAllquotations = () => {
+        setFilters({ search: '', status: '', customer_id: '', date_range: '' });
+        setViewMode('list');
+        navigate({ per_page: perPage, view: 'list' });
+    };
 
     const openConvertDialog = (quotationId: number) => {
         setConvertState({ isOpen: true, quotationId });
@@ -108,82 +196,211 @@ export default function Index() {
     const confirmConvert = () => {
         if (convertState.quotationId) {
             router.post(route('quotations.convert-to-invoice', convertState.quotationId));
+            closeConvertDialog();
         }
-        closeConvertDialog();
     };
 
-    const handleFilter = () => {
-        router.get(route('quotations.index'), { ...filters, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode }, {
-            preserveState: true,
-            replace: true
-        });
-    };
+    const canSeeActions = auth.user?.permissions?.some((p: string) => ['print-quotations', 'sent-quotations', 'accept-quotations', 'reject-quotations', 'view-quotations', 'edit-quotations', 'delete-quotations', 'convert-quotations'].includes(p));
 
-    const handleSort = (field: string) => {
-        const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
-        setSortField(field);
-        setSortDirection(direction);
-        router.get(route('quotations.index'), { ...filters, per_page: perPage, sort: field, direction, view: viewMode }, {
-            preserveState: true,
-            replace: true
-        });
-    };
+    const renderActions = (item: SalesQuotation) => (
+        <TooltipProvider>
+            {auth.user?.permissions?.includes('print-quotations') && (
+                <>
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(route('quotations.print', item.id) + '?print=1', '_blank')}
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                            >
+                                <Printer className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{t('Print quotation')}</p></TooltipContent>
+                    </Tooltip>
 
-    const clearFilters = () => {
-        setFilters({ search: '', customer_id: '', status: '', date_range: '' });
-        router.get(route('quotations.index'), { per_page: perPage, view: viewMode });
-    };
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    window.location.href = route('quotations.download-pdf', item.id);
+                                }}
+                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
+                            >
+                                <Download className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{t('Download PDF')}</p></TooltipContent>
+                    </Tooltip>
+                </>
+            )}
+
+            {auth.user?.permissions?.includes('sent-quotations') && item.status === 'draft' && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.sent', item.id))} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700">
+                            <Send className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('Send quotation')}</p></TooltipContent>
+                </Tooltip>
+            )}
+
+            {auth.user?.permissions?.includes('accept-quotations') && item.status === 'sent' && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.accept', item.id))} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
+                            <Check className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('Accept quotation')}</p></TooltipContent>
+                </Tooltip>
+            )}
+
+            {auth.user?.permissions?.includes('reject-quotations') && item.status === 'sent' && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.reject', item.id))} className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('Reject quotation')}</p></TooltipContent>
+                </Tooltip>
+            )}
+
+            {item.converted_to_invoice ? (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => router.get(route('sales-invoices.show', item.invoice_id))} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
+                            <Receipt className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('View Invoice')}</p></TooltipContent>
+                </Tooltip>
+            ) : (
+                auth.user?.permissions?.includes('convert-quotations') && item.status === 'accepted' && (
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={() => openConvertDialog(item.id)} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
+                                <RefreshCw className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{t('Convert to Invoice')}</p></TooltipContent>
+                    </Tooltip>
+                )
+            )}
+
+            {auth.user?.permissions?.includes('view-quotations') && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => router.get(route('quotations.show', item.id))} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('View')}</p></TooltipContent>
+                </Tooltip>
+            )}
+
+            {item.status === 'draft' && auth.user?.permissions?.includes('edit-quotations') && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => router.visit(route('quotations.edit', item.id))} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
+                            <EditIcon className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('Edit')}</p></TooltipContent>
+                </Tooltip>
+            )}
+
+            {item.status === 'draft' && auth.user?.permissions?.includes('delete-quotations') && !item.converted_to_invoice && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => openDeleteDialog(item.id)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('Delete')}</p></TooltipContent>
+                </Tooltip>
+            )}
+        </TooltipProvider>
+    );
 
     const tableColumns = [
         {
+            key: 'serial',
+            header: t('#'),
+            sortable: false,
+            className: 'w-12 text-center text-muted-foreground whitespace-nowrap',
+            render: (_: any, __: SalesQuotation, index: number) => {
+                const currentPage = quotations?.current_page || 1;
+                const perPageNum = Number(quotations?.per_page) || 10;
+                return (currentPage - 1) * perPageNum + index + 1;
+            }
+        },
+        {
             key: 'quotation_number',
-            header: t('Quotation Number'),
+            header: t('quotation Number'),
             sortable: true,
-            render: (value: string, quotation: Quotation) =>
+            className: 'whitespace-nowrap',
+            render: (value: string, quotation: SalesQuotation) =>
                 auth.user?.permissions?.includes('view-quotations') ? (
-                    <div>
-                        <span className="text-blue-600 hover:text-blue-700 cursor-pointer" onClick={() => router.get(route('quotations.show', quotation.id))}>{value}</span>
-                        {quotation.revision_number > 1 && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                v{quotation.revision_number}
-                            </span>
-                        )}
-                    </div>
-                ) : (
-                    <div>
+                    <span
+                        className="text-primary hover:underline font-medium text-xs cursor-pointer inline-block"
+                        onClick={() => router.get(route('quotations.show', quotation.id))}
+                    >
                         {value}
-                        {quotation.revision_number > 1 && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                v{quotation.revision_number}
-                            </span>
-                        )}
-                    </div>
+                    </span>
+                ) : (
+                    <span className="font-medium text-xs">{value}</span>
                 )
         },
         {
-            key: 'customer',
+            key: 'customer.name',
             header: t('Customer'),
-            render: (value: any) => value?.name || '-'
+            sortable: true,
+            className: 'min-w-[180px]',
+            render: (_: any, item: SalesQuotation) => {
+                const name = item.customer?.name || item.customer_name || '-';
+                const email = item.customer?.email || item.customer_email || '';
+
+                return (
+                    <div className="flex flex-col">
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{name}</span>
+                        {email && (
+                            <span className="text-xs text-muted-foreground">{email}</span>
+                        )}
+                    </div>
+                );
+            }
         },
         {
-            key: 'quotation_date',
-            header: t('Quotation Date'),
+            key: 'subject',
+            header: t('Subject'),
             sortable: true,
-            render: (value: string) => formatDate(value)
+            className: 'min-w-[220px]',
+            render: (value: string) => (
+                <span className="text-slate-800 dark:text-slate-200" title={value || '-'}>
+                    {value || '-'}
+                </span>
+            )
         },
         {
             key: 'due_date',
             header: t('Due Date'),
             sortable: true,
-            render: (value: string) => {
-                const isExpired = new Date(value) < new Date();
+            className: 'whitespace-nowrap',
+            render: (value: string, quotation: SalesQuotation) => {
+                const isOverdue = quotation.display_status === 'overdue';
                 return (
                     <div>
-                        <span className={isExpired ? 'text-red-600 font-medium' : ''}>
+                        <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
                             {formatDate(value)}
                         </span>
-                        {isExpired && (
-                            <div className="text-xs text-red-600 font-medium mt-1">
+                        {isOverdue && (
+                            <div className="text-xs text-red-600 font-medium mt-0.5">
                                 {t('Overdue')}
                             </div>
                         )}
@@ -192,240 +409,64 @@ export default function Index() {
             }
         },
         {
-            key: 'subtotal',
-            header: t('Subtotal'),
-            sortable: true,
-            render: (value: number) => formatCurrency(value)
-        },
-        {
-            key: 'tax_amount',
-            header: t('Tax'),
-            sortable: true,
-            render: (value: number) => formatCurrency(value)
-        },
-        {
             key: 'total_amount',
             header: t('Total Amount'),
             sortable: true,
+            className: 'whitespace-nowrap font-medium',
             render: (value: number) => formatCurrency(value)
         },
         {
             key: 'status',
             header: t('Status'),
             sortable: true,
+            className: 'whitespace-nowrap',
             render: (value: string) => (
-                <span className={getStatusBadgeClasses(value)}>
-                    {t(value.charAt(0).toUpperCase() + value.slice(1))}
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getquotationStatusColor(value)}`}>
+                    {value?.charAt(0).toUpperCase() + value?.slice(1)}
                 </span>
             )
         },
-        ...(auth.user?.permissions?.some((p: string) => ['view-quotations', 'edit-quotations', 'delete-quotations', 'sent-quotations', 'print-quotations'].includes(p)) ? [{
+        ...(canSeeActions ? [{
             key: 'actions',
             header: t('Actions'),
-            render: (_: any, quotation: Quotation) => (
-                <div className="flex gap-1">
-                    <TooltipProvider>
-                        <SignatureButtons quotation={quotation} />
-                        {auth.user?.permissions?.includes('print-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => window.open(route('quotations.print', quotation.id) + '?download=pdf', '_blank')}
-                                        className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
-                                    >
-                                        <Download className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Download PDF')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-
-                        {quotation.status === 'draft' && auth.user?.permissions?.includes('sent-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.post(route('quotations.sent', quotation.id))}
-                                        className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700"
-                                    >
-                                        <Send className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Sent Quotation')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {quotation.status === 'sent' && auth.user?.permissions?.includes('approve-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.post(route('quotations.approve', quotation.id))}
-                                        className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                    >
-                                        <Check className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Approve')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {quotation.status === 'sent' && auth.user?.permissions?.includes('reject-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.post(route('quotations.reject', quotation.id))}
-                                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Reject')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {quotation.converted_to_invoice ? (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.get(route('sales-invoices.show', quotation.invoice_id))}
-                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                                    >
-                                        <Receipt className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>{t('View Sales Invoice')}</p></TooltipContent>
-                            </Tooltip>
-                        ) : (
-                            auth.user?.permissions?.includes('convert-to-invoice-quotations') &&
-                            quotation.status === 'accepted' && (
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => openConvertDialog(quotation.id)}
-                                            className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700"
-                                        >
-                                            <RefreshCw className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{t('Convert to Invoice')}</p></TooltipContent>
-                                </Tooltip>
-                            )
-                        )}
-                        {auth.user?.permissions?.includes('duplicate-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openDuplicateDialog(quotation.id)}
-                                        className="h-8 w-8 p-0 text-gray-600 hover:text-gray-700"
-                                    >
-                                        <Copy className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Duplicate')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {quotation.status !== 'draft' && auth.user?.permissions?.includes('create-quotations-revision') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.post(route('quotations.create-revision', quotation.id))}
-                                        className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700"
-                                    >
-                                        <PlusCircle className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create Version')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {auth.user?.permissions?.includes('view-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.get(route('quotations.show', quotation.id))}
-                                        className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('View')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {quotation.status === 'draft' && auth.user?.permissions?.includes('edit-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.visit(route('quotations.edit', quotation.id))}
-                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                                    >
-                                        <EditIcon className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Edit')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-
-                        {quotation.status === 'draft' && auth.user?.permissions?.includes('delete-quotations') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openDeleteDialog(quotation.id)}
-                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Delete')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                    </TooltipProvider>
-                </div>
+            className: 'whitespace-nowrap text-right',
+            render: (_: any, item: SalesQuotation) => (
+                <div className="flex gap-1 justify-end">{renderActions(item)}</div>
             )
         }] : [])
     ];
 
+    const statCards = [
+        { key: '', label: t('Total quotations'), value: stats?.total_count ?? 0, sub: formatCurrency(stats?.total_value ?? 0), icon: FileText, iconClass: 'text-primary bg-primary/10' },
+        { key: 'draft', label: t('Draft'), value: stats?.draft_count ?? 0, sub: formatCurrency(stats?.draft_value ?? 0), icon: FilePlus2, iconClass: 'text-gray-600 bg-gray-100' },
+        { key: 'sent', label: t('Sent'), value: stats?.sent_count ?? 0, sub: formatCurrency(stats?.sent_value ?? 0), icon: Send, iconClass: 'text-blue-600 bg-blue-100' },
+        { key: 'accepted', label: t('Accepted'), value: stats?.accepted_count ?? 0, sub: formatCurrency(stats?.accepted_value ?? 0), icon: CheckCircle2, iconClass: 'text-green-600 bg-green-100' },
+        { key: 'rejected', label: t('Rejected'), value: stats?.rejected_count ?? 0, sub: formatCurrency(stats?.rejected_value ?? 0), icon: XCircle, iconClass: 'text-red-600 bg-red-100' },
+        { key: 'expired', label: t('Overdue'), value: stats?.overdue_count ?? 0, sub: t('Past due date'), icon: AlertTriangle, iconClass: 'text-orange-600 bg-orange-100' },
+    ];
+
+    const hasActiveFilters = !!(filters.search || filters.status || filters.customer_id || filters.date_range);
+
     return (
-        <AuthenticatedLayout
-            breadcrumbs={[{ label: t('Quotations') }]}
-            pageTitle={t('Manage Quotations')}
-            pageActions={
-                <div className="flex gap-2">
-                    <TooltipProvider>
+        <TooltipProvider>
+            {isDownloading && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                    <div className="bg-white p-6 rounded-lg shadow-lg">
+                        <div className="flex items-center space-x-3">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <AuthenticatedLayout
+                breadcrumbs={[
+                    { label: t('Sales Quotations') }
+                ]}
+                pageTitle={t('Manage Quotations')}
+                pageActions={
+                    <div className="flex gap-2">
                         {googleDriveButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
@@ -445,71 +486,125 @@ export default function Index() {
                                         <Plus className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
+                                <TooltipContent><p>{t('Create')}</p></TooltipContent>
                             </Tooltip>
                         )}
-                        {pageButtons.map((button) => (
-                            <div key={button.id}>{button.component}</div>
-                        ))}
-                    </TooltipProvider>
-                </div>
-            }
-        >
-            <Head title={t('Quotations')} />
+                    </div>
+                }
+            >
+                <Head title="Sales quotations" />
 
-            <Card className="shadow-sm">
-                <CardContent className="p-6 border-b bg-gray-50/50">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 max-w-md">
-                            <SearchInput
-                                value={filters.search || ''}
-                                onChange={(value) => setFilters({ ...filters, search: value })}
-                                onSearch={handleFilter}
-                                placeholder={t('Search by quotation number...')}
-                            />
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <ListGridToggle
-                                currentView={viewMode}
-                                routeName="quotations.index"
-                                filters={{ ...filters, per_page: perPage }}
-                            />
-                            <PerPageSelector
-                                routeName="quotations.index"
-                                filters={{ ...filters, view: viewMode }}
-                            />
-                            <div className="relative">
-                                <FilterButton
-                                    showFilters={showFilters}
-                                    onToggle={() => setShowFilters(!showFilters)}
-                                />
-                                {(() => {
-                                    const activeFilters = [filters.customer_id, filters.status, filters.date_range].filter(Boolean).length;
-                                    return activeFilters > 0 && (
-                                        <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                                            {activeFilters}
-                                        </span>
-                                    );
-                                })()}
+                {isDownloading && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                        <div className="bg-white p-6 rounded-lg shadow-lg">
+                            <div className="flex items-center space-x-3">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
                             </div>
                         </div>
                     </div>
-                </CardContent>
+                )}
 
-                {showFilters && (
-                    <CardContent className="p-6 bg-blue-50/30 border-b">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {auth.user?.permissions?.includes('manage-users') && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                    {statCards.map((card) => {
+                        const Icon = card.icon;
+                        const isActive = card.key !== '' && filters.status === card.key;
+                        return (
+                            <button
+                                key={card.label}
+                                type="button"
+                                onClick={() => card.key ? filterByStatus(card.key) : showAllquotations()}
+                                className={cn(
+                                    'group text-left rounded-lg border bg-white p-3 transition-shadow hover:shadow-md',
+                                    isActive ? 'border-primary ring-1 ring-primary' : 'border-gray-200'
+                                )}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className={cn(
+                                        'relative h-8 w-8 rounded-md flex items-center justify-center transition-transform duration-200 group-hover:scale-110',
+                                        card.iconClass
+                                    )}>
+                                        {card.key === 'expired' && card.value > 0 && (
+                                            <span className="absolute inset-0 rounded-md bg-orange-400/40 animate-ping" />
+                                        )}
+                                        <Icon className={cn('h-4 w-4 relative', card.key === 'expired' && card.value > 0 && 'animate-pulse')} />
+                                    </span>
+                                    <span className="text-xl font-bold text-gray-900">{card.value}</span>
+                                </div>
+                                <p className="text-xs font-medium text-gray-600 mt-2">{card.label}</p>
+                                <p className="text-xs text-gray-400 truncate">{card.sub}</p>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <Card className="shadow-sm">
+                    <CardContent className="p-6 border-b bg-gray-50/50">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 max-w-md">
+                                <SearchInput
+                                    value={filters.search}
+                                    onChange={(value) => setFilters({ ...filters, search: value })}
+                                    onSearch={handleFilter}
+                                    placeholder={t('Search quotations...')}
+                                />
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-row items-center border rounded-md">
+                                    <Button
+                                        variant={viewMode === 'board' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => handleViewChange('board')}
+                                        className="rounded-r-none"
+                                    >
+                                        <Columns3 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === 'list' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => handleViewChange('list')}
+                                        className="rounded-l-none"
+                                    >
+                                        <List className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                {viewMode === 'list' && (
+                                    <>
+                                        <PerPageSelector
+                                            routeName="quotations.index"
+                                            filters={{ ...filters, view: viewMode }}
+                                        />
+                                        <div className="relative">
+                                            <FilterButton
+                                                showFilters={showFilters}
+                                                onToggle={() => setShowFilters(!showFilters)}
+                                            />
+                                            {(() => {
+                                                const activeFilters = [filters.customer_id, filters.date_range, filters.status].filter(Boolean).length;
+                                                return activeFilters > 0 ? (
+                                                    <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                                        {activeFilters}
+                                                    </span>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+
+                    {viewMode === 'list' && showFilters && (
+                        <CardContent className="p-6 bg-blue-50/30 border-b">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:grid-cols-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer')}</label>
                                     <Select value={filters.customer_id} onValueChange={(value) => setFilters({ ...filters, customer_id: value })}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder={t('Filter by customer')} />
+                                            <SelectValue placeholder={t('All Customers')} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {customers.map((customer) => (
+                                            {customers?.map((customer) => (
                                                 <SelectItem key={customer.id} value={customer.id.toString()}>
                                                     {customer.name}
                                                 </SelectItem>
@@ -517,392 +612,266 @@ export default function Index() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
-                                <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('Filter by status')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="draft">{t('Draft')}</SelectItem>
-                                        <SelectItem value="sent">{t('Sent')}</SelectItem>
-                                        <SelectItem value="accepted">{t('Accepted')}</SelectItem>
-                                        <SelectItem value="rejected">{t('rejected')}</SelectItem>
-                                        <SelectItem value="expired">{t('Overdue')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Range')}</label>
+                                    <DateRangePicker
+                                        value={filters.date_range}
+                                        onChange={(value) => setFilters({ ...filters, date_range: value })}
+                                        placeholder={t('Select date range')}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
+                                    <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('All Status')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="draft">{t('Draft')}</SelectItem>
+                                            <SelectItem value="sent">{t('Sent')}</SelectItem>
+                                            <SelectItem value="accepted">{t('Accepted')}</SelectItem>
+                                            <SelectItem value="rejected">{t('Rejected')}</SelectItem>
+                                            <SelectItem value="expired">{t('Expired')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-end gap-2">
+                                    <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
+                                    <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Range')}</label>
-                                <DateRangePicker
-                                    value={filters.date_range}
-                                    onChange={(value) => setFilters({ ...filters, date_range: value })}
-                                    placeholder={t('Select date range')}
-                                />
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
-                                <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                )}
+                        </CardContent>
+                    )}
 
-                <CardContent className="p-0">
-                    {viewMode === 'list' ? (
-                        <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
-                            <div className="min-w-[800px]">
+                    <CardContent className="p-0">
+                        {viewMode === 'list' ? (
+                            <div className="overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent max-h-[70vh] rounded-none w-full">
                                 <DataTable
-                                    data={quotations.data}
+                                    data={quotations?.data || []}
                                     columns={tableColumns}
                                     onSort={handleSort}
                                     sortKey={sortField}
                                     sortDirection={sortDirection as 'asc' | 'desc'}
-                                    className="rounded-none"
+                                    className="rounded-none w-full min-w-full"
                                     emptyState={
                                         <NoRecordsFound
-                                            icon={Receipt}
-                                            title={t('No quotations found')}
-                                            description={t('Get started by creating your first quotation.')}
-                                            hasFilters={!!(filters.search || filters.customer_id || filters.status)}
+                                            icon={FileText}
+                                            title="No sales quotations found"
+                                            description="Get started by creating your first sales quotation."
+                                            hasFilters={hasActiveFilters}
                                             onClearFilters={clearFilters}
                                             createPermission="create-quotations"
                                             onCreateClick={() => router.visit(route('quotations.create'))}
-                                            createButtonText={t('Create Quotation')}
+                                            createButtonText="Create Sales quotation"
                                             className="h-auto"
                                         />
                                     }
                                 />
                             </div>
-                        </div>
-                    ) : (
-                        <div className="overflow-auto max-h-[70vh] p-4">
-                            {quotations.data.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                                    {quotations.data.map((quotation) => (
-                                        <Card key={quotation.id} className="border border-gray-200 hover:shadow-md transition-shadow flex flex-col h-full">
-                                            <div className="p-4 flex flex-col flex-1">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    {auth.user?.permissions?.includes('view-quotations') ? (
+                        ) : (
+                            <div className="p-4">
+                                {(stats?.total_count ?? 0) > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {STATUS_COLUMNS.map((column) => {
+                                            const items = boardData?.[column.key] || [];
+                                            const statKey = column.key === 'accepted' ? 'accepted_active_count' : `${column.key}_count`;
+                                            const totalForColumn = (stats as any)?.[statKey] ?? items.length;
+                                            const hasMore = totalForColumn > items.length;
+                                            return (
+                                                <div key={column.key} className="bg-gray-50/60 border border-gray-200 rounded-lg">
+                                                    <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200">
                                                         <div className="flex items-center gap-2">
-                                                            <h3 className="font-semibold text-base text-blue-600 hover:text-blue-700 cursor-pointer" onClick={() => router.get(route('quotations.show', quotation.id))}>{quotation.quotation_number}</h3>
-                                                            {quotation.revision_number > 1 && (
-                                                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                                                    v{quotation.revision_number}
-                                                                </span>
-                                                            )}
+                                                            <span className={cn('h-2 w-2 rounded-full', column.dot)} />
+                                                            <h3 className="text-sm font-semibold text-gray-800">{t(column.label)}</h3>
+                                                            <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium', column.chip)}>
+                                                                {totalForColumn}
+                                                            </span>
                                                         </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2">
-                                                            <h3 className="font-semibold text-base text-gray-900">{quotation.quotation_number}</h3>
-                                                            {quotation.revision_number > 1 && (
-                                                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                                                    v{quotation.revision_number}
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => filterByStatus(column.key)}
+                                                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                                        >
+                                                            {t('View all')}
+                                                        </button>
+                                                    </div>
+                                                    {hasMore && (
+                                                        <p className="text-xs text-gray-400 px-3 pt-2">
+                                                            {t('Showing latest')} {items.length} {t('of')} {totalForColumn}
+                                                        </p>
                                                     )}
-                                                    <span className={getStatusBadgeClasses(quotation.status)}>
-                                                        {t(quotation.status.charAt(0).toUpperCase() + quotation.status.slice(1))}
-                                                    </span>
-                                                </div>
+                                                    <div className="space-y-2 p-2 min-h-[100px] max-h-[calc(100vh-380px)] overflow-y-auto">
+                                                        {items.map((quotation) => {
+                                                            const initial = (quotation.customer?.name || '?').charAt(0).toUpperCase();
+                                                            return (
+                                                                <Card key={quotation.id} className="border border-gray-200 rounded-lg bg-white hover:shadow-md hover:border-gray-300 transition-all">
+                                                                    <div className="p-3">
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            {auth.user?.permissions?.includes('view-quotations') ? (
+                                                                                <h4 className="font-semibold text-sm text-blue-600 hover:text-blue-700 cursor-pointer truncate" onClick={() => router.get(route('quotations.show', quotation.id))}>
+                                                                                    {quotation.quotation_number}
+                                                                                </h4>
+                                                                            ) : (
+                                                                                <h4 className="font-semibold text-sm text-gray-900 truncate">{quotation.quotation_number}</h4>
+                                                                            )}
+                                                                            <span className="text-sm font-bold text-gray-900 shrink-0">{formatCurrency(quotation.total_amount)}</span>
+                                                                        </div>
 
-                                                <div className="space-y-3 mb-4">
-                                                    <div>
-                                                        <p className="text-xs font-medium text-gray-600 mb-1">{t('Customer')}</p>
-                                                        <p className="text-sm text-gray-900 truncate font-medium">{quotation.customer?.name}</p>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div>
-                                                            <p className="text-xs font-medium text-gray-600 mb-1">{t('Quotation Date')}</p>
-                                                            <p className="text-xs text-gray-900">{formatDate(quotation.quotation_date)}</p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-medium text-gray-600 mb-1">{t('Due Date')}</p>
-                                                            <p className={`text-xs ${new Date(quotation.due_date) < new Date() ? 'text-red-600 font-medium' : 'text-gray-900'}`}>
-                                                                {formatDate(quotation.due_date)}
-                                                                {new Date(quotation.due_date) < new Date() && (
-                                                                    <span className="block text-red-600 font-medium">{t('Overdue')}</span>
-                                                                )}
-                                                            </p>
-                                                        </div>
-                                                    </div>
+                                                                        <div className="flex items-center gap-1.5 mt-2.5">
+                                                                            <Avatar className="h-5 w-5 shrink-0">
+                                                                                {quotation.customer?.avatar && (
+                                                                                    <AvatarImage src={getImagePath(quotation.customer.avatar)} alt={quotation.customer.name} />
+                                                                                )}
+                                                                                <AvatarFallback className="bg-gray-100 text-gray-600 text-[10px] font-semibold">
+                                                                                    {initial}
+                                                                                </AvatarFallback>
+                                                                            </Avatar>
+                                                                            <span className="text-xs text-gray-600 truncate" title={quotation.customer?.email || ''}>{quotation.customer?.name || '-'}</span>
+                                                                        </div>
 
-                                                    <div className="bg-gray-50 rounded-lg p-3">
-                                                        <div className="grid grid-cols-2 gap-2 text-xs">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-gray-600">{t('Subtotal')}:</span>
-                                                                <span className="font-medium">{formatCurrency(quotation.subtotal)}</span>
+                                                                        <div className="flex items-center gap-3 flex-wrap mt-2 text-[11px] text-gray-500">
+                                                                            <span className="flex items-center gap-1">
+                                                                                <CalendarDays className="h-3 w-3" /> {formatDate(quotation.quotation_date)}
+                                                                            </span>
+                                                                            {!!quotation.items?.length && (
+                                                                                <span className="flex items-center gap-1">
+                                                                                    <Package className="h-3 w-3" /> {quotation.items.length} {quotation.items.length === 1 ? t('item') : t('items')}
+                                                                                </span>
+                                                                            )}
+                                                                            {quotation.payment_terms && (
+                                                                                <span className="flex items-center gap-1 truncate">
+                                                                                    <CreditCard className="h-3 w-3" /> {quotation.payment_terms}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="flex items-center justify-between mt-2">
+                                                                            <span className="text-xs text-gray-400">{t('Due')} {formatDate(quotation.due_date)}</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                {quotation.display_status === 'overdue' && (
+                                                                                    <span className="flex items-center gap-1 text-[10px] font-medium text-red-600">
+                                                                                        <AlertTriangle className="h-3 w-3" /> {t('Overdue')}
+                                                                                    </span>
+                                                                                )}
+                                                                                {quotation.converted_to_invoice && (
+                                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                                                                                        {t('Invoiced')}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {quotation.status === 'draft' && (() => {
+                                                                            const daysSinceCreated = differenceInDays(new Date(), new Date(quotation.created_at));
+                                                                            if (daysSinceCreated < 3) return null;
+                                                                            return (
+                                                                                <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200">
+                                                                                    <span className="flex items-center gap-1 text-[11px] text-amber-700">
+                                                                                        <Lightbulb className="h-3 w-3 shrink-0" />
+                                                                                        {t('Drafted')} {daysSinceCreated}{t('d ago')} — {t('send it?')}
+                                                                                    </span>
+                                                                                    {auth.user?.permissions?.includes('sent-quotations') && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => router.post(route('quotations.sent', quotation.id))}
+                                                                                            className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline shrink-0"
+                                                                                        >
+                                                                                            {t('Send now')}
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+
+                                                                        {quotation.status === 'accepted' && !quotation.converted_to_invoice && (() => {
+                                                                            const daysSinceAccepted = differenceInDays(new Date(), new Date(quotation.updated_at));
+                                                                            if (daysSinceAccepted < 2) return null;
+                                                                            return (
+                                                                                <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-green-50 border border-green-200">
+                                                                                    <span className="flex items-center gap-1 text-[11px] text-green-700">
+                                                                                        <Clock className="h-3 w-3 shrink-0" />
+                                                                                        {t('Accepted')} {daysSinceAccepted}{t('d ago')} — {t('convert to invoice?')}
+                                                                                    </span>
+                                                                                    {auth.user?.permissions?.includes('convert-quotations') && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => openConvertDialog(quotation.id)}
+                                                                                            className="text-[11px] font-semibold text-green-700 hover:text-green-900 underline shrink-0"
+                                                                                        >
+                                                                                            {t('Convert now')}
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+
+                                                                        {canSeeActions && (
+                                                                            <div className="flex items-center justify-end gap-0.5 mt-2.5 pt-2.5 border-t border-gray-100">
+                                                                                {renderActions(quotation)}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </Card>
+                                                            );
+                                                        })}
+
+                                                        {items.length === 0 && (
+                                                            <div className="text-center py-8 text-gray-400 border border-dashed rounded-lg">
+                                                                <p className="text-xs">{t('No quotations')}</p>
                                                             </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-gray-600">{t('Tax')}:</span>
-                                                                <span className="font-medium">{formatCurrency(quotation.tax_amount)}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="border-t mt-2 pt-2">
-                                                            <div className="flex justify-between items-center">
-                                                                <span className="text-sm font-semibold text-gray-900">{t('Total Amount')}</span>
-                                                                <span className="text-lg font-bold text-gray-900">{formatCurrency(quotation.total_amount)}</span>
-                                                            </div>
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <NoRecordsFound
+                                        icon={FileText}
+                                        title="No sales quotations found"
+                                        description="Get started by creating your first sales quotation."
+                                        hasFilters={hasActiveFilters}
+                                        onClearFilters={clearFilters}
+                                        createPermission="create-quotations"
+                                        onCreateClick={() => router.visit(route('quotations.create'))}
+                                        createButtonText="Create Sales quotation"
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
 
-                                                <div className="flex justify-between pt-3 border-t mt-auto">
-                                                    <div className="flex gap-1">
-                                                        <TooltipProvider>
-                                                            <SignatureButtons quotation={quotation} />
-                                                            {auth.user?.permissions?.includes('print-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => window.open(route('quotations.print', quotation.id) + '?download=pdf', '_blank')}
-                                                                            className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
-                                                                        >
-                                                                            <Download className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Download PDF')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {auth.user?.permissions?.includes('view-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.get(route('quotations.show', quotation.id))}
-                                                                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                                                        >
-                                                                            <Eye className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('View')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                        </TooltipProvider>
-                                                    </div>
-                                                    <div className="flex gap-1">
-                                                        <TooltipProvider>
-                                                            {quotation.status === 'draft' && auth.user?.permissions?.includes('sent-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.post(route('quotations.sent', quotation.id))}
-                                                                            className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700"
-                                                                        >
-                                                                            <Send className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Sent Quotation')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {quotation.status === 'sent' && auth.user?.permissions?.includes('approve-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.post(route('quotations.approve', quotation.id))}
-                                                                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                                                        >
-                                                                            <Check className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Approve')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {quotation.status === 'sent' && auth.user?.permissions?.includes('reject-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.post(route('quotations.reject', quotation.id))}
-                                                                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                                                                        >
-                                                                            <X className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Reject')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {quotation.converted_to_invoice ? (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.get(route('sales-invoices.show', quotation.invoice_id))}
-                                                                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                                                                        >
-                                                                            <Receipt className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent><p>{t('View Sales Invoice')}</p></TooltipContent>
-                                                                </Tooltip>
-                                                            ) : (
-                                                                auth.user?.permissions?.includes('convert-to-invoice-quotations') &&
-                                                                quotation.status === 'accepted' && (
-                                                                    <Tooltip delayDuration={0}>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                onClick={() => openConvertDialog(quotation.id)}
-                                                                                className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700"
-                                                                            >
-                                                                                <RefreshCw className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent><p>{t('Convert to Invoice')}</p></TooltipContent>
-                                                                    </Tooltip>
-                                                                )
-                                                            )}
-                                                             {auth.user?.permissions?.includes('duplicate-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.post(route('quotations.duplicate', quotation.id))}
-                                                                            className="h-8 w-8 p-0 text-gray-600 hover:text-gray-700"
-                                                                        >
-                                                                            <Copy className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Duplicate')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {quotation.status !== 'draft' && auth.user?.permissions?.includes('create-quotations-revision') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.post(route('quotations.create-revision', quotation.id))}
-                                                                            className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700"
-                                                                        >
-                                                                            <PlusCircle className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Create Version')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {quotation.status === 'draft' && auth.user?.permissions?.includes('edit-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => router.visit(route('quotations.edit', quotation.id))}
-                                                                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                                                                        >
-                                                                            <EditIcon className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Edit')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-
-                                                            {quotation.status === 'draft' && auth.user?.permissions?.includes('delete-quotations') && (
-                                                                <Tooltip delayDuration={0}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => openDeleteDialog(quotation.id)}
-                                                                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{t('Delete')}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                        </TooltipProvider>
-                                                    </div>
-
-                                                </div>
-                                            </div>
-                                        </Card>
-                                    ))}
-                                </div>
-                            ) : (
-                                <NoRecordsFound
-                                    icon={Receipt}
-                                    title={t('No quotations found')}
-                                    description={t('Get started by creating your first quotation.')}
-                                    hasFilters={!!(filters.search || filters.customer_id || filters.status)}
-                                    onClearFilters={clearFilters}
-                                    createPermission="create-quotations"
-                                    onCreateClick={() => router.visit(route('quotations.create'))}
-                                    createButtonText={t('Create Quotation')}
-                                />
-                            )}
-                        </div>
+                    {viewMode === 'list' && (
+                        <CardContent className="px-4 py-2 border-t bg-gray-50/30">
+                            <Pagination
+                                data={{ ...quotations, ...quotations?.meta }}
+                                routeName="quotations.index"
+                                filters={{ ...filters, per_page: perPage, view: viewMode }}
+                            />
+                        </CardContent>
                     )}
-                </CardContent>
+                </Card>
 
-                <CardContent className="px-4 py-2 border-t bg-gray-50/30">
-                    <Pagination
-                        data={{ ...quotations, ...quotations.meta }}
-                        routeName="quotations.index"
-                        filters={{ ...filters, per_page: perPage, view: viewMode }}
-                    />
-                </CardContent>
-            </Card>
+                <ConfirmationDialog
+                    open={deleteState.isOpen}
+                    onOpenChange={closeDeleteDialog}
+                    title={t('Delete Quotation')}
+                    message={deleteState.message}
+                    confirmText={t('Delete')}
+                    onConfirm={confirmDelete}
+                    variant="destructive"
+                />
 
-            <ConfirmationDialog
-                open={deleteState.isOpen}
-                onOpenChange={closeDeleteDialog}
-                title={t('Delete Quotation')}
-                message={deleteState.message}
-                confirmText={t('Delete')}
-                onConfirm={confirmDelete}
-                variant="destructive"
-            />
+                <ConfirmationDialog
+                    open={convertState.isOpen}
+                    onOpenChange={closeConvertDialog}
+                    title={t('Convert to Invoice')}
+                    message={t('Are you sure you want to convert this quotation to an invoice?')}
+                    confirmText={t('Convert')}
+                    onConfirm={confirmConvert}
+                />
 
-            <ConfirmationDialog
-                open={convertState.isOpen}
-                onOpenChange={closeConvertDialog}
-                title={t('Convert to Invoice')}
-                message={t('Are you sure you want to convert this quotation to invoice?')}
-                confirmText={t('Convert')}
-                onConfirm={confirmConvert}
-            />
-
-            <ConfirmationDialog
-                open={duplicateState.isOpen}
-                onOpenChange={closeDuplicateDialog}
-                title={t('Duplicate Quotation')}
-                message={t('Are you sure you want to duplicate this quotation?')}
-                confirmText={t('Duplicate')}
-                onConfirm={confirmDuplicate}
-            />
-        </AuthenticatedLayout>
+            </AuthenticatedLayout>
+        </TooltipProvider>
     );
 }

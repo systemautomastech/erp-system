@@ -183,7 +183,7 @@ export default function View() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {auth.user?.permissions?.includes('convert-sales-proposals') && proposal.status === 'accepted' && !proposal.converted_to_invoice && (
+                                            {auth.user?.permissions?.includes('convert-sales-proposals') && proposal.status === 'accepted' && !proposal.converted_to_quotation && !proposal.converted_to_invoice && (
                                                 <TooltipProvider>
                                                     <Tooltip delayDuration={0}>
                                                         <TooltipTrigger asChild>
@@ -196,11 +196,11 @@ export default function View() {
                                                                 })}
                                                             >
                                                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                                                {t('Convert to Invoice')}
+                                                                {t('Convert to Quotation')}
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                            <p>{t('Convert this proposal to an invoice')}</p>
+                                                            <p>{t('Convert this proposal to a quotation')}</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>

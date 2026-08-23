@@ -45,6 +45,8 @@ interface SalesProposal {
     items?: { id: number }[];
     status: string;
     display_status: string;
+    converted_to_quotation?: boolean;
+    quotation_id?: number;
     converted_to_invoice: boolean;
     invoice_id?: number;
     created_at: string;
@@ -276,14 +278,27 @@ export default function Index() {
                 </Tooltip>
             )}
 
-            {item.converted_to_invoice ? (
+            {item.converted_to_quotation || item.converted_to_invoice ? (
                 <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={() => router.get(route('sales-invoices.show', item.invoice_id))} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
-                            <Receipt className="h-4 w-4" />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                if (item.quotation_id) {
+                                    router.get(route('quotations.show', item.quotation_id));
+                                } else if (item.invoice_id) {
+                                    router.get(route('sales-invoices.show', item.invoice_id));
+                                } else {
+                                    router.get(route('quotations.index'));
+                                }
+                            }}
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                        >
+                            <FileText className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent><p>{t('View Invoice')}</p></TooltipContent>
+                    <TooltipContent><p>{item.quotation_id ? t('View Quotation') : t('View Invoice')}</p></TooltipContent>
                 </Tooltip>
             ) : (
                 auth.user?.permissions?.includes('convert-sales-proposals') && item.status === 'accepted' && (
@@ -293,7 +308,7 @@ export default function Index() {
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent><p>{t('Convert to Invoice')}</p></TooltipContent>
+                        <TooltipContent><p>{t('Convert to Quotation')}</p></TooltipContent>
                     </Tooltip>
                 )
             )}
@@ -758,11 +773,11 @@ export default function Index() {
                                                                                         <AlertTriangle className="h-3 w-3" /> {t('Overdue')}
                                                                                     </span>
                                                                                 )}
-                                                                                {proposal.converted_to_invoice && (
-                                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
-                                                                                        {t('Invoiced')}
-                                                                                    </span>
-                                                                                )}
+                                                                                {(proposal.converted_to_quotation || proposal.converted_to_invoice) && (
+                                                                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                                                                                         {proposal.converted_to_quotation ? t('Quotation Created') : t('Invoiced')}
+                                                                                     </span>
+                                                                                 )}
                                                                             </div>
                                                                         </div>
 
@@ -773,7 +788,7 @@ export default function Index() {
                                                                                 <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200">
                                                                                     <span className="flex items-center gap-1 text-[11px] text-amber-700">
                                                                                         <Lightbulb className="h-3 w-3 shrink-0" />
-                                                                                        {t('Drafted')} {daysSinceCreated}{t('d ago')} — {t('send it?')}
+                                                                                        {t('Draft for')} {daysSinceCreated}{t('d')}
                                                                                     </span>
                                                                                     {auth.user?.permissions?.includes('sent-sales-proposals') && (
                                                                                         <button
@@ -788,14 +803,14 @@ export default function Index() {
                                                                             );
                                                                         })()}
 
-                                                                        {proposal.status === 'accepted' && !proposal.converted_to_invoice && (() => {
+                                                                        {proposal.status === 'accepted' && !proposal.converted_to_quotation && !proposal.converted_to_invoice && (() => {
                                                                             const daysSinceAccepted = differenceInDays(new Date(), new Date(proposal.updated_at));
                                                                             if (daysSinceAccepted < 2) return null;
                                                                             return (
                                                                                 <div className="flex items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-md bg-green-50 border border-green-200">
                                                                                     <span className="flex items-center gap-1 text-[11px] text-green-700">
                                                                                         <Clock className="h-3 w-3 shrink-0" />
-                                                                                        {t('Accepted')} {daysSinceAccepted}{t('d ago')} — {t('convert to invoice?')}
+                                                                                        {t('Accepted')} {daysSinceAccepted}{t('d ago')} — {t('convert to quotation?')}
                                                                                     </span>
                                                                                     {auth.user?.permissions?.includes('convert-sales-proposals') && (
                                                                                         <button
@@ -833,8 +848,8 @@ export default function Index() {
                                 ) : (
                                     <NoRecordsFound
                                         icon={FileText}
-                                        title="No sales proposals found"
-                                        description="Get started by creating your first sales proposal."
+                                        title={t('No proposals found')}
+                                        description={t('No proposals matched your current filter criteria.')}
                                         hasFilters={hasActiveFilters}
                                         onClearFilters={clearFilters}
                                         createPermission="create-sales-proposals"
@@ -870,8 +885,8 @@ export default function Index() {
                 <ConfirmationDialog
                     open={convertState.isOpen}
                     onOpenChange={closeConvertDialog}
-                    title={t('Convert to Invoice')}
-                    message={t('Are you sure you want to convert this proposal to an invoice?')}
+                    title={t('Convert to Quotation')}
+                    message={t('Are you sure you want to convert this proposal to a quotation?')}
                     confirmText={t('Convert')}
                     onConfirm={confirmConvert}
                 />
