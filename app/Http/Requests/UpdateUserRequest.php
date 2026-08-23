@@ -14,6 +14,7 @@ class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         $userId = $this->route('user')->id;
+        $typeRule = auth()->user()->type === 'superadmin' ? 'nullable' : 'nullable|exists:roles,id';
 
         return [
             'name' => 'required|string|max:255',
@@ -23,6 +24,7 @@ class UpdateUserRequest extends FormRequest
                 'unique:users,email,' . $userId . ',id,created_by,' . creatorId()
             ],
             'mobile_no' => 'nullable|string|regex:/^\+?\d{10,16}$/',
+            'type' => $typeRule,
             'is_enable_login' => 'boolean',
         ];
     }

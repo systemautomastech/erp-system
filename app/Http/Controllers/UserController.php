@@ -18,6 +18,7 @@ use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
+use App\Services\UserDeletionService;
 use Illuminate\Http\Request;
 
 class UserController extends Controller
@@ -26,6 +27,7 @@ class UserController extends Controller
     {
         if(Auth::user()->can('manage-users')){
             $users = User::query()
+                ->with('roles')
                 ->where(function($q) {
                     if(Auth::user()->can('manage-any-users')) {
                         $q->where('created_by', creatorId());
@@ -148,6 +150,22 @@ class UserController extends Controller
             $user->email = $validated['email'];
             $user->mobile_no = $validated['mobile_no'];
             $user->is_enable_login = $validated['is_enable_login'];
+
+            if (!empty($validated['type'])) {
+                $role = Role::find($validated['type']);
+                if ($role) {
+                    // First remove existing roles
+                    $user->roles()->detach();
+
+                    // Then assign the new role
+                    $user->assignRole($role);
+
+                    if (Auth::user()->type !== 'superadmin') {
+                        $user->type = $role->name;
+                    }
+                }
+            }
+
             $user->save();
 
             return back()->with('success', __('The user details are updated successfully.'));
@@ -171,10 +189,10 @@ class UserController extends Controller
         }
     }
 
-    public function destroy(User $user)
+    public function destroy(User $user, UserDeletionService $userDeletionService)
     {
         if(Auth::user()->can('delete-users')){
-            $user->delete();
+            $userDeletionService->deleteUser($user);
 
             return back()->with('success', __('The user has been deleted.'));
         }

@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Schema;
+use App\Services\UserDeletionService;
 
 class AuthApiController extends Controller
 {
@@ -187,11 +188,11 @@ class AuthApiController extends Controller
         }
     }
 
-    public function deleteAccount(Request $request)
+    public function deleteAccount(Request $request, UserDeletionService $userDeletionService)
     {
         try {
             $user = $request->user();
-            $user->delete();
+            $userDeletionService->deleteUser($user);
 
             return $this->successResponse(null, 'Account deleted successfully');
         } catch (\Exception $e) {

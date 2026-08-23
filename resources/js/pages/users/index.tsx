@@ -87,15 +87,15 @@ export default function Index() {
     useFlashMessages();
 
     // Add hook here
-    const pageButtons = usePageButtons('userBtn','Test data');
+    const pageButtons = usePageButtons('userBtn', 'Test data');
 
     const { deleteState, openDeleteDialog, closeDeleteDialog, confirmDelete } = useDeleteHandler({
         routeName: 'users.destroy',
-        defaultMessage: t('Are you sure you want to delete this user?')
+        defaultMessage: t('Are you sure you want to delete this user? All associated data (employee, client, and vendor) will also be deleted, but financial data will be preserved.')
     });
 
     const handleFilter = () => {
-        router.get(route('users.index'), {...filters, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode}, {
+        router.get(route('users.index'), { ...filters, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode }, {
             preserveState: true,
             replace: true
         });
@@ -105,7 +105,7 @@ export default function Index() {
         const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
         setSortField(field);
         setSortDirection(direction);
-        router.get(route('users.index'), {...filters, per_page: perPage, sort: field, direction, view: viewMode}, {
+        router.get(route('users.index'), { ...filters, per_page: perPage, sort: field, direction, view: viewMode }, {
             preserveState: true,
             replace: true
         });
@@ -113,7 +113,7 @@ export default function Index() {
 
     const clearFilters = () => {
         setFilters({ name: '', email: '', role: '', is_enable_login: '' });
-        router.get(route('users.index'), {per_page: perPage, view: viewMode});
+        router.get(route('users.index'), { per_page: perPage, view: viewMode });
     };
 
     const openModal = (mode: 'add' | 'edit' | 'change-password' | 'upgrade-plan', data: User | null = null) => {
@@ -188,9 +188,8 @@ export default function Index() {
             header: t('Login Status'),
             sortable: true,
             render: (value: boolean) => (
-                <span className={`px-2 py-1 rounded-full text-sm ${
-                    value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
+                <span className={`px-2 py-1 rounded-full text-sm ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
                     {value ? t('Enabled') : t('Disabled')}
                 </span>
             )
@@ -213,7 +212,7 @@ export default function Index() {
                         </Tooltip>
                     ) : (
                         <TooltipProvider>
-                        {auth.user?.permissions?.includes('impersonate-users') && user.id !== auth.user?.id && (
+                            {auth.user?.permissions?.includes('impersonate-users') && user.id !== auth.user?.id && (
                                 <Tooltip delayDuration={0}>
                                     <TooltipTrigger asChild>
                                         <Button
@@ -304,7 +303,7 @@ export default function Index() {
                                         <p>{t('Delete')}</p>
                                     </TooltipContent>
                                 </Tooltip>
-                            )}               
+                            )}
                         </TooltipProvider>
                     )}
                 </div>
@@ -314,7 +313,7 @@ export default function Index() {
 
     return (
         <AuthenticatedLayout
-            breadcrumbs={[{label: t('Users')}]}
+            breadcrumbs={[{ label: t('Users') }]}
             pageTitle={t('Manage Users')}
             pageActions={
                 <div className="flex gap-2">
@@ -360,7 +359,7 @@ export default function Index() {
                         <div className="flex-1 max-w-md">
                             <SearchInput
                                 value={filters.name}
-                                onChange={(value) => setFilters({...filters, name: value})}
+                                onChange={(value) => setFilters({ ...filters, name: value })}
                                 onSearch={handleFilter}
                                 placeholder={t('Search users...')}
                             />
@@ -369,11 +368,11 @@ export default function Index() {
                             <ListGridToggle
                                 currentView={viewMode}
                                 routeName="users.index"
-                                filters={{...filters, per_page: perPage}}
+                                filters={{ ...filters, per_page: perPage }}
                             />
                             <PerPageSelector
                                 routeName="users.index"
-                                filters={{...filters, view: viewMode}}
+                                filters={{ ...filters, view: viewMode }}
                             />
                             <div className="relative">
                                 <FilterButton
@@ -402,13 +401,13 @@ export default function Index() {
                                 <Input
                                     placeholder={t('Filter by email')}
                                     value={filters.email}
-                                    onChange={(e) => setFilters({...filters, email: e.target.value})}
+                                    onChange={(e) => setFilters({ ...filters, email: e.target.value })}
                                 />
                             </div>
                             {auth.user?.permissions?.includes('manage-roles') && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('Role')}</label>
-                                    <Select value={filters.role} onValueChange={(value) => setFilters({...filters, role: value})}>
+                                    <Select value={filters.role} onValueChange={(value) => setFilters({ ...filters, role: value })}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('Filter by role')} />
                                         </SelectTrigger>
@@ -424,7 +423,7 @@ export default function Index() {
                             )}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">{t('Login Status')}</label>
-                                <Select value={filters.is_enable_login} onValueChange={(value) => setFilters({...filters, is_enable_login: value})}>
+                                <Select value={filters.is_enable_login} onValueChange={(value) => setFilters({ ...filters, is_enable_login: value })}>
                                     <SelectTrigger>
                                         <SelectValue placeholder={t('Filter by login status')} />
                                     </SelectTrigger>
@@ -447,27 +446,27 @@ export default function Index() {
                     {viewMode === 'list' ? (
                         <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
                             <div className="min-w-[800px]">
-                            <DataTable
-                                data={users.data}
-                                columns={tableColumns}
-                                onSort={handleSort}
-                                sortKey={sortField}
-                                sortDirection={sortDirection as 'asc' | 'desc'}
-                                className="rounded-none"
-                                emptyState={
-                                    <NoRecordsFound
-                                        icon={UsersIcon}
-                                        title={t('No users found')}
-                                        description={t('Get started by creating your first user.')}
-                                        hasFilters={!!(filters.name || filters.email || filters.role || filters.is_enable_login)}
-                                        onClearFilters={clearFilters}
-                                        createPermission="create-users"
-                                        onCreateClick={() => openModal('add')}
-                                        createButtonText={t('Create User')}
-                                        className="h-auto"
-                                    />
-                                }
-                            />
+                                <DataTable
+                                    data={users.data}
+                                    columns={tableColumns}
+                                    onSort={handleSort}
+                                    sortKey={sortField}
+                                    sortDirection={sortDirection as 'asc' | 'desc'}
+                                    className="rounded-none"
+                                    emptyState={
+                                        <NoRecordsFound
+                                            icon={UsersIcon}
+                                            title={t('No users found')}
+                                            description={t('Get started by creating your first user.')}
+                                            hasFilters={!!(filters.name || filters.email || filters.role || filters.is_enable_login)}
+                                            onClearFilters={clearFilters}
+                                            createPermission="create-users"
+                                            onCreateClick={() => openModal('add')}
+                                            createButtonText={t('Create User')}
+                                            className="h-auto"
+                                        />
+                                    }
+                                />
                             </div>
                         </div>
                     ) : (
@@ -478,9 +477,8 @@ export default function Index() {
                                         <Card key={user.id} className="group relative overflow-hidden border border-gray-200 hover:border-primary/40 hover:shadow-xl transition-all duration-300">
                                             {/* Status Badge - Top Right Corner */}
                                             <div className="absolute top-3 right-3 z-10">
-                                                <span className={`px-2 py-1 rounded-full text-sm ${
-                                                    user.is_enable_login ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                }`}>
+                                                <span className={`px-2 py-1 rounded-full text-sm ${user.is_enable_login ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                    }`}>
                                                     {user.is_enable_login ? t('Enabled') : t('Disabled')}
                                                 </span>
                                             </div>
@@ -498,16 +496,15 @@ export default function Index() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white ${
-                                                            user.is_online ? 'bg-green-500' : 'bg-gray-400'
-                                                        }`} />
+                                                        <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white ${user.is_online ? 'bg-green-500' : 'bg-gray-400'
+                                                            }`} />
                                                     </div>
-                                                    
+
                                                     {/* Name */}
                                                     <h3 className="font-bold text-base text-gray-900 text-center mb-1.5 line-clamp-1 px-2" title={user.name}>
                                                         {user.name}
                                                     </h3>
-                                                    
+
                                                     {/* Role Badge */}
                                                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-primary/10 to-primary/5 text-primary border border-primary/20 capitalize">
                                                         {user.type}
@@ -550,10 +547,10 @@ export default function Index() {
                                                             {auth.user?.permissions?.includes('impersonate-users') && user.id !== auth.user?.id && (
                                                                 <Tooltip delayDuration={0}>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            onClick={() => router.post(route('users.impersonate', user.id))} 
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => router.post(route('users.impersonate', user.id))}
                                                                             className="h-9 w-9 p-0 text-purple-600 hover:text-purple-700 rounded-lg transition-colors"
                                                                         >
                                                                             <UserCheck className="h-4 w-4" />
@@ -565,10 +562,10 @@ export default function Index() {
                                                             {auth.user?.permissions?.includes('view-admin-hub') && user.type === 'company' && (
                                                                 <Tooltip delayDuration={0}>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            onClick={() => router.get(route('users.admin-hub', user.id))} 
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => router.get(route('users.admin-hub', user.id))}
                                                                             className="h-9 w-9 p-0 text-indigo-600 hover:text-indigo-700 rounded-lg transition-colors"
                                                                         >
                                                                             <Building2 className="h-4 w-4" />
@@ -580,10 +577,10 @@ export default function Index() {
                                                             {auth.user?.permissions?.includes('view-upgrade-plan') && auth.user?.type === 'superadmin' && user.type === 'company' && (
                                                                 <Tooltip delayDuration={0}>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            onClick={() => openModal('upgrade-plan', user)} 
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => openModal('upgrade-plan', user)}
                                                                             className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 rounded-lg transition-colors"
                                                                         >
                                                                             <Crown className="h-4 w-4" />
@@ -595,10 +592,10 @@ export default function Index() {
                                                             {auth.user?.permissions?.includes('change-password-users') && (
                                                                 <Tooltip delayDuration={0}>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            onClick={() => openModal('change-password', user)} 
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => openModal('change-password', user)}
                                                                             className="h-9 w-9 p-0 text-orange-600 hover:text-orange-700 rounded-lg transition-colors"
                                                                         >
                                                                             <Key className="h-4 w-4" />
@@ -610,10 +607,10 @@ export default function Index() {
                                                             {auth.user?.permissions?.includes('edit-users') && (
                                                                 <Tooltip delayDuration={0}>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            onClick={() => openModal('edit', user)} 
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => openModal('edit', user)}
                                                                             className="h-9 w-9 p-0 text-blue-600 hover:text-blue-700 rounded-lg transition-colors"
                                                                         >
                                                                             <Edit className="h-4 w-4" />
@@ -625,10 +622,10 @@ export default function Index() {
                                                             {auth.user?.permissions?.includes('delete-users') && (
                                                                 <Tooltip delayDuration={0}>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            onClick={() => openDeleteDialog(user.id)} 
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => openDeleteDialog(user.id)}
                                                                             className="h-9 w-9 p-0 text-red-600 hover:text-red-700 rounded-lg transition-colors"
                                                                         >
                                                                             <Trash2 className="h-4 w-4" />
@@ -636,7 +633,7 @@ export default function Index() {
                                                                     </TooltipTrigger>
                                                                     <TooltipContent><p>{t('Delete')}</p></TooltipContent>
                                                                 </Tooltip>
-                                                            )}            
+                                                            )}
                                                         </TooltipProvider>
                                                     )}
                                                 </div>
@@ -665,7 +662,7 @@ export default function Index() {
                     <Pagination
                         data={users}
                         routeName="users.index"
-                        filters={{...filters, per_page: perPage, view: viewMode}}
+                        filters={{ ...filters, per_page: perPage, view: viewMode }}
                     />
                 </CardContent>
             </Card>
@@ -714,11 +711,10 @@ export default function Index() {
                                                 <button
                                                     key={dur}
                                                     onClick={() => setUpgradeForm({ ...upgradeForm, duration: dur })}
-                                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                                                        upgradeForm.duration === dur
-                                                            ? 'bg-white text-gray-900 shadow-sm'
-                                                            : 'text-gray-600 hover:text-gray-900'
-                                                    }`}
+                                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${upgradeForm.duration === dur
+                                                        ? 'bg-white text-gray-900 shadow-sm'
+                                                        : 'text-gray-600 hover:text-gray-900'
+                                                        }`}
                                                 >
                                                     {dur === 'Month' ? t('Monthly') : t('Yearly')}
                                                 </button>
@@ -731,11 +727,10 @@ export default function Index() {
                                         {plans.filter(p => p.status && !p.custom_plan).map((plan) => (
                                             <div
                                                 key={plan.id}
-                                                className={`relative group rounded-xl border p-4 hover:shadow-lg transition-all duration-300 ${
-                                                    plan.free_plan
-                                                        ? 'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 hover:border-green-300'
-                                                        : 'border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 hover:border-blue-300'
-                                                }`}
+                                                className={`relative group rounded-xl border p-4 hover:shadow-lg transition-all duration-300 ${plan.free_plan
+                                                    ? 'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 hover:border-green-300'
+                                                    : 'border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 hover:border-blue-300'
+                                                    }`}
                                             >
                                                 {plan.free_plan && (
                                                     <span className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
@@ -744,12 +739,10 @@ export default function Index() {
                                                 )}
                                                 <div className="flex flex-col h-full">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                                                            plan.free_plan ? 'bg-green-100' : 'bg-blue-100'
-                                                        }`}>
-                                                            <Package className={`h-4 w-4 ${
-                                                                plan.free_plan ? 'text-green-600' : 'text-blue-600'
-                                                            }`} />
+                                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${plan.free_plan ? 'bg-green-100' : 'bg-blue-100'
+                                                            }`}>
+                                                            <Package className={`h-4 w-4 ${plan.free_plan ? 'text-green-600' : 'text-blue-600'
+                                                                }`} />
                                                         </div>
                                                         <h4 className="font-semibold text-sm text-gray-900 line-clamp-1">{plan.name}</h4>
                                                     </div>
@@ -772,8 +765,8 @@ export default function Index() {
                                                                 {plan.free_plan
                                                                     ? t('Free')
                                                                     : upgradeForm.duration === 'Year'
-                                                                    ? formatAdminCurrency(plan.package_price_yearly)
-                                                                    : formatAdminCurrency(plan.package_price_monthly)
+                                                                        ? formatAdminCurrency(plan.package_price_yearly)
+                                                                        : formatAdminCurrency(plan.package_price_monthly)
                                                                 }
                                                             </span>
                                                             {!plan.free_plan && (
@@ -797,11 +790,10 @@ export default function Index() {
                                                     ) : (
                                                         <Button
                                                             size="sm"
-                                                            className={`w-full text-white ${
-                                                                plan.free_plan
-                                                                    ? 'bg-green-600 hover:bg-green-700'
-                                                                    : 'bg-blue-600 hover:bg-blue-700'
-                                                            }`}
+                                                            className={`w-full text-white ${plan.free_plan
+                                                                ? 'bg-green-600 hover:bg-green-700'
+                                                                : 'bg-blue-600 hover:bg-blue-700'
+                                                                }`}
                                                             disabled={assigningPlanId !== null}
                                                             onClick={() => {
                                                                 setAssigningPlanId(plan.id);
@@ -864,11 +856,10 @@ export default function Index() {
                                                 <button
                                                     key={dur}
                                                     onClick={() => setUpgradeForm({ ...upgradeForm, duration: dur })}
-                                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                                                        upgradeForm.duration === dur
-                                                            ? 'bg-white text-gray-900 shadow-sm'
-                                                            : 'text-gray-600 hover:text-gray-900'
-                                                    }`}
+                                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${upgradeForm.duration === dur
+                                                        ? 'bg-white text-gray-900 shadow-sm'
+                                                        : 'text-gray-600 hover:text-gray-900'
+                                                        }`}
                                                 >
                                                     {dur === 'Month' ? t('Monthly') : t('Yearly')}
                                                 </button>
@@ -918,7 +909,7 @@ export default function Index() {
                                         </CardContent>
                                     </Card>
 
-                                    
+
 
                                     <div className="border rounded-xl p-4 bg-gray-50/50">
                                         <div className="flex items-center justify-between mb-3">
@@ -936,11 +927,10 @@ export default function Index() {
                                                             setSelectedModules([...selectedModules, mod.module]);
                                                         }
                                                     }}
-                                                    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
-                                                        selectedModules.includes(mod.module)
-                                                            ? 'border-primary bg-primary/5'
-                                                            : 'border-gray-200 bg-white hover:bg-muted/50'
-                                                    }`}
+                                                    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all duration-200 ${selectedModules.includes(mod.module)
+                                                        ? 'border-primary bg-primary/5'
+                                                        : 'border-gray-200 bg-white hover:bg-muted/50'
+                                                        }`}
                                                 >
                                                     <img
                                                         src={getPackageFavicon(mod.module)}
@@ -968,33 +958,33 @@ export default function Index() {
                                         <Button
                                             className="bg-purple-600 hover:bg-purple-700 text-white px-8"
                                             disabled={assigningPlanId !== null || selectedModules.length === 0}
-                                        onClick={() => {
-                                            if (selectedModules.length === 0) return;
-                                            if (!validateCustomCounters()) return;
-                                            setAssigningPlanId('custom');
-                                            router.post(route('users.assign-plan', modalState.data!.id), {
-                                                plan_id: null,
-                                                duration: upgradeForm.duration,
-                                                modules: selectedModules,
-                                                user_counter: customCounters.user_counter,
-                                                storage_limit: customCounters.storage_limit
-                                            }, {
-                                                preserveState: true,
-                                                onFinish: () => {
-                                                    setAssigningPlanId(null);
-                                                    closeModal();
-                                                }
-                                            });
-                                        }}
-                                    >
-                                        {assigningPlanId === 'custom' ? (
-                                            <span>{t('Assigning...')}</span>
-                                        ) : (
-                                            <span>{t('Assign {{count}} Add-ons', { count: selectedModules.length })}</span>
-                                        )}
-                                    </Button>
+                                            onClick={() => {
+                                                if (selectedModules.length === 0) return;
+                                                if (!validateCustomCounters()) return;
+                                                setAssigningPlanId('custom');
+                                                router.post(route('users.assign-plan', modalState.data!.id), {
+                                                    plan_id: null,
+                                                    duration: upgradeForm.duration,
+                                                    modules: selectedModules,
+                                                    user_counter: customCounters.user_counter,
+                                                    storage_limit: customCounters.storage_limit
+                                                }, {
+                                                    preserveState: true,
+                                                    onFinish: () => {
+                                                        setAssigningPlanId(null);
+                                                        closeModal();
+                                                    }
+                                                });
+                                            }}
+                                        >
+                                            {assigningPlanId === 'custom' ? (
+                                                <span>{t('Assigning...')}</span>
+                                            ) : (
+                                                <span>{t('Assign {{count}} Add-ons', { count: selectedModules.length })}</span>
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
                             )}
                         </DialogBody>
                     </DialogContent>

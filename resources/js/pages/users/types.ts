@@ -20,6 +20,12 @@ export interface Plan {
     trial_days: number;
 }
 
+export interface RoleItem {
+    id: number;
+    name: string;
+    label?: string;
+}
+
 export interface User {
     id: number;
     name: string;
@@ -27,6 +33,7 @@ export interface User {
     mobile_no: string;
     role: string;
     type: string;
+    roles?: RoleItem[];
     is_enable_login: boolean;
     is_disable?: number;
     is_online?: number;
@@ -54,6 +61,7 @@ export interface EditUserFormData {
     name: string;
     email: string;
     mobile_no: string;
+    type?: string;
     is_enable_login: boolean;
 }
 
