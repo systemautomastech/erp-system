@@ -64,9 +64,12 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::resource('roles', RoleController::class);
 
     // purchase invoices
+    Route::get('purchase-invoice/settings', [PurchaseInvoiceController::class, 'setup'])->name('purchase-invoice-setup.index');
+    Route::post('purchase-invoice/settings', [PurchaseInvoiceController::class, 'updateSetup'])->name('purchase-invoice-setup.update');
     Route::resource('purchase-invoices', PurchaseInvoiceController::class);
     Route::post('purchase-invoices/{purchaseInvoice}/post', [PurchaseInvoiceController::class, 'post'])->name('purchase-invoices.post');
     Route::get('purchase-invoices/{purchaseInvoice}/print', [PurchaseInvoiceController::class, 'print'])->name('purchase-invoices.print');
+    Route::get('purchase-invoices/{purchaseInvoice}/download-pdf', [PurchaseInvoiceController::class, 'downloadPdf'])->name('purchase-invoices.download-pdf');
 
     // sales invoices
     Route::resource('sales-invoices', SalesInvoiceController::class);

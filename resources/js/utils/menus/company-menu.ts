@@ -90,6 +90,11 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
                 href: route('transfers.index'),
                 permission: 'manage-transfers',
             },
+            {
+                title: t('System Setup'),
+                href: route('purchase-invoice-setup.index'),
+                permission: 'manage-purchase-invoices',
+            },
         ],
     },
     {

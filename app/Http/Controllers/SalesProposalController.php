@@ -514,15 +514,15 @@ class SalesProposalController extends Controller
                 $quotation->warehouse_id = $salesProposal->warehouse_id;
                 $quotation->quotation_date = now()->format('Y-m-d');
                 $quotation->due_date = $salesProposal->due_date ? $salesProposal->due_date->format('Y-m-d') : null;
-                $quotation->is_recurring = $salesProposal->is_recurring;
-                $quotation->is_prepaid = $salesProposal->is_prepaid;
-                $quotation->is_tax_enabled = $salesProposal->is_tax_enabled;
+                $quotation->is_recurring = (bool) ($salesProposal->is_recurring ?? false);
+                $quotation->is_prepaid = (bool) ($salesProposal->is_prepaid ?? false);
+                $quotation->is_tax_enabled = (bool) ($salesProposal->is_tax_enabled ?? true);
                 $quotation->payment_terms = $salesProposal->payment_terms;
                 $quotation->notes = $salesProposal->notes;
-                $quotation->subtotal = $salesProposal->subtotal;
-                $quotation->tax_amount = $salesProposal->tax_amount;
-                $quotation->discount_amount = $salesProposal->discount_amount;
-                $quotation->total_amount = $salesProposal->total_amount;
+                $quotation->subtotal = $salesProposal->subtotal ?? 0;
+                $quotation->tax_amount = $salesProposal->tax_amount ?? 0;
+                $quotation->discount_amount = $salesProposal->discount_amount ?? 0;
+                $quotation->total_amount = $salesProposal->total_amount ?? 0;
                 $quotation->status = 'draft';
                 $quotation->creator_id = creatorId();
                 $quotation->created_by = Auth::id();
@@ -536,13 +536,13 @@ class SalesProposalController extends Controller
                     $quotationItem->section = $proposalItem->section ?? 'general';
                     $quotationItem->item_type = $proposalItem->product_type ?? 'product';
                     $quotationItem->description = $proposalItem->description;
-                    $quotationItem->quantity = $proposalItem->quantity;
-                    $quotationItem->unit_price = $proposalItem->unit_price;
-                    $quotationItem->discount_percentage = $proposalItem->discount_percentage;
-                    $quotationItem->discount_amount = $proposalItem->discount_amount;
-                    $quotationItem->tax_percentage = $proposalItem->tax_percentage;
-                    $quotationItem->tax_amount = $proposalItem->tax_amount;
-                    $quotationItem->total_amount = $proposalItem->total_amount;
+                    $quotationItem->quantity = $proposalItem->quantity ?? 1;
+                    $quotationItem->unit_price = $proposalItem->unit_price ?? 0;
+                    $quotationItem->discount_percentage = $proposalItem->discount_percentage ?? 0;
+                    $quotationItem->discount_amount = $proposalItem->discount_amount ?? 0;
+                    $quotationItem->tax_percentage = $proposalItem->tax_percentage ?? 0;
+                    $quotationItem->tax_amount = $proposalItem->tax_amount ?? 0;
+                    $quotationItem->total_amount = $proposalItem->total_amount ?? 0;
                     $quotationItem->save();
 
                     foreach ($proposalItem->taxes as $tax) {

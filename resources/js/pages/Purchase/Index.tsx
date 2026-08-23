@@ -14,7 +14,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
-    Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download,
+    Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
     Wallet, AlertTriangle, TrendingDown, FileClock, Users, X
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -244,19 +244,34 @@ export default function Index() {
         <TooltipProvider>
             <SignatureButtons invoice={invoice} />
             {auth.user?.permissions?.includes('print-purchase-invoices') && (
-                <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(route('purchase-invoices.print', invoice.id) + '?download=pdf', '_blank')}
-                            className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
-                        >
-                            <Download className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent><p>{t('Download PDF')}</p></TooltipContent>
-                </Tooltip>
+                <>
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(route('purchase-invoices.print', invoice.id), '_blank')}
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                            >
+                                <Printer className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{t('Print Invoice')}</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(route('purchase-invoices.print', invoice.id) + '?download=pdf', '_blank')}
+                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
+                            >
+                                <Download className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{t('Download PDF')}</p></TooltipContent>
+                    </Tooltip>
+                </>
             )}
             <PurchaseInvoiceActionButtons invoice={invoice} />
             {auth.user?.permissions?.includes('view-purchase-invoices') && (
