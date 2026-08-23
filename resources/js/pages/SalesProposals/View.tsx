@@ -21,6 +21,8 @@ interface SalesProposal {
     discount_amount: number;
     total_amount: number;
     status: string;
+    converted_to_quotation?: boolean;
+    quotation_id?: number;
     converted_to_invoice: boolean;
     invoice_id?: number;
     notes?: string;
