@@ -63,6 +63,7 @@ interface EditProps {
     proposal: SalesProposal;
     customers: Array<{ id: number; name: string; email: string }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
+    products?: any[];
     defaultPages?: ProposalDefaultPage[];
     defaultTerms?: string | null;
     [key: string]: any;
@@ -70,8 +71,8 @@ interface EditProps {
 
 export default function Edit() {
     const { t } = useTranslation();
-    const { proposal, customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<EditProps>().props;
-    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+    const { proposal, customers, warehouses, products = [], defaultPages = [], defaultTerms, proposalSetting } = usePage<EditProps>().props;
+    const [availableProducts, setAvailableProducts] = useState<any[]>(Array.isArray(products) ? products : []);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // Initialize proposal sections with existing proposal_content or fallback to defaultPages
@@ -90,7 +91,7 @@ export default function Edit() {
                 if (dec && typeof dec === 'object' && !Array.isArray(dec)) {
                     return {
                         title: dec.title || c.title || '',
-                        content: dec.content || c.content || '',
+                        content: dec.content || c.proposal_content || '',
                         page_type: dec.page_type || c.page_type || 'content',
                         background_image: dec.background_image || c.background_image || '',
                         order: typeof c.order !== 'undefined' ? Number(c.order) : (typeof dec.order !== 'undefined' ? Number(dec.order) : 1),
@@ -99,7 +100,7 @@ export default function Edit() {
 
                 return {
                     title: c.title || '',
-                    content: c.content || c.proposal_content || '',
+                    content: c.proposal_content || '',
                     page_type: c.page_type || 'content',
                     background_image: c.background_image || '',
                     order: typeof c.order !== 'undefined' ? Number(c.order) : 1,
@@ -293,25 +294,18 @@ export default function Edit() {
         }
     };
 
-    useEffect(() => {
-        if (data.warehouse_id) {
-            handleWarehouseChange(data.warehouse_id);
-        }
-    }, []);
-
     const handleWarehouseChange = async (warehouseId: string) => {
         setData('warehouse_id', warehouseId);
 
-        if (warehouseId) {
-            try {
-                const response = await fetch(route('sales-proposals.warehouse.products') + `?warehouse_id=${warehouseId}`);
-                const warehouseProducts = await response.json();
-                setAvailableProducts(warehouseProducts);
-            } catch (error) {
-                console.error('Failed to fetch warehouse products:', error);
-                setAvailableProducts([]);
-            }
-        } else {
+        try {
+            const url = warehouseId
+                ? route('sales-proposals.warehouse.products') + `?warehouse_id=${warehouseId}`
+                : route('sales-proposals.warehouse.products');
+            const response = await fetch(url);
+            const warehouseProducts = await response.json();
+            setAvailableProducts(Array.isArray(warehouseProducts) ? warehouseProducts : []);
+        } catch (error) {
+            console.error('Failed to fetch warehouse products:', error);
             setAvailableProducts([]);
         }
     };

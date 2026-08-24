@@ -1,5 +1,5 @@
-import React from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -31,6 +31,15 @@ interface EditProps {
 export default function Edit() {
     const { t } = useTranslation();
     const { invoice, vendors, products, warehouses } = usePage<EditProps>().props;
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        router.reload({
+            only: ['products'],
+            onFinish: () => setIsRefreshing(false)
+        });
+    };
 
     useFlashMessages();
 
@@ -51,6 +60,8 @@ export default function Edit() {
             );
             return {
                 ...item,
+                product_type: item.product_type || item.product?.type || 'product',
+                description: item.description || item.product?.description || item.product?.long_description || '',
                 taxes: item.taxes || [],
                 discount_amount: calculations.discountAmount,
                 tax_amount: calculations.taxAmount,
@@ -221,6 +232,8 @@ export default function Edit() {
                                     onClick={() => {
                                         const newItem = {
                                             product_id: 0,
+                                            product_type: 'product',
+                                            description: '',
                                             quantity: 1,
                                             unit_price: 0,
                                             discount_percentage: 0,
@@ -246,6 +259,8 @@ export default function Edit() {
                                 errors={errors}
                                 products={products}
                                 showAddButton={false}
+                                onRefresh={handleRefresh}
+                                isRefreshing={isRefreshing}
                             />
 
                             {/* Invoice Summary */}

@@ -17,6 +17,7 @@ class PermissionTableSeeder extends Seeder
 
         $permission = [
             ['name' => 'manage-quotations', 'module' => 'quotation', 'label' => 'Manage Quotation'],
+            ['name' => 'manage-quotation-system-setup', 'module' => 'quotation', 'label' => 'Manage Quotation System Setup'],
             ['name' => 'manage-any-quotations', 'module' => 'quotation', 'label' => 'Manage All Quotation'],
             ['name' => 'manage-own-quotations', 'module' => 'quotation', 'label' => 'Manage Own Quotation'],
             ['name' => 'view-quotations', 'module' => 'quotation', 'label' => 'View Quotation'],

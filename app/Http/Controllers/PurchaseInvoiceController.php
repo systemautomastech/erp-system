@@ -186,7 +186,8 @@ class PurchaseInvoiceController extends Controller
     {
         if (Auth::user()->can('create-purchase-invoices')) {
             $vendors = User::where('type', 'vendor')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
-            $products = ProductServiceItem::select('id', 'name', 'sku', 'purchase_price', 'tax_ids', 'unit', 'type')
+            $products = ProductServiceItem::with('unitRelation')
+                ->select('id', 'name', 'sku', 'description', 'purchase_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)->where('created_by', creatorId())
                 ->get()
                 ->map(function ($product) {
@@ -194,8 +195,10 @@ class PurchaseInvoiceController extends Controller
                         'id' => $product->id,
                         'name' => $product->name,
                         'sku' => $product->sku,
+                        'description' => $product->description,
                         'purchase_price' => $product->purchase_price,
                         'unit' => $product->unit,
+                        'unit_name' => $product->unitRelation?->unit_name ?? $product->unit,
                         'type' => $product->type,
                         'taxes' => $product->taxes->map(function ($tax) {
                             return [
@@ -282,7 +285,7 @@ class PurchaseInvoiceController extends Controller
                 return redirect()->route('purchase-invoices.index')->with('error', __('Permission denied'));
             }
 
-            $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
             return Inertia::render('Purchase/View', [
                 'invoice' => $purchaseInvoice
@@ -303,12 +306,13 @@ class PurchaseInvoiceController extends Controller
                 return redirect()->route('purchase-invoices.index')->with('error', __('Cannot update posted invoice.'));
             }
 
-            $purchaseInvoice->load(['items.taxes']);
+            $purchaseInvoice->load(['items.product.unitRelation', 'items.taxes']);
 
             EditPurchaseInvoice::dispatch($purchaseInvoice);
 
             $vendors = User::where('type', 'vendor')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
-            $products = ProductServiceItem::select('id', 'name', 'sku', 'purchase_price', 'tax_ids', 'unit', 'type')
+            $products = ProductServiceItem::with('unitRelation')
+                ->select('id', 'name', 'sku', 'description', 'purchase_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)->where('created_by', creatorId())
                 ->get()
                 ->map(function ($product) {
@@ -316,8 +320,10 @@ class PurchaseInvoiceController extends Controller
                         'id' => $product->id,
                         'name' => $product->name,
                         'sku' => $product->sku,
+                        'description' => $product->description,
                         'purchase_price' => $product->purchase_price,
                         'unit' => $product->unit,
+                        'unit_name' => $product->unitRelation?->unit_name ?? $product->unit,
                         'type' => $product->type,
                         'taxes' => $product->taxes->map(function ($tax) {
                             return [
@@ -468,7 +474,7 @@ class PurchaseInvoiceController extends Controller
     public function print(PurchaseInvoice $purchaseInvoice)
     {
         if (Auth::user()->can('print-purchase-invoices')) {
-            $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
             $creatorId = $purchaseInvoice->created_by ?? creatorId();
             $purchaseInvoiceSetting = PurchaseInvoiceSetup::getSettings($creatorId);
@@ -484,7 +490,7 @@ class PurchaseInvoiceController extends Controller
     public function downloadPdf(PurchaseInvoice $purchaseInvoice)
     {
         if (Auth::user()->can('print-purchase-invoices')) {
-            $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $purchaseInvoice->load(['vendor', 'vendorDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
             $creatorId = $purchaseInvoice->created_by ?? creatorId();
             $purchaseInvoiceSetting = PurchaseInvoiceSetup::getSettings($creatorId);
@@ -506,7 +512,7 @@ class PurchaseInvoiceController extends Controller
 
     public function setup()
     {
-        if (Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
+        if (Auth::user()->can('manage-purchase-invoice-setup') || Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
             $settings = PurchaseInvoiceSetup::getSettings(creatorId());
             return Inertia::render('Purchase/SystemSetup/Index', [
                 'settings' => $settings,
@@ -518,7 +524,7 @@ class PurchaseInvoiceController extends Controller
 
     public function updateSetup(Request $request)
     {
-        if (Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
+        if (Auth::user()->can('manage-purchase-invoice-setup') || Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
             $settings = $request->input('settings', $request->except(['_token', '_method']));
             PurchaseInvoiceSetup::setSettings($settings, creatorId());
             return redirect()->back()->with('success', __('Purchase Invoice setup updated successfully.'));

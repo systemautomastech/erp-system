@@ -93,7 +93,7 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
             {
                 title: t('System Setup'),
                 href: route('purchase-invoice-setup.index'),
-                permission: 'manage-purchase-invoices',
+                permission: 'manage-purchase-invoice-setup',
             },
         ],
     },
