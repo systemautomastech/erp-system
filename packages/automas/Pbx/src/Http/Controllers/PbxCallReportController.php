@@ -63,7 +63,11 @@ class PbxCallReportController extends Controller
         $extensionsQuery = PbxExtension::query()
             ->with('user:id,name')
             ->where('created_by', creatorId())
-            ->where('is_active', true);
+            ->where(function ($q) {
+                $q->where('is_active', true)
+                    ->orWhere('is_active', 1)
+                    ->orWhereNull('is_active');
+            });
 
         if (!$canViewAll) {
             $extensionsQuery->where(
@@ -286,22 +290,7 @@ class PbxCallReportController extends Controller
                             ?->user
                             ?->name,
 
-                        'recording_url' => (
-                            $hasRecording
-                            && !empty($linkedId)
-                            && $extensionNumber !== ''
-                        )
-                            ? route(
-                                'pbx.call-reports.recording',
-                                [
-                                    'linkedid' =>
-                                    $linkedId,
-
-                                    'extension' =>
-                                    $extensionNumber,
-                                ]
-                            )
-                            : null,
+                        'recording_url' => null,
                     ];
                 }
             )
@@ -462,7 +451,11 @@ class PbxCallReportController extends Controller
         $extensionsQuery = PbxExtension::query()
             ->with('user:id,name')
             ->where('created_by', creatorId())
-            ->where('is_active', true);
+            ->where(function ($q) {
+                $q->where('is_active', true)
+                    ->orWhere('is_active', 1)
+                    ->orWhereNull('is_active');
+            });
 
         if (!$canViewAll) {
             $extensionsQuery->where('user_id', $user->id);
@@ -474,16 +467,37 @@ class PbxCallReportController extends Controller
 
         $selectedExtension = trim((string) $request->input('extension', ''));
         $dateRange = trim((string) $request->input('date_range', ''));
-
         $from = $request->input('from');
         $to = $request->input('to');
+        $period = trim((string) $request->input('period', ''));
 
         if ($dateRange !== '') {
-            $parts = preg_split('/\s+-\s+/', $dateRange);
+            $parts = preg_split('/(?:\s+-\s+|\s+to\s+)/i', $dateRange);
             if (is_array($parts) && count($parts) === 2) {
                 $from = trim($parts[0]);
                 $to = trim($parts[1]);
+                $period = 'custom';
             }
+        } elseif ($from || $to) {
+            $period = 'custom';
+            $dateRange = "{$from} - {$to}";
+        } elseif ($period === 'this_week') {
+            $from = \Illuminate\Support\Carbon::now()->startOfWeek()->format('Y-m-d');
+            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
+            $dateRange = "{$from} - {$to}";
+        } elseif ($period === 'this_month') {
+            $from = \Illuminate\Support\Carbon::now()->startOfMonth()->format('Y-m-d');
+            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
+            $dateRange = "{$from} - {$to}";
+        } elseif ($period === 'all_time') {
+            $from = '2000-01-01';
+            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
+            $dateRange = 'All Time';
+        } else {
+            $period = 'today';
+            $from = \Illuminate\Support\Carbon::today()->format('Y-m-d');
+            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
+            $dateRange = "{$from} - {$to}";
         }
 
         if ($selectedExtension !== '') {
@@ -507,21 +521,18 @@ class PbxCallReportController extends Controller
                 ->all();
         }
 
-        $result = $this->callReportService->getCallLogs(
+        $result = $this->callReportService->getCallSummary(
             $setting,
             $extensionNumbers,
             [
                 'from' => $from,
                 'to' => $to,
-                'page' => 1,
-                'per_page' => 100,
-            ],
-            true
+                'extension' => $selectedExtension,
+            ]
         );
 
-        $summary = $result['summary'] ?? $this->emptySummary();
-        $callData = is_array($result['data'] ?? null) ? $result['data'] : [];
-        $charts = $this->callReportService->buildChartsData($summary, $callData);
+        $summary = $result['summary'] ?? $this->callReportService->emptySummary();
+        $charts = $this->callReportService->buildChartsDataFromSummary($result, $extensions->loadMissing('user')->all());
 
         return Inertia::render(
             'Pbx/CallReports/Summary',
@@ -540,6 +551,7 @@ class PbxCallReportController extends Controller
                     ->values(),
                 'filters' => [
                     'extension' => $selectedExtension,
+                    'period' => $period,
                     'date_range' => $from && $to ? "{$from} - {$to}" : '',
                 ],
                 'callReportPermissions' => [

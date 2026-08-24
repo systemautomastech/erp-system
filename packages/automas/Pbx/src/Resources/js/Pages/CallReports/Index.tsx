@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 
@@ -385,6 +385,73 @@ export default function Index({
         loading,
         setLoading,
     ] = useState(false);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lazy Audio Playback State (One active player at a time)
+    |--------------------------------------------------------------------------
+    */
+    const [activeAudioCall, setActiveAudioCall] = useState<{
+        linkedid: string;
+        extension: string;
+        url: string;
+    } | null>(null);
+
+    const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
+    const [audioErrorId, setAudioErrorId] = useState<string | null>(null);
+    const activeAbortControllerRef = useRef<AbortController | null>(null);
+
+    const handlePlayRecording = async (row: CallLog) => {
+        if (!row.linkedid || !row.extension) return;
+
+        // Cancel previous pending request if practical
+        if (activeAbortControllerRef.current) {
+            activeAbortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        activeAbortControllerRef.current = controller;
+
+        // Stop current audio & reset error states
+        if (activeAudioCall?.url) {
+            URL.revokeObjectURL(activeAudioCall.url);
+        }
+        setActiveAudioCall(null);
+        setAudioErrorId(null);
+        setLoadingAudioId(row.linkedid);
+
+        const recUrl = row.recording_url || route('pbx.call-reports.recording', {
+            linkedid: row.linkedid,
+            extension: row.extension,
+        });
+
+        try {
+            const response = await fetch(recUrl, { signal: controller.signal });
+            if (controller.signal.aborted) return;
+
+            if (response.status === 404 || !response.ok) {
+                setAudioErrorId(row.linkedid);
+                setLoadingAudioId(null);
+                return;
+            }
+
+            const blob = await response.blob();
+            if (controller.signal.aborted) return;
+
+            const objectUrl = URL.createObjectURL(blob);
+            setActiveAudioCall({
+                linkedid: row.linkedid,
+                extension: row.extension,
+                url: objectUrl,
+            });
+            setLoadingAudioId(null);
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                return;
+            }
+            setAudioErrorId(row.linkedid);
+            setLoadingAudioId(null);
+        }
+    };
 
     /*
     |--------------------------------------------------------------------------
@@ -809,35 +876,73 @@ export default function Index({
         {
             key: 'recording_url',
 
-            header:
-                t('Recording'),
+            header: t('Recording'),
 
             sortable: false,
 
-            render: (
-                value: string,
-                row: CallLog,
-            ) => {
-                if (
-                    !row.has_recording
-                    || !value
-                ) {
+            render: (value: string, row: CallLog) => {
+                if (!row.has_recording && !row.recordingfile) {
+                    return <span className="text-muted-foreground text-xs">{t('No Recording')}</span>;
+                }
+
+                const isCurrentPlaying = activeAudioCall?.linkedid === row.linkedid;
+                const isLoadingThis = loadingAudioId === row.linkedid;
+                const isErrorThis = audioErrorId === row.linkedid;
+
+                if (isLoadingThis) {
                     return (
-                        <span className="text-muted-foreground">
-                            -
+                        <Button variant="outline" size="sm" disabled className="gap-1.5 h-8 text-xs">
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            {t('Loading...')}
+                        </Button>
+                    );
+                }
+
+                if (isErrorThis) {
+                    return (
+                        <span className="text-rose-600 dark:text-rose-400 text-xs font-medium">
+                            {t('Recording unavailable')}
                         </span>
                     );
                 }
 
+                if (isCurrentPlaying && activeAudioCall) {
+                    return (
+                        <div className="flex min-w-[240px] items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <audio
+                                controls
+                                autoPlay
+                                src={activeAudioCall.url}
+                                className="h-7 w-full"
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-500 hover:text-red-600"
+                                title={t('Stop')}
+                                onClick={() => {
+                                    if (activeAudioCall?.url) {
+                                        URL.revokeObjectURL(activeAudioCall.url);
+                                    }
+                                    setActiveAudioCall(null);
+                                }}
+                            >
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    );
+                }
+
                 return (
-                    <div className="flex min-w-[225px] items-center gap-2">
-                        <audio
-                            controls
-                            // preload="none"
-                            src={value}
-                            className="h-8 w-full"
-                        />
-                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 h-8 text-xs font-medium border-slate-300 dark:border-slate-700 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 transition-colors"
+                        onClick={() => handlePlayRecording(row)}
+                    >
+                        <Headphones className="h-3.5 w-3.5" />
+                        {t('Play')}
+                    </Button>
                 );
             },
         },
