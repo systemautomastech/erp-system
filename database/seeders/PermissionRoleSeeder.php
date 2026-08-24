@@ -214,6 +214,7 @@ class PermissionRoleSeeder extends Seeder
 
             // Purchase Invoice management
             ['name' => 'manage-purchase-invoices', 'module' => 'purchase-invoices', 'label' => 'Manage Purchase Invoices'],
+            ['name' => 'manage-purchase-invoice-setup', 'module' => 'purchase-invoices', 'label' => 'Manage Purchase Invoice System Setup'],
             ['name' => 'manage-any-purchase-invoices', 'module' => 'purchase-invoices', 'label' => 'Manage All Purchase Invoices'],
             ['name' => 'manage-own-purchase-invoices', 'module' => 'purchase-invoices', 'label' => 'Manage Own Purchase Invoices'],
             ['name' => 'view-purchase-invoices', 'module' => 'purchase-invoices', 'label' => 'View Purchase Invoices'],
@@ -465,6 +466,7 @@ class PermissionRoleSeeder extends Seeder
                     'toggle-favorite-messages',
                     'toggle-pinned-messages',
                     'manage-purchase-invoices',
+                    'manage-purchase-invoice-setup',
                     'manage-any-purchase-invoices',
                     'manage-own-purchase-invoices',
                     'view-purchase-invoices',

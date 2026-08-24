@@ -137,7 +137,7 @@
             height: 297mm;
             min-height: 297mm;
             max-height: 297mm;
-            padding: 16mm 14mm 14mm 14mm;
+            padding: 18mm 14mm 30mm 14mm;
             margin: 0 auto;
             background-color: #ffffff;
             box-sizing: border-box;
@@ -145,6 +145,15 @@
             flex-direction: column;
             justify-content: space-between;
             overflow: hidden;
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid-page;
+        }
+
+        .a4-page:last-child {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
         }
 
         .letterhead-bg-layer {
@@ -175,7 +184,6 @@
         }
 
         @media print {
-
             html,
             body {
                 background: #ffffff !important;
@@ -185,195 +193,375 @@
                 width: 210mm !important;
                 height: 297mm !important;
                 margin: 0 !important;
-                padding: 16mm 14mm 14mm 14mm !important;
+                padding: 18mm 14mm 30mm 14mm !important;
                 box-shadow: none !important;
                 page-break-after: always;
                 break-after: page;
+            }
+
+            .a4-page:last-child {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
             }
         }
     </style>
 </head>
 
 <body>
+    @php
+        // Helper for estimating exact item height in millimeters (mm)
+        $estimateItemHeightMm = function ($item) {
+            $desc = $item->description ?? $item->product?->description ?? $item->product?->long_description ?? '';
+            $plainText = trim(preg_replace('/\s+/', ' ', strip_tags($desc)));
+            $blockTags = preg_match_all('/<\/p>|<br\s*\/?>|<\/li>|<\/h[1-6]>/i', $desc, $matches);
+            // Description column is 23% width (~38mm), fits ~16 chars per line at 9px
+            $textLines = ceil(strlen($plainText) / 16);
+            $descLines = max($textLines, $blockTags, (!empty($plainText) ? 1 : 0));
 
-    <div class="a4-page">
-        @if($bgLetterheadUrl)
-            <img src="{{ $bgLetterheadUrl }}" alt="Letterhead Background" class="letterhead-bg-layer">
-        @endif
+            // Item Name column is 22% width (~36mm), fits ~15 chars per line at 10px bold
+            $pName = $item->product?->name ?? '';
+            $nameLines = max(ceil(strlen($pName) / 15), 1);
+            
+            $effectiveLines = max($descLines, $nameLines, 1);
 
-        <div class="a4-content">
-            <div>
-                <!-- Header -->
-                <div class="flex justify-between items-start mb-6">
-                    <div class="w-1/2">
-                        @if($showLogo && $logoUrl)
-                            <img src="{{ $logoUrl }}" alt="Logo" class="max-h-14 max-w-[200px] object-contain mb-3">
-                        @else
-                            <h1 class="text-2xl font-bold mb-2 text-gray-900"></h1>
-                        @endif
-                        <div class="text-xs space-y-0.5 text-gray-600">
-                            @if(!empty($companySettings['company_address']))
-                                <p>{{ $companySettings['company_address'] }}</p>
-                            @endif
-                            @if(!empty($companySettings['company_city']) || !empty($companySettings['company_state']) || !empty($companySettings['company_zipcode']))
-                                <p>
-                                    {{ $companySettings['company_city'] ?? '' }}{{ !empty($companySettings['company_state']) ? ', ' . $companySettings['company_state'] : '' }}
-                                    {{ $companySettings['company_zipcode'] ?? '' }}
-                                </p>
-                            @endif
-                            @if(!empty($companySettings['company_country']))
-                                <p>{{ $companySettings['company_country'] }}</p>
-                            @endif
-                            @if(!empty($companySettings['company_telephone']))
-                                <p>{{ __('Phone') }}: {{ $companySettings['company_telephone'] }}</p>
-                            @endif
-                            @if(!empty($companySettings['company_email']))
-                                <p>{{ __('Email') }}: {{ $companySettings['company_email'] }}</p>
-                            @endif
-                            @if(!empty($companySettings['registration_number']))
-                                <p>{{ __('Registration') }}: {{ $companySettings['registration_number'] }}</p>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="text-right w-1/2">
-                        <h2 class="text-2xl font-bold mb-1 text-gray-900">{{ __('PURCHASE INVOICE') }}</h2>
-                        <p class="text-base font-semibold text-gray-800">#{{ $invoice->invoice_number }}</p>
-                        <div class="text-xs mt-2 space-y-0.5 text-gray-600">
-                            <p>{{ __('Date') }}: {{ $formatDate($invoice->invoice_date) }}</p>
-                            <p>{{ __('Due') }}: {{ $formatDate($invoice->due_date) }}</p>
-                        </div>
-                    </div>
-                </div>
+            // Table cell padding (8px top/bottom = ~6mm) + border + lines (~4.8mm each)
+            return 8 + ($effectiveLines * 4.8);
+        };
 
-                <!-- Vendor Information -->
-                <div class="flex justify-between mb-6 pt-3 border-t border-gray-200">
-                    <div class="w-1/2">
-                        <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('VENDOR') }}
-                        </h3>
-                        <div class="text-xs space-y-0.5 text-gray-700">
-                            <p class="font-semibold text-gray-900">{{ $invoice->vendor->name ?? '' }}</p>
-                            <p>{{ $invoice->vendor->email ?? '' }}</p>
-                            @if(!empty($invoice->vendorDetails?->billing_address))
-                                <p>{{ $invoice->vendorDetails->billing_address['name'] ?? '' }}</p>
-                                <p>{{ $invoice->vendorDetails->billing_address['address_line_1'] ?? '' }}</p>
-                                <p>
-                                    {{ $invoice->vendorDetails->billing_address['city'] ?? '' }}{{ !empty($invoice->vendorDetails->billing_address['state']) ? ', ' . $invoice->vendorDetails->billing_address['state'] : '' }}
-                                    {{ $invoice->vendorDetails->billing_address['zip_code'] ?? '' }}
-                                </p>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="text-right w-1/2">
-                        <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('SHIP TO') }}
-                        </h3>
-                        <div class="text-xs space-y-0.5 text-gray-700">
-                            @if(!empty($invoice->vendorDetails?->shipping_address))
-                                <p class="font-semibold text-gray-900">
-                                    {{ $invoice->vendorDetails->shipping_address['name'] ?? '' }}</p>
-                                <p>{{ $invoice->vendorDetails->shipping_address['address_line_1'] ?? '' }}</p>
-                                <p>
-                                    {{ $invoice->vendorDetails->shipping_address['city'] ?? '' }}{{ !empty($invoice->vendorDetails->shipping_address['state']) ? ', ' . $invoice->vendorDetails->shipping_address['state'] : '' }}
-                                    {{ $invoice->vendorDetails->shipping_address['zip_code'] ?? '' }}
-                                </p>
-                            @else
-                                <p class="text-gray-500">{{ __('Same as vendor address') }}</p>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+        // Estimate Terms & Summary Height in millimeters accurately
+        $termsText = trim(preg_replace('/\s+/', ' ', strip_tags($invoice->payment_terms ?? '')));
+        $termsBlockTags = preg_match_all('/<\/p>|<br\s*\/?>|<\/li>/i', $invoice->payment_terms ?? '', $m);
+        $termsLines = !empty($termsText) ? max(ceil(strlen($termsText) / 75), $termsBlockTags, 1) : 0;
+        $termsHeightMm = $termsLines > 0 ? (12 + $termsLines * 5) : 0;
 
-                <!-- Items Table with Integrated Summary -->
-                <div class="mb-4">
-                    <table style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #94a3b8;">
-                        <thead>
-                            <tr style="background-color: #e2e8f0; color: #0f172a; font-weight: 700;">
-                                <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: left; font-size: 9.5px; width: 38%;">{{ __('ITEM / DESCRIPTION') }}</th>
-                                <th style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; font-size: 9.5px; width: 10%;">{{ __('QTY') }}</th>
-                                <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 13%;">{{ __('PRICE') }}</th>
-                                <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 12%;">{{ __('DISCOUNT') }}</th>
-                                <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 13%;">{{ __('TAX') }}</th>
-                                <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 14%;">{{ __('TOTAL') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($invoice->items ?? [] as $index => $item)
-                                <tr class="page-break-inside-avoid">
-                                    <td style="padding: 6px 8px; border: 1px solid #94a3b8; vertical-align: top;">
-                                        <div style="font-weight: 600; color: #0f172a; line-height: 1.25; font-size: 10.5px;">{{ $item->product->name ?? '' }}</div>
-                                        @if(!empty($item->product?->sku))
-                                            <div style="font-size: 9px; color: #64748b; margin-top: 2px;">{{ __('SKU') }}: {{ $item->product->sku }}</div>
-                                        @endif
-                                    </td>
-                                    <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500;">{{ $item->quantity }}</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">{{ $formatCurrency($item->unit_price) }}</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">
-                                        @if($item->discount_percentage > 0)
-                                            <div>{{ $item->discount_percentage }}%</div>
-                                            <div style="font-size: 9px; color: #dc2626; font-weight: 500;">-{{ $formatCurrency($item->discount_amount) }}</div>
-                                        @else
-                                            <span style="color: #94a3b8;">-</span>
-                                        @endif
-                                    </td>
-                                    <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">
-                                        @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                            @foreach($item->taxes as $tax)
-                                                <div style="line-height: 1.2; color: #475569;">{{ $tax->tax_name }} ({{ $tax->tax_rate }}%)</div>
-                                            @endforeach
-                                            <div style="font-size: 9px; color: #1e293b; font-weight: 600; margin-top: 2px;">{{ $formatCurrency($item->tax_amount) }}</div>
-                                        @elseif($item->tax_percentage > 0)
-                                            <div style="color: #475569;">{{ $item->tax_percentage }}%</div>
-                                            <div style="font-size: 9px; color: #1e293b; font-weight: 600; margin-top: 2px;">{{ $formatCurrency($item->tax_amount) }}</div>
-                                        @else
-                                            <span style="color: #94a3b8;">-</span>
-                                        @endif
-                                    </td>
-                                    <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; font-weight: 700; color: #0f172a;">
-                                        {{ $formatCurrency($item->total_amount) }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr class="page-break-inside-avoid">
-                                <td colspan="4" style="border: 1px solid #94a3b8;"></td>
-                                <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Subtotal') }}:</td>
-                                <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #1e293b; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->subtotal) }}</td>
-                            </tr>
-                            @if($invoice->discount_amount > 0)
-                                <tr class="page-break-inside-avoid">
-                                    <td colspan="4" style="border: 1px solid #94a3b8;"></td>
-                                    <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Discount') }}:</td>
-                                    <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #dc2626; border: 1px solid #94a3b8;">-{{ $formatCurrency($invoice->discount_amount) }}</td>
-                                </tr>
-                            @endif
-                            @if($invoice->tax_amount > 0)
-                                <tr class="page-break-inside-avoid">
-                                    <td colspan="4" style="border: 1px solid #94a3b8;"></td>
-                                    <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Tax') }}:</td>
-                                    <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #1e293b; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->tax_amount) }}</td>
-                                </tr>
-                            @endif
-                            <tr class="page-break-inside-avoid" style="font-weight: 700;">
-                                <td colspan="4" style="border: 1px solid #94a3b8;"></td>
-                                <td style="padding: 6px 8px; font-size: 11px; color: #0f172a; border: 1px solid #94a3b8; text-align: right;">{{ __('TOTAL') }}:</td>
-                                <td style="padding: 6px 8px; font-size: 11px; text-align: right; color: #0f172a; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->total_amount) }}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-              
-            </div>
-              <!-- Footer -->
-                <div class="border-t border-gray-300 pt-3 text-center text-xs text-gray-600 page-break-inside-avoid" style="margin-bottom: 16mm;">
-                    @if($invoice->payment_terms)
-                        <p class="font-semibold">{{ __('PAYMENT TERMS') }}
-                        {!! $invoice->payment_terms !!}
-                        </p>
+        // Base Summary (Subtotal + Total + Greeting + margins) = ~34mm + (extra tax/discount rows * 6mm) + Payment terms
+        $extraSummaryRows = 1;
+        if (($invoice->discount_amount ?? 0) > 0) $extraSummaryRows++;
+        if (($invoice->tax_amount ?? 0) > 0) $extraSummaryRows++;
+        
+        $summaryTotalHeightMm = 34 + ($extraSummaryRows * 6) + $termsHeightMm;
+
+        $rawItems = $invoice->items ? $invoice->items->all() : [];
+        $chunks = [];
+        $currentChunk = [];
+        $currentHeightMm = 0;
+        $currentStartIndex = 0;
+
+        // A4 Height = 297mm. Padding = 18mm top + 30mm bottom = 48mm.
+        // Net Printable Body = 249mm.
+        // First Page: Header (~50mm) + Vendor Box (~42mm) + Table Header (10mm) = ~102mm.
+        // First Page available space for content = 147mm.
+        // Subsequent Pages: Minimal Header (~16mm) + Table Header (10mm) = ~26mm.
+        // Subsequent Pages available space for content = 223mm.
+
+        $FIRST_PAGE_SOLO_HEIGHT = max(25, 147 - $summaryTotalHeightMm);  // First page with items + summary + terms
+        $FIRST_PAGE_OVERFLOW_HEIGHT = 142;                               // First page without summary
+        $SUBSEQUENT_REGULAR_HEIGHT = 217;                                // Intermediate page
+        $SUBSEQUENT_LAST_HEIGHT = max(30, 223 - $summaryTotalHeightMm);  // Final page with summary + terms
+
+        $totalItemsCount = count($rawItems);
+
+        // Pre-calculate total items height
+        $totalItemsHeightMm = 0;
+        foreach ($rawItems as $it) {
+            $totalItemsHeightMm += $estimateItemHeightMm($it);
+        }
+
+        $allFitsOnSinglePage = ($totalItemsHeightMm <= $FIRST_PAGE_SOLO_HEIGHT);
+
+        foreach ($rawItems as $idx => $item) {
+            $itemHeight = $estimateItemHeightMm($item);
+            $isFirstPage = (count($chunks) === 0);
+            $remainingItems = $totalItemsCount - $idx;
+
+            if ($allFitsOnSinglePage) {
+                $maxCapacityMm = $FIRST_PAGE_SOLO_HEIGHT;
+            } elseif ($isFirstPage) {
+                $maxCapacityMm = $FIRST_PAGE_OVERFLOW_HEIGHT;
+            } else {
+                $maxCapacityMm = ($remainingItems <= 2) ? $SUBSEQUENT_LAST_HEIGHT : $SUBSEQUENT_REGULAR_HEIGHT;
+            }
+
+            if (count($currentChunk) > 0 && ($currentHeightMm + $itemHeight > $maxCapacityMm)) {
+                $chunks[] = [
+                    'items' => $currentChunk,
+                    'startIndex' => $currentStartIndex
+                ];
+                $currentChunk = [$item];
+                $currentHeightMm = $itemHeight;
+                $currentStartIndex = $idx;
+            } else {
+                $currentChunk[] = $item;
+                $currentHeightMm += $itemHeight;
+            }
+        }
+
+        if (count($currentChunk) > 0 || count($chunks) === 0) {
+            $chunks[] = [
+                'items' => $currentChunk,
+                'startIndex' => $currentStartIndex
+            ];
+        }
+
+        $totalChunks = count($chunks);
+
+        // Calculate distinct tax breakdown for the entire invoice
+        $taxBreakdown = [];
+        foreach ($invoice->items ?? [] as $item) {
+            if (!empty($item->taxes) && count($item->taxes) > 0) {
+                $itemSubtotal = ($item->quantity * $item->unit_price) - ($item->discount_amount ?? 0);
+                foreach ($item->taxes as $tax) {
+                    $taxName = $tax->tax_name ?: __('Tax');
+                    $taxRate = (float) $tax->tax_rate;
+                    $calculatedTax = $itemSubtotal * ($taxRate / 100);
+                    $key = $taxName;
+                    if (!isset($taxBreakdown[$key])) {
+                        $taxBreakdown[$key] = [
+                            'name' => $taxName,
+                            'amount' => 0
+                        ];
+                    }
+                    $taxBreakdown[$key]['amount'] += $calculatedTax;
+                }
+            } elseif ((float) $item->tax_amount > 0 || (float) $item->tax_percentage > 0) {
+                $key = __('Tax');
+                if (!isset($taxBreakdown[$key])) {
+                    $taxBreakdown[$key] = [
+                        'name' => __('Tax'),
+                        'amount' => 0
+                    ];
+                }
+                $taxBreakdown[$key]['amount'] += (float) $item->tax_amount;
+            }
+        }
+    @endphp
+
+    @foreach($chunks as $chunkIdx => $chunk)
+        @php
+            $isFirstPage = ($chunkIdx === 0);
+            $isLastPage = ($chunkIdx === $totalChunks - 1);
+            $pageItems = $chunk['items'];
+            $startIndex = $chunk['startIndex'];
+        @endphp
+
+        <div class="a4-page">
+            @if($bgLetterheadUrl)
+                <img src="{{ $bgLetterheadUrl }}" alt="Letterhead Background" class="letterhead-bg-layer">
+            @endif
+
+            <div class="a4-content">
+                <div>
+                    <!-- Header (Only Full on First Page, Minimal Header on Subsequent Pages) -->
+                    @if($isFirstPage)
+                        <div class="flex justify-between items-start mb-5">
+                            <div class="w-1/2">
+                                @if($showLogo && $logoUrl)
+                                    <img src="{{ $logoUrl }}" alt="Logo" class="max-h-14 max-w-[200px] object-contain mb-3">
+                                @else
+                                    <h1 class="text-2xl font-bold mb-2 text-gray-900"></h1>
+                                @endif
+                                <div class="text-xs space-y-0.5 text-gray-600">
+                                    @if(!empty($companySettings['company_address']))
+                                        <p>{{ $companySettings['company_address'] }}</p>
+                                    @endif
+                                    @if(!empty($companySettings['company_city']) || !empty($companySettings['company_state']) || !empty($companySettings['company_zipcode']))
+                                        <p>
+                                            {{ $companySettings['company_city'] ?? '' }}{{ !empty($companySettings['company_state']) ? ', ' . $companySettings['company_state'] : '' }}
+                                            {{ $companySettings['company_zipcode'] ?? '' }}
+                                        </p>
+                                    @endif
+                                    @if(!empty($companySettings['company_country']))
+                                        <p>{{ $companySettings['company_country'] }}</p>
+                                    @endif
+                                    @if(!empty($companySettings['company_telephone']))
+                                        <p>{{ __('Phone') }}: {{ $companySettings['company_telephone'] }}</p>
+                                    @endif
+                                    @if(!empty($companySettings['company_email']))
+                                        <p>{{ __('Email') }}: {{ $companySettings['company_email'] }}</p>
+                                    @endif
+                                    @if(!empty($companySettings['registration_number']))
+                                        <p>{{ __('Registration') }}: {{ $companySettings['registration_number'] }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-right w-1/2">
+                                <h2 class="text-2xl font-bold mb-1 text-gray-900">{{ __('PURCHASE INVOICE') }}</h2>
+                                <p class="text-base font-semibold text-gray-800">#{{ $invoice->invoice_number }}</p>
+                                <div class="text-xs mt-2 space-y-0.5 text-gray-600">
+                                    <p>{{ __('Date') }}: {{ $formatDate($invoice->invoice_date) }}</p>
+                                    <p>{{ __('Due') }}: {{ $formatDate($invoice->due_date) }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vendor Information -->
+                        <div class="flex justify-between mb-5 pt-3 border-t border-gray-200">
+                            <div class="w-1/2">
+                                <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('VENDOR') }}</h3>
+                                <div class="text-xs space-y-0.5 text-gray-700">
+                                    <p class="font-semibold text-gray-900">{{ $invoice->vendor->name ?? '' }}</p>
+                                    <p>{{ $invoice->vendor->email ?? '' }}</p>
+                                    @if(!empty($invoice->vendorDetails?->billing_address))
+                                        <p>{{ $invoice->vendorDetails->billing_address['name'] ?? '' }}</p>
+                                        <p>{{ $invoice->vendorDetails->billing_address['address_line_1'] ?? '' }}</p>
+                                        <p>
+                                            {{ $invoice->vendorDetails->billing_address['city'] ?? '' }}{{ !empty($invoice->vendorDetails->billing_address['state']) ? ', ' . $invoice->vendorDetails->billing_address['state'] : '' }}
+                                            {{ $invoice->vendorDetails->billing_address['zip_code'] ?? '' }}
+                                        </p>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-right w-1/2">
+                                <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('SHIP TO') }}</h3>
+                                <div class="text-xs space-y-0.5 text-gray-700">
+                                    @if(!empty($invoice->vendorDetails?->shipping_address))
+                                        <p class="font-semibold text-gray-900">{{ $invoice->vendorDetails->shipping_address['name'] ?? '' }}</p>
+                                        <p>{{ $invoice->vendorDetails->shipping_address['address_line_1'] ?? '' }}</p>
+                                        <p>
+                                            {{ $invoice->vendorDetails->shipping_address['city'] ?? '' }}{{ !empty($invoice->vendorDetails->shipping_address['state']) ? ', ' . $invoice->vendorDetails->shipping_address['state'] : '' }}
+                                            {{ $invoice->vendorDetails->shipping_address['zip_code'] ?? '' }}
+                                        </p>
+                                    @else
+                                        <p class="text-gray-500">{{ __('Same as vendor address') }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @else
+                        <!-- Compact Header on Page 2+ -->
+                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+                            <div>
+                                <span class="font-bold text-sm text-gray-900">{{ __('PURCHASE INVOICE') }}: #{{ $invoice->invoice_number }}</span>
+                            </div>
+                            <div class="text-xs text-gray-600">
+                                <span>{{ __('Date') }}: {{ $formatDate($invoice->invoice_date) }}</span> | 
+                                <span>{{ __('Vendor') }}: {{ $invoice->vendor->name ?? '' }}</span>
+                            </div>
+                        </div>
                     @endif
-                    <p class="text-[11px] mt-1">{{ __('Thank you for your business!') }}</p>
+
+                    <!-- Items Table -->
+                    <div class="mb-4">
+                        <table style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #94a3b8;">
+                            <thead>
+                                <tr style="background-color: #e2e8f0; color: #0f172a; font-weight: 700;">
+                                    <th style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; font-size: 9.5px; width: 5%;">{{ __('SN') }}</th>
+                                    <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: left; font-size: 9.5px; width: 22%;">{{ __('ITEMS') }}</th>
+                                    <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: left; font-size: 9.5px; width: 23%;">{{ __('DESCRIPTION') }}</th>
+                                    <th style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; font-size: 9.5px; width: 9%;">{{ __('QTY') }}</th>
+                                    <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 11%;">{{ __('PRICE') }}</th>
+                                    <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 10%;">{{ __('DISCOUNT') }}</th>
+                                    <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 10%;">{{ __('TAX/VAT') }}</th>
+                                    <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 12%;">{{ __('TOTAL') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($pageItems as $i => $item)
+                                    @php
+                                        $unitName = $item->product?->unitRelation?->unit_name ?? (!is_numeric($item->product?->unit) ? $item->product?->unit : '');
+                                        $itemDesc = $item->description ?? $item->product?->description ?? $item->product?->long_description ?? '';
+                                    @endphp
+                                    <tr class="page-break-inside-avoid">
+                                        <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #475569;">{{ $startIndex + $i + 1 }}</td>
+                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; vertical-align: top;">
+                                            <div style="font-weight: 600; color: #0f172a; line-height: 1.25; font-size: 10px;">{{ $item->product->name ?? '' }}</div>
+                                        </td>
+                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; vertical-align: top; color: #475569; font-size: 9px; line-height: 1.35;">
+                                            @if(!empty($itemDesc))
+                                                {!! $itemDesc !!}
+                                            @else
+                                                <span style="color: #94a3b8;">-</span>
+                                            @endif
+                                        </td>
+                                        <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500; white-space: nowrap;">
+                                            {{ $item->quantity }}@if(!empty($unitName)) <span style="font-size: 9px; color: #475569; font-weight: 400;">{{ $unitName }}</span>@endif
+                                        </td>
+                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">{{ $formatCurrency($item->unit_price) }}</td>
+                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">
+                                            @if($item->discount_percentage > 0)
+                                                <div>{{ $item->discount_percentage }}%</div>
+                                                <div style="font-size: 9px; color: #dc2626; font-weight: 500;">-{{ $formatCurrency($item->discount_amount) }}</div>
+                                            @else
+                                                <span style="color: #94a3b8;">-</span>
+                                            @endif
+                                        </td>
+                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">
+                                            @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                @foreach($item->taxes as $tax)
+                                                    <div style="line-height: 1.25; color: #475569; font-size: 9px;">{{ $tax->tax_name }} ({{ $tax->tax_rate }}%)</div>
+                                                @endforeach
+                                            @elseif($item->tax_percentage > 0)
+                                                <div style="color: #475569; font-size: 9px;">{{ $item->tax_percentage }}%</div>
+                                            @else
+                                                <span style="color: #94a3b8;">-</span>
+                                            @endif
+                                        </td>
+                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; font-weight: 700; color: #0f172a;">
+                                            {{ $formatCurrency($item->total_amount) }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+
+                            @if($isLastPage)
+                                <tfoot>
+                                    <tr class="page-break-inside-avoid">
+                                        <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                                        <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Subtotal') }}:</td>
+                                        <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #1e293b; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->subtotal) }}</td>
+                                    </tr>
+                                    @if($invoice->discount_amount > 0)
+                                        <tr class="page-break-inside-avoid">
+                                            <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                                            <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Discount') }}:</td>
+                                            <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #dc2626; border: 1px solid #94a3b8;">-{{ $formatCurrency($invoice->discount_amount) }}</td>
+                                        </tr>
+                                    @endif
+                                    @if(!empty($taxBreakdown) && count($taxBreakdown) > 0)
+                                        @foreach($taxBreakdown as $taxKey => $taxInfo)
+                                            @if($taxInfo['amount'] > 0)
+                                                <tr class="page-break-inside-avoid">
+                                                    <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                                                    <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ $taxInfo['name'] }}:</td>
+                                                    <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #1e293b; border: 1px solid #94a3b8;">{{ $formatCurrency($taxInfo['amount']) }}</td>
+                                                </tr>
+                                            @endif
+                                        @endforeach
+                                    @elseif($invoice->tax_amount > 0)
+                                        <tr class="page-break-inside-avoid">
+                                            <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                                            <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Tax') }}:</td>
+                                            <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #1e293b; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->tax_amount) }}</td>
+                                        </tr>
+                                    @endif
+                                    <tr class="page-break-inside-avoid" style="font-weight: 700;">
+                                        <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                                        <td style="padding: 6px 8px; font-size: 11px; color: #0f172a; border: 1px solid #94a3b8; text-align: right;">{{ __('TOTAL') }}:</td>
+                                        <td style="padding: 6px 8px; font-size: 11px; text-align: right; color: #0f172a; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->total_amount) }}</td>
+                                    </tr>
+                                </tfoot>
+                            @endif
+                        </table>
+                    </div>
                 </div>
+
+                <!-- Footer (Payment Terms & Business Greeting on Last Page Only) -->
+                @if($isLastPage)
+                    <div>
+                        @if($invoice->payment_terms)
+                            <div class="border-t border-gray-200 pt-2 mb-2 text-xs text-gray-600 page-break-inside-avoid">
+                                <span class="font-semibold text-gray-800">{{ __('PAYMENT TERMS') }}:</span>
+                                <div class="prose prose-xs max-w-none text-gray-600 inline-block">{!! $invoice->payment_terms !!}</div>
+                            </div>
+                        @endif
+                        <div class="border-t border-gray-300 pt-2 text-center text-xs text-gray-500 page-break-inside-avoid">
+                            <span>{{ __('Thank you for your business!') }}</span>
+                        </div>
+                    </div>
+                @endif
+            </div>
         </div>
-    </div>
+    @endforeach
 
     @if(empty($isServerPdf))
         <div id="downloading-loader"

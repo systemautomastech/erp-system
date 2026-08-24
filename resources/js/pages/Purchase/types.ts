@@ -29,6 +29,8 @@ export interface PurchaseInvoiceItem {
     id?: number;
     invoice_id?: number;
     product_id: number;
+    product_type?: string;
+    description?: string;
     quantity: number;
     unit_price: number;
     discount_percentage: number;
@@ -83,9 +85,16 @@ export interface ProductServiceItem {
     name: string;
     sku?: string;
     description?: string;
-    price: number;
+    long_description?: string;
+    price?: number;
+    purchase_price?: number;
+    sale_price?: number;
     tax_rate?: number;
     unit?: string;
+    unit_name?: string;
+    type?: string;
+    unit_relation?: { id: number; unit_name: string };
+    taxes?: Array<{ id: number; tax_name: string; rate: number }>;
 }
 
 export interface PurchaseFilters {

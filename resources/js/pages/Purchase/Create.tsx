@@ -1,5 +1,5 @@
-import React from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -31,6 +31,15 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { vendors, products, warehouses, default_payment_terms } = usePage<CreateProps>().props;
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        router.reload({
+            only: ['products'],
+            onFinish: () => setIsRefreshing(false)
+        });
+    };
 
     useFlashMessages();
     const { data, setData, post, processing, errors } = useForm({
@@ -42,6 +51,8 @@ export default function Create() {
         notes: '',
         items: [{
             product_id: 0,
+            product_type: 'product',
+            description: '',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
@@ -226,6 +237,8 @@ export default function Create() {
                                     onClick={() => {
                                         const newItem = {
                                             product_id: 0,
+                                            product_type: 'product',
+                                            description: '',
                                             quantity: 1,
                                             unit_price: 0,
                                             discount_percentage: 0,
@@ -250,6 +263,8 @@ export default function Create() {
                                 errors={errors}
                                 products={products}
                                 showAddButton={false}
+                                onRefresh={handleRefresh}
+                                isRefreshing={isRefreshing}
                             />
 
                             {/* Invoice Summary - Bottom of Items */}

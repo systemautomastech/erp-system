@@ -19,7 +19,7 @@ export const quotationCompanyMenu = (t: (key: string) => string) => [
             {
                 title: t('System Setup'),
                 href: route('quotation-setup.index'),
-                permission: 'manage-quotations',
+                permission: 'manage-quotation-system-setup',
             },
         ],
     },

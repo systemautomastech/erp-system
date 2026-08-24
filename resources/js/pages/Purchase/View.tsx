@@ -226,23 +226,43 @@ export default function View() {
                                         <th className="px-4 py-3 text-right text-sm font-semibold">{t('Qty')}</th>
                                         <th className="px-4 py-3 text-right text-sm font-semibold">{t('Unit Price')}</th>
                                         <th className="px-4 py-3 text-right text-sm font-semibold">{t('Discount')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Tax')}</th>
+                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Tax/Vat')}</th>
                                         <th className="px-4 py-3 text-right text-sm font-semibold">{t('Total')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {invoice.items?.map((item, index) => (
-                                        <tr key={index}>
-                                            <td className="px-4 py-4">
-                                                <div className="font-medium">{item.product?.name}</div>
-                                                {item.product?.sku && (
-                                                    <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
-                                                )}
-                                                {item.product?.description && (
-                                                    <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4 text-right">{item.quantity}</td>
+                                    {invoice.items?.map((item, index) => {
+                                        const unitDisplay = item.product?.unit_relation?.unit_name || item.product?.unit_name || (!isNaN(Number(item.product?.unit)) ? '' : (item.product?.unit || ''));
+                                        const desc = item.description || item.product?.description || item.product?.long_description || '';
+                                        return (
+                                            <tr key={index}>
+                                                <td className="px-4 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-foreground">{item.product?.name}</span>
+                                                        {item.product?.type && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground capitalize border border-border">
+                                                                {item.product.type}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {item.product?.sku && (
+                                                        <div className="text-xs text-muted-foreground mt-0.5">SKU: {item.product.sku}</div>
+                                                    )}
+                                                    {desc && (
+                                                        <div
+                                                            className="text-xs text-muted-foreground mt-1.5 prose prose-xs max-w-none dark:prose-invert"
+                                                            dangerouslySetInnerHTML={{ __html: desc }}
+                                                        />
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-right whitespace-nowrap">
+                                                    <span className="font-medium">{item.quantity}</span>
+                                                    {unitDisplay && (
+                                                        <span className="text-xs text-muted-foreground ml-1.5 font-normal">
+                                                            {unitDisplay}
+                                                        </span>
+                                                    )}
+                                                </td>
                                             <td className="px-4 py-4 text-right">{formatCurrency(item.unit_price)}</td>
                                             <td className="px-4 py-4 text-right">
                                                 {item.discount_percentage > 0 ? (
@@ -277,7 +297,8 @@ export default function View() {
                                                 {formatCurrency(item.total_amount)}
                                             </td>
                                         </tr>
-                                    ))}
+                                    );
+                                })}
                                 </tbody>
                             </table>
                         </div>
