@@ -444,7 +444,7 @@
     @php
         $items = $proposal->items ?? collect();
         $otcItems = $items->filter(function ($i) {
-            return ($i->section === 'otc' || $i->section === 'general' || !$i->section) && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
+            return ($i->section === 'otc' || $i->section === 'general' || !$i->section) && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->description) || !empty($i->product_description));
         })->values();
 
         $otcSubtotal = $otcItems->sum(fn($i) => (float) ($i->total_amount ?? ($i->quantity * $i->unit_price)));
@@ -453,7 +453,7 @@
         $otcTotal = $otcSubtotal - $otcDiscount + $otcTax;
 
         $mrcItems = $items->filter(function ($i) {
-            return $i->section === 'mrc' && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
+            return $i->section === 'mrc' && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->description) || !empty($i->product_description));
         })->values();
 
         $mrcSubtotal = $mrcItems->sum(fn($i) => (float) ($i->total_amount ?? ($i->quantity * $i->unit_price)));
@@ -466,9 +466,19 @@
         if (isset($proposal->contents) && count($proposal->contents) > 0) {
             $customContentPages = $proposal->contents->map(function ($c) {
                 $decoded = is_string($c->proposal_content) ? json_decode($c->proposal_content, true) : null;
-                return is_array($decoded) ? $decoded : [
+                if (is_array($decoded)) {
+                    return [
+                        'title' => $decoded['title'] ?? $c->title ?? '',
+                        'content' => $decoded['content'] ?? $c->proposal_content ?? '',
+                        'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
+                        'background_image' => $decoded['background_image'] ?? $c->background_image ?? null,
+                        'order' => $c->order ?? 1,
+                    ];
+                }
+                return [
                     'title' => $c->title ?? '',
-                    'content' => $c->content ?? $c->proposal_content ?? '',
+                    'content' => $c->proposal_content ?? '',
+                    'page_type' => $c->page_type ?? 'content',
                     'background_image' => $c->background_image ?? null,
                     'order' => $c->order ?? 1,
                 ];
@@ -478,9 +488,19 @@
             if ($dbContents && $dbContents->count() > 0) {
                 $customContentPages = $dbContents->map(function ($c) {
                     $decoded = is_string($c->proposal_content) ? json_decode($c->proposal_content, true) : null;
-                    return is_array($decoded) ? $decoded : [
+                    if (is_array($decoded)) {
+                        return [
+                            'title' => $decoded['title'] ?? $c->title ?? '',
+                            'content' => $decoded['content'] ?? $c->proposal_content ?? '',
+                            'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
+                            'background_image' => $decoded['background_image'] ?? $c->background_image ?? null,
+                            'order' => $c->order ?? 1,
+                        ];
+                    }
+                    return [
                         'title' => $c->title ?? '',
-                        'content' => $c->content ?? $c->proposal_content ?? '',
+                        'content' => $c->proposal_content ?? '',
+                        'page_type' => $c->page_type ?? 'content',
                         'background_image' => $c->background_image ?? null,
                         'order' => $c->order ?? 1,
                     ];
@@ -565,9 +585,10 @@
             $sec = (array) $sec;
             $rawContent = trim((string)($sec['content'] ?? ''));
             $title = $sec['title'] ?? '';
-            $isOtc = $rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false);
-            $isMrc = $rawContent === '[MRC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'monthly recurring charges') !== false);
-            $isOther = $rawContent === '[OTHER_DETAILS_CONTENT]' || (!empty($title) && stripos($title, 'other details') !== false);
+            $pageType = $sec['page_type'] ?? '';
+            $isOtc = $pageType === 'otc' || $rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false);
+            $isMrc = $pageType === 'mrc' || $rawContent === '[MRC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'monthly recurring charges') !== false);
+            $isOther = $pageType === 'other-details' || $rawContent === '[OTHER_DETAILS_CONTENT]' || (!empty($title) && stripos($title, 'other details') !== false);
 
             if ($isOtc) {
                 if (count($otcItems) > 0) {
@@ -710,7 +731,7 @@
                                         @foreach($page['items'] as $index => $item)
                                             @php
                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                $pDesc = $item->product->description ?? $item->product_description ?? '';
+                                                $pDesc = $item->product->description ?? $item->description ?? $item->product_description ?? '';
                                                 $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
@@ -856,7 +877,7 @@
                                         @foreach($page['items'] as $index => $item)
                                             @php
                                                  $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                 $pDesc = $item->product->description ?? $item->product_description ?? '';
+                                                 $pDesc = $item->product->description ?? $item->description ?? $item->product_description ?? '';
                                                  $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                  $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp

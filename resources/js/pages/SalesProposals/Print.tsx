@@ -52,7 +52,7 @@ export default function Print() {
                 return {
                     id: String(c.id || Math.random()),
                     title: c.title || '',
-                    content: c.content || c.proposal_content || '',
+                    content: c.proposal_content || '',
                     page_type: c.page_type || 'content',
                     background_image: c.background_image || undefined,
                     order: c.order ?? 1,

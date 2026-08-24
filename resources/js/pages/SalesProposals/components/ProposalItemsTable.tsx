@@ -155,20 +155,21 @@ export default function ProposalItemsTable({ items, onChange, errors = {}, produ
                     </thead>
                     <tbody className="divide-y divide-border">
                         {items.map((item, index) => {
-                            const availableTypes = Array.from(
+                            const selectableTypes = Array.from(
                                 new Set(
                                     products
-                                        .map((p) => p.type)
+                                        .map((p) => p.type || 'product')
                                         .filter((t): t is string => Boolean(t && t.trim() !== ''))
                                 )
                             );
 
-                            const selectableTypes = availableTypes.length > 0
-                                ? availableTypes
-                                : ['product', 'service'];
-
-                            const currentType = item.product_type || (selectableTypes.includes(invoiceType) ? invoiceType : selectableTypes[0]) || 'product';
-                            const filteredProducts = products.filter(p => !p.type || p.type === currentType);
+                            const currentType = item.product_type && selectableTypes.includes(item.product_type)
+                                ? item.product_type
+                                : (selectableTypes[0] || 'product');
+                            const filteredProducts = products.filter(p => {
+                                const prodType = p.type || 'product';
+                                return prodType.toLowerCase() === currentType.toLowerCase();
+                            });
 
                             const formatTypeName = (typeStr: string) => {
                                 if (!typeStr) return '';

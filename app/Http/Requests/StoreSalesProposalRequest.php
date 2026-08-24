@@ -16,6 +16,7 @@ class StoreSalesProposalRequest extends FormRequest
         return [
             'subject' => 'required|string|max:255',
             'invoice_date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:invoice_date',
             'customer_mode' => 'nullable|in:existing,new',
             'customer_id' => 'required_unless:customer_mode,new|nullable|integer|exists:users,id',
             'customer_name' => 'required_if:customer_mode,new|nullable|string|max:255',
@@ -55,6 +56,8 @@ class StoreSalesProposalRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'due_date.required' => __('Please select a due date.'),
+            'due_date.after_or_equal' => __('Due date must be equal to or after the proposal date.'),
             'customer_id.exists' => __('Selected customer does not exist.'),
             'items.required' => __('At least one item is required.'),
             'items.*.product_id.min' => __('Please select a product for each item.'),
