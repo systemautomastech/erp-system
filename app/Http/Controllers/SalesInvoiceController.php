@@ -605,6 +605,10 @@ class SalesInvoiceController extends Controller
     public function print(SalesInvoice $salesInvoice)
     {
         if(Auth::user()->can('print-sales-invoices')){
+            if(!$this->checkInvoiceAccess($salesInvoice)){
+                return back()->with('error', __('Permission denied'));
+            }
+
             $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
             $creatorId = $salesInvoice->created_by ?? creatorId();
@@ -622,6 +626,10 @@ class SalesInvoiceController extends Controller
     public function downloadPdf(SalesInvoice $salesInvoice)
     {
         if (Auth::user()->can('print-sales-invoices')) {
+            if(!$this->checkInvoiceAccess($salesInvoice)){
+                return back()->with('error', __('Permission denied'));
+            }
+
             $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
             $creatorId = $salesInvoice->created_by ?? creatorId();
