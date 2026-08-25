@@ -375,10 +375,9 @@ class SalesProposalController extends Controller
         $defaultPages = $this->proposalService->getActiveDefaultPages($authorId);
         $proposalSetting = ProposalSetting::getSettings(creatorId());
 
-        $companyName = $proposalSetting['company_name'] ?? config('app.name', 'Automas');
-        $companySlug = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
-        $proposalNumber = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($salesProposal->proposal_number)));
-        $fileName = "quotation_{$companySlug}_{$proposalNumber}.pdf";
+        $companyName = $proposalSetting['company_name'] ?? company_setting('company_name', creatorId()) ?? '';
+        $proposalNumber = $salesProposal->proposal_number;
+        $fileName = "{$companyName}_Sales Proposal_#{$proposalNumber}.pdf";
 
         return Pdf::view('sales-proposals.print', [
             'proposal' => $salesProposal,

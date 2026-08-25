@@ -76,9 +76,8 @@
     };
 
     $companyName = $proposalSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
-    $cleanCompName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
-    $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($proposal->proposal_number)));
-    $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
+    $proposalNumber = $proposal->proposal_number;
+    $pdfFilename = "{$companyName}_Sales Proposal_#{$proposalNumber}.pdf";
 
     $replaceProposalShortcodes = function ($content) use ($proposal, $proposalSetting, $getImagePath, $logoImage, $templateColor, $creatorId) {
         if (empty($content)) return '';
@@ -386,7 +385,44 @@
         .html-preview-container a { color: #2563eb; text-decoration: underline; }
         .html-preview-container table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #cbd5e1; }
         .html-preview-container th { border: 1px solid #cbd5e1; padding: 8px 10px; font-weight: 600; text-align: left; }
-        .html-preview-container td { border: 1px solid #cbd5e1; padding: 8px 10px; color: #1e293b; }
+        .html-preview-container table td { border: 1px solid #cbd5e1; padding: 8px 10px; color: #1e293b; }
+
+        /* Line item description HTML typography styles */
+        .proposal-item-desc {
+            font-size: 11px;
+            line-height: 1.4;
+            color: #293240;
+        }
+        .proposal-item-desc p {
+            margin: 2px 0 !important;
+        }
+        .proposal-item-desc p:empty {
+            min-height: 0.8em;
+            margin: 0;
+        }
+        .proposal-item-desc ul {
+            list-style-type: disc !important;
+            margin-left: 18px !important;
+            padding-left: 0 !important;
+            margin-top: 3px !important;
+            margin-bottom: 3px !important;
+        }
+        .proposal-item-desc ol {
+            list-style-type: decimal !important;
+            margin-left: 18px !important;
+            padding-left: 0 !important;
+            margin-top: 3px !important;
+            margin-bottom: 3px !important;
+        }
+        .proposal-item-desc li {
+            margin-top: 1px !important;
+            margin-bottom: 1px !important;
+            display: list-item !important;
+        }
+        .proposal-item-desc li p {
+            display: inline !important;
+            margin: 0 !important;
+        }
 
         @media print {
             @page {
@@ -530,7 +566,7 @@
 
         // Helper for estimating item weight in blade
         $estimateItemWeight = function ($item) {
-            $desc = $item->product->description ?? $item->product_description ?? '';
+            $desc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
             $plainText = trim(preg_replace('/\s+/', ' ', strip_tags($desc)));
             $blockTags = preg_match_all('/<\/p>|<br\s*\/?>|<\/li>|<\/h[1-6]>/i', $desc, $matches);
             $textLines = ceil(strlen($plainText) / 48);
@@ -731,7 +767,7 @@
                                         @foreach($page['items'] as $index => $item)
                                             @php
                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                $pDesc = $item->product->description ?? $item->description ?? $item->product_description ?? '';
+                                                $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
                                                 $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
@@ -743,7 +779,8 @@
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">
                                                     {{ $pName }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; font-size: 11px;">
+                                                    class="proposal-item-desc"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
@@ -877,7 +914,7 @@
                                         @foreach($page['items'] as $index => $item)
                                             @php
                                                  $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                 $pDesc = $item->product->description ?? $item->description ?? $item->product_description ?? '';
+                                                 $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
                                                  $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                  $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
@@ -889,7 +926,8 @@
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">
                                                     {{ $pName }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; font-size: 11px;">
+                                                    class="proposal-item-desc"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">

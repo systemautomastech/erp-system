@@ -591,7 +591,7 @@ const ChargesPage = React.memo<ChargesPageProps>(
                                         </td>
                                         <td className="py-2 px-2 text-slate-600 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
                                             <div
-                                                className="leading-relaxed break-words [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-3 [&_ol]:list-decimal [&_ol]:pl-3"
+                                                className="leading-relaxed break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-1 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
                                                 dangerouslySetInnerHTML={{ __html: desc || '-' }}
                                             />
                                         </td>

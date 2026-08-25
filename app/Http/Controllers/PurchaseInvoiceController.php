@@ -530,8 +530,9 @@ class PurchaseInvoiceController extends Controller
 
             $creatorId = $purchaseInvoice->created_by ?? creatorId();
             $purchaseInvoiceSetting = PurchaseInvoiceSetup::getSettings($creatorId);
+            $companyName = $purchaseInvoiceSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
 
-            $filename = "purchase-invoice-{$purchaseInvoice->invoice_number}.pdf";
+            $filename = "{$companyName}_Purchase Invoice_#{$purchaseInvoice->invoice_number}.pdf";
 
             return Pdf::view('purchase.print', [
                 'invoice' => $purchaseInvoice,
