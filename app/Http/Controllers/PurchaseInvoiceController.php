@@ -232,7 +232,22 @@ class PurchaseInvoiceController extends Controller
             $invoice = new PurchaseInvoice();
             $invoice->invoice_date = $request->invoice_date;
             $invoice->due_date = $request->due_date;
-            $invoice->vendor_id = $request->vendor_id;
+
+            $vendorMode = $request->input('vendor_mode', 'existing');
+            if ($vendorMode === 'new') {
+                $invoice->vendor_id = null;
+                $invoice->vendor_name = $request->vendor_name;
+                $invoice->vendor_email = $request->vendor_email;
+                $invoice->vendor_phone = $request->vendor_phone;
+                $invoice->vendor_address = $request->vendor_address;
+            } else {
+                $invoice->vendor_id = $request->vendor_id;
+                $invoice->vendor_name = null;
+                $invoice->vendor_email = null;
+                $invoice->vendor_phone = null;
+                $invoice->vendor_address = null;
+            }
+
             $invoice->warehouse_id = $request->warehouse_id;
             $invoice->payment_terms = $request->payment_terms;
             $invoice->notes = $request->notes;
@@ -252,19 +267,23 @@ class PurchaseInvoiceController extends Controller
                 CreatePurchaseInvoice::dispatch($request, $invoice);
                 // Send purchase invoice mail
                 if (company_setting('Purchase Invoice') == 'on') {
-                    $emailData = [
-                        'invoice_number' => $invoice->invoice_number ?? null,
-                        'purchase_vendor_name' => $invoice->vendor->name ?? null,
-                        'warehouse_name' => $invoice->warehouse->name ?? null,
-                        'discount_amount' => $totals['discount_amount'] ?? null,
-                        'total_amount' => $totals['total_amount'] ?? null,
-                    ];
+                    $vendorEmail = $invoice->vendor->email ?? $invoice->vendor_email;
+                    $vendorName = $invoice->vendor->name ?? $invoice->vendor_name;
+                    if ($vendorEmail) {
+                        $emailData = [
+                            'invoice_number' => $invoice->invoice_number ?? null,
+                            'purchase_vendor_name' => $vendorName ?? null,
+                            'warehouse_name' => $invoice->warehouse->name ?? null,
+                            'discount_amount' => $totals['discount_amount'] ?? null,
+                            'total_amount' => $totals['total_amount'] ?? null,
+                        ];
 
-                    $message = EmailTemplate::sendEmailTemplate('Purchase Invoice', [$invoice->vendor->email], $emailData);
-                    if ($message['is_success'] == false && !empty($message['error'])) {
-                        return back()
-                            ->with('success', __('The purchase invoice has been created successfully.'))
-                            ->with('error', $message['error']);
+                        $message = EmailTemplate::sendEmailTemplate('Purchase Invoice', [$vendorEmail], $emailData);
+                        if ($message['is_success'] == false && !empty($message['error'])) {
+                            return back()
+                                ->with('success', __('The purchase invoice has been created successfully.'))
+                                ->with('error', $message['error']);
+                        }
                     }
                 }
             } catch (\Throwable $th) {
@@ -358,7 +377,22 @@ class PurchaseInvoiceController extends Controller
 
             $purchaseInvoice->invoice_date = $request->invoice_date;
             $purchaseInvoice->due_date = $request->due_date;
-            $purchaseInvoice->vendor_id = $request->vendor_id;
+
+            $vendorMode = $request->input('vendor_mode', 'existing');
+            if ($vendorMode === 'new') {
+                $purchaseInvoice->vendor_id = null;
+                $purchaseInvoice->vendor_name = $request->vendor_name;
+                $purchaseInvoice->vendor_email = $request->vendor_email;
+                $purchaseInvoice->vendor_phone = $request->vendor_phone;
+                $purchaseInvoice->vendor_address = $request->vendor_address;
+            } else {
+                $purchaseInvoice->vendor_id = $request->vendor_id;
+                $purchaseInvoice->vendor_name = null;
+                $purchaseInvoice->vendor_email = null;
+                $purchaseInvoice->vendor_phone = null;
+                $purchaseInvoice->vendor_address = null;
+            }
+
             $purchaseInvoice->warehouse_id = $request->warehouse_id;
             $purchaseInvoice->payment_terms = $request->payment_terms;
             $purchaseInvoice->notes = $request->notes;
@@ -431,6 +465,8 @@ class PurchaseInvoiceController extends Controller
             $item = new PurchaseInvoiceItem();
             $item->invoice_id = $invoiceId;
             $item->product_id = $itemData['product_id'];
+            $item->description = $itemData['description'] ?? null;
+            $item->product_type = $itemData['product_type'] ?? 'product';
             $item->quantity = $itemData['quantity'];
             $item->unit_price = $itemData['unit_price'];
             $item->discount_percentage = $itemData['discount_percentage'] ?? 0;

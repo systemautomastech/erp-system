@@ -109,12 +109,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ __('Purchase Invoice') }} - #{{ $invoice->invoice_number }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * {
             box-sizing: border-box !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
         }
 
         html,
@@ -122,7 +126,7 @@
             margin: 0 !important;
             padding: 0 !important;
             background-color: #ffffff;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
             color: #1e293b;
         }
 
@@ -137,7 +141,7 @@
             height: 297mm;
             min-height: 297mm;
             max-height: 297mm;
-            padding: 18mm 14mm 30mm 14mm;
+            padding: 30mm 14mm 30mm 14mm;
             margin: 0 auto;
             background-color: #ffffff;
             box-sizing: border-box;
@@ -183,6 +187,60 @@
             break-inside: avoid;
         }
 
+        .rich-content ul {
+            list-style-type: disc !important;
+            margin-left: 1.25rem !important;
+            padding-left: 0 !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .rich-content ol {
+            list-style-type: decimal !important;
+            margin-left: 1.25rem !important;
+            padding-left: 0 !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .rich-content li {
+            display: list-item !important;
+            margin-top: 0.1rem !important;
+            margin-bottom: 0.1rem !important;
+        }
+
+        .rich-content p {
+            margin-top: 0.15rem !important;
+            margin-bottom: 0.15rem !important;
+        }
+
+        .rich-content p:first-child {
+            margin-top: 0 !important;
+        }
+
+        .rich-content p:last-child {
+            margin-bottom: 0 !important;
+        }
+
+        .rich-content strong,
+        .rich-content b {
+            font-weight: 700 !important;
+        }
+
+        .rich-content em,
+        .rich-content i {
+            font-style: italic !important;
+        }
+
+        .rich-content u {
+            text-decoration: underline !important;
+        }
+
+        .rich-content s,
+        .rich-content strike {
+            text-decoration: line-through !important;
+        }
+
         @media print {
             html,
             body {
@@ -193,7 +251,7 @@
                 width: 210mm !important;
                 height: 297mm !important;
                 margin: 0 !important;
-                padding: 18mm 14mm 30mm 14mm !important;
+                padding: 30mm 14mm 30mm 14mm !important;
                 box-shadow: none !important;
                 page-break-after: always;
                 break-after: page;
@@ -399,8 +457,13 @@
                             <div class="w-1/2">
                                 <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('VENDOR') }}</h3>
                                 <div class="text-xs space-y-0.5 text-gray-700">
-                                    <p class="font-semibold text-gray-900">{{ $invoice->vendor->name ?? '' }}</p>
-                                    <p>{{ $invoice->vendor->email ?? '' }}</p>
+                                    <p class="font-semibold text-gray-900">{{ $invoice->vendor->name ?? $invoice->vendor_name ?? '' }}</p>
+                                    @if(!empty($invoice->vendor->email ?? $invoice->vendor_email))
+                                        <p>{{ $invoice->vendor->email ?? $invoice->vendor_email }}</p>
+                                    @endif
+                                    @if(!empty($invoice->vendor_phone))
+                                        <p>{{ $invoice->vendor_phone }}</p>
+                                    @endif
                                     @if(!empty($invoice->vendorDetails?->billing_address))
                                         <p>{{ $invoice->vendorDetails->billing_address['name'] ?? '' }}</p>
                                         <p>{{ $invoice->vendorDetails->billing_address['address_line_1'] ?? '' }}</p>
@@ -408,6 +471,8 @@
                                             {{ $invoice->vendorDetails->billing_address['city'] ?? '' }}{{ !empty($invoice->vendorDetails->billing_address['state']) ? ', ' . $invoice->vendorDetails->billing_address['state'] : '' }}
                                             {{ $invoice->vendorDetails->billing_address['zip_code'] ?? '' }}
                                         </p>
+                                    @elseif(!empty($invoice->vendor_address))
+                                        <p class="whitespace-pre-line">{{ $invoice->vendor_address }}</p>
                                     @endif
                                 </div>
                             </div>
@@ -435,7 +500,7 @@
                             </div>
                             <div class="text-xs text-gray-600">
                                 <span>{{ __('Date') }}: {{ $formatDate($invoice->invoice_date) }}</span> | 
-                                <span>{{ __('Vendor') }}: {{ $invoice->vendor->name ?? '' }}</span>
+                                <span>{{ __('Vendor') }}: {{ $invoice->vendor->name ?? $invoice->vendor_name ?? '' }}</span>
                             </div>
                         </div>
                     @endif
@@ -468,7 +533,7 @@
                                         </td>
                                         <td style="padding: 6px 8px; border: 1px solid #94a3b8; vertical-align: top; color: #475569; font-size: 9px; line-height: 1.35;">
                                             @if(!empty($itemDesc))
-                                                {!! $itemDesc !!}
+                                                <div class="rich-content">{!! $itemDesc !!}</div>
                                             @else
                                                 <span style="color: #94a3b8;">-</span>
                                             @endif
@@ -479,10 +544,9 @@
                                         <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">{{ $formatCurrency($item->unit_price) }}</td>
                                         <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">
                                             @if($item->discount_percentage > 0)
-                                                <div>{{ $item->discount_percentage }}%</div>
-                                                <div style="font-size: 9px; color: #dc2626; font-weight: 500;">-{{ $formatCurrency($item->discount_amount) }}</div>
+                                                <div>{{ (float)$item->discount_percentage }}%</div>
                                             @else
-                                                <span style="color: #94a3b8;">-</span>
+                                                <span>-</span>
                                             @endif
                                         </td>
                                         <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">
@@ -496,9 +560,7 @@
                                                 <span style="color: #94a3b8;">-</span>
                                             @endif
                                         </td>
-                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; font-weight: 700; color: #0f172a;">
-                                            {{ $formatCurrency($item->total_amount) }}
-                                        </td>
+                                        <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; font-weight: 600; color: #0f172a;">{{ $formatCurrency($item->total_amount) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -549,10 +611,12 @@
                 @if($isLastPage)
                     <div>
                         @if($invoice->payment_terms)
-                            <div class="border-t border-gray-200 pt-2 mb-2 text-xs text-gray-600 page-break-inside-avoid">
+                            <div class="pt-2 text-xs text-gray-600 page-break-inside-avoid">
                                 <span class="font-semibold text-gray-800">{{ __('PAYMENT TERMS') }}:</span>
-                                <div class="prose prose-xs max-w-none text-gray-600 inline-block">{!! $invoice->payment_terms !!}</div>
                             </div>
+                             <div class="pt-2 mb-2 text-xs text-gray-600 page-break-inside-avoid">
+                                <div class="rich-content text-gray-600 inline-block">{!! $invoice->payment_terms !!}</div>
+                             </div>
                         @endif
                         <div class="border-t border-gray-300 pt-2 text-center text-xs text-gray-500 page-break-inside-avoid">
                             <span>{{ __('Thank you for your business!') }}</span>
