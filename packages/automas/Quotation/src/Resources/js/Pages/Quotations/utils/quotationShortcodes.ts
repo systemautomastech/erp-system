@@ -160,7 +160,6 @@ export const replaceQuotationShortcodes = (
     quotation_number: proposalNumber,
     quotation_date: formattedProposalDate,
     due_date: formattedDueDate,
-    due_date: formattedDueDate,
     quotation_validity: context.formData?.payment_terms || context.proposal?.payment_terms || '',
     customer_name: customerName,
     customer_email: customerEmail,

@@ -19,12 +19,12 @@ import { MultiSelectEnhanced } from '@/components/ui/multi-select-enhanced';
 
 
 export default function Create({ onSuccess }: CreateLeadProps) {
-    const { users, sources } = usePage<any>().props;
+    const { users, sources, auth } = usePage<any>().props;
 
     const { t } = useTranslation();
     const { data, setData, post, processing, errors } = useForm<CreateLeadFormData>({
         subject: '',
-        user_id: '',
+        user_id: auth?.user?.id ? auth.user.id.toString() : '',
         name: '',
         email: '',
         phone: '',

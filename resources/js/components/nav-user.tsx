@@ -62,9 +62,11 @@ export function NavUser({
 
   if (inHeader) {
     return (
-      <div className="flex items-center gap-3">
-        <CacheClear />
-        <LanguageSwitcher />
+      <div className="flex items-center gap-1 sm:gap-2">
+        <div className="hidden sm:flex items-center gap-1 sm:gap-2">
+          <CacheClear />
+          <LanguageSwitcher />
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

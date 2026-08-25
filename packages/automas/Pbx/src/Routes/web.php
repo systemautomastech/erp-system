@@ -21,6 +21,9 @@ Route::middleware([
     Route::get('extensions/directory', [PbxExtensionController::class, 'directory'])
         ->name('extensions.directory');
 
+    Route::get('extensions/live-status', [PbxExtensionController::class, 'liveStatus'])
+        ->name('extensions.live-status');
+
     Route::resource('extensions', PbxExtensionController::class)->names([
         'index' => 'extensions.index',
         'create' => 'extensions.create',
