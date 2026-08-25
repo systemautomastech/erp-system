@@ -19,7 +19,9 @@ use App\Events\UpdateSalesInvoice;
 use App\Events\DestroySalesInvoice;
 use App\Events\PostSalesInvoice;
 use App\Events\EditSalesInvoice;
+use App\Models\SalesInvoiceSetup;
 use App\Models\EmailTemplate;
+use Spatie\LaravelPdf\Facades\Pdf;
 
 class SalesInvoiceController extends Controller
 {
@@ -229,7 +231,7 @@ class SalesInvoiceController extends Controller
                 });
 
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
-            $setupSettings = \App\Models\SalesInvoiceSetup::getSettings(creatorId());
+            $setupSettings = SalesInvoiceSetup::getSettings(creatorId());
 
             return Inertia::render('Sales/Create', [
                 'customers' => $customers,
@@ -612,7 +614,7 @@ class SalesInvoiceController extends Controller
             $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
             $creatorId = $salesInvoice->created_by ?? creatorId();
-            $salesInvoiceSetting = \App\Models\SalesInvoiceSetup::getSettings($creatorId);
+            $salesInvoiceSetting = SalesInvoiceSetup::getSettings($creatorId);
             return view('sales.print', [
                 'invoice' => $salesInvoice,
                 'salesInvoiceSetting' => $salesInvoiceSetting,
@@ -633,11 +635,11 @@ class SalesInvoiceController extends Controller
             $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
             $creatorId = $salesInvoice->created_by ?? creatorId();
-            $salesInvoiceSetting = \App\Models\SalesInvoiceSetup::getSettings($creatorId);
+            $salesInvoiceSetting = SalesInvoiceSetup::getSettings($creatorId);
 
             $filename = "sales-invoice-{$salesInvoice->invoice_number}.pdf";
 
-            return \Spatie\LaravelPdf\Facades\Pdf::view('sales.print', [
+            return Pdf::view('sales.print', [
                 'invoice' => $salesInvoice,
                 'salesInvoiceSetting' => $salesInvoiceSetting,
                 'isServerPdf' => true,
@@ -653,7 +655,7 @@ class SalesInvoiceController extends Controller
     public function setup()
     {
         if (Auth::user()->can('manage-sales-invoice-setup') || Auth::user()->can('manage-sales-invoices') || Auth::user()->can('manage-settings')) {
-            $settings = \App\Models\SalesInvoiceSetup::getSettings(creatorId());
+            $settings = SalesInvoiceSetup::getSettings(creatorId());
             return Inertia::render('Sales/SystemSetup/Index', [
                 'settings' => $settings,
             ]);
@@ -666,7 +668,7 @@ class SalesInvoiceController extends Controller
     {
         if (Auth::user()->can('manage-sales-invoice-setup') || Auth::user()->can('manage-sales-invoices') || Auth::user()->can('manage-settings')) {
             $settings = $request->input('settings', $request->except(['_token', '_method']));
-            \App\Models\SalesInvoiceSetup::setSettings($settings, creatorId());
+            SalesInvoiceSetup::setSettings($settings, creatorId());
             return redirect()->back()->with('success', __('Sales Invoice setup updated successfully.'));
         } else {
             return redirect()->back()->with('error', __('Permission denied'));
