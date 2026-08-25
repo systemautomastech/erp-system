@@ -75,10 +75,9 @@
         return '';
     };
 
-    $companyName = $quotationSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? config('app.name', 'Automas');
-    $cleanCompName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
-    $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($quotation->quotation_number)));
-    $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
+    $companyName = $quotationSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
+    $quotationNumber = $quotation->quotation_number;
+    $pdfFilename = "{$companyName}_Sales Quotation_#{$quotationNumber}.pdf";
 
     $replaceQuotationShortcodes = function ($content) use ($quotation, $quotationSetting, $getImagePath, $logoImage, $templateColor, $creatorId) {
         if (empty($content)) return '';

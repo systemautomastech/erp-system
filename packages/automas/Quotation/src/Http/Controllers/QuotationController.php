@@ -343,10 +343,9 @@ class QuotationController extends Controller
         $defaultPages = $this->quotationServices->getActiveDefaultPages($quotationAuthorId);
         $quotationSetting = $this->quotationServices->getQuotationSetting();
 
-        $companyName = $quotationSetting['company_name'] ?? config('app.name', 'Automas');
-        $sanitizedCompanyName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
-        $sanitizedQuotationNumber = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($quotation->quotation_number)));
-        $filename = "quotation_{$sanitizedCompanyName}_{$sanitizedQuotationNumber}.pdf";
+        $companyName = $quotationSetting['company_name'] ?? company_setting('company_name', creatorId()) ?? '';
+        $quotationNumber = $quotation->quotation_number;
+        $filename = "{$companyName}_Sales Quotation_#{$quotationNumber}.pdf";
 
         return Pdf::view('sales-quotations.print', [
             'quotation' => $quotation,

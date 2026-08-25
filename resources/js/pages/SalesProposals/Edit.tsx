@@ -167,6 +167,8 @@ export default function Edit() {
         notes: proposal.notes || '',
         items: (proposal.items && proposal.items.length > 0) ? proposal.items.map(item => ({
             ...item,
+            description: item.description || item.product_description || '',
+            product_description: item.product_description || item.description || '',
             section: item.section || 'general',
             product_type: item.product_type || proposal.type || 'product',
             quantity: item.quantity || 1,
@@ -180,6 +182,7 @@ export default function Edit() {
             product_id: 0,
             section: 'general',
             product_type: 'product',
+            description: '',
             product_description: '',
             quantity: 1,
             unit_price: 0,

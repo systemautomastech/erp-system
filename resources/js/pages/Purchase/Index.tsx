@@ -336,7 +336,7 @@ export default function Index() {
         {
             key: 'vendor',
             header: t('Vendor'),
-            render: (value: any) => value?.name || '-'
+            render: (value: any, invoice: PurchaseInvoice) => value?.name || invoice.vendor_name || '-'
         },
         {
             key: 'invoice_date',

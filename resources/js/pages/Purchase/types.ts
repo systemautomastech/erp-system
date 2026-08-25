@@ -3,7 +3,11 @@ export interface PurchaseInvoice {
     invoice_number: string;
     invoice_date: string;
     due_date: string;
-    vendor_id: number;
+    vendor_id?: number | null;
+    vendor_name?: string | null;
+    vendor_email?: string | null;
+    vendor_phone?: string | null;
+    vendor_address?: string | null;
     warehouse_id?: number;
     subtotal: number;
     tax_amount: number;

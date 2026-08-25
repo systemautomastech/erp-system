@@ -1,8 +1,7 @@
-
 @php
     $companySettings = getCompanyAllSetting($invoice->created_by);
     $creatorId = $invoice->created_by ?? (function_exists('creatorId') ? creatorId() : auth()->id());
-    $purchaseInvoiceSetting = $purchaseInvoiceSetting ?? \App\Models\PurchaseInvoiceSetup::getSettings($creatorId);
+    $salesInvoiceSetting = $salesInvoiceSetting ?? \App\Models\SalesInvoiceSetup::getSettings($creatorId);
 
     // Data URI helper for local images
     $toDataUri = function ($fullFilePath) {
@@ -54,14 +53,14 @@
     };
 
     // Settings Flags & Assets
-    $showLogo = ($purchaseInvoiceSetting['purchase_invoice_show_logo'] ?? 'on') !== 'off';
-    $customLogo = $purchaseInvoiceSetting['purchase_invoice_logo'] ?? '';
+    $showLogo = ($salesInvoiceSetting['sales_invoice_show_logo'] ?? 'on') !== 'off';
+    $customLogo = $salesInvoiceSetting['sales_invoice_logo'] ?? '';
     $companyLogo = $companySettings['company_logo'] ?? $companySettings['logo_dark'] ?? '';
     $logoToUse = $customLogo ?: $companyLogo;
     $logoUrl = ($showLogo && $logoToUse) ? $getImagePath($logoToUse) : '';
 
-    $enableLetterhead = ($purchaseInvoiceSetting['purchase_invoice_enable_letterhead'] ?? 'off') === 'on';
-    $bgLetterhead = $purchaseInvoiceSetting['purchase_invoice_bg_letterhead'] ?? '';
+    $enableLetterhead = ($salesInvoiceSetting['sales_invoice_enable_letterhead'] ?? 'off') === 'on';
+    $bgLetterhead = $salesInvoiceSetting['sales_invoice_bg_letterhead'] ?? '';
     $bgLetterheadUrl = ($enableLetterhead && $bgLetterhead) ? $getImagePath($bgLetterhead) : '';
 
     // Format Currency Helper
@@ -108,7 +107,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ __('Purchase Invoice') }} - #{{ $invoice->invoice_number }}</title>
+    <title>{{ __('Invoice') }} - #{{ $invoice->invoice_number }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
@@ -305,13 +304,8 @@
         $currentHeightMm = 0;
         $currentStartIndex = 0;
 
-        // A4 Height = 297mm. Padding = 18mm top + 30mm bottom = 48mm.
-        // Net Printable Body = 249mm.
-        // First Page: Header (~50mm) + Vendor Box (~42mm) + Table Header (10mm) = ~102mm.
-        // First Page available space for content = 147mm.
-        // Subsequent Pages: Minimal Header (~16mm) + Table Header (10mm) = ~26mm.
-        // Subsequent Pages available space for content = 223mm.
-
+        // A4 Height = 297mm. Padding = 30mm top + 30mm bottom = 60mm.
+        // Net Printable Body = 237mm.
         $FIRST_PAGE_SOLO_HEIGHT = max(25, 147 - $summaryTotalHeightMm);  // First page with items + summary + terms
         $FIRST_PAGE_OVERFLOW_HEIGHT = 142;                               // First page without summary
         $SUBSEQUENT_REGULAR_HEIGHT = 217;                                // Intermediate page
@@ -424,7 +418,7 @@
                                     @endif
                                     @if(!empty($companySettings['company_city']) || !empty($companySettings['company_state']) || !empty($companySettings['company_zipcode']))
                                         <p>
-                                            {{ $companySettings['company_city'] ?? '' }}{{ !empty($companySettings['company_state']) ? ', ' . $companySettings['company_state'] : '' }}
+                                             {{ $companySettings['company_city'] ?? '' }}{{ !empty($companySettings['company_state']) ? ', ' . $companySettings['company_state'] : '' }}
                                             {{ $companySettings['company_zipcode'] ?? '' }}
                                         </p>
                                     @endif
@@ -443,7 +437,7 @@
                                 </div>
                             </div>
                             <div class="text-right w-1/2">
-                                <h2 class="text-2xl font-bold mb-1 text-gray-900">{{ __('PURCHASE INVOICE') }}</h2>
+                                <h2 class="text-2xl font-bold mb-1 text-gray-900">{{ __('INVOICE') }}</h2>
                                 <p class="text-base font-semibold text-gray-800">#{{ $invoice->invoice_number }}</p>
                                 <div class="text-xs mt-2 space-y-0.5 text-gray-600">
                                     <p>{{ __('Date') }}: {{ $formatDate($invoice->invoice_date) }}</p>
@@ -452,42 +446,42 @@
                             </div>
                         </div>
 
-                        <!-- Vendor Information -->
+                        <!-- Customer Information -->
                         <div class="flex justify-between mb-5 pt-3 border-t border-gray-200">
                             <div class="w-1/2">
-                                <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('VENDOR') }}</h3>
+                                <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('BILL TO') }}</h3>
                                 <div class="text-xs space-y-0.5 text-gray-700">
-                                    <p class="font-semibold text-gray-900">{{ $invoice->vendor->name ?? $invoice->vendor_name ?? '' }}</p>
-                                    @if(!empty($invoice->vendor->email ?? $invoice->vendor_email))
-                                        <p>{{ $invoice->vendor->email ?? $invoice->vendor_email }}</p>
+                                    <p class="font-semibold text-gray-900">{{ $invoice->customer->name ?? $invoice->customer_name ?? '-' }}</p>
+                                    @if(!empty($invoice->customer->email ?? $invoice->customer_email))
+                                        <p>{{ $invoice->customer->email ?? $invoice->customer_email }}</p>
                                     @endif
-                                    @if(!empty($invoice->vendor_phone))
-                                        <p>{{ $invoice->vendor_phone }}</p>
+                                    @if(!empty($invoice->customer_phone))
+                                        <p>{{ $invoice->customer_phone }}</p>
                                     @endif
-                                    @if(!empty($invoice->vendorDetails?->billing_address))
-                                        <p>{{ $invoice->vendorDetails->billing_address['name'] ?? '' }}</p>
-                                        <p>{{ $invoice->vendorDetails->billing_address['address_line_1'] ?? '' }}</p>
+                                    @if(!empty($invoice->customerDetails?->billing_address))
+                                        <p>{{ $invoice->customerDetails->billing_address['name'] ?? '' }}</p>
+                                        <p>{{ $invoice->customerDetails->billing_address['address_line_1'] ?? '' }}</p>
                                         <p>
-                                            {{ $invoice->vendorDetails->billing_address['city'] ?? '' }}{{ !empty($invoice->vendorDetails->billing_address['state']) ? ', ' . $invoice->vendorDetails->billing_address['state'] : '' }}
-                                            {{ $invoice->vendorDetails->billing_address['zip_code'] ?? '' }}
+                                            {{ $invoice->customerDetails->billing_address['city'] ?? '' }}{{ !empty($invoice->customerDetails->billing_address['state']) ? ', ' . $invoice->customerDetails->billing_address['state'] : '' }}
+                                            {{ $invoice->customerDetails->billing_address['zip_code'] ?? '' }}
                                         </p>
-                                    @elseif(!empty($invoice->vendor_address))
-                                        <p class="whitespace-pre-line">{{ $invoice->vendor_address }}</p>
+                                    @elseif(!empty($invoice->customer_address))
+                                        <p class="whitespace-pre-line">{{ $invoice->customer_address }}</p>
                                     @endif
                                 </div>
                             </div>
                             <div class="text-right w-1/2">
                                 <h3 class="font-bold text-xs uppercase mb-1.5 text-gray-900 tracking-wider">{{ __('SHIP TO') }}</h3>
                                 <div class="text-xs space-y-0.5 text-gray-700">
-                                    @if(!empty($invoice->vendorDetails?->shipping_address))
-                                        <p class="font-semibold text-gray-900">{{ $invoice->vendorDetails->shipping_address['name'] ?? '' }}</p>
-                                        <p>{{ $invoice->vendorDetails->shipping_address['address_line_1'] ?? '' }}</p>
+                                    @if(!empty($invoice->customerDetails?->shipping_address))
+                                        <p class="font-semibold text-gray-900">{{ $invoice->customerDetails->shipping_address['name'] ?? '' }}</p>
+                                        <p>{{ $invoice->customerDetails->shipping_address['address_line_1'] ?? '' }}</p>
                                         <p>
-                                            {{ $invoice->vendorDetails->shipping_address['city'] ?? '' }}{{ !empty($invoice->vendorDetails->shipping_address['state']) ? ', ' . $invoice->vendorDetails->shipping_address['state'] : '' }}
-                                            {{ $invoice->vendorDetails->shipping_address['zip_code'] ?? '' }}
+                                            {{ $invoice->customerDetails->shipping_address['city'] ?? '' }}{{ !empty($invoice->customerDetails->shipping_address['state']) ? ', ' . $invoice->customerDetails->shipping_address['state'] : '' }}
+                                            {{ $invoice->customerDetails->shipping_address['zip_code'] ?? '' }}
                                         </p>
                                     @else
-                                        <p class="text-gray-500">{{ __('Same as vendor address') }}</p>
+                                        <p class="text-gray-500">{{ __('Same as billing address') }}</p>
                                     @endif
                                 </div>
                             </div>
@@ -496,11 +490,11 @@
                         <!-- Compact Header on Page 2+ -->
                         <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
                             <div>
-                                <span class="font-bold text-sm text-gray-900">{{ __('PURCHASE INVOICE') }}: #{{ $invoice->invoice_number }}</span>
+                                <span class="font-bold text-sm text-gray-900">{{ __('INVOICE') }}: #{{ $invoice->invoice_number }}</span>
                             </div>
                             <div class="text-xs text-gray-600">
                                 <span>{{ __('Date') }}: {{ $formatDate($invoice->invoice_date) }}</span> | 
-                                <span>{{ __('Vendor') }}: {{ $invoice->vendor->name ?? $invoice->vendor_name ?? '' }}</span>
+                                <span>{{ __('Customer') }}: {{ $invoice->customer->name ?? $invoice->customer_name ?? '' }}</span>
                             </div>
                         </div>
                     @endif
@@ -612,7 +606,7 @@
                     <div>
                         @if($invoice->payment_terms)
                             <div class="pt-2 text-xs text-gray-600 page-break-inside-avoid">
-                                <span class="font-semibold text-gray-800">{{ __('PAYMENT TERMS') }}:</span>
+                                <span class="font-semibold text-gray-800">{{ __('TERMS & CONDITIONS') }}:</span>
                             </div>
                              <div class="pt-2 mb-2 text-xs text-gray-600 page-break-inside-avoid">
                                 <div class="rich-content text-gray-600 inline-block">{!! $invoice->payment_terms !!}</div>
@@ -646,7 +640,7 @@
                     if (loader) loader.classList.remove('hidden');
 
                     setTimeout(() => {
-                        window.location.href = "{{ route('purchase-invoices.download-pdf', $invoice->id) }}";
+                        window.location.href = "{{ route('sales-invoices.download-pdf', $invoice->id) }}";
                         setTimeout(() => {
                             if (loader) loader.classList.add('hidden');
                         }, 2000);

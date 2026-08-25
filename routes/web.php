@@ -72,9 +72,12 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('purchase-invoices/{purchaseInvoice}/download-pdf', [PurchaseInvoiceController::class, 'downloadPdf'])->name('purchase-invoices.download-pdf');
 
     // sales invoices
+    Route::get('sales-invoice/settings', [SalesInvoiceController::class, 'setup'])->name('sales-invoice-setup.index');
+    Route::post('sales-invoice/settings', [SalesInvoiceController::class, 'updateSetup'])->name('sales-invoice-setup.update');
     Route::resource('sales-invoices', SalesInvoiceController::class);
     Route::post('sales-invoices/{salesInvoice}/post', [SalesInvoiceController::class, 'post'])->name('sales-invoices.post');
     Route::get('sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'print'])->name('sales-invoices.print');
+    Route::get('sales-invoices/{salesInvoice}/download-pdf', [SalesInvoiceController::class, 'downloadPdf'])->name('sales-invoices.download-pdf');
     Route::get('sales-invoices/warehouse/products', [SalesInvoiceController::class, 'getWarehouseProducts'])->name('sales-invoices.warehouse.products');
     Route::get('sales-invoices/services/list', [SalesInvoiceController::class, 'getServices'])->name('sales-invoices.services');
 

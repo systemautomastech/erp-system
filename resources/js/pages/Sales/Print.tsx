@@ -180,8 +180,10 @@ export default function Print() {
                     <div className="w-1/2">
                         <h3 className="font-bold mb-3">{t('BILL TO')}</h3>
                         <div className="text-sm space-y-1">
-                            <p className="font-semibold">{invoice.customer?.name}</p>
-                            <p>{invoice.customer?.email}</p>
+                            <p className="font-semibold">{invoice.customer?.name || invoice.customer_name || '-'}</p>
+                            {(invoice.customer?.email || invoice.customer_email) && <p>{invoice.customer?.email || invoice.customer_email}</p>}
+                            {invoice.customer_phone && <p>{invoice.customer_phone}</p>}
+                            {invoice.customer_address && <p className="whitespace-pre-line">{invoice.customer_address}</p>}
                             {invoice.customer_details?.billing_address && (
                                 <>
                                     <p>{invoice.customer_details.billing_address.name}</p>
@@ -225,9 +227,7 @@ export default function Print() {
                         <thead>
                             <tr className="border-b border-gray-300">
                                 <th className="text-left py-3 font-bold">{t('ITEM')}</th>
-                                {invoice.type === 'product' && (
-                                    <th className="text-center py-3 font-bold">{t('QTY')}</th>
-                                )}
+                                <th className="text-center py-3 font-bold">{t('QTY')}</th>
                                 <th className="text-right py-3 font-bold">{t('PRICE')}</th>
                                 <th className="text-right py-3 font-bold">{t('DISCOUNT')}</th>
                                 <th className="text-right py-3 font-bold">{t('TAX')}</th>
@@ -235,48 +235,55 @@ export default function Print() {
                             </tr>
                         </thead>
                         <tbody>
-                            {invoice.items?.map((item, index) => (
-                                <tr key={index} className="page-break-inside-avoid">
-                                    <td className="py-4">
-                                        <div className="font-semibold">{item.product?.name}</div>
-                                        {item.product?.sku && (
-                                            <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
-                                        )}
-                                    </td>
-                                    {invoice.type === 'product' && (
+                            {invoice.items?.map((item, index) => {
+                                const desc = item.description || item.product?.description || item.product?.long_description || '';
+                                return (
+                                    <tr key={index} className="page-break-inside-avoid">
+                                        <td className="py-4">
+                                            <div className="font-semibold">{item.product?.name}</div>
+                                            {item.product?.sku && (
+                                                <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
+                                            )}
+                                            {desc && (
+                                                <div
+                                                    className="text-xs text-gray-600 mt-1 prose prose-xs max-w-none"
+                                                    dangerouslySetInnerHTML={{ __html: desc }}
+                                                />
+                                            )}
+                                        </td>
                                         <td className="text-center py-4">{item.quantity}</td>
-                                    )}
-                                    <td className="text-right py-4">{formatCurrency(item.unit_price)}</td>
-                                    <td className="text-right py-4">
-                                        {item.discount_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.discount_percentage}%</div>
-                                                <div className="text-sm font-medium">-{formatCurrency(item.discount_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4">
-                                        {item.taxes && item.taxes.length > 0 ? (
-                                            <>
-                                                {item.taxes.map((tax, taxIndex) => (
-                                                    <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
-                                                ))}
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : item.tax_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.tax_percentage}%</div>
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4 font-semibold">{formatCurrency(item.total_amount)}</td>
-                                </tr>
-                            ))}
+                                        <td className="text-right py-4">{formatCurrency(item.unit_price)}</td>
+                                        <td className="text-right py-4">
+                                            {item.discount_percentage > 0 ? (
+                                                <>
+                                                    <div className="text-sm">{item.discount_percentage}%</div>
+                                                    <div className="text-sm font-medium">-{formatCurrency(item.discount_amount)}</div>
+                                                </>
+                                            ) : (
+                                                <div className="text-sm">0%</div>
+                                            )}
+                                        </td>
+                                        <td className="text-right py-4">
+                                            {item.taxes && item.taxes.length > 0 ? (
+                                                <>
+                                                    {item.taxes.map((tax, taxIndex) => (
+                                                        <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
+                                                    ))}
+                                                    <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
+                                                </>
+                                            ) : item.tax_percentage > 0 ? (
+                                                <>
+                                                    <div className="text-sm">{item.tax_percentage}%</div>
+                                                    <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
+                                                </>
+                                            ) : (
+                                                <div className="text-sm">0%</div>
+                                            )}
+                                        </td>
+                                        <td className="text-right py-4 font-semibold">{formatCurrency(item.total_amount)}</td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
