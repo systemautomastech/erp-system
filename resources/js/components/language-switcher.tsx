@@ -83,7 +83,7 @@ export function LanguageSwitcher() {
                     <div className="flex items-center gap-2">
                         <Globe className="h-4 w-4" />
                         <span className="text-sm">{currentLang.flag}</span>
-                        <span className="text-sm">{currentLang.name}</span>
+                        <span className="text-sm hidden md:inline">{currentLang.name}</span>
                     </div>
                 </SelectTrigger>
                 <SelectContent align="end">

@@ -6,6 +6,8 @@ use App\Models\User;
 use Automas\Pbx\Models\PbxExtension;
 use Automas\Pbx\Models\PbxSetting;
 use Automas\Pbx\Rules\ValidPbxExtension;
+use Automas\Pbx\Services\PbxLiveStatusService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -92,6 +94,50 @@ class PbxExtensionController extends Controller
             'extensions' => $extensions,
             'setting' => $setting,
             'canCreateExtension' => $canCreateExtension,
+        ]);
+    }
+
+    public function liveStatus(Request $request, PbxLiveStatusService $liveStatusService): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$user->can('manage extensions') && !$user->can('view all extensions') && !$user->can('view own extensions')) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Permission denied.'),
+            ], 403);
+        }
+
+        $creatorId = (int) creatorId();
+
+        $query = PbxExtension::query();
+
+        if ($user->can('view all extensions') || $user->can('manage extensions')) {
+            $query->where('created_by', $creatorId);
+        } elseif ($user->can('view own extensions')) {
+            $query->where('created_by', $creatorId)
+                ->where('user_id', $user->id);
+        } else {
+            $query->where('created_by', $creatorId);
+        }
+
+        if ($request->filled('ids')) {
+            $ids = is_array($request->input('ids'))
+                ? $request->input('ids')
+                : explode(',', (string) $request->input('ids'));
+            $ids = array_filter(array_map('intval', $ids));
+            if (!empty($ids)) {
+                $query->whereIn('id', $ids);
+            }
+        }
+
+        $extensions = $query->get();
+
+        $statuses = $liveStatusService->getStatuses($extensions);
+
+        return response()->json([
+            'success' => true,
+            'extensions' => $statuses,
         ]);
     }
 

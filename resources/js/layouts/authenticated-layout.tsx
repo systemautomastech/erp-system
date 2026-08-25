@@ -1,7 +1,7 @@
 import { PropsWithChildren, ReactNode, Fragment } from "react";
-import {AppSidebar} from "@/components/app-sidebar";
-import {SidebarInset, SidebarProvider, SidebarTrigger} from "@/components/ui/sidebar";
-import {Separator} from "@/components/ui/separator";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -30,7 +30,7 @@ function AuthenticatedLayoutContent({
     pageActions
 }: PropsWithChildren<{
     header?: ReactNode;
-    breadcrumbs?: Array<{label: string, url?: string}>;
+    breadcrumbs?: Array<{ label: string, url?: string }>;
     pageTitle?: string;
     pageActions?: ReactNode;
     className?: string;
@@ -40,7 +40,7 @@ function AuthenticatedLayoutContent({
     const { settings } = useBrand();
     useFavicon();
 
-    const generalAlerts = useFormFields('generalAlert', {}, () => {}, {});
+    const generalAlerts = useFormFields('generalAlert', {}, () => { }, {});
 
     // Check if current page is AI Agent chat page
     const isAIAgentPage = window.location.pathname.includes('/ai-agent/chat');
@@ -48,124 +48,123 @@ function AuthenticatedLayoutContent({
 
     return (
         <>
-        <Head title={adminAllSetting?.metaTitle}>
-            {adminAllSetting?.metaKeywords && (
-                <meta name="keywords" content={adminAllSetting.metaKeywords} />
-            )}
-            {adminAllSetting?.metaDescription && (
-                <meta name="description" content={adminAllSetting.metaDescription} />
-            )}
-            {adminAllSetting?.metaImage && (
-                <meta property="og:image" content={getImagePath(adminAllSetting.metaImage)} />
-            )}
-        </Head>
-        <div
-            className={settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr'}
-            data-theme={settings.themeMode}
-            dir={settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr'}
-            style={{ direction: settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr' }}
-        >
-        <SidebarProvider defaultOpen={true}>
-            <AppSidebar />
-
-            <SidebarInset className="overflow-visible"
-                style={{ direction: settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr' }}
+            <Head title={adminAllSetting?.metaTitle}>
+                {adminAllSetting?.metaKeywords && (
+                    <meta name="keywords" content={adminAllSetting.metaKeywords} />
+                )}
+                {adminAllSetting?.metaDescription && (
+                    <meta name="description" content={adminAllSetting.metaDescription} />
+                )}
+                {adminAllSetting?.metaImage && (
+                    <meta property="og:image" content={getImagePath(adminAllSetting.metaImage)} />
+                )}
+            </Head>
+            <div
+                className={settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr'}
+                data-theme={settings.themeMode}
                 dir={settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr'}
+                style={{ direction: settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr' }}
             >
-                <header
-                    className={`bg-background/95 backdrop-blur-md flex h-16 shrink-0 items-center gap-2 px-6 py-2 border-b shadow-sm mb-2 justify-between`}
+                <SidebarProvider defaultOpen={true}>
+                    <AppSidebar />
+
+                    <SidebarInset className="overflow-visible"
+                        style={{ direction: settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr' }}
+                        dir={settings.layoutDirection === 'rtl' ? 'rtl' : 'ltr'}
                     >
-                    {/* Sidebar + Breadcrumb */}
-                    <div className={`flex items-center gap-2 ${ settings.layoutDirection === "rtl" ? "order-2 flex-row-reverse" : "order-1" }`} >
-                        {/* SidebarTrigger */}
-                        <SidebarTrigger className={`-ml-1 ${ settings.layoutDirection === "rtl" ? "order-3" : "order-1" }`} />
+                        <header
+                            className={`bg-background/95 backdrop-blur-md flex h-16 shrink-0 items-center gap-2 px-6 py-2 border-b shadow-sm mb-2 justify-between`}
+                        >
+                            {/* Sidebar + Breadcrumb */}
+                            <div className={`flex items-center gap-2 ${settings.layoutDirection === "rtl" ? "order-2 flex-row-reverse" : "order-1"}`} >
+                                {/* SidebarTrigger */}
+                                <SidebarTrigger className={`-ml-1 ${settings.layoutDirection === "rtl" ? "order-3" : "order-1"}`} />
 
-                        {/* Separator */}
-                        <Separator orientation="vertical" className="mr-2 h-4 order-2" />
+                                {/* Separator */}
+                                <Separator orientation="vertical" className="mr-2 h-4 order-2" />
 
-                        {/* Breadcrumb */}
-                        <Breadcrumb className={`${ settings.layoutDirection === "rtl" ? "order-1" : "order-3" }`} >
-                            <BreadcrumbList className={`flex text-sm ${ settings.layoutDirection === "rtl" ? "justify-end" : "justify-start" }`} >
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href={route("dashboard")}>{t('Dashboard')}</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            {breadcrumbs?.map((crumb, index) => (
-                                <Fragment key={index}>
-                                <BreadcrumbSeparator className={settings.layoutDirection === 'rtl' ? 'rotate-180' : ''} />
-                                <BreadcrumbItem>
-                                    {crumb.url ? (
-                                    <BreadcrumbLink asChild>
-                                        <Link href={crumb.url}>{crumb.label}</Link>
-                                    </BreadcrumbLink>
-                                    ) : (
-                                    <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                                    )}
-                                </BreadcrumbItem>
-                                </Fragment>
-                            ))}
-                            </BreadcrumbList>
-                        </Breadcrumb>
-                    </div>
+                                {/* Breadcrumb */}
+                                <Breadcrumb className={`${settings.layoutDirection === "rtl" ? "order-1" : "order-3"}`} >
+                                    <BreadcrumbList className={`flex text-sm ${settings.layoutDirection === "rtl" ? "justify-end" : "justify-start"}`} >
+                                        <BreadcrumbItem>
+                                            <BreadcrumbLink asChild>
+                                                <Link href={route("dashboard")}>{t('Dashboard')}</Link>
+                                            </BreadcrumbLink>
+                                        </BreadcrumbItem>
+                                        {breadcrumbs?.map((crumb, index) => (
+                                            <Fragment key={index}>
+                                                <BreadcrumbSeparator className={settings.layoutDirection === 'rtl' ? 'rotate-180' : ''} />
+                                                <BreadcrumbItem>
+                                                    {crumb.url ? (
+                                                        <BreadcrumbLink asChild>
+                                                            <Link href={crumb.url}>{crumb.label}</Link>
+                                                        </BreadcrumbLink>
+                                                    ) : (
+                                                        <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                                                    )}
+                                                </BreadcrumbItem>
+                                            </Fragment>
+                                        ))}
+                                    </BreadcrumbList>
+                                </Breadcrumb>
+                            </div>
 
-                    {/* NavUser */}
-                    <div
-                        className={`flex items-center gap-3 ${
-                        settings.layoutDirection === "rtl" ? "order-1 flex-row-reverse" : "order-2"
-                        }`}
-                    >
-                        {/* Leave Impersonation Button */}
-                        {auth.impersonating && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => router.post(route('users.leave-impersonation'))}
-                                className="text-orange-600 border-orange-600 hover:bg-transparent hover:text-orange-600"
+                            {/* NavUser */}
+                            <div
+                                className={`flex items-center gap-3 ${settings.layoutDirection === "rtl" ? "order-1 flex-row-reverse" : "order-2"
+                                    }`}
                             >
-                                <UserX className="h-4 w-4 mr-2" />
-                                {t('Leave Login As User')}
-                            </Button>
-                        )}
-                        <NavUser user={auth.user} inHeader={true} />
-                    </div>
-                </header>
+                                {/* Leave Impersonation Button */}
+                                {auth.impersonating && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => router.post(route('users.leave-impersonation'))}
+                                        className="text-orange-600 border-orange-600 hover:bg-transparent hover:text-orange-600"
+                                    >
+                                        <UserX className="h-4 w-4 mr-2" />
+                                        {t('Leave Login As User')}
+                                    </Button>
+                                )}
+                                <NavUser user={auth.user} inHeader={true} />
+                            </div>
+                        </header>
 
-                <main className="p-4 md:pt-0 h-full">
-                    {pageTitle && (
-                        <div className="flex items-center mb-6" dir={settings.layoutDirection}>
-                            <h1 className="text-xl font-semibold text-gray-900 dark:text-white flex-1">{pageTitle}</h1>
-                            <div className="flex-shrink-0">{pageActions}</div>
-                        </div>
-                    )}
-                    {children}
-                </main>
-            </SidebarInset>
-        </SidebarProvider>
-        <CookieConsent settings={adminAllSetting || {}} />
-        {generalAlerts.map((alert) => (
-            <div key={alert.id}>{alert.component}</div>
-        ))}
-        
-        {/* Floating AI Agent Button */}
-        {auth.user?.permissions?.includes('manage-ai-agent') && !isAIAgentPage && (
-            <div className="fixed bottom-8 right-8 z-50 animate-bounce" style={{ animationDuration: '2s' }}>
-                <Button
-                    onClick={() => router.visit(route('ai-agent.chat.page'))}
-                    className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow duration-200 bg-primary hover:bg-primary/90 p-0 [&_svg]:!size-7"
-                >
-                    <Bot className="text-primary-foreground" strokeWidth={2} />
-                </Button>
+                        <main className="p-4 md:pt-0 h-full">
+                            {pageTitle && (
+                                <div className="flex items-center mb-6" dir={settings.layoutDirection}>
+                                    <h1 className="text-xl font-semibold text-gray-900 dark:text-white flex-1">{pageTitle}</h1>
+                                    <div className="flex-shrink-0">{pageActions}</div>
+                                </div>
+                            )}
+                            {children}
+                        </main>
+                    </SidebarInset>
+                </SidebarProvider>
+                <CookieConsent settings={adminAllSetting || {}} />
+                {generalAlerts.map((alert) => (
+                    <div key={alert.id}>{alert.component}</div>
+                ))}
+
+                {/* Floating AI Agent Button */}
+                {auth.user?.permissions?.includes('manage-ai-agent') && !isAIAgentPage && (
+                    <div className="fixed bottom-8 right-8 z-50 animate-bounce" style={{ animationDuration: '2s' }}>
+                        <Button
+                            onClick={() => router.visit(route('ai-agent.chat.page'))}
+                            className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow duration-200 bg-primary hover:bg-primary/90 p-0 [&_svg]:!size-7"
+                        >
+                            <Bot className="text-primary-foreground" strokeWidth={2} />
+                        </Button>
+                    </div>
+                )}
             </div>
-        )}
-        </div>
         </>
     );
 }
 
 export default function AuthenticatedLayout(props: PropsWithChildren<{
     header?: ReactNode;
-    breadcrumbs?: Array<{label: string, url?: string}>;
+    breadcrumbs?: Array<{ label: string, url?: string }>;
     pageTitle?: string;
     pageActions?: ReactNode;
     className?: string;

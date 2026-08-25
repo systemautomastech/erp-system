@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 class AmiConnectionService
 {
-    public function connect(PbxSetting $setting)
+    public function connect(PbxSetting $setting, string $events = 'off')
     {
         $socket = @fsockopen(
             $setting->ami_host,
@@ -28,7 +28,7 @@ class AmiConnectionService
             'Action' => 'Login',
             'Username' => $setting->ami_username,
             'Secret' => $setting->ami_password,
-            'Events' => 'on',
+            'Events' => $events,
         ]);
 
         $response = $this->readResponse($socket);
@@ -138,7 +138,53 @@ class AmiConnectionService
         return null;
     }
 
-    protected function write($socket, array $payload): void
+    public function executeAction($socket, array $payload, int $timeoutSeconds = 3): array
+    {
+        if (!is_resource($socket)) {
+            return [];
+        }
+
+        if (!isset($payload['ActionID'])) {
+            $payload['ActionID'] = 'req_' . uniqid();
+        }
+
+        $actionId = $payload['ActionID'];
+        $this->write($socket, $payload);
+
+        $events = [];
+        $startTime = microtime(true);
+
+        while (is_resource($socket) && !feof($socket) && (microtime(true) - $startTime) < $timeoutSeconds) {
+            $event = $this->readEvent($socket);
+
+            if ($event === null) {
+                break;
+            }
+
+            if (isset($event['ActionID']) && $event['ActionID'] !== $actionId) {
+                continue;
+            }
+
+            $events[] = $event;
+
+            if (isset($event['Response']) && strtolower($event['Response']) === 'error') {
+                break;
+            }
+
+            $eventName = strtolower($event['Event'] ?? '');
+            if (
+                str_ends_with($eventName, 'complete') ||
+                str_ends_with($eventName, 'completes') ||
+                ($eventName === '' && isset($event['Response']) && strtolower($event['Response']) === 'success' && !isset($event['EventList']))
+            ) {
+                break;
+            }
+        }
+
+        return $events;
+    }
+
+    public function write($socket, array $payload): void
     {
         $message = '';
 
@@ -172,3 +218,4 @@ class AmiConnectionService
         return $this->parseEvent($buffer);
     }
 }
+

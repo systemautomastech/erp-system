@@ -38,4 +38,7 @@ Route::middleware([
 
     Route::get('/pbx/extensions/directory', [PbxExtensionController::class, 'directory'])
         ->name('app.pbx.directory');
+
+    Route::get('/pbx/extensions/live-status', [PbxExtensionController::class, 'liveStatus'])
+        ->name('app.pbx.live-status');
 });
