@@ -200,11 +200,42 @@ class SalesInvoiceController extends Controller
     {
         if(Auth::user()->can('create-sales-invoices')){
             $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+            $products = ProductServiceItem::with(['unitRelation', 'warehouseStocks'])
+                ->select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
+                ->where('is_active', true)
+                ->where('created_by', creatorId())
+                ->get()
+                ->map(function ($product) {
+                    $totalStock = $product->warehouseStocks->sum('quantity');
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'description' => $product->description,
+                        'sale_price' => $product->sale_price,
+                        'unit' => $product->unit,
+                        'unit_name' => $product->unitRelation?->unit_name ?? $product->unit,
+                        'type' => $product->type,
+                        'stock_quantity' => $totalStock,
+                        'warehouse_stocks' => $product->warehouseStocks->pluck('quantity', 'warehouse_id'),
+                        'taxes' => $product->taxes->map(function ($tax) {
+                            return [
+                                'id' => $tax->id,
+                                'tax_name' => $tax->tax_name,
+                                'rate' => $tax->rate
+                            ];
+                        })
+                    ];
+                });
+
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
+            $setupSettings = \App\Models\SalesInvoiceSetup::getSettings(creatorId());
 
             return Inertia::render('Sales/Create', [
                 'customers' => $customers,
+                'products' => $products,
                 'warehouses' => $warehouses,
+                'default_payment_terms' => $setupSettings['sales_invoice_default_payment_terms'] ?? '',
             ]);
         }
         else{
@@ -220,8 +251,20 @@ class SalesInvoiceController extends Controller
             $invoice = new SalesInvoice();
             $invoice->invoice_date = $request->invoice_date;
             $invoice->due_date = $request->due_date;
-            $invoice->customer_id = $request->customer_id;
-            $invoice->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
+            if ($request->customer_mode === 'new') {
+                $invoice->customer_id = null;
+                $invoice->customer_name = $request->customer_name;
+                $invoice->customer_email = $request->customer_email;
+                $invoice->customer_phone = $request->customer_phone;
+                $invoice->customer_address = $request->customer_address;
+            } else {
+                $invoice->customer_id = $request->customer_id;
+                $invoice->customer_name = null;
+                $invoice->customer_email = null;
+                $invoice->customer_phone = null;
+                $invoice->customer_address = null;
+            }
+            $invoice->warehouse_id = $request->warehouse_id;
             $invoice->type = $request->type ?? 'product';
             $invoice->payment_terms = $request->payment_terms;
             $invoice->notes = $request->notes;
@@ -242,26 +285,24 @@ class SalesInvoiceController extends Controller
                 CreateSalesInvoice::dispatch($request, $invoice);
                 // Send sales invoice mail
                 if(company_setting('Sales Invoice') == 'on') {
+                    $customerEmail = $invoice->customer?->email ?? $invoice->customer_email;
+                    $customerName = $invoice->customer?->name ?? $invoice->customer_name;
                     $emailData = [
                         'invoice_number' => $invoice->invoice_number ?? null,
-                        'sales_customer_name' => $invoice->customer->name ?? null,
+                        'sales_customer_name' => $customerName ?? null,
                         'warehouse_name' => $invoice->warehouse->name ?? null,
                         'total_amount' => $totals['total_amount'] ?? null,
                         'discount_amount' => $totals['discount_amount'] ?? null,
                     ];
-                    $message = EmailTemplate::sendEmailTemplate('Sales Invoice', [$invoice->customer->email], $emailData);
-                    if($message['is_success'] == false && !empty($message['error'])) {
-                        return back()
-                            ->with('success', __('The sales invoice has been created successfully.'))
-                            ->with('error', $message['error']);
+                    if ($customerEmail) {
+                        EmailTemplate::sendEmailTemplate('Sales Invoice', [$customerEmail], $emailData, $invoice->created_by);
                     }
                 }
-            } catch (\Throwable $th) {
-                return back()->with('error', $th->getMessage());
+            } catch (\Exception $e) {
+                \Log::error('Sales invoice mail failed: ' . $e->getMessage());
             }
 
-
-            return redirect()->route('sales-invoices.index')->with('success', __('The sales invoice has been created successfully.'));
+            return redirect()->route('sales-invoices.index')->with('success', __('The sales invoice created successfully.'));
 
         }
         else{
@@ -271,43 +312,71 @@ class SalesInvoiceController extends Controller
 
     public function show(SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('view-sales-invoices') && $salesInvoice->created_by == creatorId()){
-            if(!$this->checkInvoiceAccess($salesInvoice)) {
-                return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
+        if(Auth::user()->can('view-sales-invoices')){
+            if(!$this->checkInvoiceAccess($salesInvoice)){
+                return back()->with('error', __('Permission denied'));
             }
 
-            $salesInvoice->load(['customer', 'customerDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse', 'paymentAllocations']);
 
             return Inertia::render('Sales/View', [
-                'invoice' => $salesInvoice
+                'invoice' => $salesInvoice,
+                'auth' => [
+                    'user' => Auth::user(),
+                ],
             ]);
         }
         else{
-            return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
+            return back()->with('error', __('Permission denied'));
         }
     }
 
     public function edit(SalesInvoice $salesInvoice)
     {
         if(Auth::user()->can('edit-sales-invoices') && $salesInvoice->created_by == creatorId()){
-            if(!$this->checkInvoiceAccess($salesInvoice)) {
-                return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
-            }
-
             if ($salesInvoice->status != 'draft') {
-                return redirect()->route('sales-invoices.index')->with('error', __('Cannot update posted invoice.'));
+                return redirect()->route('sales-invoices.index')->with('error', __('Cannot edit posted invoice.'));
             }
 
-            $salesInvoice->load(['items.taxes']);
+            $salesInvoice->load(['items.taxes', 'items.product.unitRelation']);
 
             EditSalesInvoice::dispatch($salesInvoice);
 
             $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+            $products = ProductServiceItem::with(['unitRelation', 'warehouseStocks'])
+                ->select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
+                ->where('is_active', true)
+                ->where('created_by', creatorId())
+                ->get()
+                ->map(function ($product) {
+                    $totalStock = $product->warehouseStocks->sum('quantity');
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'description' => $product->description,
+                        'sale_price' => $product->sale_price,
+                        'unit' => $product->unit,
+                        'unit_name' => $product->unitRelation?->unit_name ?? $product->unit,
+                        'type' => $product->type,
+                        'stock_quantity' => $totalStock,
+                        'warehouse_stocks' => $product->warehouseStocks->pluck('quantity', 'warehouse_id'),
+                        'taxes' => $product->taxes->map(function ($tax) {
+                            return [
+                                'id' => $tax->id,
+                                'tax_name' => $tax->tax_name,
+                                'rate' => $tax->rate
+                            ];
+                        })
+                    ];
+                });
+
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
 
             return Inertia::render('Sales/Edit', [
                 'invoice' => $salesInvoice,
                 'customers' => $customers,
+                'products' => $products,
                 'warehouses' => $warehouses,
             ]);
         }
@@ -326,8 +395,20 @@ class SalesInvoiceController extends Controller
 
             $salesInvoice->invoice_date = $request->invoice_date;
             $salesInvoice->due_date = $request->due_date;
-            $salesInvoice->customer_id = $request->customer_id;
-            $salesInvoice->warehouse_id = $salesInvoice->type === 'product' ? $request->warehouse_id : null;
+            if ($request->customer_mode === 'new') {
+                $salesInvoice->customer_id = null;
+                $salesInvoice->customer_name = $request->customer_name;
+                $salesInvoice->customer_email = $request->customer_email;
+                $salesInvoice->customer_phone = $request->customer_phone;
+                $salesInvoice->customer_address = $request->customer_address;
+            } else {
+                $salesInvoice->customer_id = $request->customer_id;
+                $salesInvoice->customer_name = null;
+                $salesInvoice->customer_email = null;
+                $salesInvoice->customer_phone = null;
+                $salesInvoice->customer_address = null;
+            }
+            $salesInvoice->warehouse_id = $request->warehouse_id;
             $salesInvoice->payment_terms = $request->payment_terms;
             $salesInvoice->notes = $request->notes;
             $salesInvoice->subtotal = $totals['subtotal'];
@@ -373,8 +454,8 @@ class SalesInvoiceController extends Controller
     private function calculateTotals($items)
     {
         $subtotal = 0;
-        $totalTax = 0;
         $totalDiscount = 0;
+        $totalTax = 0;
 
         foreach ($items as $item) {
             $lineTotal = $item['quantity'] * $item['unit_price'];
@@ -401,6 +482,8 @@ class SalesInvoiceController extends Controller
             $item = new SalesInvoiceItem();
             $item->invoice_id = $invoiceId;
             $item->product_id = $itemData['product_id'];
+            $item->description = $itemData['description'] ?? null;
+            $item->product_type = $itemData['product_type'] ?? 'product';
             $item->quantity = $itemData['quantity'];
             $item->unit_price = $itemData['unit_price'];
             $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
@@ -522,14 +605,63 @@ class SalesInvoiceController extends Controller
     public function print(SalesInvoice $salesInvoice)
     {
         if(Auth::user()->can('print-sales-invoices')){
-            $salesInvoice->load(['customer', 'customerDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
 
-            return Inertia::render('Sales/Print', [
-                'invoice' => $salesInvoice
+            $creatorId = $salesInvoice->created_by ?? creatorId();
+            $salesInvoiceSetting = \App\Models\SalesInvoiceSetup::getSettings($creatorId);
+            return view('sales.print', [
+                'invoice' => $salesInvoice,
+                'salesInvoiceSetting' => $salesInvoiceSetting,
             ]);
         }
         else{
             return back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function downloadPdf(SalesInvoice $salesInvoice)
+    {
+        if (Auth::user()->can('print-sales-invoices')) {
+            $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
+
+            $creatorId = $salesInvoice->created_by ?? creatorId();
+            $salesInvoiceSetting = \App\Models\SalesInvoiceSetup::getSettings($creatorId);
+
+            $filename = "sales-invoice-{$salesInvoice->invoice_number}.pdf";
+
+            return \Spatie\LaravelPdf\Facades\Pdf::view('sales.print', [
+                'invoice' => $salesInvoice,
+                'salesInvoiceSetting' => $salesInvoiceSetting,
+                'isServerPdf' => true,
+            ])
+                ->format('a4')
+                ->margins(0, 0, 0, 0)
+                ->download($filename);
+        } else {
+            return back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function setup()
+    {
+        if (Auth::user()->can('manage-sales-invoice-setup') || Auth::user()->can('manage-sales-invoices') || Auth::user()->can('manage-settings')) {
+            $settings = \App\Models\SalesInvoiceSetup::getSettings(creatorId());
+            return Inertia::render('Sales/SystemSetup/Index', [
+                'settings' => $settings,
+            ]);
+        } else {
+            return back()->with('error', __('Permission denied'));
+        }
+    }
+
+    public function updateSetup(Request $request)
+    {
+        if (Auth::user()->can('manage-sales-invoice-setup') || Auth::user()->can('manage-sales-invoices') || Auth::user()->can('manage-settings')) {
+            $settings = $request->input('settings', $request->except(['_token', '_method']));
+            \App\Models\SalesInvoiceSetup::setSettings($settings, creatorId());
+            return redirect()->back()->with('success', __('Sales Invoice setup updated successfully.'));
+        } else {
+            return redirect()->back()->with('error', __('Permission denied'));
         }
     }
 }

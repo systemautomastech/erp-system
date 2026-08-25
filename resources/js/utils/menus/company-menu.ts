@@ -62,6 +62,11 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
                 href: route('sales-returns.index'),
                 permission: 'manage-sales-return-invoices',
             },
+            {
+                title: t('System Setup'),
+                href: route('sales-invoice-setup.index'),
+                permission: 'manage-sales-invoices',
+            },
         ],
     },
     {

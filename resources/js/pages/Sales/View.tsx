@@ -80,8 +80,14 @@ export default function View() {
                             <div>
                                 <h3 className="font-semibold mb-2">{t('CUSTOMER')}</h3>
                                 <div className="text-sm space-y-1">
-                                    <div className="font-medium">{invoice.customer?.name}</div>
-                                    <div className="text-muted-foreground">{invoice.customer?.email}</div>
+                                    <div className="font-medium">{invoice.customer?.name || invoice.customer_name || '-'}</div>
+                                    <div className="text-muted-foreground">{invoice.customer?.email || invoice.customer_email || ''}</div>
+                                    {invoice.customer_phone && (
+                                        <div className="text-muted-foreground">{invoice.customer_phone}</div>
+                                    )}
+                                    {invoice.customer_address && (
+                                        <div className="text-muted-foreground text-xs whitespace-pre-line mt-1">{invoice.customer_address}</div>
+                                    )}
                                 </div>
                                 {invoice.customer_details?.billing_address && (
                                     <div className="mt-3">
@@ -121,16 +127,17 @@ export default function View() {
                                             {formatDate(invoice.due_date)}
                                         </span>
                                     </div>
-                                    {invoice.type === 'product' && invoice.warehouse && (
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">{t('Warehouse')}</span>
-                                            <span>{invoice.warehouse.name}</span>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">{t('Warehouse')}</span>
+                                        <span>{invoice.warehouse?.name || '-'}</span>
+                                    </div>
                                     {invoice.payment_terms && (
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">{t('Terms')}</span>
-                                            <span>{invoice.payment_terms}</span>
+                                        <div className="flex justify-between items-start gap-2">
+                                            <span className="text-muted-foreground shrink-0">{t('Terms')}:</span>
+                                            <div
+                                                className="text-right text-xs prose prose-xs max-w-none text-slate-700 dark:text-slate-300"
+                                                dangerouslySetInnerHTML={{ __html: invoice.payment_terms }}
+                                            />
                                         </div>
                                     )}
                                 </div>
@@ -164,7 +171,7 @@ export default function View() {
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                            <p>{t('Post invoice to finalize and create journal entries')}</p>
+                                                            <p>{t('Post this invoice to finalize it and update inventory')}</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>
@@ -180,9 +187,9 @@ export default function View() {
                         </div>
 
                         {invoice.notes && (
-                            <div className="mt-4 pt-4 border-t">
-                                <span className="font-medium text-sm">{t('Notes')}:</span>
-                                <span className="text-sm text-muted-foreground ml-2">{invoice.notes}</span>
+                            <div className="mt-6">
+                                <h3 className="font-semibold mb-2">{t('NOTES')}</h3>
+                                <p className="text-sm text-muted-foreground whitespace-pre-line">{invoice.notes}</p>
                             </div>
                         )}
 
@@ -190,13 +197,16 @@ export default function View() {
                         {signatureStatusButtons.length > 0 && signatureStatusButtons.map((button) => (
                                 <div key={button.id}>{button.component}</div>
                         ))}
-                        {/* Custom Fields */}
-                        {customFields.length > 0 && (
-                            <div className="mt-4 pt-4 border-t">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {customFields.map((field, index) => (
-                                        <div key={index} className="space-y-2">
-                                            <label className="font-medium text-sm">{(field as any).name || (field as any).label || 'Custom Field'}</label>
+                        {/* Custom Fields View */}
+                        {customFields && customFields.length > 0 && (
+                            <div className="mt-6 pt-6 border-t">
+                                <h3 className="font-semibold mb-4">{t('Additional Information')}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {customFields.map((field: any) => (
+                                        <div key={field.id} className="flex flex-col">
+                                            <span className="text-sm font-medium text-muted-foreground">
+                                                {field.label}:
+                                            </span>
                                             <div className="text-sm text-muted-foreground ml-2">
                                                 {field.component}
                                             </div>
@@ -219,9 +229,7 @@ export default function View() {
                                 <thead>
                                     <tr className="border-b">
                                         <th className="px-4 py-3 text-left text-sm font-semibold">{t('Product')}</th>
-                                        {invoice.type === 'product' && (
-                                            <th className="px-4 py-3 text-right text-sm font-semibold">{t('Qty')}</th>
-                                        )}
+                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Qty')}</th>
                                         <th className="px-4 py-3 text-right text-sm font-semibold">{t('Unit Price')}</th>
                                         <th className="px-4 py-3 text-right text-sm font-semibold">{t('Discount')}</th>
                                         <th className="px-4 py-3 text-right text-sm font-semibold">{t('Tax')}</th>
@@ -229,55 +237,74 @@ export default function View() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {invoice.items?.map((item, index) => (
-                                        <tr key={index}>
-                                            <td className="px-4 py-4">
-                                                <div className="font-medium">{item.product?.name}</div>
-                                                {item.product?.sku && (
-                                                    <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
-                                                )}
-                                                {item.product?.description && (
-                                                    <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
-                                                )}
-                                            </td>
-                                            {invoice.type === 'product' && (
-                                                <td className="px-4 py-4 text-right">{item.quantity}</td>
-                                            )}
-                                            <td className="px-4 py-4 text-right">{formatCurrency(item.unit_price)}</td>
-                                            <td className="px-4 py-4 text-right">
-                                                {item.discount_percentage > 0 ? (
-                                                    <div>
-                                                        <div>{item.discount_percentage}%</div>
-                                                        <div className="text-sm text-muted-foreground">
-                                                            -{formatCurrency(item.discount_amount)}
-                                                        </div>
+                                    {invoice.items?.map((item, index) => {
+                                        const unitDisplay = item.product?.unit_relation?.unit_name || item.product?.unit_name || (!isNaN(Number(item.product?.unit)) ? '' : (item.product?.unit || ''));
+                                        const desc = item.description || item.product?.description || item.product?.long_description || '';
+                                        return (
+                                            <tr key={index}>
+                                                <td className="px-4 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-foreground">{item.product?.name}</span>
+                                                        {(item.product_type || item.product?.type) && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground capitalize border border-border">
+                                                                {item.product_type || item.product?.type}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                ) : '-'}
-                                            </td>
-                                            <td className="px-4 py-4 text-right">
-                                                {item.taxes && item.taxes.length > 0 ? (
-                                                    <div>
-                                                        {item.taxes.map((tax, taxIndex) => (
-                                                            <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
-                                                        ))}
-                                                        <div className="text-sm text-muted-foreground">
-                                                            {formatCurrency(item.tax_amount)}
+                                                    {item.product?.sku && (
+                                                        <div className="text-xs text-muted-foreground mt-0.5">SKU: {item.product.sku}</div>
+                                                    )}
+                                                    {desc && (
+                                                        <div
+                                                            className="text-xs text-muted-foreground mt-1.5 prose prose-xs max-w-none dark:prose-invert"
+                                                            dangerouslySetInnerHTML={{ __html: desc }}
+                                                        />
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-right whitespace-nowrap">
+                                                    <span className="font-medium">{item.quantity}</span>
+                                                    {unitDisplay && (
+                                                        <span className="text-xs text-muted-foreground ml-1.5 font-normal">
+                                                            {unitDisplay}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-right">{formatCurrency(item.unit_price)}</td>
+                                                <td className="px-4 py-4 text-right">
+                                                    {item.discount_percentage > 0 ? (
+                                                        <div>
+                                                            <div>{item.discount_percentage}%</div>
+                                                            <div className="text-sm text-muted-foreground">
+                                                                -{formatCurrency(item.discount_amount)}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : item.tax_percentage > 0 ? (
-                                                    <div>
-                                                        <div>{item.tax_percentage}%</div>
-                                                        <div className="text-sm text-muted-foreground">
-                                                            {formatCurrency(item.tax_amount)}
+                                                    ) : '-'}
+                                                </td>
+                                                <td className="px-4 py-4 text-right">
+                                                    {item.taxes && item.taxes.length > 0 ? (
+                                                        <div>
+                                                            {item.taxes.map((tax, taxIndex) => (
+                                                                <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
+                                                            ))}
+                                                            <div className="text-sm text-muted-foreground">
+                                                                {formatCurrency(item.tax_amount)}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : '-'}
-                                            </td>
-                                            <td className="px-4 py-4 text-right font-semibold">
-                                                {formatCurrency(item.total_amount)}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                    ) : item.tax_percentage > 0 ? (
+                                                        <div>
+                                                            <div>{item.tax_percentage}%</div>
+                                                            <div className="text-sm text-muted-foreground">
+                                                                {formatCurrency(item.tax_amount)}
+                                                            </div>
+                                                        </div>
+                                                    ) : '-'}
+                                                </td>
+                                                <td className="px-4 py-4 text-right font-semibold">
+                                                    {formatCurrency(item.total_amount)}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

@@ -206,7 +206,7 @@ export default function Index() {
 
     const { deleteState, openDeleteDialog, closeDeleteDialog, confirmDelete } = useDeleteHandler({
         routeName: 'sales-invoices.destroy',
-        defaultMessage: t('Are you sure you want to delete this sales invoice?')
+        defaultMessage: t('Are you sure you want to delete this invoice?')
     });
 
     const navigate = (params: Record<string, any>) => {
@@ -334,7 +334,7 @@ export default function Index() {
         {
             key: 'customer',
             header: t('Customer'),
-            render: (value: any) => value?.name || '-'
+            render: (value: any, invoice: SalesInvoice) => invoice.customer?.name || invoice.customer_name || '-'
         },
         {
             key: 'invoice_date',
@@ -653,8 +653,8 @@ export default function Index() {
                                 emptyState={
                                     <NoRecordsFound
                                         icon={Receipt}
-                                        title={t('No sales invoices found')}
-                                        description={t('Get started by creating your first sales invoice.')}
+                                        title={t('No invoices found')}
+                                        description={t('Get started by creating your first invoice.')}
                                         hasFilters={hasActiveFilters}
                                         onClearFilters={clearFilters}
                                         createPermission="create-sales-invoices"
