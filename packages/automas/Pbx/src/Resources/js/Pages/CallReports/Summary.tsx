@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 import {
     Activity,
     ArrowDownRight,
@@ -153,6 +154,7 @@ interface LiveStatus {
 }
 
 interface ExtensionPerformanceItem {
+    extension_id?: number;
     extension: string;
     user_name: string;
     department?: string;
@@ -165,7 +167,7 @@ interface ExtensionPerformanceItem {
     missedPercent: number;
     failed: number;
     failedPercent: number;
-    status: 'online' | 'onCall' | 'offline';
+    status: 'online' | 'onCall' | 'offline' | 'available' | 'ringing' | 'on_call' | 'unknown';
 }
 
 interface ChartsData {
@@ -335,61 +337,148 @@ export default function SummaryIndex({
         return default24Hours;
     }, [charts?.hourlyTrend]);
 
-    const liveStatusData: LiveStatus = useMemo(() => {
-        if (charts?.liveStatus) {
-            return charts.liveStatus;
+    const [liveStatusesMap, setLiveStatusesMap] = useState<Record<string | number, any>>({});
+    const [liveStatusData, setLiveStatusData] = useState<LiveStatus>({
+        online: 0,
+        onlinePercent: 0,
+        onCall: 0,
+        onCallPercent: 0,
+        ringing: 0,
+        ringingPercent: 0,
+        offline: 0,
+        offlinePercent: 0,
+        activeExtensions: 0,
+        totalExtensions: extensions ? extensions.length : 0,
+        utilizationPercent: 0,
+    });
+    const [isLiveStatusLoading, setIsLiveStatusLoading] = useState<boolean>(true);
+
+    const fetchLiveStatus = useCallback(async () => {
+        try {
+            const response = await axios.get(route('pbx.extensions.live-status'));
+            if (response.data?.success && response.data?.extensions) {
+                const extMap = response.data.extensions as Record<string, any>;
+                setLiveStatusesMap(extMap);
+                const extList = Object.values(extMap);
+                const total = extList.length || (extensions ? extensions.length : 0);
+
+                let availableCount = 0;
+                let onCallCount = 0;
+                let ringingCount = 0;
+                let offlineCount = 0;
+                let activeCount = 0;
+
+                extList.forEach((item) => {
+                    const status = item.status || 'unknown';
+                    if (status === 'available') {
+                        availableCount++;
+                        activeCount++;
+                    } else if (status === 'on_call') {
+                        onCallCount++;
+                        activeCount++;
+                    } else if (status === 'ringing') {
+                        ringingCount++;
+                        activeCount++;
+                    } else if (status === 'offline') {
+                        offlineCount++;
+                    }
+                });
+
+                const safeTotal = total > 0 ? total : 1;
+                const onlinePct = Math.round((availableCount / safeTotal) * 100);
+                const onCallPct = Math.round((onCallCount / safeTotal) * 100);
+                const ringingPct = Math.round((ringingCount / safeTotal) * 100);
+                const offlinePct = Math.round((offlineCount / safeTotal) * 100);
+                const utilizationPct = Math.round((activeCount / safeTotal) * 100);
+
+                setLiveStatusData({
+                    online: availableCount,
+                    onlinePercent: onlinePct,
+                    onCall: onCallCount,
+                    onCallPercent: onCallPct,
+                    ringing: ringingCount,
+                    ringingPercent: ringingPct,
+                    offline: offlineCount,
+                    offlinePercent: offlinePct,
+                    activeExtensions: activeCount,
+                    totalExtensions: total,
+                    utilizationPercent: utilizationPct,
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching live extension status:', err);
+        } finally {
+            setIsLiveStatusLoading(false);
         }
-        return {
-            online: 0,
-            onlinePercent: 0,
-            onCall: 0,
-            onCallPercent: 0,
-            ringing: 0,
-            ringingPercent: 0,
-            offline: 0,
-            offlinePercent: 0,
-            activeExtensions: 0,
-            totalExtensions: extensions ? extensions.length : 0,
-            utilizationPercent: 0,
+    }, [extensions]);
+
+    useEffect(() => {
+        let isMounted = true;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        const runPoll = async () => {
+            if (!isMounted) return;
+            await fetchLiveStatus();
+            if (isMounted && document.visibilityState === 'visible') {
+                timeoutId = setTimeout(runPoll, 10000);
+            }
         };
-    }, [charts?.liveStatus, extensions]);
 
-    const dispositionData: ChartItem[] = useMemo(() => {
-        const ans = summary?.answered ?? 0;
-        const missed = summary?.noAnswer ?? 0;
-        const failed = summary?.rejected ?? 0;
+        runPoll();
 
-        return [
-            { name: 'Answered', value: ans, color: '#10b981' },
-            { name: 'No Answer', value: missed, color: '#f59e0b' },
-            { name: 'Failed', value: failed, color: '#f43f5e' },
-        ];
-    }, [summary]);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                if (timeoutId) clearTimeout(timeoutId);
+                runPoll();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            isMounted = false;
+            if (timeoutId) clearTimeout(timeoutId);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [fetchLiveStatus]);
 
     const extensionPerformanceList: ExtensionPerformanceItem[] = useMemo(() => {
         const extUserMap = new Map<string, string>();
+        const extAvatarMap = new Map<string, string>();
+        const extIdMap = new Map<string, number>();
+
         extensions.forEach((ext) => {
-            if (ext.extension && ext.user_name) {
-                extUserMap.set(String(ext.extension), ext.user_name);
+            if (ext.extension) {
+                const extStr = String(ext.extension);
+                if (ext.user_name) extUserMap.set(extStr, ext.user_name);
+                if ((ext as any).avatar) extAvatarMap.set(extStr, (ext as any).avatar);
+                if (ext.id) extIdMap.set(extStr, ext.id);
             }
         });
 
         if (charts?.extensionPerformance && charts.extensionPerformance.length > 0) {
             return charts.extensionPerformance.map((item) => {
-                const matchedName = extUserMap.get(String(item.extension));
+                const extStr = String(item.extension);
+                const matchedName = extUserMap.get(extStr);
+                const matchedAvatar = extAvatarMap.get(extStr);
+                const matchedId = extIdMap.get(extStr);
+
                 return {
                     ...item,
+                    extension_id: matchedId,
                     user_name: matchedName || item.user_name || `Extension ${item.extension}`,
+                    avatar: item.avatar || matchedAvatar || '',
                 };
             });
         }
 
         if (extensions && extensions.length > 0) {
             return extensions.map((ext) => ({
+                extension_id: ext.id,
                 extension: String(ext.extension),
                 user_name: ext.user_name || `Extension ${ext.extension}`,
                 department: 'Team Member',
-                avatar: '',
+                avatar: (ext as any).avatar || '',
                 totalCalls: 0,
                 answeredCalls: 0,
                 answerRate: 0,
@@ -398,12 +487,69 @@ export default function SummaryIndex({
                 missedPercent: 0,
                 failed: 0,
                 failedPercent: 0,
-                status: 'online',
+                status: 'offline',
             }));
         }
 
         return [];
     }, [charts?.extensionPerformance, extensions]);
+
+    const renderExtensionLiveBadge = (row: ExtensionPerformanceItem) => {
+        const statusObj = (row.extension_id ? liveStatusesMap[row.extension_id] : null) || liveStatusesMap[String(row.extension)];
+        const status = statusObj?.status || 'unknown';
+
+        if (isLiveStatusLoading && !statusObj) {
+            return (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400" />
+                    {t('Checking...')}
+                </span>
+            );
+        }
+
+        switch (status) {
+            case 'available':
+                return (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        {t('Available')}
+                    </span>
+                );
+
+            case 'ringing':
+                return (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-500/30">
+                        <span className="h-1.5 w-1.5 animate-ping rounded-full bg-amber-500" />
+                        {t('Ringing')}
+                    </span>
+                );
+
+            case 'on_call':
+                return (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20 dark:bg-blue-950/40 dark:text-blue-400 dark:ring-blue-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                        {t('On Call')}
+                    </span>
+                );
+
+            case 'offline':
+                return (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 ring-1 ring-inset ring-slate-500/20 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+                        {t('Offline')}
+                    </span>
+                );
+
+            case 'unknown':
+            default:
+                return (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-500 ring-1 ring-inset ring-gray-400/20 dark:bg-gray-800 dark:text-gray-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                        {t('Unknown')}
+                    </span>
+                );
+        }
+    };
 
     // KPI Values directly from real summary metrics
     const displayTotalCalls = summary?.total_calls ?? summary?.totalCalls ?? 0;
@@ -412,6 +558,27 @@ export default function SummaryIndex({
     const displayFailed = ((summary?.busy_calls ?? 0) + (summary?.failed_calls ?? 0) + (summary?.congestion_calls ?? 0)) || (summary?.rejected ?? 0);
     const displayTotalTalkTime = summary?.total_talk_time ?? summary?.totalTalkTime ?? 0;
     const displayTotalDuration = summary?.total_duration ?? summary?.totalDuration ?? 0;
+
+    const dispositionData: ChartItem[] = useMemo(() => {
+        if (charts?.status && charts.status.length > 0) {
+            const hasData = charts.status.some((item) => item.value > 0);
+            if (hasData) {
+                return charts.status.filter((item) => item.value > 0);
+            }
+        }
+
+        const data: ChartItem[] = [
+            { name: t('Answered'), value: displayAnswered, color: '#10b981' },
+            { name: t('No Answer'), value: displayNoAnswer, color: '#f59e0b' },
+            { name: t('Failed'), value: displayFailed, color: '#f43f5e' },
+        ];
+
+        const totalVal = data.reduce((acc, curr) => acc + curr.value, 0);
+        if (totalVal === 0) {
+            return [{ name: t('No Calls'), value: 1, color: '#e2e8f0' }];
+        }
+        return data.filter((item) => item.value > 0);
+    }, [charts?.status, displayAnswered, displayNoAnswer, displayFailed, t]);
 
     const displayAvgTalkTime = summary?.average_talk_time ?? (summary as any)?.avg_talk_time ?? summary?.avgTalkTime ?? (displayAnswered > 0 ? Math.round(displayTotalTalkTime / displayAnswered) : 0);
     const displayAvgRingTime = (summary as any)?.average_ring_time ?? (summary as any)?.avg_ring_time ?? summary?.avgRingTime ?? (displayTotalCalls > 0 ? Math.round(Math.max(0, displayTotalDuration - displayTotalTalkTime) / displayTotalCalls) : 0);
@@ -910,6 +1077,17 @@ export default function SummaryIndex({
                                     {t('Live Extension Status')}
                                     <Info className="h-4 w-4 text-slate-400" />
                                 </CardTitle>
+                                {isLiveStatusLoading ? (
+                                    <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400">
+                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                        {t('Updating...')}
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-1 text-[11px] font-normal text-emerald-600 dark:text-emerald-400">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        {t('Live')}
+                                    </span>
+                                )}
                             </div>
                         </CardHeader>
 
@@ -1022,11 +1200,11 @@ export default function SummaryIndex({
                                             cy="50%"
                                             innerRadius={55}
                                             outerRadius={80}
-                                            paddingAngle={3}
+                                            paddingAngle={dispositionData.length > 1 ? 3 : 0}
                                             dataKey="value"
                                         >
                                             {dispositionData.map((entry, index) => (
-                                                <Cell key={`disp-cell-${index}`} fill={entry.color} />
+                                                <Cell key={`disp-cell-${index}`} fill={entry.color || '#94a3b8'} />
                                             ))}
                                         </Pie>
                                         <Tooltip />
@@ -1258,10 +1436,10 @@ export default function SummaryIndex({
                                             {row.failed} ({row.failedPercent}%)
                                         </td>
                                         <td className="py-3.5 px-4 text-center">
-                                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                                <span>Online</span>
-                                            </div>
+                                            {renderExtensionLiveBadge(row)}
+
+
+
                                         </td>
                                         <td className="py-3.5 px-4 text-right">
                                             <DropdownMenu>

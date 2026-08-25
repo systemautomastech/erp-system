@@ -234,22 +234,11 @@ export default function Index() {
     const [isRefreshingStatus, setIsRefreshingStatus] = useState<boolean>(false);
     const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
 
-    const extensionIds = useMemo(() => extensions.data.map((ext) => ext.id), [extensions.data]);
-
     const fetchLiveStatuses = useCallback(async () => {
-        if (extensionIds.length === 0) {
-            setIsLoadingStatus(false);
-            return;
-        }
-
         setIsRefreshingStatus(true);
 
         try {
-            const response = await axios.get(route('pbx.extensions.live-status'), {
-                params: {
-                    ids: extensionIds.join(','),
-                },
-            });
+            const response = await axios.get(route('pbx.extensions.live-status'));
 
             if (response.data?.success && response.data?.extensions) {
                 setLiveStatuses(response.data.extensions);
@@ -267,16 +256,11 @@ export default function Index() {
             setIsLoadingStatus(false);
             setIsRefreshingStatus(false);
         }
-    }, [extensionIds]);
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-        if (extensionIds.length === 0) {
-            setIsLoadingStatus(false);
-            return;
-        }
 
         const runPoll = async () => {
             if (!isMounted) return;
@@ -306,7 +290,7 @@ export default function Index() {
             }
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [extensionIds, fetchLiveStatuses]);
+    }, [fetchLiveStatuses]);
 
     const renderLiveStatusBadge = (extensionId: number) => {
         if (isLoadingStatus && !liveStatuses[extensionId]) {
@@ -366,28 +350,37 @@ export default function Index() {
     };
 
     const stats = useMemo(() => {
-        const total = extensions.total || extensions.data.length || 0;
-        const activeConfig = extensions.data.filter((e) => Boolean(e.is_active)).length;
-        const inactiveConfig = extensions.data.filter((e) => !Boolean(e.is_active)).length;
+        const liveValues = Object.values(liveStatuses);
+        const total = extensions.total || liveValues.length || extensions.data.length || 0;
 
+        let activeConfig = 0;
+        let inactiveConfig = 0;
         let availableCount = 0;
         let ringingCount = 0;
         let onCallCount = 0;
         let offlineCount = 0;
         let unknownCount = 0;
 
-        extensions.data.forEach((ext) => {
-            const info = liveStatuses[ext.id];
-            const status = info?.status || 'unknown';
-            if (status === 'available') availableCount++;
-            else if (status === 'ringing') ringingCount++;
-            else if (status === 'on_call') onCallCount++;
-            else if (status === 'offline') offlineCount++;
-            else unknownCount++;
-        });
+        if (liveValues.length > 0) {
+            liveValues.forEach((info) => {
+                if (info.is_active) activeConfig++;
+                else inactiveConfig++;
+
+                const status = info.status || 'unknown';
+                if (status === 'available') availableCount++;
+                else if (status === 'ringing') ringingCount++;
+                else if (status === 'on_call') onCallCount++;
+                else if (status === 'offline') offlineCount++;
+                else unknownCount++;
+            });
+        } else {
+            activeConfig = extensions.data.filter((e) => Boolean(e.is_active)).length;
+            inactiveConfig = extensions.data.filter((e) => !Boolean(e.is_active)).length;
+            unknownCount = total;
+        }
 
         const registeredCount = availableCount + ringingCount + onCallCount;
-        const checkedTotal = extensions.data.length || 1;
+        const checkedTotal = liveValues.length || total || 1;
 
         return {
             total,
@@ -401,7 +394,7 @@ export default function Index() {
             registered: registeredCount,
             registeredRate: Math.round((registeredCount / checkedTotal) * 100),
         };
-    }, [extensions, liveStatuses]);
+    }, [extensions.total, extensions.data, liveStatuses]);
 
     const chartData = useMemo(() => {
         const data = [
@@ -419,8 +412,8 @@ export default function Index() {
     }, [stats, t]);
 
     const liveBreakdownList = useMemo(() => {
-        const checkedTotal = extensions.data.length || 1;
-        const calcPct = (cnt: number) => Math.round((cnt / checkedTotal) * 100);
+        const liveValuesCount = Object.keys(liveStatuses).length || extensions.total || 1;
+        const calcPct = (cnt: number) => Math.round((cnt / liveValuesCount) * 100);
 
         return [
             { key: 'available', label: t('Available / Idle'), count: stats.available, percent: calcPct(stats.available), color: '#10b981' },
@@ -429,7 +422,7 @@ export default function Index() {
             { key: 'offline', label: t('Offline'), count: stats.offline, percent: calcPct(stats.offline), color: '#64748b' },
             { key: 'unknown', label: t('Unknown'), count: stats.unknown, percent: calcPct(stats.unknown), color: '#94a3b8' },
         ];
-    }, [stats, extensions.data.length, t]);
+    }, [stats, liveStatuses, extensions.total, t]);
 
     const columns = [
         {

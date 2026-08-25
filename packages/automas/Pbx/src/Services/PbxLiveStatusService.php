@@ -76,6 +76,7 @@ class PbxLiveStatusService
                 $results[$extension->id] = [
                     'extension_id' => $extension->id,
                     'extension' => $extNumber,
+                    'is_active' => (bool) $extension->is_active,
                     'status' => 'unknown',
                     'registered' => false,
                     'in_call' => false,
@@ -93,6 +94,7 @@ class PbxLiveStatusService
             $results[$extension->id] = array_merge([
                 'extension_id' => $extension->id,
                 'extension' => $extNumber,
+                'is_active' => (bool) $extension->is_active,
             ], $extStatus);
         }
 
