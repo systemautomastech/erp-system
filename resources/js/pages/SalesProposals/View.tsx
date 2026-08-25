@@ -36,6 +36,8 @@ interface SalesProposal {
     items?: Array<{
         id: number;
         product_id: number;
+        description?: string;
+        product_description?: string;
         quantity: number;
         unit_price: number;
         discount_percentage: number;

@@ -90,10 +90,18 @@ export interface ProductServiceItem {
     id: number;
     name: string;
     sku?: string;
+    type?: string;
     description?: string;
-    price: number;
+    long_description?: string;
+    price?: number;
+    sale_price?: number;
     tax_rate?: number;
     unit?: string;
+    unit_name?: string;
+    unit_relation?: {
+        id: number;
+        unit_name: string;
+    };
 }
 
 export interface SalesFilters {
