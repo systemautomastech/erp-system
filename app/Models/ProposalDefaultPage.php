@@ -19,11 +19,11 @@ class ProposalDefaultPage extends Model
 
     public function company()
     {
-        return $this->belongsTo(User::class, 'creator_id');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function creatorUser()
+    public function authorUser()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'creator_id');
     }
 }

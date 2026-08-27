@@ -23,13 +23,13 @@ class QuotationDefaultPage extends Model
         'is_active' => 'boolean',
     ];
 
-    public function creator(): BelongsTo
+    public function company(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'creator_id');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function author(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'creator_id');
     }
 }

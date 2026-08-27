@@ -37,14 +37,14 @@ class QuotationServices
      */
     public function getActiveDefaultPages(int $authorId)
     {
-        return QuotationDefaultPage::where('creator_id', creatorId())
+        return QuotationDefaultPage::where('created_by', creatorId())
             ->where(function ($query) use ($authorId) {
-                $query->where('created_by', $authorId)
-                    ->orWhere('created_by', creatorId());
+                $query->where('creator_id', $authorId)
+                    ->orWhere('creator_id', creatorId());
             })
             ->where('is_active', true)
             ->orderBy('sort_order')
-            ->get(['id', 'title', 'content', 'background_image', 'sort_order', 'created_by', 'creator_id']);
+            ->get(['id', 'title', 'content', 'background_image', 'sort_order', 'creator_id', 'created_by']);
     }
 
     /**
@@ -145,8 +145,8 @@ class QuotationServices
             $quotation = new SalesQuotation();
             $quotationDate = $data['quotation_date'] ?? $data['invoice_date'] ?? now();
             $quotation->quotation_number = SalesQuotation::generateQuotationNumber($quotationDate);
-            $quotation->creator_id = creatorId();
-            $quotation->created_by = Auth::id();
+            $quotation->creator_id = Auth::id();
+            $quotation->created_by = creatorId();
             $quotation->status = 'draft';
 
             $this->hydrateQuotationData($quotation, $data, $totals, $isTaxEnabled);
@@ -201,8 +201,8 @@ class QuotationServices
                 'payment_terms' => $quotation->payment_terms,
                 'notes' => $quotation->notes,
                 'status' => 'draft',
-                'creator_id' => creatorId(),
-                'created_by' => Auth::id(),
+                'creator_id' => Auth::id(),
+                'created_by' => creatorId(),
             ];
 
             $invoice = SalesInvoice::create($invoiceData);
@@ -326,7 +326,7 @@ class QuotationServices
                 'content' => $htmlContent,
                 'background_image' => $backgroundImage,
                 'sort_order' => $order,
-                'creator_id' => creatorId(),
+                'creator_id' => Auth::id(),
             ]);
             $sequentialOrder++;
         }

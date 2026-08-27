@@ -12,6 +12,15 @@ class UpdateQuotationDefaultPageRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (!$this->has('created_by') && auth()->check()) {
+            $this->merge([
+                'created_by' => creatorId(),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         $creatorId = auth()->check() ? creatorId() : null;
@@ -23,7 +32,7 @@ class UpdateQuotationDefaultPageRequest extends FormRequest
                 'string',
                 'max:255',
                 Rule::unique('quotation_default_pages', 'title')
-                    ->where(fn($query) => $query->where('creator_id', $creatorId))
+                    ->where(fn($query) => $query->where('created_by', $creatorId))
                     ->ignore($pageId),
             ],
             'content' => 'nullable|string',
@@ -34,10 +43,10 @@ class UpdateQuotationDefaultPageRequest extends FormRequest
                 'integer',
                 'min:1',
                 Rule::unique('quotation_default_pages', 'sort_order')
-                    ->where(fn($query) => $query->where('creator_id', $creatorId))
+                    ->where(fn($query) => $query->where('created_by', $creatorId))
                     ->ignore($pageId),
             ],
-            'creator_id' => 'nullable|exists:users,id',
+            'created_by' => 'nullable|exists:users,id',
         ];
     }
 

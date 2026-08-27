@@ -16,11 +16,11 @@ class ProposalSetupController extends Controller
     {
         $settings = ProposalSetting::getSettings(creatorId());
 
-        $defaultPages = ProposalDefaultPage::with('creatorUser:id,name,email')
-            ->where('creator_id', creatorId())
+        $defaultPages = ProposalDefaultPage::with('authorUser:id,name,email')
+            ->where('created_by', creatorId())
             ->where(function ($query) {
-                $query->where('created_by', Auth::id())
-                    ->orWhere('created_by', creatorId());
+                $query->where('creator_id', Auth::id())
+                    ->orWhere('creator_id', creatorId());
             })
             ->orderBy('sort_order')
             ->get();
@@ -71,7 +71,7 @@ class ProposalSetupController extends Controller
     public function createDefaultPage()
     {
         $settings = ProposalSetting::getSettings(creatorId());
-        $maxSortOrder = ProposalDefaultPage::where('creator_id', creatorId())->max('sort_order') ?? 0;
+        $maxSortOrder = ProposalDefaultPage::where('created_by', creatorId())->max('sort_order') ?? 0;
 
         return Inertia::render('SalesProposalSetup/DefaultPages/Create', [
             'settings' => $settings,
@@ -84,8 +84,8 @@ class ProposalSetupController extends Controller
     {
         $validated = $request->validated();
         ProposalDefaultPage::create(array_merge($validated, [
-            'creator_id' => creatorId(),
-            'created_by' => Auth::id(),
+            'created_by' => creatorId(),
+            'creator_id' => Auth::id(),
             'page_type' => $request->input('page_type', 'general'),
             'content' => $request->input('content', ''),
             'background_image' => $request->input('background_image'),
@@ -98,7 +98,7 @@ class ProposalSetupController extends Controller
 
     private function authorizePage(ProposalDefaultPage $defaultPage): bool
     {
-        return $defaultPage->creator_id == creatorId() && $defaultPage->created_by == Auth::id();
+        return $defaultPage->created_by == creatorId() && $defaultPage->creator_id == Auth::id();
     }
 
     public function editDefaultPage(ProposalDefaultPage $defaultPage)
@@ -124,8 +124,8 @@ class ProposalSetupController extends Controller
 
         $validated = $request->validated();
         $defaultPage->update(array_merge($validated, [
-            'creator_id' => creatorId(),
-            'created_by' => Auth::id(),
+            'created_by' => creatorId(),
+            'creator_id' => Auth::id(),
             'page_type' => $request->input('page_type', $defaultPage->page_type),
             'content' => $request->has('content') ? $request->input('content', '') : $defaultPage->content,
             'background_image' => $request->has('background_image') ? $request->input('background_image') : $defaultPage->background_image,

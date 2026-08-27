@@ -23,10 +23,10 @@ class QuotationSettingController extends Controller
         $settings = QuotationSetting::getSettings($creatorId);
 
         $defaultPages = QuotationDefaultPage::with('author:id,name,email')
-            ->where('creator_id', $creatorId)
+            ->where('created_by', $creatorId)
             ->where(function ($query) use ($creatorId) {
-                $query->where('created_by', Auth::id())
-                    ->orWhere('created_by', $creatorId);
+                $query->where('creator_id', Auth::id())
+                    ->orWhere('creator_id', $creatorId);
             })
             ->orderBy('sort_order')
             ->get();
