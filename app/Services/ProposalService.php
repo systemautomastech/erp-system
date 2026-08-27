@@ -46,25 +46,23 @@ class ProposalService
      */
     public function hasProposalAccess(SalesProposal $proposal): bool
     {
-        $user = Auth::user();
-
-        if ($proposal->creator_id != creatorId()) {
+        if ($proposal->created_by != creatorId()) {
             return false;
         }
 
-        // Company/Superadmin or users with manage-any-sales-proposals permission can access all proposals in the workspace
+        $user = Auth::user();
+
         if ($user->type === 'superadmin' || $user->type === 'company' || $user->can('manage-any-sales-proposals')) {
             return true;
         }
 
-        // Users with manage-own-sales-proposals can only access their own created proposals (or assigned client proposals)
         if ($user->can('manage-own-sales-proposals')) {
-            $isOwnerOrCustomer = ($proposal->created_by == $user->id || $proposal->customer_id == $user->id);
-            if (!$isOwnerOrCustomer) {
+            if ($proposal->creator_id != $user->id && $proposal->customer_id != $user->id) {
                 return false;
             }
 
-            if ($proposal->created_by != $user->id && $user->type === 'client' && $proposal->status === 'draft') {
+            // Restrict Clients draft proposals
+            if ($proposal->creator_id != $user->id && $user->type === 'client' && $proposal->status === 'draft') {
                 return false;
             }
 
@@ -79,14 +77,14 @@ class ProposalService
      */
     public function getActiveDefaultPages(int $authorId)
     {
-        return ProposalDefaultPage::where('creator_id', creatorId())
+        return ProposalDefaultPage::where('created_by', creatorId())
             ->where(function ($query) use ($authorId) {
-                $query->where('created_by', $authorId)
-                    ->orWhere('created_by', creatorId());
+                $query->where('creator_id', $authorId)
+                    ->orWhere('creator_id', creatorId());
             })
             ->where('is_active', true)
             ->orderBy('sort_order')
-            ->get(['id', 'title', 'content', 'background_image', 'sort_order', 'created_by', 'creator_id']);
+            ->get(['id', 'title', 'content', 'background_image', 'sort_order', 'creator_id', 'created_by']);
     }
 
     /**
@@ -99,8 +97,8 @@ class ProposalService
         if ($templateName === 'Proposal Sent') {
             $emailRecipient = $proposal->customer?->email;
         } elseif ($templateName === 'Proposal Approved') {
-            $author = User::find($proposal->created_by);
-            $emailRecipient = company_setting('company_email', $proposal->creator_id) ?: $author?->email;
+            $author = User::find($proposal->creator_id);
+            $emailRecipient = company_setting('company_email', $proposal->created_by) ?: $author?->email;
         }
 
         if (empty($emailRecipient) || company_setting($templateName) !== 'on') {
@@ -129,11 +127,11 @@ class ProposalService
         return SalesProposal::with(['customer', 'items'])
             ->where(function ($query) use ($user) {
                 if ($user->type === 'superadmin' || $user->type === 'company' || $user->can('manage-any-sales-proposals')) {
-                    $query->where('creator_id', creatorId());
+                    $query->where('created_by', creatorId());
                 } elseif ($user->can('manage-own-sales-proposals')) {
-                    $query->where('creator_id', creatorId())
+                    $query->where('created_by', creatorId())
                         ->where(function ($q) use ($user) {
-                            $q->where('created_by', $user->id)
+                            $q->where('creator_id', $user->id)
                                 ->orWhere('customer_id', $user->id);
                         });
                     if ($user->type === 'client') {
@@ -382,8 +380,8 @@ class ProposalService
             $proposal->tax_amount = $totals['tax_amount'];
             $proposal->discount_amount = $totals['discount_amount'];
             $proposal->total_amount = $totals['total_amount'];
-            $proposal->creator_id = creatorId();
-            $proposal->created_by = Auth::id();
+            $proposal->creator_id = Auth::id();
+            $proposal->created_by = creatorId();
             $proposal->save();
 
             $this->saveProposalItems($proposal->id, $request->items, $isTaxEnabled);
@@ -477,8 +475,8 @@ class ProposalService
             $quotation->discount_amount = $salesProposal->discount_amount ?? 0;
             $quotation->total_amount = $salesProposal->total_amount ?? 0;
             $quotation->status = 'draft';
-            $quotation->creator_id = creatorId();
-            $quotation->created_by = Auth::id();
+            $quotation->creator_id = Auth::id();
+            $quotation->created_by = creatorId();
             $quotation->save();
 
             // Save items exactly from proposal items (including OTC/MRC sections and item taxes)

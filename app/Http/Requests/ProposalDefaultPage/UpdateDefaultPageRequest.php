@@ -21,9 +21,9 @@ class UpdateDefaultPageRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        if (!$this->has('creator_id') && auth()->check()) {
+        if (!$this->has('created_by') && auth()->check()) {
             $this->merge([
-                'creator_id' => creatorId(),
+                'created_by' => creatorId(),
             ]);
         }
     }
@@ -48,10 +48,10 @@ class UpdateDefaultPageRequest extends FormRequest
                 'integer',
                 'min:1',
                 Rule::unique('proposal_default_pages', 'sort_order')
-                    ->where(fn ($query) => $query->where('creator_id', creatorId()))
+                    ->where(fn ($query) => $query->where('created_by', creatorId()))
                     ->ignore($pageId),
             ],
-            'creator_id' => 'nullable|exists:users,id',
+            'created_by' => 'nullable|exists:users,id',
         ];
     }
 

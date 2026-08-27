@@ -48,7 +48,7 @@ class PermissionService
             return false;
         }
 
-        if ($quotation->creator_id != creatorId() && $quotation->created_by != creatorId()) {
+        if ($quotation->created_by != creatorId()) {
             return false;
         }
 
@@ -57,12 +57,12 @@ class PermissionService
         }
 
         if ($user->can('manage-own-quotations')) {
-            $isOwnerOrCustomer = ($quotation->created_by == $user->id || $quotation->customer_id == $user->id);
+            $isOwnerOrCustomer = ($quotation->creator_id == $user->id || $quotation->customer_id == $user->id);
             if (!$isOwnerOrCustomer) {
                 return false;
             }
 
-            if ($quotation->created_by != $user->id && $user->type === 'client' && $quotation->status === 'draft') {
+            if ($quotation->creator_id != $user->id && $user->type === 'client' && $quotation->status === 'draft') {
                 return false;
             }
 

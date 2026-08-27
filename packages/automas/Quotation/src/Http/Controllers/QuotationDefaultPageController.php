@@ -44,7 +44,7 @@ class QuotationDefaultPageController extends Controller
     private function authorizePage(QuotationDefaultPage $defaultPage): bool
     {
         $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
-        return $defaultPage->creator_id == $creatorId && ($defaultPage->created_by == Auth::id() || $defaultPage->created_by == $creatorId);
+        return $defaultPage->created_by == $creatorId && ($defaultPage->creator_id == Auth::id() || $defaultPage->creator_id == $creatorId);
     }
 
     public function create()
@@ -55,7 +55,7 @@ class QuotationDefaultPageController extends Controller
 
         $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
         $settings = QuotationSetting::getSettings($creatorId);
-        $maxSortOrder = QuotationDefaultPage::where('creator_id', $creatorId)->max('sort_order') ?? 0;
+        $maxSortOrder = QuotationDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
 
         return Inertia::render('Quotation/Settings/DefaultPages/Create', [
             'settings' => $settings,
@@ -74,8 +74,8 @@ class QuotationDefaultPageController extends Controller
         $validated = $request->validated();
 
         QuotationDefaultPage::create(array_merge($validated, [
-            'creator_id' => $creatorId,
-            'created_by' => Auth::id(),
+            'created_by' => $creatorId,
+            'creator_id' => Auth::id(),
             'content' => $request->input('content', ''),
             'background_image' => $request->input('background_image'),
             'is_active' => $request->boolean('is_active', true),
@@ -119,8 +119,8 @@ class QuotationDefaultPageController extends Controller
         $validated = $request->validated();
 
         $defaultPage->update(array_merge($validated, [
-            'creator_id' => $creatorId,
-            'created_by' => Auth::id(),
+            'created_by' => $creatorId,
+            'creator_id' => Auth::id(),
             'content' => $request->has('content') ? $request->input('content', '') : $defaultPage->content,
             'background_image' => $request->has('background_image') ? $request->input('background_image') : $defaultPage->background_image,
             'sort_order' => $request->input('sort_order', $defaultPage->sort_order),

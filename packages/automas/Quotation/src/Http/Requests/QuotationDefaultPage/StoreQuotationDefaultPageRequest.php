@@ -14,9 +14,9 @@ class StoreQuotationDefaultPageRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (!$this->has('creator_id') && auth()->check()) {
+        if (!$this->has('created_by') && auth()->check()) {
             $this->merge([
-                'creator_id' => creatorId(),
+                'created_by' => creatorId(),
             ]);
         }
     }
@@ -30,7 +30,7 @@ class StoreQuotationDefaultPageRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('quotation_default_pages', 'title')->where(fn ($query) => $query->where('creator_id', $creatorId)),
+                Rule::unique('quotation_default_pages', 'title')->where(fn ($query) => $query->where('created_by', $creatorId)),
             ],
             'content' => 'nullable|string',
             'background_image' => 'nullable|string',
@@ -39,9 +39,9 @@ class StoreQuotationDefaultPageRequest extends FormRequest
                 'sometimes',
                 'integer',
                 'min:1',
-                Rule::unique('quotation_default_pages', 'sort_order')->where(fn ($query) => $query->where('creator_id', $creatorId)),
+                Rule::unique('quotation_default_pages', 'sort_order')->where(fn ($query) => $query->where('created_by', $creatorId)),
             ],
-            'creator_id' => 'nullable|exists:users,id',
+            'created_by' => 'nullable|exists:users,id',
         ];
     }
 

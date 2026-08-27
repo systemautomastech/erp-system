@@ -1,5 +1,5 @@
 @php
-    $creatorId = $proposal->creator_id ?? $proposal->created_by ?? auth()->id();
+    $creatorId = $proposal->created_by ?? $proposal->creator_id ?? auth()->id();
     $proposalSetting = $proposalSetting ?? \App\Models\ProposalSetting::getSettings($creatorId);
     $templateColor = $proposalSetting['template_color'] ?? '#E9591C';
 

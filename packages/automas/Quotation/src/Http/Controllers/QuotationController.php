@@ -43,16 +43,13 @@ class QuotationController extends Controller
         $quotation = SalesQuotation::with(['customer', 'items'])
             ->where(function ($query) use ($user) {
                 if ($user->type === 'superadmin' || $user->type === 'company' || $user->can('manage-any-quotations')) {
-                    $query->where('creator_id', creatorId())
-                        ->orWhere('created_by', creatorId());
+                    $query->where('created_by', creatorId());
                 } elseif ($user->can('manage-own-quotations')) {
-                    $query->where(function ($q) use ($user) {
-                        $q->where('creator_id', creatorId())
-                            ->orWhere('created_by', creatorId());
-                    })->where(function ($q) use ($user) {
-                        $q->where('created_by', $user->id)
-                            ->orWhere('customer_id', $user->id);
-                    });
+                    $query->where('created_by', creatorId())
+                        ->where(function ($q) use ($user) {
+                            $q->where('creator_id', $user->id)
+                                ->orWhere('customer_id', $user->id);
+                        });
                     if ($user->type === 'client') {
                         $query->where('status', '!=', 'draft');
                     }
@@ -321,7 +318,7 @@ class QuotationController extends Controller
         }
 
         $quotation->load($this->quotationServices->getQuotationRelations());
-        $quotationAuthorId = $quotation->created_by ?? Auth::id();
+        $quotationAuthorId = $quotation->creator_id ?? Auth::id();
         $defaultPages = $this->quotationServices->getActiveDefaultPages($quotationAuthorId);
         $quotationSetting = $this->quotationServices->getQuotationSetting();
 
@@ -339,7 +336,7 @@ class QuotationController extends Controller
         }
 
         $quotation->load($this->quotationServices->getQuotationRelations());
-        $quotationAuthorId = $quotation->created_by ?? Auth::id();
+        $quotationAuthorId = $quotation->creator_id ?? Auth::id();
         $defaultPages = $this->quotationServices->getActiveDefaultPages($quotationAuthorId);
         $quotationSetting = $this->quotationServices->getQuotationSetting();
 

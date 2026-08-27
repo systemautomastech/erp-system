@@ -1,5 +1,5 @@
 @php
-    $creatorId = $quotation->creator_id ?? $quotation->created_by ?? auth()->id();
+    $creatorId = $quotation->created_by ?? $quotation->creator_id ?? auth()->id();
     $quotationSetting = $quotationSetting ?? (app(\App\Services\QuotationServices::class)->getQuotationSetting() ?? []);
     $templateColor = $quotationSetting['template_color'] ?? '#E9591C';
 
