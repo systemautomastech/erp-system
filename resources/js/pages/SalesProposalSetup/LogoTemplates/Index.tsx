@@ -24,12 +24,14 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
         settings: {
             logo_image: string;
             show_logo: boolean;
+            header_logo_align: 'left' | 'center' | 'right';
             background_image: string;
         }
     }>({
         settings: {
             logo_image: settings?.logo_image ?? '',
             show_logo: settings?.show_logo !== undefined ? Boolean(settings.show_logo === '1' || settings.show_logo === true || settings.show_logo === 1 || settings.show_logo === 'true') : true,
+            header_logo_align: (settings?.header_logo_align as any) || 'right',
             background_image: settings?.background_image ?? '',
         }
     });
@@ -39,6 +41,7 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
             setData('settings', {
                 logo_image: settings.logo_image ?? '',
                 show_logo: settings.show_logo !== undefined ? Boolean(settings.show_logo === '1' || settings.show_logo === true || settings.show_logo === 1 || settings.show_logo === 'true') : true,
+                header_logo_align: (settings.header_logo_align as any) || 'right',
                 background_image: settings.background_image ?? '',
             });
         }
@@ -151,6 +154,47 @@ export default function LogoTemplates({ settings }: LogoTemplatesProps) {
                             checked={isShowLogo}
                             onCheckedChange={(checked) => setData('settings', { ...data.settings, show_logo: checked })}
                         />
+                    </div>
+
+                    {/* Header Logo Alignment */}
+                    <div className="p-3 rounded-lg bg-muted/30 border space-y-2">
+                        <div className="space-y-0.5">
+                            <Label className="text-sm font-medium">
+                                {t('Header Logo Alignment')}
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Choose alignment for the logo in template pages (Left, Middle, or Right)')}
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                            <Button
+                                type="button"
+                                variant={data.settings.header_logo_align === 'left' ? 'default' : 'outline'}
+                                size="sm"
+                                className="w-full text-xs font-medium"
+                                onClick={() => setData('settings', { ...data.settings, header_logo_align: 'left' })}
+                            >
+                                {t('Left')}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={data.settings.header_logo_align === 'center' ? 'default' : 'outline'}
+                                size="sm"
+                                className="w-full text-xs font-medium"
+                                onClick={() => setData('settings', { ...data.settings, header_logo_align: 'center' })}
+                            >
+                                {t('Middle')}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={data.settings.header_logo_align === 'right' ? 'default' : 'outline'}
+                                size="sm"
+                                className="w-full text-xs font-medium"
+                                onClick={() => setData('settings', { ...data.settings, header_logo_align: 'right' })}
+                            >
+                                {t('Right')}
+                            </Button>
+                        </div>
                     </div>
                 </div>
 

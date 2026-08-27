@@ -179,6 +179,7 @@ export default function Create({ settings, nextSortOrder = 1, variables }: Props
         : true;
     const rawLogo = settings?.logo_image || settings?.company_logo || '';
     const logoUrl = (isLogoEnabled && rawLogo) ? getImagePath(rawLogo) : '';
+    const headerLogoAlign = settings?.header_logo_align || 'right';
 
     const processedContent = useMemo(() => {
         if (!data.content) return '';
@@ -535,12 +536,13 @@ export default function Create({ settings, nextSortOrder = 1, variables }: Props
                                                 {paginatedPreviewPages.length > 0 ? (
                                                     paginatedPreviewPages.map((pageHtml, pageIdx) => (
                                                         <ProposalPreviewSheet
-                                                            key={pageIdx}
+                                                            key={`create-preview-${pageIdx}`}
                                                             pageKey={`create-preview-${pageIdx}`}
                                                             backgroundImage={data.background_image}
                                                             defaultBg={defaultTemplateBg}
                                                             templateColor={templateColor}
                                                             headerLogo={logoUrl}
+                                                            headerLogoAlign={headerLogoAlign}
                                                         >
                                                             <LiveA4Editor
                                                                 content={pageHtml}
@@ -559,6 +561,7 @@ export default function Create({ settings, nextSortOrder = 1, variables }: Props
                                                         defaultBg={defaultTemplateBg}
                                                         templateColor={templateColor}
                                                         headerLogo={logoUrl}
+                                                        headerLogoAlign={headerLogoAlign}
                                                     >
                                                         <LiveA4Editor
                                                             content={processedContent}

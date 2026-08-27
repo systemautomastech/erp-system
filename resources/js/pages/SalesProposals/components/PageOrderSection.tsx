@@ -113,6 +113,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         : true;
     const rawLogo = settings?.logo_image || settings?.company_logo || '';
     const logoUrl = (isLogoEnabled && rawLogo) ? getImagePath(rawLogo) : '';
+    const headerLogoAlign = settings?.header_logo_align || 'right';
 
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -868,6 +869,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                                     defaultBg={defaultTemplateBg}
                                                                     templateColor={templateColor}
                                                                     headerLogo={logoUrl}
+                                                                    headerLogoAlign={headerLogoAlign}
                                                                     content={pageHtml}
                                                                 />
                                                             ))
@@ -879,6 +881,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                                 defaultBg={defaultTemplateBg}
                                                                 templateColor={templateColor}
                                                                 headerLogo={logoUrl}
+                                                                headerLogoAlign={headerLogoAlign}
                                                                 content={processedContent}
                                                             />
                                                         )}
