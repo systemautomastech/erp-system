@@ -50,7 +50,10 @@ class UpdateSalesProposalRequest extends FormRequest
             'tariffs.*.sort_order' => 'nullable|integer',
 
             'proposal_content' => 'nullable|array',
+            'proposal_content.*.title' => 'nullable|string',
             'proposal_content.*.content' => 'nullable|string',
+            'proposal_content.*.page_type' => 'nullable|string',
+            'proposal_content.*.background_image' => 'nullable|string',
             'proposal_content.*.order' => 'nullable|integer',
         ];
     }
