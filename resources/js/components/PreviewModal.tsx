@@ -133,11 +133,15 @@ export interface PreviewModalProps {
 
 export interface RenderablePage {
     key: string;
-    type: 'otc' | 'mrc' | 'other-details' | 'content';
+    type: 'otc' | 'mrc' | 'combined-charges' | 'other-details' | 'content';
     title?: string;
+    otcTitle?: string;
+    mrcTitle?: string;
     content?: string;
     background_image?: string;
     chunkItems?: ProposalItem[];
+    otcItems?: ProposalItem[];
+    mrcItems?: ProposalItem[];
     chunkIndex?: number;
     totalChunks?: number;
     startIndex?: number;
@@ -146,6 +150,14 @@ export interface RenderablePage {
     secDiscount?: number;
     secTax?: number;
     secTotal?: number;
+    otcSubtotal?: number;
+    otcDiscount?: number;
+    otcTax?: number;
+    otcTotal?: number;
+    mrcSubtotal?: number;
+    mrcDiscount?: number;
+    mrcTax?: number;
+    mrcTotal?: number;
 }
 
 // =============================================================================
@@ -363,8 +375,14 @@ const estimateItemWeight = (item: ProposalItem, getDesc: (i: ProposalItem) => st
     const desc = getDesc(item) || '';
     const plainText = desc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     const blockTags = (desc.match(/<\/p>|<br\s*\/?>|<\/li>|<\/h[1-6]>/gi) || []).length;
-    const textLines = Math.max(1, Math.ceil(plainText.length / 48));
-    return Math.max(2, textLines + blockTags);
+    const textLines = Math.ceil(plainText.length / 48);
+    const descLines = Math.max(textLines, blockTags, desc ? 1 : 0);
+
+    const pName = (item as any)?.product?.name || (item as any)?.name || (item as any)?.product_name || '';
+    const nameLines = Math.max(1, Math.ceil(pName.length / 28));
+    const effectiveLines = Math.max(descLines, nameLines);
+
+    return 1 + (effectiveLines - 1) * 0.7;
 };
 
 const chunkItemsByWeight = (
@@ -408,6 +426,7 @@ export interface ProposalPreviewSheetProps {
     defaultBg?: string;
     templateColor?: string;
     headerLogo?: string;
+    headerLogoAlign?: 'left' | 'center' | 'right' | string;
     pageKey?: string;
     className?: string;
 }
@@ -419,12 +438,24 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
     defaultBg,
     templateColor = DEFAULT_TEMPLATE_COLOR,
     headerLogo,
+    headerLogoAlign = 'right',
     pageKey,
     className = '',
 }) => {
     const rawBg = (backgroundImage && String(backgroundImage).trim() !== '') ? backgroundImage : defaultBg;
     const bgUrl = rawBg ? getImagePath(rawBg) : '';
     const logoUrl = headerLogo ? getImagePath(headerLogo) : '';
+
+    const getLogoContainerStyle = (): React.CSSProperties => {
+        const align = headerLogoAlign || 'right';
+        if (align === 'left') {
+            return { top: '8mm', left: '15mm', right: 'auto', justifyContent: 'flex-start', maxHeight: '20mm', maxWidth: '60mm' };
+        }
+        if (align === 'center' || align === 'middle') {
+            return { top: '8mm', left: '50%', right: 'auto', transform: 'translateX(-50%)', justifyContent: 'center', maxHeight: '20mm', maxWidth: '60mm' };
+        }
+        return { top: '8mm', right: '15mm', left: 'auto', justifyContent: 'flex-end', maxHeight: '20mm', maxWidth: '60mm' };
+    };
 
     return (
         <div
@@ -464,11 +495,11 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                 </div>
             )}
 
-            {/* Top Right Header Logo */}
+            {/* Top Header Logo */}
             {logoUrl && (
                 <div
-                    className="absolute top-[8mm] right-[15mm] z-20 pointer-events-none flex items-center justify-end"
-                    style={{ maxHeight: '20mm', maxWidth: '60mm' }}
+                    className="absolute z-20 pointer-events-none flex items-center"
+                    style={getLogoContainerStyle()}
                 >
                     <img
                         src={logoUrl}
@@ -522,6 +553,7 @@ interface ChargesPageProps {
     templateColor: string;
     defaultBg?: string;
     headerLogo?: string;
+    headerLogoAlign?: string;
     getItemName: (item: ProposalItem) => string;
     getItemDesc: (item: ProposalItem) => string;
     getItemUnit: (item: ProposalItem) => string;
@@ -529,7 +561,7 @@ interface ChargesPageProps {
 }
 
 const ChargesPage = React.memo<ChargesPageProps>(
-    ({ page, templateColor, defaultBg, headerLogo, getItemName, getItemDesc, getItemUnit, t }) => {
+    ({ page, templateColor, defaultBg, headerLogo, headerLogoAlign, getItemName, getItemDesc, getItemUnit, t }) => {
         const chunkItems = page.chunkItems || [];
         const startIdx = page.startIndex || 0;
 
@@ -540,6 +572,7 @@ const ChargesPage = React.memo<ChargesPageProps>(
                 defaultBg={defaultBg}
                 templateColor={templateColor}
                 headerLogo={headerLogo}
+                headerLogoAlign={headerLogoAlign}
             >
                 <div style={{ marginTop: '2rem' }}>
                     <div className="font-bold mb-2 text-[#293240] text-sm">{page.title}</div>
@@ -647,6 +680,262 @@ const ChargesPage = React.memo<ChargesPageProps>(
 ChargesPage.displayName = 'ChargesPage';
 
 // ---------------------------------------------------------------------------
+// Combined Charges Page Component (OTC + MRC on Same Page)
+// ---------------------------------------------------------------------------
+interface CombinedChargesPageProps {
+    page: RenderablePage;
+    templateColor: string;
+    defaultBg?: string;
+    headerLogo?: string;
+    headerLogoAlign?: string;
+    getItemName: (item: ProposalItem) => string;
+    getItemDesc: (item: ProposalItem) => string;
+    getItemUnit: (item: ProposalItem) => string;
+    t: (key: string) => string;
+}
+
+const CombinedChargesPage = React.memo<CombinedChargesPageProps>(
+    ({ page, templateColor, defaultBg, headerLogo, headerLogoAlign, getItemName, getItemDesc, getItemUnit, t }) => {
+        const otcItems = page.otcItems || [];
+        const mrcItems = page.mrcItems || [];
+
+        return (
+            <ProposalPreviewSheet
+                pageKey={page.key}
+                backgroundImage={page.background_image}
+                defaultBg={defaultBg}
+                templateColor={templateColor}
+                headerLogo={headerLogo}
+                headerLogoAlign={headerLogoAlign}
+            >
+                <div style={{ marginTop: '1.5rem' }}>
+                    {/* OTC Table */}
+                    <div className="font-bold mb-1.5 text-[#293240] text-xs">{page.otcTitle || t('ONE-TIME CHARGES (OTC)')}</div>
+                    <table
+                        className="w-full text-xs mb-2 border-collapse border border-slate-300"
+                        style={{ fontSize: '11px', width: '100%', tableLayout: 'fixed' }}
+                    >
+                        <thead>
+                            <tr
+                                className="text-center font-semibold"
+                                style={{ backgroundColor: templateColor, color: '#ffffff' }}
+                            >
+                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '5%', whiteSpace: 'nowrap' }}>
+                                    {t('S/N')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '22%' }}>
+                                    {t('Item / Service')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '38%' }}>
+                                    {t('Description')}
+                                </th>
+                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '7%', whiteSpace: 'nowrap' }}>
+                                    {t('Qty.')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
+                                    {t('Price (BDT)')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
+                                    {t('Total (BDT)')}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {otcItems.map((item, idx) => {
+                                const qty = Number(item.quantity) || 1;
+                                const unit = getItemUnit(item);
+                                const price = Number(item.unit_price) || 0;
+                                const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
+                                const desc = getItemDesc(item);
+
+                                return (
+                                    <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
+                                        <td className="py-1 px-1 text-center font-medium border border-slate-200" style={{ fontSize: '10px' }}>
+                                            {idx + 1}
+                                        </td>
+                                        <td className="py-1 px-2 font-semibold text-slate-900 border border-slate-200 align-top" style={{ fontSize: '11px' }}>
+                                            {getItemName(item)}
+                                        </td>
+                                        <td className="py-1 px-2 text-slate-600 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
+                                            <div
+                                                className="leading-relaxed break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+                                                dangerouslySetInnerHTML={{ __html: desc || '-' }}
+                                            />
+                                        </td>
+                                        <td className="py-1 px-1 text-center border border-slate-200 align-top whitespace-nowrap" style={{ fontSize: '10px' }}>
+                                            {qty}{unit ? ` ${unit}` : ''}
+                                        </td>
+                                        <td className="py-1 px-2 text-right border border-slate-200 align-top" style={{ fontSize: '10px' }}>
+                                            {formatAmountOnly(price)}
+                                        </td>
+                                        <td className="py-1 px-2 text-right font-medium text-slate-900 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
+                                            {formatAmountOnly(lineTotal)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            <tr className="bg-slate-50/60 font-semibold">
+                                <td colSpan={4} className="border border-slate-200"></td>
+                                <td className="py-1 px-2 text-right border border-slate-200 text-slate-800" style={{ fontSize: '10px' }}>
+                                    {t('Total')}:
+                                </td>
+                                <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                    {formatAmountOnly(page.otcSubtotal || 0)}
+                                </td>
+                            </tr>
+                            {(page.otcDiscount || 0) > 0 && (
+                                <tr className="bg-slate-50/40">
+                                    <td colSpan={4} className="border border-slate-200"></td>
+                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
+                                        {t('Discount')}:
+                                    </td>
+                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-rose-600" style={{ fontSize: '10px' }}>
+                                        -{formatAmountOnly(page.otcDiscount || 0)}
+                                    </td>
+                                </tr>
+                            )}
+                            {(page.otcTax || 0) > 0 && (
+                                <tr className="bg-slate-50/40">
+                                    <td colSpan={4} className="border border-slate-200"></td>
+                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
+                                        {t('VAT/Tax')}:
+                                    </td>
+                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                        +{formatAmountOnly(page.otcTax || 0)}
+                                    </td>
+                                </tr>
+                            )}
+                            {((page.otcDiscount || 0) > 0 || (page.otcTax || 0) > 0) && (
+                                <tr className="bg-slate-100 font-bold">
+                                    <td colSpan={4} className="border border-slate-200"></td>
+                                    <td className="py-1 px-2 text-right border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                        {t('Grand Total')}:
+                                    </td>
+                                    <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                        {formatAmountOnly(page.otcTotal || 0)}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+
+                    {/* MRC Table */}
+                    <div className="font-bold mt-7 mb-2 text-[#293240] text-xs">{page.mrcTitle || t('MONTHLY RECURRING CHARGES (MRC)')}</div>
+                    <table
+                        className="w-full text-xs border-collapse border border-slate-300"
+                        style={{ fontSize: '11px', width: '100%', tableLayout: 'fixed' }}
+                    >
+                        <thead>
+                            <tr
+                                className="text-center font-semibold"
+                                style={{ backgroundColor: templateColor, color: '#ffffff' }}
+                            >
+                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '5%', whiteSpace: 'nowrap' }}>
+                                    {t('S/N')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '22%' }}>
+                                    {t('Item / Service')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '38%' }}>
+                                    {t('Description')}
+                                </th>
+                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '7%', whiteSpace: 'nowrap' }}>
+                                    {t('Qty.')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
+                                    {t('Price (BDT)')}
+                                </th>
+                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
+                                    {t('Total (BDT)')}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {mrcItems.map((item, idx) => {
+                                const qty = Number(item.quantity) || 1;
+                                const unit = getItemUnit(item);
+                                const price = Number(item.unit_price) || 0;
+                                const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
+                                const desc = getItemDesc(item);
+
+                                return (
+                                    <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
+                                        <td className="py-1 px-1 text-center font-medium border border-slate-200" style={{ fontSize: '10px' }}>
+                                            {idx + 1}
+                                        </td>
+                                        <td className="py-1 px-2 font-semibold text-slate-900 border border-slate-200 align-top" style={{ fontSize: '11px' }}>
+                                            {getItemName(item)}
+                                        </td>
+                                        <td className="py-1 px-2 text-slate-600 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
+                                            <div
+                                                className="leading-relaxed break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+                                                dangerouslySetInnerHTML={{ __html: desc || '-' }}
+                                            />
+                                        </td>
+                                        <td className="py-1 px-1 text-center border border-slate-200 align-top whitespace-nowrap" style={{ fontSize: '10px' }}>
+                                            {qty}{unit ? ` ${unit}` : ''}
+                                        </td>
+                                        <td className="py-1 px-2 text-right border border-slate-200 align-top" style={{ fontSize: '10px' }}>
+                                            {formatAmountOnly(price)}
+                                        </td>
+                                        <td className="py-1 px-2 text-right font-medium text-slate-900 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
+                                            {formatAmountOnly(lineTotal)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            <tr className="bg-slate-50/60 font-semibold">
+                                <td colSpan={4} className="border border-slate-200"></td>
+                                <td className="py-1 px-2 text-right border border-slate-200 text-slate-800" style={{ fontSize: '10px' }}>
+                                    {t('Total')}:
+                                </td>
+                                <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                    {formatAmountOnly(page.mrcSubtotal || 0)}
+                                </td>
+                            </tr>
+                            {(page.mrcDiscount || 0) > 0 && (
+                                <tr className="bg-slate-50/40">
+                                    <td colSpan={4} className="border border-slate-200"></td>
+                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
+                                        {t('Discount')}:
+                                    </td>
+                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-rose-600" style={{ fontSize: '10px' }}>
+                                        -{formatAmountOnly(page.mrcDiscount || 0)}
+                                    </td>
+                                </tr>
+                            )}
+                            {(page.mrcTax || 0) > 0 && (
+                                <tr className="bg-slate-50/40">
+                                    <td colSpan={4} className="border border-slate-200"></td>
+                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
+                                        {t('VAT/Tax')}:
+                                    </td>
+                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                        +{formatAmountOnly(page.mrcTax || 0)}
+                                    </td>
+                                </tr>
+                            )}
+                            {((page.mrcDiscount || 0) > 0 || (page.mrcTax || 0) > 0) && (
+                                <tr className="bg-slate-100 font-bold">
+                                    <td colSpan={4} className="border border-slate-200"></td>
+                                    <td className="py-1 px-2 text-right border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                        {t('Grand Total')}:
+                                    </td>
+                                    <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
+                                        {formatAmountOnly(page.mrcTotal || 0)}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </ProposalPreviewSheet>
+        );
+    }
+);
+CombinedChargesPage.displayName = 'CombinedChargesPage';
+
+// ---------------------------------------------------------------------------
 // Content Page Component
 // ---------------------------------------------------------------------------
 interface ContentPageProps {
@@ -654,6 +943,7 @@ interface ContentPageProps {
     templateColor: string;
     defaultBg?: string;
     headerLogo?: string;
+    headerLogoAlign?: string;
     formData?: ProposalFormData;
     customer?: any;
     totals?: ProposalTotals;
@@ -663,7 +953,7 @@ interface ContentPageProps {
 }
 
 const ContentPage = React.memo<ContentPageProps>(
-    ({ page, templateColor, defaultBg, headerLogo, formData, customer, totals, proposalSetting, isDefaultPageSetup, t }) => {
+    ({ page, templateColor, defaultBg, headerLogo, headerLogoAlign, formData, customer, totals, proposalSetting, isDefaultPageSetup, t }) => {
         const emptyMessage =
             page.type === 'other-details'
                 ? t('Empty Other Details content...')
@@ -684,6 +974,7 @@ const ContentPage = React.memo<ContentPageProps>(
                 defaultBg={defaultBg}
                 templateColor={templateColor}
                 headerLogo={headerLogo}
+                headerLogoAlign={headerLogoAlign}
                 content={processedContent || undefined}
             >
                 {!processedContent && (
@@ -752,6 +1043,7 @@ export default function PreviewModal({
         : true;
     const rawLogo = activeSettings?.logo_image || activeSettings?.company_logo || '';
     const headerLogo = (isLogoEnabled && rawLogo) ? rawLogo : '';
+    const headerLogoAlign = activeSettings?.header_logo_align || 'right';
     const defaultBgImage = activeSettings?.background_image || '';
 
     // Check if Single Page Mode (e.g. from Default Pages Setup Preview)
@@ -872,11 +1164,54 @@ export default function PreviewModal({
                 (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
         );
 
+        const otcWeight = otcItems.reduce((acc, item) => acc + estimateItemWeight(item, getItemDesc), 0);
+        const mrcWeight = mrcItems.reduce((acc, item) => acc + estimateItemWeight(item, getItemDesc), 0);
+        const COMBINED_CAPACITY = 24;
+        const canCombineCharges = otcItems.length > 0 && mrcItems.length > 0 && (otcWeight + mrcWeight) <= COMBINED_CAPACITY;
+        let chargesCombinedRendered = false;
+
+        const secSubtotalOtc = otcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
+        const secDiscountOtc = otcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+        const secTaxOtc = otcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
+        const secTotalOtc = secSubtotalOtc - secDiscountOtc + secTaxOtc;
+
+        const secSubtotalMrc = mrcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
+        const secDiscountMrc = mrcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+        const secTaxMrc = mrcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
+        const secTotalMrc = secSubtotalMrc - secDiscountMrc + secTaxMrc;
+
         sections.forEach((sec, sIdx) => {
             const rawContent = (sec.content || '').trim();
-            const isOtc = rawContent === '[OTC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('one-time charges'));
-            const isMrc = rawContent === '[MRC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('monthly recurring charges'));
-            const isOther = rawContent === '[OTHER_DETAILS_CONTENT]' || (sec.title && sec.title.toLowerCase().includes('other details'));
+            const pageType = (sec.page_type || '').toLowerCase();
+            const isOtc = pageType === 'otc' || rawContent === '[OTC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('one-time charges'));
+            const isMrc = pageType === 'mrc' || rawContent === '[MRC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('monthly recurring charges'));
+            const isOther = pageType === 'other-details' || rawContent === '[OTHER_DETAILS_CONTENT]' || (sec.title && sec.title.toLowerCase().includes('other details'));
+
+            if (isOtc || isMrc) {
+                if (canCombineCharges) {
+                    if (!chargesCombinedRendered) {
+                        pages.push({
+                            key: `combined-charges-${sec.id || sIdx}`,
+                            type: 'combined-charges',
+                            otcTitle: t('ONE-TIME CHARGES (OTC)'),
+                            mrcTitle: t('MONTHLY RECURRING CHARGES (MRC)'),
+                            background_image: sec.background_image,
+                            otcItems,
+                            mrcItems,
+                            otcSubtotal: secSubtotalOtc,
+                            otcDiscount: secDiscountOtc,
+                            otcTax: secTaxOtc,
+                            otcTotal: secTotalOtc,
+                            mrcSubtotal: secSubtotalMrc,
+                            mrcDiscount: secDiscountMrc,
+                            mrcTax: secTaxMrc,
+                            mrcTotal: secTotalMrc,
+                        });
+                        chargesCombinedRendered = true;
+                    }
+                    return;
+                }
+            }
 
             if (isOtc) {
                 if (otcItems.length === 0) return;
@@ -884,11 +1219,6 @@ export default function PreviewModal({
                 const itemChunks = chunkItemsByWeight(otcItems, getItemDesc, 30);
                 const totalChunks = itemChunks.length;
                 const title = sec.title || t('ONE-TIME CHARGES (OTC)');
-
-                const secSubtotal = otcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-                const secDiscount = otcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-                const secTax = otcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
-                const secTotal = secSubtotal - secDiscount + secTax;
 
                 itemChunks.forEach((chk, cIdx) => {
                     pages.push({
@@ -901,10 +1231,10 @@ export default function PreviewModal({
                         totalChunks,
                         startIndex: chk.startIndex,
                         isLastChunk: cIdx === totalChunks - 1,
-                        secSubtotal,
-                        secDiscount,
-                        secTax,
-                        secTotal,
+                        secSubtotal: secSubtotalOtc,
+                        secDiscount: secDiscountOtc,
+                        secTax: secTaxOtc,
+                        secTotal: secTotalOtc,
                     });
                 });
                 return;
@@ -917,11 +1247,6 @@ export default function PreviewModal({
                 const totalChunks = itemChunks.length;
                 const title = sec.title || t('MONTHLY RECURRING CHARGES (MRC)');
 
-                const secSubtotal = mrcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-                const secDiscount = mrcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-                const secTax = mrcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
-                const secTotal = secSubtotal - secDiscount + secTax;
-
                 itemChunks.forEach((chk, cIdx) => {
                     pages.push({
                         key: `mrc-chunk-${cIdx}-${sec.id || sIdx}`,
@@ -933,10 +1258,10 @@ export default function PreviewModal({
                         totalChunks,
                         startIndex: chk.startIndex,
                         isLastChunk: cIdx === totalChunks - 1,
-                        secSubtotal,
-                        secDiscount,
-                        secTax,
-                        secTotal,
+                        secSubtotal: secSubtotalMrc,
+                        secDiscount: secDiscountMrc,
+                        secTax: secTaxMrc,
+                        secTotal: secTotalMrc,
                     });
                 });
                 return;
@@ -1019,6 +1344,7 @@ export default function PreviewModal({
                             defaultBg={defaultBgImage}
                             templateColor={templateColor}
                             headerLogo={headerLogo}
+                            headerLogoAlign={headerLogoAlign}
                             content={pageHtml}
                         />
                     ))
@@ -1030,6 +1356,7 @@ export default function PreviewModal({
                         defaultBg={defaultBgImage}
                         templateColor={templateColor}
                         headerLogo={headerLogo}
+                        headerLogoAlign={headerLogoAlign}
                         content={singleProcessedContent}
                     />
                 )
@@ -1037,6 +1364,23 @@ export default function PreviewModal({
                 /* Mode B: Full Proposal Mode */
                 renderablePages.length > 0 ? (
                     renderablePages.map((page) => {
+                        if (page.type === 'combined-charges') {
+                            return (
+                                <CombinedChargesPage
+                                    key={page.key}
+                                    page={page}
+                                    templateColor={templateColor}
+                                    defaultBg={defaultBgImage}
+                                    headerLogo={headerLogo}
+                                    headerLogoAlign={headerLogoAlign}
+                                    getItemName={getItemName}
+                                    getItemDesc={getItemDesc}
+                                    getItemUnit={getItemUnit}
+                                    t={t}
+                                />
+                            );
+                        }
+
                         if (page.type === 'otc' || page.type === 'mrc') {
                             return (
                                 <ChargesPage
@@ -1045,6 +1389,7 @@ export default function PreviewModal({
                                     templateColor={templateColor}
                                     defaultBg={defaultBgImage}
                                     headerLogo={headerLogo}
+                                    headerLogoAlign={headerLogoAlign}
                                     getItemName={getItemName}
                                     getItemDesc={getItemDesc}
                                     getItemUnit={getItemUnit}
@@ -1060,6 +1405,7 @@ export default function PreviewModal({
                                 templateColor={templateColor}
                                 defaultBg={defaultBgImage}
                                 headerLogo={headerLogo}
+                                headerLogoAlign={headerLogoAlign}
                                 formData={formData}
                                 customer={customer}
                                 totals={totals}
