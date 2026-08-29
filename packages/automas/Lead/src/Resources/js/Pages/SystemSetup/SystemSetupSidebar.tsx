@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
-import {     GitBranch , Layers , Target , Tag , Globe } from "lucide-react";
+import { GitBranch, Layers, Target, Tag, Globe, List } from "lucide-react";
 
 interface SidebarItem {
     key: string;
@@ -58,6 +58,13 @@ export default function SystemSetupSidebar({ activeItem, onSectionChange }: Syst
             icon: Globe,
             route: 'lead.sources.index',
             permission: 'manage-sources'
+        },
+        {
+            key: 'subjects',
+            label: t('Subjects'),
+            icon: List,
+            route: 'lead.subjects.index',
+            permission: 'manage-subjects'
         },
     ];
 

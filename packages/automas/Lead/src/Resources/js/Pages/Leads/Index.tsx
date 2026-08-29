@@ -25,14 +25,14 @@ import LabelView from './LabelView';
 import ConvertToDeal from './Show/ConvertToDeal';
 import NoRecordsFound from '@/components/no-records-found';
 import { Lead, LeadsIndexProps, LeadFilters, LeadModalState } from './types';
-import { formatDate, getImagePath } from '@/utils/helpers';
+import { formatDate, formatDateTime, getImagePath } from '@/utils/helpers';
 import { usePageButtons } from '@/hooks/usePageButtons';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 export default function Index() {
     const { t } = useTranslation();
-    const { leads, auth, users, pipelines, stages, labels, sources, products, currentPipelineId, pbxModuleActive } = usePage<LeadsIndexProps>().props;
+    const { leads, auth, users, pipelines, stages, labels, sources, subjects, products, currentPipelineId, pbxModuleActive } = usePage<LeadsIndexProps>().props;
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<LeadFilters>({
@@ -219,7 +219,7 @@ export default function Index() {
 
         const followUpDate = new Date(value);
         if (Number.isNaN(followUpDate.getTime())) {
-            return { label: formatDate(value), className: 'text-muted-foreground', title: formatDate(value) };
+            return { label: formatDate(value), className: 'text-muted-foreground', title: formatDateTime(value) || formatDate(value) };
         }
 
         const today = new Date();
@@ -234,7 +234,7 @@ export default function Index() {
             return {
                 label: `${t('Overdue')} ${Math.abs(differenceInDays)}${t('d')}`,
                 className: 'bg-red-50 text-red-700 border-red-200',
-                title: formatDate(value),
+                title: formatDateTime(value),
             };
         }
 
@@ -242,7 +242,7 @@ export default function Index() {
             return {
                 label: t('Today'),
                 className: 'bg-amber-50 text-amber-700 border-amber-200',
-                title: formatDate(value),
+                title: formatDateTime(value),
             };
         }
 
@@ -250,14 +250,14 @@ export default function Index() {
             return {
                 label: t('Tomorrow'),
                 className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                title: formatDate(value),
+                title: formatDateTime(value),
             };
         }
 
         return {
             label: formatDate(value),
             className: 'bg-muted text-muted-foreground border-border',
-            title: formatDate(value),
+            title: formatDateTime(value),
         };
     };
 
@@ -429,7 +429,7 @@ export default function Index() {
                     {task.due_date && (
                         <div className={`flex items-center space-x-1 text-xs px-2 py-1 rounded ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
                             <Calendar className="h-3 w-3" />
-                            <span>{formatDate(task.due_date)}</span>
+                            <span>{formatDateTime(task.due_date)}</span>
                         </div>
                     )}
                 </div>
@@ -917,6 +917,7 @@ export default function Index() {
                     <EditLead
                         lead={modalState.data.lead || modalState.data}
                         sources={modalState.data.sources || {}}
+                        subjects={modalState.data.subjects || subjects || {}}
                         products={modalState.data.products || {}}
                         onSuccess={closeModal}
                     />

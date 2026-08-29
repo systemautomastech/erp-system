@@ -24,7 +24,9 @@ import {
     Package,
     Tag,
     Pencil,
-} from 'lucide-react'; import { useFormFields } from '@/hooks/useFormFields';
+    List,
+} from 'lucide-react';
+import { useFormFields } from '@/hooks/useFormFields';
 import LabelView from '../LabelView';
 
 interface GeneralProps {
@@ -236,10 +238,10 @@ export default function General({ lead }: GeneralProps) {
                                 <Calendar className="h-4 w-4 text-orange-500" />
                             </div>
                             <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{t('Follow Up Date')}</p>
+                                <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{t('Follow Up Date & Time')}</p>
                                 <p className={`text-sm font-medium ${lead.date && new Date(lead.date) < new Date() ? 'text-red-500' : 'text-gray-800'
                                     }`}>
-                                    {lead.date ? formatDate(lead.date) : '-'}
+                                    {lead.date ? formatDateTime(lead.date) : '-'}
                                 </p>
                             </div>
                         </div>
@@ -261,6 +263,16 @@ export default function General({ lead }: GeneralProps) {
                             <div>
                                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{t('Stage')}</p>
                                 <p className="text-sm font-medium text-gray-800">{lead.stage?.name || '-'}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                            <div className="mt-0.5 h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                                <List className="h-4 w-4 text-purple-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{t('Subject')}</p>
+                                <p className="text-sm font-medium text-gray-800">{lead.subject || '-'}</p>
                             </div>
                         </div>
 
