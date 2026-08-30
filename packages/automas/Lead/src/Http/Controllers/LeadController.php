@@ -121,11 +121,12 @@ class LeadController extends Controller
                 ->select('id', 'name')
                 ->get();
 
-            $pipelines = Pipeline::where('created_by', creatorId())->select('id', 'name')->get();
+            $pipelines = Pipeline::where('created_by', creatorId())->orderBy('id', 'desc')->select('id', 'name')->get();
             $activePipelineId = (request('pipeline_id') && request('pipeline_id') !== 'all') ? request('pipeline_id') : null;
             $stages = LeadStage::where('created_by', creatorId())
                 ->when($activePipelineId, fn($q) => $q->where('pipeline_id', $activePipelineId))
-                ->select('id', 'name', 'pipeline_id')
+                ->orderBy('order', 'asc')
+                ->select('id', 'name', 'pipeline_id', 'order')
                 ->get();
             $labels = Label::with('pipeline')->where('created_by', creatorId())->select('id', 'name', 'color', 'pipeline_id')->get();
             $sources = Source::where('created_by', creatorId())->get(['id', 'name']);
@@ -170,6 +171,11 @@ class LeadController extends Controller
                         ->first();
                 }
                 if (!$pipeline) {
+                    $pipeline = Pipeline::where('created_by', '=', creatorId())
+                        ->where('is_default', '=', true)
+                        ->first();
+                }
+                if (!$pipeline) {
                     $pipeline = Pipeline::where('created_by', '=', creatorId())->first();
                 }
             }
@@ -182,7 +188,7 @@ class LeadController extends Controller
                         ->first();
                 }
                 if (!$stage) {
-                    $stage = LeadStage::where('pipeline_id', '=', $pipeline->id)->first();
+                    $stage = LeadStage::where('pipeline_id', '=', $pipeline->id)->orderBy('order', 'asc')->first();
                 }
             } else {
                 return redirect()->route('lead.leads.index')->with('error', __('Please create pipeline.'));
@@ -417,6 +423,7 @@ class LeadController extends Controller
     {
         $stages = LeadStage::where('pipeline_id', $pipelineId)
             ->where('created_by', creatorId())
+            ->orderBy('order', 'asc')
             ->select('id', 'name')
             ->get();
 

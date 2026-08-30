@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit, Trash2, GitBranch } from "lucide-react";
+import { Plus, Edit, Trash2, GitBranch, Star } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 
@@ -49,6 +49,16 @@ export default function Index() {
         {
             key: 'name',
             header: t('Name'),
+            render: (_: any, pipeline: Pipeline) => (
+                <div className="flex items-center gap-2">
+                    <span>{pipeline.name}</span>
+                    {!!pipeline.is_default && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300">
+                            {t('Default')}
+                        </Badge>
+                    )}
+                </div>
+            )
         },
         ...(auth.user?.permissions?.some((p: string) => ['edit-pipelines', 'delete-pipelines'].includes(p)) ? [{
             key: 'actions',
@@ -56,6 +66,23 @@ export default function Index() {
             render: (_: any, pipeline: Pipeline) => (
                 <div className="flex gap-1">
                     <TooltipProvider>
+                        {auth.user?.permissions?.includes('edit-pipelines') && !pipeline.is_default && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => router.post(route('lead.pipelines.set-default', pipeline.id))}
+                                        className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700"
+                                    >
+                                        <Star className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{t('Set as Default')}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
                         {auth.user?.permissions?.includes('edit-pipelines') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>

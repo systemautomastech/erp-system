@@ -40,7 +40,7 @@ export default function Index() {
         name: urlParams.get('name') || '',
         phone: urlParams.get('phone') || '',
         notes: urlParams.get('notes') || '',
-        pipeline_id: urlParams.get('pipeline_id') || (pipelines?.[0]?.id?.toString() || ''),
+        pipeline_id: urlParams.get('pipeline_id') || '',
         stage_id: urlParams.get('stage_id') || '',
         status: urlParams.get('status') || '',
         is_active: urlParams.get('is_active') || '',
@@ -507,7 +507,7 @@ export default function Index() {
                 const stageName = row.stage?.name || stages?.find(item => item.id.toString() === row.stage_id?.toString())?.name;
                 const color = getStageColor(row.stage_id);
                 return (
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: `${color}20`, color }}>
+                    <span className="inline-block max-w-[120px] leading-snug break-words px-2 py-1 text-xs font-medium rounded-md" style={{ backgroundColor: `${color}20`, color }}>
                         {stageName || 'No Stage'}
                     </span>
                 );
@@ -658,7 +658,7 @@ export default function Index() {
             pageActions={
                 <div className="flex items-center gap-2">
                     <TooltipProvider>
-                        <Select value={filters.pipeline_id || pipelines?.[0]?.id?.toString() || 'all'} onValueChange={(value) => {
+                        <Select value={filters.pipeline_id || 'all'} onValueChange={(value) => {
                             const pipelineId = value === 'all' ? '' : value;
                             setFilters({ ...filters, pipeline_id: pipelineId });
 
@@ -683,6 +683,7 @@ export default function Index() {
                                 <SelectValue placeholder={t('Select Pipeline')} />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="all">{t('All Pipelines')}</SelectItem>
                                 {pipelines?.map((pipeline: any) => (
                                     <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                                         {pipeline.name}

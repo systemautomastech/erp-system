@@ -527,7 +527,7 @@ export default function Index() {
                 const stageName = row.stage?.name || stages?.find(item => item.id.toString() === row.stage_id?.toString())?.name;
                 const color = getStageColor(row.stage_id);
                 return (
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: `${color}20`, color }}>
+                    <span className="inline-block max-w-[120px] leading-snug break-words px-2 py-1 text-xs font-medium rounded-md" style={{ backgroundColor: `${color}20`, color }}>
                         {stageName || 'No Stage'}
                     </span>
                 );

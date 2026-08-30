@@ -19,6 +19,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
     Route::get('/crm/dashboard', [DashboardController::class, 'index'])->name('lead.index');
 
     Route::resource('crm/pipelines', PipelineController::class)->names('lead.pipelines');
+    Route::post('crm/pipelines/{pipeline}/set-default', [PipelineController::class, 'setDefault'])->name('lead.pipelines.set-default');
 
     Route::prefix('crm/lead-stages')->name('lead.lead-stages.')->group(function () {
         Route::get('/', [LeadStageController::class, 'index'])->name('index');

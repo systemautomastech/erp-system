@@ -34,7 +34,7 @@ class DealStageController extends Controller
 
             return Inertia::render('Lead/SystemSetup/DealStages/Index', [
                 'dealstages' => $dealstages,
-                'pipelines' => Pipeline::where('created_by', creatorId())->select('id', 'name')->get(),
+                'pipelines' => Pipeline::where('created_by', creatorId())->select('id', 'name')->orderBy('id', 'desc')->get(),
             ]);
         }
         else{
