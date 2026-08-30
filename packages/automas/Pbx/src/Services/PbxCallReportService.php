@@ -189,12 +189,24 @@ class PbxCallReportService
             }
         }
 
-        if (!empty($filters['direction']) && in_array($filters['direction'], ['inbound', 'outbound'], true)) {
-            $query['direction'] = $filters['direction'];
+        if (!empty($filters['direction'])) {
+            $dir = strtolower(trim((string) $filters['direction']));
+            if ($dir !== 'all' && $dir !== '') {
+                if (in_array($dir, ['inbound', 'incoming'], true)) {
+                    $query['direction'] = 'inbound';
+                } elseif (in_array($dir, ['outbound', 'outgoing'], true)) {
+                    $query['direction'] = 'outbound';
+                } else {
+                    $query['direction'] = $dir;
+                }
+            }
         }
 
         if (!empty($filters['status'])) {
-            $query['status'] = trim((string) $filters['status']);
+            $statusVal = trim((string) $filters['status']);
+            if (strtolower($statusVal) !== 'all' && $statusVal !== '') {
+                $query['status'] = $statusVal;
+            }
         }
 
         $url = rtrim($setting->call_report_api_url, '/') . '/call-logs.php';
@@ -232,6 +244,9 @@ class PbxCallReportService
             'extensions' => $query['extensions'] ?? null,
             'from' => $query['from'] ?? null,
             'to' => $query['to'] ?? null,
+            'direction' => $query['direction'] ?? null,
+            'status' => $query['status'] ?? null,
+            'search' => $query['search'] ?? null,
             'page' => $query['page'] ?? null,
             'per_page' => $query['per_page'] ?? null,
         ]);

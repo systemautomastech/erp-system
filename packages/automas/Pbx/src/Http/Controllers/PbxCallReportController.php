@@ -93,14 +93,23 @@ class PbxCallReportController extends Controller
         $selectedExtension = trim(
             (string) $request->input('extension', '')
         );
+        if (strtolower($selectedExtension) === 'all') {
+            $selectedExtension = '';
+        }
 
         $direction = trim(
-            (string) $request->input('call_direction', '')
+            (string) $request->input('call_direction', $request->input('direction', ''))
         );
+        if (strtolower($direction) === 'all') {
+            $direction = '';
+        }
 
         $status = trim(
             (string) $request->input('status', '')
         );
+        if (strtolower($status) === 'all') {
+            $status = '';
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -296,6 +305,39 @@ class PbxCallReportController extends Controller
             )
             ->values()
             ->all();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Fallback In-Memory Filtering (Safeguard for remote API endpoints)
+        |--------------------------------------------------------------------------
+        */
+
+        if ($direction !== '') {
+            $callRows = array_values(array_filter($callRows, function ($call) use ($direction) {
+                return strtolower($call['direction'] ?? '') === strtolower($direction);
+            }));
+        }
+
+        if ($status !== '') {
+            $callRows = array_values(array_filter($callRows, function ($call) use ($status) {
+                $rowStatus = strtoupper(trim($call['status'] ?? ''));
+                $targetStatus = strtoupper(trim($status));
+                if ($targetStatus === 'NO ANSWER' || $targetStatus === 'NOANSWER' || $targetStatus === 'MISSED') {
+                    return in_array($rowStatus, ['NO ANSWER', 'NOANSWER', 'MISSED'], true);
+                }
+                return $rowStatus === $targetStatus;
+            }));
+        }
+
+        if ($search !== '') {
+            $callRows = array_values(array_filter($callRows, function ($call) use ($search) {
+                $needle = strtolower($search);
+                return str_contains(strtolower((string)($call['number'] ?? '')), $needle)
+                    || str_contains(strtolower((string)($call['extension'] ?? '')), $needle)
+                    || str_contains(strtolower((string)($call['did'] ?? '')), $needle)
+                    || str_contains(strtolower((string)($call['user_name'] ?? '')), $needle);
+            }));
+        }
 
         /*
         |--------------------------------------------------------------------------
