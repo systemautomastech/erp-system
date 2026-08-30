@@ -14,6 +14,7 @@ use Automas\Lead\Models\LeadStage;
 use Automas\Lead\Models\Pipeline;
 use Automas\Lead\Models\UserLead;
 use Automas\Lead\Models\Label;
+use Automas\Lead\Models\LeadSubject;
 use Automas\ProductService\Models\ProductServiceItem;
 use Illuminate\Http\Request;
 use Automas\Lead\Http\Requests\AssignUsersRequest;
@@ -133,6 +134,7 @@ class LeadController extends Controller
                 ->get();
             $labels = Label::with('pipeline')->where('created_by', creatorId())->select('id', 'name', 'color', 'pipeline_id')->get();
             $sources = Source::where('created_by', creatorId())->get(['id', 'name']);
+            $subjects = LeadSubject::where('created_by', creatorId())->get(['id', 'name']);
             $products = module_is_active('ProductService') ? ProductServiceItem::where('created_by', creatorId())->get(['id', 'name']) : [];
             return Inertia::render('Lead/Leads/Index', [
                 'leads' => $leads,
@@ -141,6 +143,7 @@ class LeadController extends Controller
                 'stages' => $stages,
                 'labels' => $labels,
                 'sources' => $sources,
+                'subjects' => $subjects,
                 'products' => $products,
                 'currentPipelineId' => request('pipeline_id') ?: $defaultPipelineId,
                 'pbxModuleActive' => module_is_active('Pbx'),
@@ -302,11 +305,13 @@ class LeadController extends Controller
             if ($lead->is_converted) {
                 $deal = Deal::where('id', '=', $lead->is_converted)->first();
             }
+            $subjects = LeadSubject::where('created_by', creatorId())->get(['id', 'name']);
             return Inertia::render('Lead/Leads/Show/Index', [
                 'lead' => $lead,
                 'labels' => $labels,
                 'productItems' => $productItems,
                 'sourceItems' => $sourceItems,
+                'subjects' => $subjects,
                 'deal' => $deal ? [
                     'id' => $deal->id,
                     'is_active' => $deal->status === 'Active'
@@ -328,6 +333,7 @@ class LeadController extends Controller
                 $pipelines->prepend(__('Select Pipeline'), '');
 
                 $sources = Source::where('created_by', '=', creatorId())->get()->pluck('name', 'id');
+                $subjects = LeadSubject::where('created_by', '=', creatorId())->get()->pluck('name', 'id');
 
                 if (module_is_active('ProductService')) {
                     $products = ProductServiceItem::where('created_by', '=', creatorId())->get()->pluck('name', 'id');
@@ -343,6 +349,7 @@ class LeadController extends Controller
                     'lead' => $lead,
                     'pipelines' => $pipelines,
                     'sources' => $sources,
+                    'subjects' => $subjects,
                     'products' => $products ?? [],
                     'users' => $users
                 ]);
@@ -481,7 +488,7 @@ class LeadController extends Controller
                     'lead_name'     => $lead->name,
                     'lead_email'    => $lead->email,
                     'lead_subject'  => $lead->subject,
-                    'follow_up_date' => $lead->date ? \Carbon\Carbon::parse($lead->date)->format('d M Y') : null,
+                    'follow_up_date' => $lead->date ? \Carbon\Carbon::parse($lead->date)->format('d M Y, h:i A') : null,
                     'lead_pipeline' => $lead->pipeline->name ?? '',
                     'lead_stage'    => $lead->stage->name ?? '',
                 ];

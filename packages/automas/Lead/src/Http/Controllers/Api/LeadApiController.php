@@ -98,7 +98,7 @@ class LeadApiController extends Controller
                             'product_id'     => $lead->products ? array_map('intval', explode(',', $lead->products)) : [],
                             'pipeline_id'    => $lead->pipeline_id,
                             'stage_id'       => $lead->stage_id,
-                            'follow_up_date' => $lead->date?->format('Y-m-d'),
+                            'follow_up_date' => $lead->date?->format('Y-m-d H:i:s'),
                             'previous_stage' => isset($leadStages[$key - 1]) ? $leadStages[$key - 1]->id : 0,
                             'current_stage'  => $leadStages[$key]->id,
                             'next_stage'     => isset($leadStages[$key + 1]) ? $leadStages[$key + 1]->id : 0,
@@ -343,7 +343,7 @@ class LeadApiController extends Controller
                 'order'          => $lead->order,
                 'phone'          => $lead->phone,
                 'created_at'     => $lead->created_at->format('Y-m-d'),
-                'follow_up_date' => $lead->date?->format('Y-m-d'),
+                'follow_up_date' => $lead->date?->format('Y-m-d H:i:s'),
                 'percentage'     => $precentage . '%',
                 'tasks_list'     => $lead->tasks->map(function ($task) {
                     return [

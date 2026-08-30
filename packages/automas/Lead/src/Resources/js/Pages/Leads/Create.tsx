@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PhoneInputComponent } from '@/components/ui/phone-input';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DateTimeRangePicker } from '@/components/ui/datetime-range-picker';
 import { CreateLeadProps, CreateLeadFormData } from './types';
 import { usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
@@ -19,7 +19,7 @@ import { MultiSelectEnhanced } from '@/components/ui/multi-select-enhanced';
 
 
 export default function Create({ onSuccess }: CreateLeadProps) {
-    const { users, sources, auth } = usePage<any>().props;
+    const { users, sources, subjects, auth } = usePage<any>().props;
 
     const { t } = useTranslation();
     const { data, setData, post, processing, errors } = useForm<CreateLeadFormData>({
@@ -83,19 +83,29 @@ export default function Create({ onSuccess }: CreateLeadProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="flex gap-2 items-end">
-                        <div className="flex-1">
-                            <Label htmlFor="subject" required>{t('Subject')}</Label>
-                            <Input
-                                id="subject"
-                                type="text"
-                                value={data.subject}
-                                onChange={(e) => setData('subject', e.target.value)}
-                                placeholder={t('Enter Subject')}
-                            />
-                            <InputError message={errors.subject} />
-                        </div>
-                        {subjectAI.map(field => <div key={field.id}>{field.component}</div>)}
+                    <div>
+                        <Label htmlFor="subject" required>{t('Subject')}</Label>
+                        <Select value={data.subject} onValueChange={(value) => setData('subject', value)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder={t('Select Subject')} />
+                            </SelectTrigger>
+                            <SelectContent searchable>
+                                {Array.isArray(subjects) ? (
+                                    subjects.map((item: any) => (
+                                        <SelectItem key={item.id ?? item.name ?? item} value={item.name ?? item}>
+                                            {item.name ?? item}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    Object.entries(subjects || {}).map(([id, name]: [string, any]) => (
+                                        <SelectItem key={id} value={typeof name === 'string' ? name : (name?.name ?? id)}>
+                                            {typeof name === 'string' ? name : (name?.name ?? id)}
+                                        </SelectItem>
+                                    ))
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.subject} />
                     </div>
 
                     <div>
@@ -128,10 +138,11 @@ export default function Create({ onSuccess }: CreateLeadProps) {
 
                     <div>
                         <Label>{t('Follow Up Date')}</Label>
-                        <DatePicker
+                        <DateTimeRangePicker
                             value={data.date}
-                            onChange={(date) => setData('date', formatDate(date))}
-                            placeholder={t('Select Follow Up Date')}
+                            onChange={(date) => setData('date', date)}
+                            placeholder={t('Select Follow Up Date & Time')}
+                            mode="single"
                         />
                         <InputError message={errors.date} />
                     </div>

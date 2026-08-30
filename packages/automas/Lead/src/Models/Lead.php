@@ -38,7 +38,7 @@ class Lead extends Model
             'pipeline_id' => 'integer',
             'stage_id' => 'integer',
             'is_active' => 'boolean',
-            'date' => 'date',
+            'date' => 'datetime',
             'creator_id' => 'integer'
         ];
     }

@@ -661,7 +661,7 @@ class ImportLeadChunk implements ShouldQueue
         try {
             return now()
                 ->parse($value)
-                ->format('Y-m-d');
+                ->format('Y-m-d H:i:s');
         } catch (Throwable) {
             return null;
         }

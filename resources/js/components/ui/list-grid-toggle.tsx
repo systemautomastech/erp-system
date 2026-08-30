@@ -5,12 +5,12 @@ import { router } from '@inertiajs/react';
 interface ListGridToggleProps {
     currentView: 'list' | 'grid';
     routeName: string;
-    routeParams?: any[];
+    routeParams?: any;
     filters?: Record<string, any>;
     onViewChange?: (view: 'list' | 'grid') => void;
 }
 
-export function ListGridToggle({ currentView, routeName, routeParams = [], filters = {}, onViewChange }: ListGridToggleProps) {
+export function ListGridToggle({ currentView, routeName, routeParams, filters = {}, onViewChange }: ListGridToggleProps) {
     const handleViewChange = (view: 'list' | 'grid') => {
         const urlParams = new URLSearchParams(window.location.search);
         const params = { ...filters, view, page: urlParams.get('page') || '1' };
@@ -19,7 +19,8 @@ export function ListGridToggle({ currentView, routeName, routeParams = [], filte
             onViewChange(view);
         }
         
-        router.get(route(routeName, ...routeParams), params, {
+        const url = (route(routeName, routeParams) as unknown as string);
+        router.get(url, params, {
             preserveState: false,
             replace: true
         });

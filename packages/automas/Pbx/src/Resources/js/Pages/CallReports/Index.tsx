@@ -1,18 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 
 import {
     BarChart3,
-    CheckCircle,
-    CheckCircle2,
-    Clock,
     Headphones,
     Phone,
-    PhoneCall,
     PhoneIncoming,
-    PhoneMissed,
-    PhoneOff,
     PhoneOutgoing,
     RefreshCw,
     XCircle,
@@ -335,40 +329,41 @@ export default function Index({
         setFilters,
     ] = useState<CallFilters>({
         search:
-            urlParams.get(
-                'search',
-            )
+            urlParams.get('search')
             ?? serverFilters.search
             ?? '',
 
         extension:
-            urlParams.get(
-                'extension',
-            )
-            ?? serverFilters.extension
-            ?? '',
+            (urlParams.get('extension') && urlParams.get('extension') !== 'all')
+                ? urlParams.get('extension')!
+                : (serverFilters.extension && serverFilters.extension !== 'all' ? serverFilters.extension : ''),
 
         call_direction:
-            urlParams.get(
-                'call_direction',
-            )
-            ?? serverFilters.call_direction
-            ?? '',
+            (urlParams.get('call_direction') || urlParams.get('direction'))
+                && (urlParams.get('call_direction') || urlParams.get('direction')) !== 'all'
+                ? (urlParams.get('call_direction') || urlParams.get('direction'))!
+                : (serverFilters.call_direction && serverFilters.call_direction !== 'all' ? serverFilters.call_direction : ''),
 
         status:
-            urlParams.get(
-                'status',
-            )
-            ?? serverFilters.status
-            ?? '',
+            (urlParams.get('status') && urlParams.get('status') !== 'all')
+                ? urlParams.get('status')!
+                : (serverFilters.status && serverFilters.status !== 'all' ? serverFilters.status : ''),
 
         date_range:
-            urlParams.get(
-                'date_range',
-            )
+            urlParams.get('date_range')
             ?? serverFilters.date_range
             ?? '',
     });
+
+    useEffect(() => {
+        setFilters({
+            search: serverFilters?.search || '',
+            extension: (serverFilters?.extension && serverFilters.extension !== 'all') ? serverFilters.extension : '',
+            call_direction: (serverFilters?.call_direction && serverFilters.call_direction !== 'all') ? serverFilters.call_direction : '',
+            status: (serverFilters?.status && serverFilters.status !== 'all') ? serverFilters.status : '',
+            date_range: serverFilters?.date_range || '',
+        });
+    }, [serverFilters?.search, serverFilters?.extension, serverFilters?.call_direction, serverFilters?.status, serverFilters?.date_range]);
 
     /*
     |--------------------------------------------------------------------------
@@ -527,6 +522,7 @@ export default function Index({
         ].filter(
             (value) =>
                 value !== ''
+                && value !== 'all'
                 && value !== null
                 && value !== undefined,
         ).length;
@@ -544,16 +540,19 @@ export default function Index({
                 || undefined,
 
             extension:
-                filters.extension
-                || undefined,
+                (filters.extension && filters.extension !== 'all')
+                    ? filters.extension
+                    : undefined,
 
             call_direction:
-                filters.call_direction
-                || undefined,
+                (filters.call_direction && filters.call_direction !== 'all')
+                    ? filters.call_direction
+                    : undefined,
 
             status:
-                filters.status
-                || undefined,
+                (filters.status && filters.status !== 'all')
+                    ? filters.status
+                    : undefined,
 
             date_range:
                 filters.date_range

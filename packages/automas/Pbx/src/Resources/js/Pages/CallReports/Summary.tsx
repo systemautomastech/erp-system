@@ -647,7 +647,7 @@ export default function SummaryIndex({
         >
             <Head title={t('PBX Call Analytics')} />
 
-            <div className="space-y-6 p-4 sm:p-6 lg:p-8 bg-slate-50/50 dark:bg-slate-950/20 min-h-screen">
+            <div className="space-y-6 bg-slate-50/50 dark:bg-slate-950/20 min-h-screen">
                 {/* Header Title Section */}
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
