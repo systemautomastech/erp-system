@@ -1,5 +1,5 @@
 @php
-    $creatorId = $proposal->creator_id ?? $proposal->created_by ?? auth()->id();
+    $creatorId = $proposal->created_by ?? $proposal->creator_id ?? auth()->id();
     $proposalSetting = $proposalSetting ?? \App\Models\ProposalSetting::getSettings($creatorId);
     $templateColor = $proposalSetting['template_color'] ?? '#E9591C';
 
@@ -57,6 +57,12 @@
     $rawLogo = $proposalSetting['logo_image'] ?? $proposalSetting['company_logo'] ?? '';
     $logoImage = $rawLogo ? $getImagePath($rawLogo) : asset('uploads/logo/logo_dark.png');
     $headerLogoUrl = ($showLogo && $rawLogo) ? $getImagePath($rawLogo) : '';
+    $headerLogoAlign = $proposalSetting['header_logo_align'] ?? 'right';
+    $headerLogoStyle = match ($headerLogoAlign) {
+        'left' => 'left: 15mm; right: auto; justify-content: flex-start;',
+        'center', 'middle' => 'left: 50%; right: auto; transform: translateX(-50%); justify-content: center;',
+        default => 'right: 15mm; left: auto; justify-content: flex-end;',
+    };
 
     $defaultBgImage = $proposalSetting['background_image'] ?? '';
     $getPageBgUrl = function ($customBg = null) use ($getImagePath, $defaultBgImage) {
@@ -76,9 +82,8 @@
     };
 
     $companyName = $proposalSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
-    $cleanCompName = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
-    $cleanPropNum = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($proposal->proposal_number)));
-    $pdfFilename = "quotation_{$cleanCompName}_{$cleanPropNum}.pdf";
+    $proposalNumber = $proposal->proposal_number;
+    $pdfFilename = "{$companyName}_Sales Proposal_#{$proposalNumber}.pdf";
 
     $replaceProposalShortcodes = function ($content) use ($proposal, $proposalSetting, $getImagePath, $logoImage, $templateColor, $creatorId) {
         if (empty($content)) return '';
@@ -386,7 +391,44 @@
         .html-preview-container a { color: #2563eb; text-decoration: underline; }
         .html-preview-container table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #cbd5e1; }
         .html-preview-container th { border: 1px solid #cbd5e1; padding: 8px 10px; font-weight: 600; text-align: left; }
-        .html-preview-container td { border: 1px solid #cbd5e1; padding: 8px 10px; color: #1e293b; }
+        .html-preview-container table td { border: 1px solid #cbd5e1; padding: 8px 10px; color: #1e293b; }
+
+        /* Line item description HTML typography styles */
+        .proposal-item-desc {
+            font-size: 11px;
+            line-height: 1.4;
+            color: #293240;
+        }
+        .proposal-item-desc p {
+            margin: 2px 0 !important;
+        }
+        .proposal-item-desc p:empty {
+            min-height: 0.8em;
+            margin: 0;
+        }
+        .proposal-item-desc ul {
+            list-style-type: disc !important;
+            margin-left: 18px !important;
+            padding-left: 0 !important;
+            margin-top: 3px !important;
+            margin-bottom: 3px !important;
+        }
+        .proposal-item-desc ol {
+            list-style-type: decimal !important;
+            margin-left: 18px !important;
+            padding-left: 0 !important;
+            margin-top: 3px !important;
+            margin-bottom: 3px !important;
+        }
+        .proposal-item-desc li {
+            margin-top: 1px !important;
+            margin-bottom: 1px !important;
+            display: list-item !important;
+        }
+        .proposal-item-desc li p {
+            display: inline !important;
+            margin: 0 !important;
+        }
 
         @media print {
             @page {
@@ -530,7 +572,7 @@
 
         // Helper for estimating item weight in blade
         $estimateItemWeight = function ($item) {
-            $desc = $item->product->description ?? $item->product_description ?? '';
+            $desc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
             $plainText = trim(preg_replace('/\s+/', ' ', strip_tags($desc)));
             $blockTags = preg_match_all('/<\/p>|<br\s*\/?>|<\/li>|<\/h[1-6]>/i', $desc, $matches);
             $textLines = ceil(strlen($plainText) / 48);
@@ -579,6 +621,21 @@
             return $chunks;
         };
 
+        // Calculate total weight of OTC and MRC to check if they can fit together on one page
+        $totalOtcWeight = 0;
+        foreach ($otcItems as $item) {
+            $totalOtcWeight += $estimateItemWeight($item);
+        }
+        $totalMrcWeight = 0;
+        foreach ($mrcItems as $item) {
+            $totalMrcWeight += $estimateItemWeight($item);
+        }
+
+        // A single page has capacity of ~22 weight units for combined tables including headings and summary rows
+        $COMBINED_PAGE_CAPACITY = 20;
+        $canCombineCharges = (count($otcItems) > 0 && count($mrcItems) > 0 && ($totalOtcWeight + $totalMrcWeight) <= $COMBINED_PAGE_CAPACITY);
+        $chargesCombinedRendered = false;
+
         // Build Renderable Pages Array matching exact user section order
         $renderablePages = [];
         foreach ($sectionsSource as $sIdx => $sec) {
@@ -589,6 +646,32 @@
             $isOtc = $pageType === 'otc' || $rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false);
             $isMrc = $pageType === 'mrc' || $rawContent === '[MRC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'monthly recurring charges') !== false);
             $isOther = $pageType === 'other-details' || $rawContent === '[OTHER_DETAILS_CONTENT]' || (!empty($title) && stripos($title, 'other details') !== false);
+
+            if ($isOtc || $isMrc) {
+                if ($canCombineCharges) {
+                    if (!$chargesCombinedRendered) {
+                        $renderablePages[] = [
+                            'key' => "combined-charges-{$sIdx}",
+                            'type' => 'combined-charges',
+                            'otcTitle' => 'One-Time Charges (OTC)',
+                            'mrcTitle' => 'Monthly Recurring Charges (MRC)',
+                            'background_image' => $sec['background_image'] ?? null,
+                            'otcItems' => $otcItems,
+                            'mrcItems' => $mrcItems,
+                            'otcSubtotal' => $otcSubtotal,
+                            'otcDiscount' => $otcDiscount,
+                            'otcTax' => $otcTax,
+                            'otcTotal' => $otcTotal,
+                            'mrcSubtotal' => $mrcSubtotal,
+                            'mrcDiscount' => $mrcDiscount,
+                            'mrcTax' => $mrcTax,
+                            'mrcTotal' => $mrcTotal,
+                        ];
+                        $chargesCombinedRendered = true;
+                    }
+                    continue;
+                }
+            }
 
             if ($isOtc) {
                 if (count($otcItems) > 0) {
@@ -670,8 +753,8 @@
                 $sheetBgUrl = $getPageBgUrl($page['background_image'] ?? null);
             @endphp
 
-            {{-- 1. OTC CHARGES SHEET --}}
-            @if($page['type'] === 'otc')
+            {{-- 0. COMBINED CHARGES SHEET (OTC + MRC on Same Page) --}}
+            @if($page['type'] === 'combined-charges')
                 <div class="proposal-preview-sheet"
                     style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
                     @if(!empty($sheetBgUrl))
@@ -680,7 +763,151 @@
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        </div>
+                    @endif
+                    <div class="proposal-page__body"
+                        style="position: relative; z-index: 1; padding: 28mm 15mm 18mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div style="margin-top:1.5rem">
+                            {{-- OTC Table --}}
+                            <div style="font-weight: 700; margin-bottom: 6px; font-size: 13px; color: #293240;">
+                                {{ $page['otcTitle'] }}
+                            </div>
+                            <table
+                                style="width: 100%; font-size: 11px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 8px;">
+                                <thead>
+                                    <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; white-space: nowrap;">S/N</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">Item / Service</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 38%; text-align: left;">Description</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; white-space: nowrap;">Qty.</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Price (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Total (BDT)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($page['otcItems'] as $index => $item)
+                                        @php
+                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
+                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                        @endphp
+                                        <tr>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; white-space: nowrap;">{{ $index + 1 }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">{{ $pName }}</td>
+                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">{!! $pDesc !!}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($lTotal, 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                    <tr>
+                                        <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Total (BDT):</td>
+                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['otcSubtotal'], 2) }}</td>
+                                    </tr>
+                                    @if($page['otcDiscount'] > 0)
+                                        <tr>
+                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Discount:</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">-{{ number_format($page['otcDiscount'], 2) }}</td>
+                                        </tr>
+                                    @endif
+                                    @if($page['otcTax'] > 0)
+                                        <tr>
+                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; font-size: 10px; white-space: nowrap;">VAT/Tax:</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; font-size: 10px; white-space: nowrap;">+{{ number_format($page['otcTax'], 2) }}</td>
+                                        </tr>
+                                    @endif
+                                    @if($page['otcDiscount'] > 0 || $page['otcTax'] > 0)
+                                        <tr>
+                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">Grand Total:</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['otcTotal'], 2) }}</td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+
+                            {{-- MRC Table --}}
+                            <div style="font-weight: 700; margin-top: 28px; margin-bottom: 8px; font-size: 13px; color: #293240;">
+                                {{ $page['mrcTitle'] }}
+                            </div>
+                            <table
+                                style="width: 100%; font-size: 11px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1;">
+                                <thead>
+                                    <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; white-space: nowrap;">S/N</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">Item / Service</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 38%; text-align: left;">Description</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; white-space: nowrap;">Qty.</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Price (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Total (BDT)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($page['mrcItems'] as $index => $item)
+                                        @php
+                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
+                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                        @endphp
+                                        <tr>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; white-space: nowrap;">{{ $index + 1 }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">{{ $pName }}</td>
+                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">{!! $pDesc !!}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($lTotal, 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                    <tr>
+                                        <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Total (BDT):</td>
+                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['mrcSubtotal'], 2) }}</td>
+                                    </tr>
+                                    @if($page['mrcDiscount'] > 0)
+                                        <tr>
+                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Discount:</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">-{{ number_format($page['mrcDiscount'], 2) }}</td>
+                                        </tr>
+                                    @endif
+                                    @if($page['mrcTax'] > 0)
+                                        <tr>
+                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; font-size: 10px; white-space: nowrap;">VAT/Tax:</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; font-size: 10px; white-space: nowrap;">+{{ number_format($page['mrcTax'], 2) }}</td>
+                                        </tr>
+                                    @endif
+                                    @if($page['mrcDiscount'] > 0 || $page['mrcTax'] > 0)
+                                        <tr>
+                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">Grand Total:</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['mrcTotal'], 2) }}</td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            {{-- 1. OTC CHARGES SHEET --}}
+            @elseif($page['type'] === 'otc')
+                <div class="proposal-preview-sheet"
+                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                    @if(!empty($sheetBgUrl))
+                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        </div>
+                    @endif
+                    @if(!empty($headerLogoUrl))
+                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
                             <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
                         </div>
                     @endif
@@ -731,7 +958,7 @@
                                         @foreach($page['items'] as $index => $item)
                                             @php
                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                $pDesc = $item->product->description ?? $item->description ?? $item->product_description ?? '';
+                                                $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
                                                 $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
@@ -743,7 +970,8 @@
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">
                                                     {{ $pName }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; font-size: 11px;">
+                                                    class="proposal-item-desc"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
@@ -826,7 +1054,7 @@
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
                             <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
                         </div>
                     @endif
@@ -877,7 +1105,7 @@
                                         @foreach($page['items'] as $index => $item)
                                             @php
                                                  $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                 $pDesc = $item->product->description ?? $item->description ?? $item->product_description ?? '';
+                                                 $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
                                                  $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                  $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                             @endphp
@@ -889,7 +1117,8 @@
                                                     style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">
                                                     {{ $pName }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; font-size: 11px;">
+                                                    class="proposal-item-desc"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">
                                                     {!! $pDesc !!}</td>
                                                 <td
                                                     style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
@@ -972,7 +1201,7 @@
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
                             <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
                         </div>
                     @endif
@@ -996,7 +1225,7 @@
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; right: 15mm; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: flex-end; max-height: 20mm; max-width: 60mm;">
+                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
                             <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
                         </div>
                     @endif

@@ -25,12 +25,14 @@ class StoreSalesProposalRequest extends FormRequest
             'customer_address' => 'required_if:customer_mode,new|nullable|string',
             'type' => 'required|in:product,service',
             'warehouse_id' => 'required_if:type,product|nullable|integer|exists:warehouses,id',
-            'payment_terms' => 'nullable|string|max:255',
+            'payment_terms' => 'nullable|string',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer|min:1',
             'items.*.section' => 'nullable|string|max:50',
             'items.*.product_type' => 'nullable|string|max:50',
+            'items.*.description' => 'nullable|string',
+            'items.*.product_description' => 'nullable|string',
             'items.*.quantity' => 'nullable|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
@@ -48,8 +50,11 @@ class StoreSalesProposalRequest extends FormRequest
             'tariffs.*.sort_order' => 'nullable|integer',
 
             'proposal_content' => 'nullable|array',
-            'proposal_content.*.content' => 'required|string',
-            'proposal_content.*.order' => 'required|integer',
+            'proposal_content.*.title' => 'nullable|string',
+            'proposal_content.*.content' => 'nullable|string',
+            'proposal_content.*.page_type' => 'nullable|string',
+            'proposal_content.*.background_image' => 'nullable|string',
+            'proposal_content.*.order' => 'nullable|integer',
         ];
     }
 

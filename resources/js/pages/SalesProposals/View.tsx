@@ -15,7 +15,12 @@ interface SalesProposal {
     proposal_number: string;
     proposal_date: string;
     due_date: string;
-    customer: { id: number; name: string; email: string };
+    customer_id?: number | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
+    customer: { id: number; name: string; email: string; phone?: string; address?: string };
     subtotal: number;
     tax_amount: number;
     discount_amount: number;
@@ -31,6 +36,8 @@ interface SalesProposal {
     items?: Array<{
         id: number;
         product_id: number;
+        description?: string;
+        product_description?: string;
         quantity: number;
         unit_price: number;
         discount_percentage: number;
@@ -131,8 +138,14 @@ export default function View() {
                             <div>
                                 <h3 className="font-semibold mb-2">{t('CUSTOMER')}</h3>
                                 <div className="text-sm space-y-1">
-                                    <div className="font-medium">{proposal.customer?.name}</div>
-                                    <div className="text-muted-foreground">{proposal.customer?.email}</div>
+                                    <div className="font-medium">{proposal.customer?.name || proposal.customer_name || '-'}</div>
+                                    <div className="text-muted-foreground">{proposal.customer?.email || proposal.customer_email || ''}</div>
+                                    {(proposal.customer?.phone || proposal.customer_phone) && (
+                                        <div className="text-xs text-muted-foreground">{proposal.customer?.phone || proposal.customer_phone}</div>
+                                    )}
+                                    {(proposal.customer?.address || proposal.customer_address) && (
+                                        <div className="text-xs text-muted-foreground">{proposal.customer?.address || proposal.customer_address}</div>
+                                    )}
                                 </div>
                             </div>
 
@@ -269,8 +282,11 @@ export default function View() {
                                                 {item.product?.sku && (
                                                     <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
                                                 )}
-                                                {item.product?.description && (
-                                                    <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
+                                                {(item.description || (item as any).product_description || item.product?.description) && (
+                                                    <div
+                                                        className="text-sm text-muted-foreground mt-1 leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-1"
+                                                        dangerouslySetInnerHTML={{ __html: item.description || (item as any).product_description || item.product?.description || '' }}
+                                                    />
                                                 )}
                                             </td>
                                             <td className="px-4 py-4 text-right">{item.quantity}</td>

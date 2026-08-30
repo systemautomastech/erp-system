@@ -5,6 +5,7 @@ use Automas\Lead\Http\Controllers\DealTaskController;
 use Automas\Lead\Http\Controllers\LeadController;
 use Automas\Lead\Http\Controllers\LeadTaskController;
 use Automas\Lead\Http\Controllers\SourceController;
+use Automas\Lead\Http\Controllers\LeadSubjectController;
 use Automas\Lead\Http\Controllers\LabelController;
 use Automas\Lead\Http\Controllers\DealStageController;
 use Automas\Lead\Http\Controllers\LeadStageController;
@@ -47,6 +48,13 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
         Route::post('/', [SourceController::class, 'store'])->name('store');
         Route::put('/{source}', [SourceController::class, 'update'])->name('update');
         Route::delete('/{source}', [SourceController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('crm/subjects')->name('lead.subjects.')->group(function () {
+        Route::get('/', [LeadSubjectController::class, 'index'])->name('index');
+        Route::post('/', [LeadSubjectController::class, 'store'])->name('store');
+        Route::put('/{subject}', [LeadSubjectController::class, 'update'])->name('update');
+        Route::delete('/{subject}', [LeadSubjectController::class, 'destroy'])->name('destroy');
     });
 
     Route::get('crm/leads/existing-clients', [LeadController::class, 'getExistingClients'])->name('lead.leads.existing-clients');

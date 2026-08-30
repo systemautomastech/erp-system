@@ -7,7 +7,7 @@ import InputError from '@/components/ui/input-error';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PhoneInputComponent } from '@/components/ui/phone-input';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DateTimeRangePicker } from '@/components/ui/datetime-range-picker';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { MultiSelectEnhanced } from '@/components/ui/multi-select-enhanced';
 import { EditLeadProps, LeadFormData } from './types';
@@ -17,10 +17,11 @@ import { formatDate } from '@/utils/helpers';
 import { useFormFields } from '@/hooks/useFormFields';
 import { Tag } from "lucide-react";
 
-export default function EditLead({ lead, sources: propSources, products: propProducts, onSuccess }: EditLeadProps & { sources?: any, products?: any }) {
-    const { users, pipelines, products, labels: labelOptions } = usePage<any>().props;
+export default function EditLead({ lead, sources: propSources, subjects: propSubjects, products: propProducts, onSuccess }: EditLeadProps & { sources?: any, subjects?: any, products?: any }) {
+    const { users, pipelines, products, labels: labelOptions, subjects: pageSubjects } = usePage<any>().props;
     const [stages, setStages] = useState([]);
     const [sources, setSources] = useState(propSources || []);
+    const [subjects, setSubjects] = useState(propSubjects || pageSubjects || []);
     const [productOptions, setProductOptions] = useState(propProducts || []);
 
     const { t } = useTranslation();
@@ -46,6 +47,12 @@ export default function EditLead({ lead, sources: propSources, products: propPro
 
 
     useEffect(() => {
+        if (propSubjects) {
+            setSubjects(propSubjects);
+        }
+    }, [propSubjects]);
+
+    useEffect(() => {
         if (data.pipeline_id) {
             // Fetch stages for selected pipeline
             fetch(route('lead.stages.by-pipeline', data.pipeline_id))
@@ -54,6 +61,14 @@ export default function EditLead({ lead, sources: propSources, products: propPro
                 .catch(() => setStages([]));
         }
     }, [data.pipeline_id]);
+
+    const isSubjectInList = (val: string, list: any) => {
+        if (!val || !list) return false;
+        if (Array.isArray(list)) {
+            return list.some((item: any) => (item.name ?? item) === val);
+        }
+        return Object.values(list).includes(val) || Object.keys(list).includes(val);
+    };
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -154,20 +169,34 @@ export default function EditLead({ lead, sources: propSources, products: propPro
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="flex gap-2 items-end">
-                        <div className="flex-1">
-                            <Label htmlFor="subject" required>{t('Subject')}</Label>
-                            <Input
-                                id="subject"
-                                type="text"
-                                value={data.subject}
-                                onChange={(e) => setData('subject', e.target.value)}
-                                placeholder={t('Enter Subject')}
-
-                            />
-                            <InputError message={errors.subject} />
-                        </div>
-                        {subjectAI.map(field => <div key={field.id}>{field.component}</div>)}
+                    <div>
+                        <Label htmlFor="subject" required>{t('Subject')}</Label>
+                        <Select value={data.subject || ''} onValueChange={(value) => setData('subject', value)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder={t('Select Subject')} />
+                            </SelectTrigger>
+                            <SelectContent searchable>
+                                {Array.isArray(subjects) ? (
+                                    subjects.map((item: any) => (
+                                        <SelectItem key={item.id ?? item.name ?? item} value={item.name ?? item}>
+                                            {item.name ?? item}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    Object.entries(subjects || {}).map(([id, name]: [string, any]) => (
+                                        <SelectItem key={id} value={typeof name === 'string' ? name : (name?.name ?? id)}>
+                                            {typeof name === 'string' ? name : (name?.name ?? id)}
+                                        </SelectItem>
+                                    ))
+                                )}
+                                {data.subject && !isSubjectInList(data.subject, subjects) && (
+                                    <SelectItem key="current_subject" value={data.subject}>
+                                        {data.subject}
+                                    </SelectItem>
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.subject} />
                     </div>
 
                     <div>
@@ -200,10 +229,11 @@ export default function EditLead({ lead, sources: propSources, products: propPro
 
                     <div>
                         <Label>{t('Follow Up Date')}</Label>
-                        <DatePicker
+                        <DateTimeRangePicker
                             value={data.date}
-                            onChange={(date) => setData('date', formatDate(date))}
-                            placeholder={t('Select Follow Up Date')}
+                            onChange={(date) => setData('date', date)}
+                            placeholder={t('Select Follow Up Date & Time')}
+                            mode="single"
                         />
                         <InputError message={errors.date} />
                     </div>

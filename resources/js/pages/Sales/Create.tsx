@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
@@ -15,33 +15,51 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Building2, User, FileText, Package } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { CalendarDays, Building2, User, UserPlus, Users, X, FileText, Package } from 'lucide-react';
+import RichTextEditor from '@/components/ui/rich-text-editor';
 
 interface CreateProps {
-    customers: Array<{ id: number; name: string; email: string }>;
+    customers: Array<{ id: number; name: string; email: string; phone?: string; address?: string }>;
+    products: Array<{ id: number; name: string; sku: string; sale_price: number; unit: string; unit_name?: string; type: string; taxes: Array<{ id: number; tax_name: string; rate: number }> }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
+    default_payment_terms?: string;
     [key: string]: any;
 }
 
 export default function Create() {
     const { t } = useTranslation();
-    const { customers, warehouses } = usePage<CreateProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
+    const { customers, products, warehouses, default_payment_terms } = usePage<CreateProps>().props;
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        router.reload({
+            only: ['products'],
+            onFinish: () => setIsRefreshing(false)
+        });
+    };
 
     useFlashMessages();
     const { data, setData, post, processing, errors } = useForm({
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
+        customer_mode: 'existing' as 'existing' | 'new',
         customer_id: '',
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
+        customer_address: '',
         warehouse_id: '',
         type: 'product',
-        payment_terms: '',
+        payment_terms: default_payment_terms || '',
         notes: '',
         items: [{
             product_id: 0,
+            product_type: 'product',
+            description: '',
             quantity: 1,
             unit_price: 0,
             discount_percentage: 0,
@@ -52,66 +70,13 @@ export default function Create() {
         }] as SalesInvoiceItem[]
     });
 
+    const selectedCustomer = useMemo(() => {
+        if (!data.customer_id) return null;
+        return customers.find(c => c.id.toString() === data.customer_id.toString());
+    }, [data.customer_id, customers]);
+
     // Calendar sync fields
     const calendarFields = useFormFields('getCalendarSyncFields', data, setData, errors, 'create', t, 'Sales');
-
-    const handleWarehouseChange = async (warehouseId: string) => {
-        setData('warehouse_id', warehouseId);
-
-        if (warehouseId) {
-            try {
-                const response = await fetch(route('sales-invoices.warehouse.products') + `?warehouse_id=${warehouseId}`);
-                const warehouseProducts = await response.json();
-                setAvailableProducts(warehouseProducts);
-            } catch (error) {
-                console.error('Failed to fetch warehouse products:', error);
-                setAvailableProducts([]);
-            }
-        } else {
-            setAvailableProducts([]);
-        }
-
-        // Reset items when warehouse changes
-        setData('items', [{
-            product_id: 0,
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }]);
-    };
-
-    const handleTypeChange = async (type: string) => {
-        setData('type', type);
-
-        if (type === 'service') {
-            try {
-                const response = await fetch(route('sales-invoices.services'));
-                const services = await response.json();
-                setAvailableProducts(services);
-            } catch (error) {
-                setAvailableProducts([]);
-            }
-        } else {
-            setAvailableProducts([]);
-            setData('warehouse_id', '');
-        }
-
-        // Reset items when type changes
-        setData('items', [{
-            product_id: 0,
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }]);
-    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -146,27 +111,114 @@ export default function Create() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <CalendarDays className="h-5 w-5" />
-                                    {t('Invoice Details')}
-                                </CardTitle>
-                                <div className="flex items-center gap-2">
-                                    <RadioGroup value={data.type} onValueChange={handleTypeChange} className="flex gap-4">
-                                        <div className="flex items-center gap-2">
-                                            <RadioGroupItem value="product" id="type-product" />
-                                            <Label htmlFor="type-product" className="cursor-pointer font-normal">{t('Product Wise')}</Label>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <RadioGroupItem value="service" id="type-service" />
-                                            <Label htmlFor="type-service" className="cursor-pointer font-normal">{t('Service Wise')}</Label>
-                                        </div>
-                                    </RadioGroup>
-                                </div>
-                            </div>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <CalendarDays className="h-5 w-5" />
+                                {t('Invoice Details')}
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <Label htmlFor="customer_id" required className="text-xs">
+                                            {t('Customer')}
+                                        </Label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (data.customer_mode === 'existing') {
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        customer_mode: 'new',
+                                                        customer_id: '',
+                                                    }));
+                                                } else {
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        customer_mode: 'existing',
+                                                        customer_name: '',
+                                                        customer_email: '',
+                                                        customer_phone: '',
+                                                        customer_address: '',
+                                                    }));
+                                                }
+                                            }}
+                                            className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 focus:outline-none"
+                                        >
+                                            {data.customer_mode === 'new' ? (
+                                                <>
+                                                    <Users className="h-3 w-3" />
+                                                    {t('Select Existing')}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <UserPlus className="h-3 w-3" />
+                                                    {t('New Customer')}
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {data.customer_mode === 'existing' ? (
+                                        <>
+                                            <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={t('Select Customer')} />
+                                                </SelectTrigger>
+                                                <SelectContent searchable>
+                                                    {customers.map((customer) => (
+                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                            {customer.name} - {customer.email}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError message={errors.customer_id} />
+
+                                            {/* Selected Customer Card directly below customer select */}
+                                            {selectedCustomer && (
+                                                <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50/80 dark:bg-slate-900/40 text-xs space-y-1">
+                                                    <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">
+                                                                <User className="w-2.5 h-2.5" />
+                                                            </div>
+                                                            <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs truncate">
+                                                                {selectedCustomer.name}
+                                                            </span>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-4 px-1 text-[10px] font-medium gap-0.5 shrink-0"
+                                                            onClick={() => setData('customer_id', '')}
+                                                        >
+                                                            <X className="w-2.5 h-2.5" />
+                                                            {t('Clear')}
+                                                        </Button>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 truncate">
+                                                        <div className="truncate">{selectedCustomer.email || '-'}</div>
+                                                        {selectedCustomer.phone && <div className="truncate">{selectedCustomer.phone}</div>}
+                                                        {selectedCustomer.address && <div className="truncate text-muted-foreground">{selectedCustomer.address}</div>}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="h-10 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <UserPlus className="h-3.5 w-3.5" />
+                                                {data.customer_name || t('New Customer Mode')}
+                                            </span>
+                                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                                {t('New')}
+                                            </Badge>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div>
                                     <Label htmlFor="invoice_date" required>
                                         {t('Invoice Date')}
@@ -194,57 +246,114 @@ export default function Create() {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="customer_id" required>
-                                        {t('Customer')}
+                                    <Label htmlFor="warehouse_id">
+                                        {t('Warehouse')}
                                     </Label>
-                                    <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
+                                    <Select value={data.warehouse_id} onValueChange={(value) => setData('warehouse_id', value)}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder={t('Select Customer')} />
+                                            <SelectValue placeholder={t('Select Warehouse')} />
                                         </SelectTrigger>
-                                        <SelectContent searchable>
-                                            {customers.map((customer) => (
-                                                <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                    {customer.name} - {customer.email}
+                                        <SelectContent>
+                                            {warehouses.map((warehouse) => (
+                                                <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                                                    {warehouse.name} - {warehouse.address}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <InputError message={errors.customer_id} />
+                                    <InputError message={errors.warehouse_id} />
                                 </div>
-
-                                {data.type === 'product' && (
-                                    <div>
-                                        <Label htmlFor="warehouse_id" required>
-                                            {t('Warehouse')}
-                                        </Label>
-                                        <Select value={data.warehouse_id} onValueChange={handleWarehouseChange}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={t('Select Warehouse')} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {warehouses.map((warehouse) => (
-                                                    <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                        {warehouse.name} - {warehouse.address}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <InputError message={errors.warehouse_id} />
-                                    </div>
-                                )}
                             </div>
+
+                            {/* New Customer Form Row when New Mode is Active */}
+                            {data.customer_mode === 'new' && (
+                                <div className="p-3 rounded-md border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200">
+                                    <div className="flex items-center justify-between pb-1 border-b border-primary/10">
+                                        <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                                            <UserPlus className="h-3.5 w-3.5" />
+                                            {t('New Customer Details')}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_name" required className="text-xs">
+                                                {t('Customer Name')}
+                                            </Label>
+                                            <Input
+                                                id="customer_name"
+                                                value={data.customer_name}
+                                                onChange={(e) => setData('customer_name', e.target.value)}
+                                                placeholder={t('Customer or Company Name')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_name} />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_email" required className="text-xs">
+                                                {t('Email Address')}
+                                            </Label>
+                                            <Input
+                                                id="customer_email"
+                                                type="email"
+                                                value={data.customer_email}
+                                                onChange={(e) => setData('customer_email', e.target.value)}
+                                                placeholder={t('email@example.com')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_email} />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_phone" required className="text-xs">
+                                                {t('Phone / Mobile')}
+                                            </Label>
+                                            <Input
+                                                id="customer_phone"
+                                                value={data.customer_phone}
+                                                onChange={(e) => setData('customer_phone', e.target.value)}
+                                                placeholder={t('+1 (555) 000-0000')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_phone} />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label htmlFor="customer_address" required className="text-xs">
+                                                {t('Address')}
+                                            </Label>
+                                            <Input
+                                                id="customer_address"
+                                                value={data.customer_address}
+                                                onChange={(e) => setData('customer_address', e.target.value)}
+                                                placeholder={t('Street, City, Country')}
+                                                className="h-8 text-xs"
+                                                required
+                                            />
+                                            <InputError message={errors.customer_address} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
                                     <Label htmlFor="payment_terms">
-                                        {t('Payment Terms')}
+                                        {t('Terms & Conditions')}
                                     </Label>
-                                    <Input
-                                        id="payment_terms"
-                                        value={data.payment_terms}
-                                        onChange={(e) => setData('payment_terms', e.target.value)}
-                                        placeholder={t('e.g., Net 30')}
-                                    />
+                                    <div className="mt-1">
+                                        <RichTextEditor
+                                            content={data.payment_terms}
+                                            onChange={(value) => setData('payment_terms', value)}
+                                            placeholder={t('Enter terms & conditions...')}
+                                            minimal={true}
+                                        />
+                                    </div>
+                                    <InputError message={errors.payment_terms} />
                                 </div>
 
                                 <div>
@@ -255,62 +364,92 @@ export default function Create() {
                                         id="notes"
                                         value={data.notes}
                                         onChange={(e) => setData('notes', e.target.value)}
-                                        rows={2}
                                         placeholder={t('Additional notes...')}
+                                        className="h-32"
                                     />
+                                    <InputError message={errors.notes} />
                                 </div>
                             </div>
-
-                            {/* Recurring Sales Invoice */}
-                                <div className="mt-6">
-                                    {recurringFields.map((field) => (
-                                        <div key={field.id} className="mb-4">{field.component}</div>
-                                    ))}
-                                </div>
-                            {/* Commission Plan Fields */}
-                            <div className="mt-6">
-                                {commissionFields.map((field) => (
-                                    <div key={field.id}>
-                                        {field.component}
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Calendar Sync Field */}
-                            <div className="mt-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {calendarFields.map((field) => (
-                                        <div className='m-3' key={field.id}>
-                                            {field.component}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Sage Fields */}
-                            <div className="mt-6">
-                                {sageFields.map((field) => (
-                                    <div key={field.id}>
-                                        {field.component}
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Custom Fields */}
-                            {customFields.length > 0 && (
-                                <div className="mt-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {customFields.map((field) => (
-                                            <div key={field.id}>
-                                                {field.component}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </CardContent>
                     </Card>
 
+                    {/* Additional fields from hooks */}
+                    {calendarFields.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{t('Calendar Settings')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {calendarFields.map((field) => (
+                                        <div key={field.id}>{field.component}</div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {recurringFields.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{t('Recurring Settings')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {recurringFields.map((field) => (
+                                        <div key={field.id}>{field.component}</div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {commissionFields.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{t('Commission Settings')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {commissionFields.map((field) => (
+                                        <div key={field.id}>{field.component}</div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {sageFields.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{t('Accounting Settings')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {sageFields.map((field) => (
+                                        <div key={field.id}>{field.component}</div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {customFields.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{t('Custom Fields')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {customFields.map((field) => (
+                                        <div key={field.id}>{field.component}</div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Invoice Items Table */}
                     <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
@@ -321,8 +460,10 @@ export default function Create() {
                                 <Button
                                     type="button"
                                     onClick={() => {
-                                        const newItem = {
+                                        const newItem: SalesInvoiceItem = {
                                             product_id: 0,
+                                            product_type: 'product',
+                                            description: '',
                                             quantity: 1,
                                             unit_price: 0,
                                             discount_percentage: 0,
@@ -345,11 +486,13 @@ export default function Create() {
                                 items={data.items}
                                 onChange={(items) => setData('items', items)}
                                 errors={errors}
-                                products={availableProducts}
+                                products={products}
                                 showAddButton={false}
-                                invoiceType={data.type}
+                                onRefresh={handleRefresh}
+                                isRefreshing={isRefreshing}
                             />
 
+                            {/* Invoice Summary - Bottom of Items */}
                             <div className="mt-6 flex justify-end">
                                 <div className="w-80 bg-muted/30 rounded-lg p-4">
                                     <h3 className="font-semibold mb-3">{t('Invoice Summary')}</h3>
@@ -377,27 +520,17 @@ export default function Create() {
                         </CardContent>
                     </Card>
 
-
-
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-muted-foreground">
-                            {data.items.length} {t('items added')}
-                        </div>
-                        <div className="flex gap-3">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => window.history.back()}
-                            >
-                                {t('Cancel')}
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={processing || data.items.length === 0}
-                            >
-                                {processing ? t('Creating...') : t('Create')}
-                            </Button>
-                        </div>
+                    <div className="flex justify-end gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => router.visit(route('sales-invoices.index'))}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button type="submit" disabled={processing}>
+                            {processing ? t('Creating...') : t('Create Invoice')}
+                        </Button>
                     </div>
                 </form>
             </div>

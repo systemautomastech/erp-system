@@ -105,7 +105,7 @@ class SalesProposalController extends Controller
         }
 
         $customers = $this->customerService->getCustomers();
-        $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('creator_id', creatorId())->get();
+        $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
         $defaultPages = $this->proposalService->getActiveDefaultPages(Auth::id());
         $proposalSetting = ProposalSetting::getSettings(creatorId());
 
@@ -181,12 +181,13 @@ class SalesProposalController extends Controller
             'warehouses' => $warehouses,
             'products' => $products,
             'defaultPages' => $defaultPages,
+            'defaultTerms' => $proposalSetting['default_terms'] ?? null,
             'proposalSetting' => $proposalSetting,
         ]);
     }
 
     /**
-     * Update proposal details.
+     * Update specified proposal.
      */
     public function update(UpdateSalesProposalRequest $request, SalesProposal $salesProposal)
     {
@@ -198,19 +199,19 @@ class SalesProposalController extends Controller
             return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
         }
 
-        $this->proposalService->updateProposal($salesProposal, $request);
+        $proposal = $this->proposalService->updateProposal($salesProposal, $request);
 
         try {
-            UpdateSalesProposal::dispatch($request, $salesProposal);
+            UpdateSalesProposal::dispatch($request, $proposal);
         } catch (\Throwable $th) {
             // Silently catch event dispatcher exceptions
         }
 
-        return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal details are updated successfully.'));
+        return redirect()->route('sales-proposals.index')->with('success', __('The sales proposal has been updated successfully.'));
     }
 
     /**
-     * Delete proposal.
+     * Remove specified proposal.
      */
     public function destroy(SalesProposal $salesProposal)
     {
@@ -251,6 +252,22 @@ class SalesProposalController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * Duplicate existing proposal record.
+     */
+    public function duplicate(SalesProposal $salesProposal)
+    {
+        if (!Auth::user()->can('create-sales-proposals') || !$this->proposalService->hasProposalAccess($salesProposal)) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $newProposal = $this->proposalService->duplicateProposal($salesProposal);
+
+        DuplicateSalesProposal::dispatch($newProposal);
+
+        return redirect()->route('sales-proposals.edit', $newProposal->id)->with('success', __('Proposal duplicated successfully.'));
     }
 
     /**
@@ -350,7 +367,7 @@ class SalesProposalController extends Controller
         }
 
         $salesProposal->load($this->proposalService->getProposalRelations());
-        $authorId = $salesProposal->created_by ?? Auth::id();
+        $authorId = $salesProposal->creator_id ?? Auth::id();
         $defaultPages = $this->proposalService->getActiveDefaultPages($authorId);
         $proposalSetting = ProposalSetting::getSettings(creatorId());
 
@@ -371,14 +388,13 @@ class SalesProposalController extends Controller
         }
 
         $salesProposal->load($this->proposalService->getProposalRelations());
-        $authorId = $salesProposal->created_by ?? Auth::id();
+        $authorId = $salesProposal->creator_id ?? Auth::id();
         $defaultPages = $this->proposalService->getActiveDefaultPages($authorId);
         $proposalSetting = ProposalSetting::getSettings(creatorId());
 
-        $companyName = $proposalSetting['company_name'] ?? config('app.name', 'Automas');
-        $companySlug = strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($companyName)));
-        $proposalNumber = strtolower(preg_replace('/[^a-z0-9-]+/i', '_', trim($salesProposal->proposal_number)));
-        $fileName = "quotation_{$companySlug}_{$proposalNumber}.pdf";
+        $companyName = $proposalSetting['company_name'] ?? company_setting('company_name', creatorId()) ?? '';
+        $proposalNumber = $salesProposal->proposal_number;
+        $fileName = "{$companyName}_Sales Proposal_#{$proposalNumber}.pdf";
 
         return Pdf::view('sales-proposals.print', [
             'proposal' => $salesProposal,

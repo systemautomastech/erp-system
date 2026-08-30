@@ -58,6 +58,14 @@ class PermissionTableSeeder extends Seeder
             ['name' => 'edit-sources', 'module' => 'sources', 'label' => 'Edit Sources'],
             ['name' => 'delete-sources', 'module' => 'sources', 'label' => 'Delete Sources'],
 
+            // Subject management
+            ['name' => 'manage-subjects', 'module' => 'subjects', 'label' => 'Manage Subjects'],
+            ['name' => 'manage-any-subjects', 'module' => 'subjects', 'label' => 'Manage All Subjects'],
+            ['name' => 'manage-own-subjects', 'module' => 'subjects', 'label' => 'Manage Own Subjects'],
+            ['name' => 'create-subjects', 'module' => 'subjects', 'label' => 'Create Subjects'],
+            ['name' => 'edit-subjects', 'module' => 'subjects', 'label' => 'Edit Subjects'],
+            ['name' => 'delete-subjects', 'module' => 'subjects', 'label' => 'Delete Subjects'],
+
             // Lead management
             ['name' => 'manage-leads', 'module' => 'leads', 'label' => 'Manage Leads'],
             ['name' => 'manage-any-leads', 'module' => 'leads', 'label' => 'Manage All Leads'],

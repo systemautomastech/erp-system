@@ -22,6 +22,7 @@ class ProposalSetting extends Model
             'proposal_starting_number' => '1',
             'default_validity_days' => '30',
             'logo_image' => '',
+            'header_logo_align' => 'right',
             'background_image' => '',
             'template_color' => '#E9591C',
             'default_terms' => '<h2>Terms & Conditions</h2><p>1. Proposal is valid for 30 days from issuance.<br/>2. Payment terms: 50% deposit upon acceptance, 50% on project completion.</p>',

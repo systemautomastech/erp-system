@@ -236,6 +236,7 @@ class PermissionRoleSeeder extends Seeder
 
             // Sales Invoice management
             ['name' => 'manage-sales-invoices', 'module' => 'sales-invoices', 'label' => 'Manage Sales Invoices'],
+            ['name' => 'manage-sales-invoice-setup', 'module' => 'sales-invoices', 'label' => 'Manage Sales Invoice System Setup'],
             ['name' => 'manage-any-sales-invoices', 'module' => 'sales-invoices', 'label' => 'Manage All Sales Invoices'],
             ['name' => 'manage-own-sales-invoices', 'module' => 'sales-invoices', 'label' => 'Manage Own Sales Invoices'],
             ['name' => 'view-sales-invoices', 'module' => 'sales-invoices', 'label' => 'View Sales Invoices'],
@@ -485,6 +486,7 @@ class PermissionRoleSeeder extends Seeder
                     'approve-purchase-returns-invoices',
                     'complete-purchase-returns-invoices',
                     'manage-sales-invoices',
+                    'manage-sales-invoice-setup',
                     'manage-any-sales-invoices',
                     'manage-own-sales-invoices',
                     'view-sales-invoices',

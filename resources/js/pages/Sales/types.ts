@@ -3,7 +3,12 @@ export interface SalesInvoice {
     invoice_number: string;
     invoice_date: string;
     due_date: string;
-    customer_id: number;
+    customer_mode?: 'existing' | 'new';
+    customer_id?: number | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
     warehouse_id?: number;
     type: 'product' | 'service';
     subtotal: number;
@@ -30,6 +35,8 @@ export interface SalesInvoiceItem {
     id?: number;
     invoice_id?: number;
     product_id: number;
+    product_type?: string;
+    description?: string;
     quantity: number;
     unit_price: number;
     discount_percentage: number;
@@ -83,10 +90,18 @@ export interface ProductServiceItem {
     id: number;
     name: string;
     sku?: string;
+    type?: string;
     description?: string;
-    price: number;
+    long_description?: string;
+    price?: number;
+    sale_price?: number;
     tax_rate?: number;
     unit?: string;
+    unit_name?: string;
+    unit_relation?: {
+        id: number;
+        unit_name: string;
+    };
 }
 
 export interface SalesFilters {
