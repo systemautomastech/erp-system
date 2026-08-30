@@ -185,6 +185,18 @@ export default function Edit({ settings, defaultPage }: EditProps) {
     const measureContainerRef = useRef<HTMLDivElement>(null);
     const [paginatedPreviewPages, setPaginatedPreviewPages] = useState<string[]>([]);
 
+    // Detect if content has raw/custom HTML code
+    const hasRawHtml = useMemo(() => {
+        if (!data.content) return false;
+        return /<(?:div|style|section|article|main|iframe|script|table|thead|tbody|tfoot|tr|th|td)\b|style=["'][^"']*["']/i.test(data.content);
+    }, [data.content]);
+
+    useEffect(() => {
+        if (hasRawHtml && editorMode === 'rich') {
+            setEditorMode('code');
+        }
+    }, [hasRawHtml, editorMode]);
+
     useEffect(() => {
         if (!processedContent) {
             setPaginatedPreviewPages([]);
@@ -192,9 +204,16 @@ export default function Edit({ settings, defaultPage }: EditProps) {
         }
 
         const runPagination = () => {
+            const hasExplicitBreak = /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(processedContent);
+
             if (measureContainerRef.current) {
-                const chunks = paginateDomContainer(measureContainerRef.current, 900);
-                setPaginatedPreviewPages(chunks);
+                const scrollH = measureContainerRef.current.scrollHeight;
+                if (!hasExplicitBreak && scrollH <= 980) {
+                    setPaginatedPreviewPages([processedContent]);
+                } else {
+                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
+                    setPaginatedPreviewPages(chunks);
+                }
             } else {
                 setPaginatedPreviewPages([processedContent]);
             }
@@ -206,6 +225,10 @@ export default function Edit({ settings, defaultPage }: EditProps) {
     }, [processedContent, editorMode]);
 
     const handleSwitchMode = (mode: 'code' | 'rich' | 'preview') => {
+        if (mode === 'rich' && hasRawHtml) {
+            toast.error(t('Text Editor is disabled because this page contains custom HTML & CSS code. Please use HTML Code or Preview editor.'));
+            return;
+        }
         if (mode === 'rich') {
             setEditorKey((prev) => prev + 1);
         }
@@ -343,7 +366,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                         <label
                                             htmlFor="bg-type-default"
                                             className={cn(
-                                                "relative flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none",
+                                                "relative flex items-center justify-between gap-3 p-3.5 rounded-md border transition-all cursor-pointer select-none",
                                                 bgType === 'default'
                                                     ? "border-primary bg-primary/[0.03] ring-1 ring-primary/30 shadow-2xs"
                                                     : "border-border hover:border-border/80 hover:bg-muted/30"
@@ -370,7 +393,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                         <label
                                             htmlFor="bg-type-custom"
                                             className={cn(
-                                                "relative flex items-center gap-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none",
+                                                "relative flex items-center gap-3 px-3 py-2 rounded-md border transition-all cursor-pointer select-none",
                                                 bgType === 'custom'
                                                     ? "border-primary bg-primary/[0.03] ring-1 ring-primary/30 shadow-2xs"
                                                     : "border-border hover:border-border/80 hover:bg-muted/30"
@@ -384,7 +407,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                     </RadioGroup>
 
                                     {bgType === 'custom' && (
-                                        <div className="p-3.5 rounded-xl border border-dashed border-primary/40 bg-card space-y-2 animate-in fade-in-50 duration-200">
+                                        <div className="px-3 py-2 rounded-xl border border-dashed border-primary/40 bg-card space-y-2 animate-in fade-in-50 duration-200">
                                             <MediaPicker
                                                 id="bg-image"
                                                 value={data.background_image}
@@ -412,12 +435,14 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                                 type="button"
                                                 variant={editorMode === 'rich' ? 'secondary' : 'ghost'}
                                                 size="sm"
+                                                disabled={hasRawHtml}
                                                 className={cn(
                                                     "h-7 px-2.5 text-xs gap-1.5 font-medium transition-all shadow-none",
-                                                    editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold"
+                                                    editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold",
+                                                    hasRawHtml && "opacity-50 cursor-not-allowed"
                                                 )}
                                                 onClick={() => handleSwitchMode('rich')}
-                                                title={t('Use WYSIWYG text toolbar')}
+                                                title={hasRawHtml ? t('Text Editor disabled for raw HTML') : t('Use WYSIWYG text toolbar')}
                                             >
                                                 <PenTool className="h-3.5 w-3.5 text-blue-500" />
                                                 <span>{t('Text Editor')}</span>

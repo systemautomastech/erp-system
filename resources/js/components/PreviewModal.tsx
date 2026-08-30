@@ -229,7 +229,7 @@ const PRINT_STYLES = `
 // DOM PAGINATOR UTILITY
 // =============================================================================
 
-export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = 900): string[] {
+export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = 980): string[] {
     const hasExplicitBreak = container.querySelector('.page-break, [style*="page-break"], [style*="break-after"], [style*="break-before"]');
 
     // Extract any <style> tags so they apply across pages
@@ -1068,9 +1068,19 @@ export default function PreviewModal({
         }
 
         const runPagination = () => {
+            // Check for explicit page break in the content
+            const hasExplicitBreak = /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(singleProcessedContent);
+
             if (measureContainerRef.current) {
-                const chunks = paginateDomContainer(measureContainerRef.current, 900);
-                setPaginatedSinglePages(chunks);
+                // A4 page body is 297mm - 52mm (top/bottom padding) = 245mm (~925px to 960px).
+                // If there is no explicit page-break and the content easily fits in one standard A4, keep as single page.
+                const scrollH = measureContainerRef.current.scrollHeight;
+                if (!hasExplicitBreak && scrollH <= 980) {
+                    setPaginatedSinglePages([singleProcessedContent]);
+                } else {
+                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
+                    setPaginatedSinglePages(chunks);
+                }
             } else {
                 setPaginatedSinglePages([singleProcessedContent]);
             }

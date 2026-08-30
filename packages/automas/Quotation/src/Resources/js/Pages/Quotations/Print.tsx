@@ -54,13 +54,75 @@ export default function Print() {
 
         // 2. If no custom sections, load from defaultPages
         if (loadedSections.length === 0 && defaultPages && defaultPages.length > 0) {
-            loadedSections = defaultPages.map((dp) => ({
-                id: String(dp.id),
-                title: dp.title,
-                content: dp.content,
-                background_image: dp.background_image,
-                order: dp.sort_order,
-            }));
+            loadedSections = defaultPages.map((dp) => {
+                const title = dp.title || '';
+                const content = dp.content || '';
+                let page_type = dp.page_type;
+
+                if (!page_type || page_type === 'content') {
+                    if (content === '[OTC_CHARGES_TABLE]' || title.toLowerCase().includes('one-time charges') || title.toLowerCase().includes('otc')) {
+                        page_type = 'otc';
+                    } else if (content === '[MRC_CHARGES_TABLE]' || title.toLowerCase().includes('monthly recurring charges') || title.toLowerCase().includes('mrc')) {
+                        page_type = 'mrc';
+                    } else if (content === '[OTHER_DETAILS_CONTENT]' || title.toLowerCase().includes('other details')) {
+                        page_type = 'other-details';
+                    } else {
+                        page_type = 'content';
+                    }
+                }
+
+                return {
+                    id: String(dp.id),
+                    title: title,
+                    content: content,
+                    page_type: page_type,
+                    background_image: dp.background_image,
+                    order: dp.sort_order,
+                };
+            });
+        }
+
+        // 3. Ensure OTC and MRC charge cards exist if items are present
+        const items = quotation?.items || [];
+        const hasOtcItems = items.some(
+            (i: any) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.description || i.product_description))
+        );
+        const hasMrcItems = items.some(
+            (i: any) => i.section === 'mrc' && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.description || i.product_description))
+        );
+        const hasOtherDetails = Boolean(quotation?.other_details && quotation.other_details.trim() !== '' && quotation.other_details !== '<p></p>');
+
+        const otcIdx = loadedSections.findIndex((s) => s.page_type === 'otc' || s.content === '[OTC_CHARGES_TABLE]');
+        if (hasOtcItems && otcIdx === -1) {
+            loadedSections.push({
+                id: `sec-otc-auto`,
+                title: 'One-Time Charges (OTC)',
+                content: '[OTC_CHARGES_TABLE]',
+                page_type: 'otc',
+                order: loadedSections.length + 1,
+            });
+        }
+
+        const mrcIdx = loadedSections.findIndex((s) => s.page_type === 'mrc' || s.content === '[MRC_CHARGES_TABLE]');
+        if (hasMrcItems && mrcIdx === -1) {
+            loadedSections.push({
+                id: `sec-mrc-auto`,
+                title: 'Monthly Recurring Charges (MRC)',
+                content: '[MRC_CHARGES_TABLE]',
+                page_type: 'mrc',
+                order: loadedSections.length + 1,
+            });
+        }
+
+        const otherIdx = loadedSections.findIndex((s) => s.page_type === 'other-details' || s.content === '[OTHER_DETAILS_CONTENT]');
+        if (hasOtherDetails && otherIdx === -1) {
+            loadedSections.push({
+                id: `sec-other-auto`,
+                title: 'Other Details',
+                content: '[OTHER_DETAILS_CONTENT]',
+                page_type: 'other-details',
+                order: loadedSections.length + 1,
+            });
         }
 
         return loadedSections.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));

@@ -246,6 +246,19 @@ class CustomerPaymentController extends Controller
         }
     }
 
+    public function print(CustomerPayment $customerPayment)
+    {
+        if (Auth::user()->can('view-customer-payments') || Auth::user()->can('manage-customer-payments')) {
+            $customerPayment->load(['customer', 'bankAccount', 'allocations.invoice', 'creditNoteApplications.creditNote']);
+
+            return Inertia::render('Account/CustomerPayments/Print', [
+                'payment' => $customerPayment,
+            ]);
+        } else {
+            return back()->with('error', __('Permission denied'));
+        }
+    }
+
     public function destroy(CustomerPayment $customerPayment)
     {
         if(Auth::user()->can('delete-customer-payments') && $customerPayment->created_by == creatorId() && $customerPayment->status === 'pending'){

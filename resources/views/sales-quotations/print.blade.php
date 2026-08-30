@@ -585,6 +585,50 @@
         $canCombineCharges = (count($otcItems) > 0 && count($mrcItems) > 0 && ($totalOtcWeight + $totalMrcWeight) <= $COMBINED_PAGE_CAPACITY);
         $chargesCombinedRendered = false;
 
+        // Ensure OTC and MRC are in sectionsSource if not present and items exist
+        $hasOtcInSource = false;
+        $hasMrcInSource = false;
+        $hasOtherInSource = false;
+        foreach ($sectionsSource as $sec) {
+            $sec = (array) $sec;
+            $rawContent = trim((string)($sec['content'] ?? ''));
+            $title = $sec['title'] ?? '';
+            if ($rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false)) {
+                $hasOtcInSource = true;
+            }
+            if ($rawContent === '[MRC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'monthly recurring charges') !== false)) {
+                $hasMrcInSource = true;
+            }
+            if ($rawContent === '[OTHER_DETAILS_CONTENT]' || (!empty($title) && stripos($title, 'other details') !== false)) {
+                $hasOtherInSource = true;
+            }
+        }
+
+        if (count($otcItems) > 0 && !$hasOtcInSource) {
+            $sectionsSource[] = [
+                'title' => 'One-Time Charges (OTC)',
+                'content' => '[OTC_CHARGES_TABLE]',
+                'page_type' => 'otc',
+                'order' => count($sectionsSource) + 1,
+            ];
+        }
+        if (count($mrcItems) > 0 && !$hasMrcInSource) {
+            $sectionsSource[] = [
+                'title' => 'Monthly Recurring Charges (MRC)',
+                'content' => '[MRC_CHARGES_TABLE]',
+                'page_type' => 'mrc',
+                'order' => count($sectionsSource) + 1,
+            ];
+        }
+        if (!empty($quotation->other_details) && trim($quotation->other_details) !== '' && $quotation->other_details !== '<p></p>' && !$hasOtherInSource) {
+            $sectionsSource[] = [
+                'title' => 'Other Details',
+                'content' => '[OTHER_DETAILS_CONTENT]',
+                'page_type' => 'other-details',
+                'order' => count($sectionsSource) + 1,
+            ];
+        }
+
         // Build Renderable Pages Array matching exact user section order
         $renderablePages = [];
         foreach ($sectionsSource as $sIdx => $sec) {

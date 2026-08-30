@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Printer } from 'lucide-react';
 import { CustomerPaymentViewProps } from './types';
 import { formatDate, formatCurrency } from '@/utils/helpers';
 
@@ -23,8 +25,17 @@ export default function View({ payment }: CustomerPaymentViewProps) {
 
     return (
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pr-6">
                 <DialogTitle>{t('Payment Details')} - {payment.payment_number || `#${payment.id}`}</DialogTitle>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(route('account.customer-payments.print', payment.id), '_blank')}
+                    className="gap-2"
+                >
+                    <Printer className="h-4 w-4" />
+                    {t('Print')}
+                </Button>
             </DialogHeader>
 
             <div className="space-y-6 mt-3">

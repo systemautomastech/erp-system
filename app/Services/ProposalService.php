@@ -456,6 +456,7 @@ class ProposalService
 
             $quotation = new SalesQuotation();
             $quotation->parent_quotation_id = $salesProposal->id;
+            $quotation->subject = $salesProposal->subject;
             $quotation->customer_type = $customerType;
             $quotation->customer_id = $salesProposal->customer_id;
             $quotation->customer_name = $salesProposal->customer_name;
@@ -505,19 +506,34 @@ class ProposalService
                 }
             }
 
-            // If default pages exist for quotation with background image, save quotation default pages
-            $defaultPages = $this->quotationService->getActiveDefaultPages(Auth::id());
-            if ($defaultPages && $defaultPages->count() > 0) {
-                $contentsPayload = $defaultPages->map(function ($page, $index) {
+            // Transfer proposal contents or setup quotation default pages
+            $proposalContents = $salesProposal->contents;
+            if ($proposalContents && $proposalContents->count() > 0) {
+                $contentsPayload = $proposalContents->map(function ($c, $index) {
+                    $decoded = is_string($c->proposal_content ?? $c->content) ? json_decode($c->proposal_content ?? $c->content, true) : null;
                     return [
-                        'title' => $page->title,
-                        'content' => $page->content ?? '',
-                        'page_type' => $page->page_type ?? 'content',
-                        'background_image' => $page->background_image ?? '',
-                        'order' => $page->sort_order ?? $index + 1,
+                        'title' => $decoded['title'] ?? $c->title ?? '',
+                        'content' => $decoded['content'] ?? $c->proposal_content ?? $c->content ?? '',
+                        'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
+                        'background_image' => $decoded['background_image'] ?? $c->background_image ?? '',
+                        'order' => $decoded['order'] ?? $c->order ?? $index + 1,
                     ];
                 })->toArray();
                 $this->quotationService->saveQuotationPageContents($quotation->id, $contentsPayload);
+            } else {
+                $defaultPages = $this->quotationService->getActiveDefaultPages(Auth::id());
+                if ($defaultPages && $defaultPages->count() > 0) {
+                    $contentsPayload = $defaultPages->map(function ($page, $index) {
+                        return [
+                            'title' => $page->title,
+                            'content' => $page->content ?? '',
+                            'page_type' => $page->page_type ?? 'content',
+                            'background_image' => $page->background_image ?? '',
+                            'order' => $page->sort_order ?? $index + 1,
+                        ];
+                    })->toArray();
+                    $this->quotationService->saveQuotationPageContents($quotation->id, $contentsPayload);
+                }
             }
 
             $salesProposal->update([
