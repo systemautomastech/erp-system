@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
             EmailTemplatesSeeder::class,
             NotificationsTableSeeder::class,
-            // DemoCompaniesSeeder::class,
+            PackageSeeder::class,
         ]);
 
         $companyUser = User::where('type', 'company')->first();

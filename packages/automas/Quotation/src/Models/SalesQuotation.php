@@ -19,6 +19,7 @@ class SalesQuotation extends Model
 
     protected $fillable = [
         'quotation_number',
+        'subject',
         'revision_number',
         'parent_quotation_id',
         'proposal_id',

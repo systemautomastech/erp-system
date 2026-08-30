@@ -95,6 +95,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
         Route::delete('/{customerPayment}', [CustomerPaymentController::class, 'destroy'])->name('destroy');
         Route::get('/customers/{customerId}/outstanding', [CustomerPaymentController::class, 'getOutstandingInvoices'])->name('outstanding-invoices');
         Route::patch('/{customerPayment}/update-status', [CustomerPaymentController::class, 'updateStatus'])->name('update-status');
+        Route::get('/{customerPayment}/print', [CustomerPaymentController::class, 'print'])->name('print');
     });
 
     Route::prefix('account/revenue-categories')->name('account.revenue-categories.')->group(function () {

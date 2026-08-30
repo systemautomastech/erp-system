@@ -15,6 +15,7 @@ class UpdateSalesQuotationRequest extends FormRequest
     {
         return [
             'quotation_number' => 'nullable|string|max:255',
+            'subject' => 'nullable|string|max:255',
             'revision_number' => 'nullable|integer|min:1',
             'parent_quotation_id' => 'nullable|exists:sales_quotations,id',
             'quotation_date' => 'required|date',

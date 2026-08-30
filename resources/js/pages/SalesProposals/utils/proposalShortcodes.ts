@@ -28,16 +28,8 @@ export const replaceProposalShortcodes = (
   if (!content) return '';
 
   let pageProps = context.pageProps;
-  if (!pageProps) {
-    try {
-      const page = usePage();
-      pageProps = page?.props;
-    } catch {
-      // Fallback for non-React contexts or when outside Inertia Provider
-      if (typeof window !== 'undefined' && (window as any)?.__INITIAL_PAGE__?.props) {
-        pageProps = (window as any).__INITIAL_PAGE__.props;
-      }
-    }
+  if (!pageProps && typeof window !== 'undefined') {
+    pageProps = (window as any)?.__INITIAL_PAGE__?.props;
   }
 
   const companyName = getCompanySetting('company_name', pageProps) || context.settings?.company_name || 'My Company Ltd.';
