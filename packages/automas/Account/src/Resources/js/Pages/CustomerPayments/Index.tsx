@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Dialog } from "@/components/ui/dialog";
-import { Eye, Trash2, CheckCircle, Plus, CreditCard, X } from "lucide-react";
+import { Eye, Trash2, CheckCircle, Plus, CreditCard, X, Printer } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -232,6 +232,21 @@ export default function Index() {
                                 <TooltipContent>
                                     <p>{t('View')}</p>
                                 </TooltipContent>
+                            </Tooltip>
+                        )}
+                        {auth.user?.permissions?.includes('view-customer-payments') && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => window.open(route('account.customer-payments.print', payment.id), '_blank')}
+                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                                    >
+                                        <Printer className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>{t('Print Receipt')}</p></TooltipContent>
                             </Tooltip>
                         )}
                         {payment.status === 'pending' && auth.user?.permissions?.includes('delete-customer-payments') && (
@@ -499,6 +514,21 @@ export default function Index() {
                                                                 <TooltipContent>
                                                                     <p>{t('View')}</p>
                                                                 </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                        {auth.user?.permissions?.includes('view-customer-payments') && (
+                                                            <Tooltip delayDuration={0}>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => window.open(route('account.customer-payments.print', payment.id), '_blank')}
+                                                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                                                                    >
+                                                                        <Printer className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>{t('Print Receipt')}</p></TooltipContent>
                                                             </Tooltip>
                                                         )}
                                                         {payment.status === 'pending' && auth.user?.permissions?.includes('delete-customer-payments') && (

@@ -717,6 +717,12 @@ export default function Index() {
                                                                             <span className="text-sm font-bold text-gray-900 shrink-0">{formatCurrency(quotation.total_amount)}</span>
                                                                         </div>
 
+                                                                        {quotation.subject && (
+                                                                            <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-1" title={quotation.subject}>
+                                                                                {quotation.subject}
+                                                                            </p>
+                                                                        )}
+
                                                                         <div className="flex items-center gap-1.5 mt-2.5">
                                                                             <Avatar className="h-5 w-5 shrink-0">
                                                                                 {quotation.customer?.avatar && (

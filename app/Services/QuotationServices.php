@@ -337,6 +337,7 @@ class QuotationServices
      */
     private function hydrateQuotationData(SalesQuotation $quotation, array $data, array $totals, bool $isTaxEnabled): void
     {
+        $quotation->subject = $data['subject'] ?? $quotation->subject ?? null;
         $quotation->quotation_date = $data['quotation_date'] ?? $data['invoice_date'] ?? $quotation->quotation_date ?? now();
         $quotation->due_date = $data['due_date'] ?? $quotation->due_date;
         $quotation->warehouse_id = $data['warehouse_id'] ?? $quotation->warehouse_id;

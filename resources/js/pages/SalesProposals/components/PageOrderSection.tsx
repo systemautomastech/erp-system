@@ -149,6 +149,18 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         return replaceProposalShortcodes(modalContent, { settings, pageProps });
     }, [modalContent, settings, pageProps]);
 
+    // Detect if modal content has raw/custom HTML code
+    const hasRawHtml = useMemo(() => {
+        if (!modalContent) return false;
+        return /<(?:div|style|section|article|main|iframe|script|table|thead|tbody|tfoot|tr|th|td)\b|style=["'][^"']*["']/i.test(modalContent);
+    }, [modalContent]);
+
+    useEffect(() => {
+        if (hasRawHtml && editorMode === 'rich') {
+            setEditorMode('code');
+        }
+    }, [hasRawHtml, editorMode]);
+
     useEffect(() => {
         if (!processedContent) {
             setPaginatedPreviewPages([]);
@@ -156,9 +168,16 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         }
 
         const runPagination = () => {
+            const hasExplicitBreak = /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(processedContent);
+
             if (measureContainerRef.current) {
-                const chunks = paginateDomContainer(measureContainerRef.current, 900);
-                setPaginatedPreviewPages(chunks);
+                const scrollH = measureContainerRef.current.scrollHeight;
+                if (!hasExplicitBreak && scrollH <= 980) {
+                    setPaginatedPreviewPages([processedContent]);
+                } else {
+                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
+                    setPaginatedPreviewPages(chunks);
+                }
             } else {
                 setPaginatedPreviewPages([processedContent]);
             }
@@ -170,6 +189,10 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     }, [processedContent, editorMode, isModalOpen]);
 
     const handleSwitchMode = (mode: 'rich' | 'code' | 'preview') => {
+        if (mode === 'rich' && hasRawHtml) {
+            toast.error(t('Text Editor is disabled because this page contains custom HTML & CSS code. Please use HTML Code or Preview editor.'));
+            return;
+        }
         if (mode === 'rich') {
             setEditorKey((prev) => prev + 1);
         }
@@ -748,17 +771,19 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
 
                                                 {/* Mode Tabs (Order: Text Editor, HTML Code, Preview) */}
                                                 <div className="flex items-center bg-muted/70 p-1 rounded-lg border border-border gap-1">
-                                                    {/* 1. Text Editor (Default) */}
+                                                    {/* 1. Text Editor */}
                                                     <Button
                                                         type="button"
                                                         variant={editorMode === 'rich' ? 'secondary' : 'ghost'}
                                                         size="sm"
+                                                        disabled={hasRawHtml}
                                                         className={cn(
                                                             "h-7 px-2.5 text-xs gap-1.5 font-medium transition-all shadow-none",
-                                                            editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold"
+                                                            editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold",
+                                                            hasRawHtml && "opacity-50 cursor-not-allowed"
                                                         )}
                                                         onClick={() => handleSwitchMode('rich')}
-                                                        title={t('Use WYSIWYG text toolbar')}
+                                                        title={hasRawHtml ? t('Text Editor disabled for raw HTML') : t('Use WYSIWYG text toolbar')}
                                                     >
                                                         <PenTool className="h-3.5 w-3.5 text-blue-500" />
                                                         <span>{t('Text Editor')}</span>
