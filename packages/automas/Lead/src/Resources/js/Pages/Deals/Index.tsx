@@ -27,7 +27,7 @@ import View from './View';
 import LabelView from './LabelView';
 import NoRecordsFound from '@/components/no-records-found';
 import { Deal, DealsIndexProps, DealFilters, DealModalState } from './types';
-import { formatDate, formatTime, formatDateTime, formatCurrency, getImagePath } from '@/utils/helpers';
+import { formatDate, formatTime, formatDateTime, formatCurrency, getImagePath, formatTimeFromDate } from '@/utils/helpers';
 import { usePageButtons } from '@/hooks/usePageButtons';
 
 
@@ -531,9 +531,17 @@ export default function Index() {
             header: t('Created'),
             sortable: false,
             render: (value: string) => (
-                <span className="text-xs text-gray-600">
-                    {formatDate(value)}
-                </span>
+                <>
+                    <div className="whitespace-nowrap text-sm">
+                        <div className="text-foreground">
+                            {formatDate(value)}
+                        </div>
+
+                        <div className="text-xs text-muted-foreground">
+                            {formatTimeFromDate(value)}
+                        </div>
+                    </div>
+                </>
             )
         },
         {

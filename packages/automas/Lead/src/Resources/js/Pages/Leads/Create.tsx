@@ -19,7 +19,8 @@ import { MultiSelectEnhanced } from '@/components/ui/multi-select-enhanced';
 
 
 export default function Create({ onSuccess }: CreateLeadProps) {
-    const { users, sources, subjects, auth } = usePage<any>().props;
+    const { users, sources, subjects, auth, pipelines } = usePage<any>().props;
+    const [stages, setStages] = useState<any[]>([]);
 
     const { t } = useTranslation();
     const { data, setData, post, processing, errors } = useForm<CreateLeadFormData>({
@@ -30,8 +31,22 @@ export default function Create({ onSuccess }: CreateLeadProps) {
         phone: '',
         sources: [],
         date: '',
+        pipeline_id: '',
+        stage_id: '',
     });
 
+    useEffect(() => {
+        if (data.pipeline_id) {
+            fetch(route('lead.stages.by-pipeline', data.pipeline_id))
+                .then(res => res.json())
+                .then(stageList => {
+                    setStages(stageList || []);
+                })
+                .catch(() => setStages([]));
+        } else {
+            setStages([]);
+        }
+    }, [data.pipeline_id]);
 
     const nameAI = useFormFields('aiField', data, setData, errors, 'create', 'name', 'Name', 'lead', 'lead');
     const subjectAI = useFormFields('aiField', data, setData, errors, 'create', 'subject', 'Subject', 'lead', 'lead');
@@ -145,6 +160,51 @@ export default function Create({ onSuccess }: CreateLeadProps) {
                             mode="single"
                         />
                         <InputError message={errors.date} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="pipeline_id">{t('Pipeline')}</Label>
+                        <Select
+                            value={data.pipeline_id || ''}
+                            onValueChange={(value) => {
+                                setData(prev => ({ ...prev, pipeline_id: value, stage_id: '' }));
+                            }}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder={t('Select Pipeline')} />
+                            </SelectTrigger>
+                            <SelectContent searchable>
+                                {pipelines?.map((item: any) => (
+                                    <SelectItem key={item.id} value={item.id.toString()}>
+                                        {item.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.pipeline_id} />
+                    </div>
+
+                    <div>
+                        <Label htmlFor="stage_id">{t('Stage')}</Label>
+                        <Select
+                            value={data.stage_id || ''}
+                            onValueChange={(value) => setData('stage_id', value)}
+                            disabled={!data.pipeline_id}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder={data.pipeline_id ? t('Select Stage') : t('Select Pipeline first')} />
+                            </SelectTrigger>
+                            <SelectContent searchable>
+                                {stages?.map((item: any) => (
+                                    <SelectItem key={item.id} value={item.id.toString()}>
+                                        {item.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.stage_id} />
                     </div>
                 </div>
 
