@@ -15,8 +15,8 @@ class QuotationSettingController extends Controller
 {
     public function index()
     {
-        if (!Auth::user()->can('manage-quotation-system-setup') && !Auth::user()->can('manage-quotations')) {
-            return back()->with('error', __('Permission denied'));
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
+            return redirect()->route('dashboard')->with('error', __('Permission denied'));
         }
 
         $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
@@ -39,7 +39,7 @@ class QuotationSettingController extends Controller
 
     public function store(StoreQuotationSettingRequest $request)
     {
-        if (!Auth::user()->can('manage-quotations')) {
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
             return back()->with('error', __('Permission denied'));
         }
 
@@ -54,7 +54,7 @@ class QuotationSettingController extends Controller
 
     public function update(UpdateQuotationSettingRequest $request)
     {
-        if (!Auth::user()->can('manage-quotations')) {
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
             return back()->with('error', __('Permission denied'));
         }
 
