@@ -318,6 +318,20 @@
             color: {{ $templateColor }} !important;
         }
 
+        table {
+            table-layout: fixed !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            word-break: break-word !important;
+        }
+
+        th, td {
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            word-break: break-word !important;
+            box-sizing: border-box !important;
+        }
+
         .sp-doc-accent-line {
             background-color: {{ $templateColor }} !important;
             background: {{ $templateColor }} !important;
@@ -398,9 +412,20 @@
             font-size: 11px;
             line-height: 1.4;
             color: #293240;
+            word-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+        }
+        .proposal-item-desc * {
+            word-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
         }
         .proposal-item-desc p {
             margin: 2px 0 !important;
+            word-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
         }
         .proposal-item-desc p:empty {
             min-height: 0.8em;
@@ -778,12 +803,12 @@
                                 style="width: 100%; font-size: 11px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 8px;">
                                 <thead>
                                     <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; white-space: nowrap;">S/N</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%;">S/N</th>
                                         <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">Item / Service</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 38%; text-align: left;">Description</th>
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; white-space: nowrap;">Qty.</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Price (BDT)</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Total (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 37%; text-align: left;">Description</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 8%; text-align: center;">Qty.</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Price (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -795,12 +820,12 @@
                                             $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                         @endphp
                                         <tr>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; white-space: nowrap;">{{ $index + 1 }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">{{ $pName }}</td>
-                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">{!! $pDesc !!}</td>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($lTotal, 2) }}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle;">{{ $index + 1 }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $pName }}</td>
+                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{!! $pDesc !!}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($lTotal, 2) }}</td>
                                         </tr>
                                     @endforeach
                                     <tr>
@@ -840,12 +865,12 @@
                                 style="width: 100%; font-size: 11px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1;">
                                 <thead>
                                     <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; white-space: nowrap;">S/N</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%;">S/N</th>
                                         <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">Item / Service</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 38%; text-align: left;">Description</th>
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; white-space: nowrap;">Qty.</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Price (BDT)</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">Total (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 37%; text-align: left;">Description</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 8%; text-align: center;">Qty.</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Price (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -857,12 +882,12 @@
                                             $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
                                         @endphp
                                         <tr>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; white-space: nowrap;">{{ $index + 1 }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">{{ $pName }}</td>
-                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word;">{!! $pDesc !!}</td>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; white-space: nowrap;">{{ number_format($lTotal, 2) }}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle;">{{ $index + 1 }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $pName }}</td>
+                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{!! $pDesc !!}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($lTotal, 2) }}</td>
                                         </tr>
                                     @endforeach
                                     <tr>

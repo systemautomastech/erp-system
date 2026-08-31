@@ -325,6 +325,20 @@ export default function Print() {
                     break-inside: avoid;
                 }
 
+                table {
+                    table-layout: fixed !important;
+                    word-wrap: break-word !important;
+                    overflow-wrap: break-word !important;
+                    word-break: break-word !important;
+                }
+
+                th, td {
+                    word-wrap: break-word !important;
+                    overflow-wrap: break-word !important;
+                    word-break: break-word !important;
+                    box-sizing: border-box !important;
+                }
+
                 @media print {
                     html, body {
                         background: #ffffff !important;

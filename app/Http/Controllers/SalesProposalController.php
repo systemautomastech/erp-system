@@ -167,6 +167,10 @@ class SalesProposalController extends Controller
             return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
         }
 
+        if ($salesProposal->status === 'accepted' || $salesProposal->converted_to_invoice) {
+            return redirect()->route('sales-proposals.index')->with('error', __('Cannot edit an accepted or converted proposal.'));
+        }
+
         $salesProposal->load($this->proposalService->getProposalRelations());
 
         $customers = $this->customerService->getCustomers();
@@ -195,8 +199,8 @@ class SalesProposalController extends Controller
             return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
         }
 
-        if ($salesProposal->converted_to_invoice) {
-            return redirect()->route('sales-proposals.index')->with('error', __('Cannot update converted proposal.'));
+        if ($salesProposal->status === 'accepted' || $salesProposal->converted_to_invoice) {
+            return redirect()->route('sales-proposals.index')->with('error', __('Cannot update an accepted or converted proposal.'));
         }
 
         $proposal = $this->proposalService->updateProposal($salesProposal, $request);

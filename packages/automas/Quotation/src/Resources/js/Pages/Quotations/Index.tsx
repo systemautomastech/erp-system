@@ -205,37 +205,19 @@ export default function Index() {
     const renderActions = (item: SalesQuotation) => (
         <TooltipProvider>
             {auth.user?.permissions?.includes('print-quotations') && (
-                <>
-                    <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(route('quotations.print', item.id) + '?print=1', '_blank')}
-                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                            >
-                                <Printer className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>{t('Print quotation')}</p></TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    window.location.href = route('quotations.download-pdf', item.id);
-                                }}
-                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
-                            >
-                                <Download className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>{t('Download PDF')}</p></TooltipContent>
-                    </Tooltip>
-                </>
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(route('quotations.print', item.id) + '?print=1', '_blank')}
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('Print/Download')}</p></TooltipContent>
+                </Tooltip>
             )}
 
             {auth.user?.permissions?.includes('sent-quotations') && item.status === 'draft' && (
@@ -249,14 +231,14 @@ export default function Index() {
                 </Tooltip>
             )}
 
-            {auth.user?.permissions?.includes('accept-quotations') && item.status === 'sent' && (
+            {auth.user?.permissions?.includes('approve-quotations') && item.status === 'sent' && (
                 <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.accept', item.id))} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
+                        <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.approve', item.id))} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
                             <Check className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent><p>{t('Accept quotation')}</p></TooltipContent>
+                    <TooltipContent><p>{t('Approve quotation')}</p></TooltipContent>
                 </Tooltip>
             )}
 
@@ -304,7 +286,7 @@ export default function Index() {
                 </Tooltip>
             )}
 
-            {item.status === 'draft' && auth.user?.permissions?.includes('edit-quotations') && (
+            {item.status !== 'accepted' && auth.user?.permissions?.includes('edit-quotations') && !item.converted_to_invoice && (
                 <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="sm" onClick={() => router.visit(route('quotations.edit', item.id))} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
