@@ -369,16 +369,18 @@ export default function View() {
                                                 <span className="font-bold text-lg">{formatCurrency(invoice.total_amount)}</span>
                                             </div>
                                         </div>
-                                        {invoice.paid_amount > 0 && (
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-muted-foreground">{t('Paid Amount')}</span>
-                                                <span className="font-medium text-green-600">{formatCurrency(invoice.paid_amount)}</span>
-                                            </div>
+                                        {invoice.paid_amount > 0 && invoice.balance_amount > 0 && (
+                                            <>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">{t('Paid Amount')}</span>
+                                                    <span className="font-medium text-green-600">{formatCurrency(invoice.paid_amount)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="font-semibold">{t('Balance Due')}</span>
+                                                    <span className="font-bold text-lg text-blue-600">{formatCurrency(invoice.balance_amount)}</span>
+                                                </div>
+                                            </>
                                         )}
-                                        <div className="flex justify-between">
-                                            <span className="font-semibold">{t('Balance Due')}</span>
-                                            <span className="font-bold text-lg">{formatCurrency(invoice.balance_amount)}</span>
-                                        </div>
                                     </div>
                                 </div>
                             </TabsContent>

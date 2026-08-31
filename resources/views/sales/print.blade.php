@@ -303,8 +303,9 @@
         $extraSummaryRows = 1;
         if (($invoice->discount_amount ?? 0) > 0) $extraSummaryRows++;
         if (($invoice->tax_amount ?? 0) > 0) $extraSummaryRows++;
-        if (($invoice->paid_amount ?? 0) > 0) $extraSummaryRows++;
-        if (($invoice->balance_amount ?? 0) > 0) $extraSummaryRows++;
+        if (($invoice->paid_amount ?? 0) > 0 && ($invoice->balance_amount ?? 0) > 0) {
+            $extraSummaryRows += 2; // Paid Amount + Balance Due
+        }
         
         $summaryTotalHeightMm = 34 + ($extraSummaryRows * 6) + $termsHeightMm + $paymentSummaryHeightMm;
 
@@ -605,14 +606,12 @@
                                         <td style="padding: 6px 8px; font-size: 11px; color: #0f172a; border: 1px solid #94a3b8; text-align: right;">{{ __('TOTAL') }}:</td>
                                         <td style="padding: 6px 8px; font-size: 11px; text-align: right; color: #0f172a; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->total_amount) }}</td>
                                     </tr>
-                                    @if(($invoice->paid_amount ?? 0) > 0)
+                                    @if(($invoice->paid_amount ?? 0) > 0 && ($invoice->balance_amount ?? 0) > 0)
                                         <tr class="page-break-inside-avoid">
                                             <td colspan="6" style="border: 1px solid #94a3b8;"></td>
                                             <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Paid Amount') }}:</td>
                                             <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #1e293b; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->paid_amount) }}</td>
                                         </tr>
-                                    @endif
-                                    @if(($invoice->balance_amount ?? 0) > 0)
                                         <tr class="page-break-inside-avoid" style="font-weight: 700;">
                                             <td colspan="6" style="border: 1px solid #94a3b8;"></td>
                                             <td style="padding: 5px 8px; font-size: 10.5px; color: #0f172a; border: 1px solid #94a3b8; text-align: right;">{{ __('Balance Due') }}:</td>
