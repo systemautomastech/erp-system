@@ -1343,6 +1343,34 @@ export default function PreviewModal({
             className="space-y-8 flex flex-col items-center w-full print:space-y-0 print:gap-0"
             style={{ '--template-color': templateColor } as React.CSSProperties}
         >
+            <style>{`
+                .proposal-preview-sheet table,
+                .proposal-cover__sheet table,
+                .html-preview-container table {
+                    table-layout: fixed !important;
+                    word-wrap: break-word !important;
+                    overflow-wrap: anywhere !important;
+                    word-break: break-word !important;
+                }
+                .proposal-preview-sheet th,
+                .proposal-preview-sheet td,
+                .proposal-cover__sheet th,
+                .proposal-cover__sheet td,
+                .html-preview-container th,
+                .html-preview-container td {
+                    word-wrap: break-word !important;
+                    overflow-wrap: anywhere !important;
+                    word-break: break-word !important;
+                    box-sizing: border-box !important;
+                }
+                .proposal-preview-sheet td *,
+                .proposal-cover__sheet td *,
+                .html-preview-container td * {
+                    word-wrap: break-word !important;
+                    overflow-wrap: anywhere !important;
+                    word-break: break-word !important;
+                }
+            `}</style>
             {/* Mode A: Single Page / Default Page Mode */}
             {isSinglePageMode ? (
                 paginatedSinglePages.length > 0 ? (

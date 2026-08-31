@@ -176,7 +176,7 @@ export default function View() {
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">
                                         <div className="flex flex-wrap gap-2">
-                                            {auth.user?.permissions?.includes('edit-sales-proposals') && (
+                                            {auth.user?.permissions?.includes('edit-sales-proposals') && proposal.status !== 'accepted' && !proposal.converted_to_invoice && (
                                                 <Button
                                                     size="sm"
                                                     onClick={() => router.visit(route('sales-proposals.edit', proposal.id))}
@@ -186,26 +186,14 @@ export default function View() {
                                                 </Button>
                                             )}
                                             {auth.user?.permissions?.includes('print-sales-proposals') && (
-                                                <>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => window.open(route('sales-proposals.print', proposal.id) + '?print=1', '_blank')}
-                                                    >
-                                                        <Printer className="h-4 w-4 mr-2" />
-                                                        {t('Print')}
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            window.location.href = route('sales-proposals.download-pdf', proposal.id);
-                                                        }}
-                                                    >
-                                                        <Download className="h-4 w-4 mr-2" />
-                                                        {t('Download PDF')}
-                                                    </Button>
-                                                </>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => window.open(route('sales-proposals.print', proposal.id) + '?print=1', '_blank')}
+                                                >
+                                                    <Printer className="h-4 w-4 mr-2" />
+                                                    {t('Print/Download')}
+                                                </Button>
                                             )}
                                             {auth.user?.permissions?.includes('convert-sales-proposals') && proposal.status === 'accepted' && !proposal.converted_to_quotation && !proposal.converted_to_invoice && (
                                                 <TooltipProvider>

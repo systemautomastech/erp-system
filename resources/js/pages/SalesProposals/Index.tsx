@@ -212,37 +212,19 @@ export default function Index() {
     const renderActions = (item: SalesProposal) => (
         <TooltipProvider>
             {auth.user?.permissions?.includes('print-sales-proposals') && (
-                <>
-                    <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(route('sales-proposals.print', item.id) + '?print=1', '_blank')}
-                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                            >
-                                <Printer className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>{t('Print Proposal')}</p></TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    window.location.href = route('sales-proposals.download-pdf', item.id);
-                                }}
-                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
-                            >
-                                <Download className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>{t('Download PDF')}</p></TooltipContent>
-                    </Tooltip>
-                </>
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(route('sales-proposals.print', item.id) + '?print=1', '_blank')}
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('Print/Download')}</p></TooltipContent>
+                </Tooltip>
             )}
 
             {auth.user?.permissions?.includes('sent-sales-proposals') && item.status === 'draft' && (
@@ -324,7 +306,7 @@ export default function Index() {
                 </Tooltip>
             )}
 
-            {item.status === 'draft' && auth.user?.permissions?.includes('edit-sales-proposals') && (
+            {item.status !== 'accepted' && auth.user?.permissions?.includes('edit-sales-proposals') && !item.converted_to_invoice && (
                 <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="sm" onClick={() => router.visit(route('sales-proposals.edit', item.id))} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">

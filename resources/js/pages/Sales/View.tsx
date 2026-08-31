@@ -9,7 +9,7 @@ import { getStatusBadgeClasses } from './utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FileText, Download, ArrowLeft, Receipt, CreditCard, Layers } from 'lucide-react';
+import { FileText, Download, ArrowLeft, Receipt, CreditCard, Layers, Printer, Edit } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePageButtons } from '@/hooks/usePageButtons';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -160,14 +160,23 @@ export default function View() {
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                                         <div className="flex flex-wrap gap-2">
+                                            {invoice.status === 'draft' && auth.user?.permissions?.includes('edit-sales-invoices') && (
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('sales-invoices.edit', invoice.id))}
+                                                >
+                                                    <Edit className="h-4 w-4 mr-2" />
+                                                    {t('Edit')}
+                                                </Button>
+                                            )}
                                             {auth.user?.permissions?.includes('print-sales-invoices') && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={downloadPDF}
+                                                    onClick={() => window.open(route('sales-invoices.print', invoice.id) + '?print=1', '_blank')}
                                                 >
-                                                    <Download className="h-4 w-4 mr-2" />
-                                                    {t('Download PDF')}
+                                                    <Printer className="h-4 w-4 mr-2" />
+                                                    {t('Print/Download')}
                                                 </Button>
                                             )}
                                             {invoice.status === 'draft' && auth.user?.permissions?.includes('post-sales-invoices') && (

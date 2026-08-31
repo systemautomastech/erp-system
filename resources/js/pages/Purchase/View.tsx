@@ -9,7 +9,7 @@ import { getStatusBadgeClasses } from './utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Edit, FileText, ArrowLeft, Building2, User, Calendar, Package, MapPin, Download } from 'lucide-react';
+import { Edit, FileText, ArrowLeft, Building2, User, Calendar, Package, MapPin, Download, Printer } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePageButtons } from '@/hooks/usePageButtons';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -146,14 +146,23 @@ export default function View() {
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">
                                         <div className="flex gap-2">
+                                            {invoice.status === 'draft' && auth.user?.permissions?.includes('edit-purchase-invoices') && (
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('purchase-invoices.edit', invoice.id))}
+                                                >
+                                                    <Edit className="h-4 w-4 mr-2" />
+                                                    {t('Edit')}
+                                                </Button>
+                                            )}
                                             {auth.user?.permissions?.includes('print-purchase-invoices') && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={downloadPDF}
+                                                    onClick={() => window.open(route('purchase-invoices.print', invoice.id) + '?print=1', '_blank')}
                                                 >
-                                                    <Download className="h-4 w-4 mr-2" />
-                                                    {t('Download PDF')}
+                                                    <Printer className="h-4 w-4 mr-2" />
+                                                    {t('Print/Download')}
                                                 </Button>
                                             )}
                                             {invoice.status === 'draft' && auth.user?.permissions?.includes('post-purchase-invoices') && (

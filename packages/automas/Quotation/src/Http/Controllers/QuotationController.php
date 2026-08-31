@@ -178,9 +178,9 @@ class QuotationController extends Controller
                 ->with('error', __('Permission denied'));
         }
 
-        if ($quotation->converted_to_invoice) {
+        if ($quotation->status === 'accepted' || $quotation->converted_to_invoice) {
             return redirect()->route('quotations.index')
-                ->with('error', __('Cannot update converted quotation.'));
+                ->with('error', __('Cannot edit an accepted or converted quotation.'));
         }
 
         $quotation->load($this->quotationServices->getQuotationRelations());
@@ -206,9 +206,9 @@ class QuotationController extends Controller
                 ->with('error', __('Permission denied'));
         }
 
-        if ($quotation->converted_to_invoice) {
+        if ($quotation->status === 'accepted' || $quotation->converted_to_invoice) {
             return redirect()->route('quotations.index')
-                ->with('error', __('Cannot update converted quotation.'));
+                ->with('error', __('Cannot update an accepted or converted quotation.'));
         }
 
         try {

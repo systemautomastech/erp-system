@@ -209,9 +209,24 @@
             margin-bottom: 0.1rem !important;
         }
 
+        .rich-content {
+            word-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+        }
+
+        .rich-content * {
+            word-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+        }
+
         .rich-content p {
             margin-top: 0.15rem !important;
             margin-bottom: 0.15rem !important;
+            word-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
         }
 
         .rich-content p:first-child {
@@ -239,6 +254,20 @@
         .rich-content s,
         .rich-content strike {
             text-decoration: line-through !important;
+        }
+
+        table {
+            table-layout: fixed !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            word-break: break-word !important;
+        }
+
+        th, td {
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            word-break: break-word !important;
+            box-sizing: border-box !important;
         }
 
         @media print {
