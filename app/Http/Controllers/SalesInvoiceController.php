@@ -27,13 +27,13 @@ class SalesInvoiceController extends Controller
 {
     private function checkInvoiceAccess(SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('manage-any-sales-invoices')) {
+        if (Auth::user()->can('manage-any-sales-invoices')) {
             return true;
-        } elseif(Auth::user()->can('manage-own-sales-invoices')) {
-            if($salesInvoice->creator_id != Auth::id() && $salesInvoice->customer_id != Auth::id()) {
+        } elseif (Auth::user()->can('manage-own-sales-invoices')) {
+            if ($salesInvoice->creator_id != Auth::id() && $salesInvoice->customer_id != Auth::id()) {
                 return false;
             }
-            if($salesInvoice->creator_id != Auth::id() && Auth::user()->type == 'client' && $salesInvoice->status == 'draft') {
+            if ($salesInvoice->creator_id != Auth::id() && Auth::user()->type == 'client' && $salesInvoice->status == 'draft') {
                 return false;
             }
             return true;
@@ -42,15 +42,15 @@ class SalesInvoiceController extends Controller
     }
     public function index(Request $request)
     {
-        if(Auth::user()->can('manage-sales-invoices')){
+        if (Auth::user()->can('manage-sales-invoices')) {
             $baseQuery = SalesInvoice::with(['customer', 'items'])
-                ->where(function($q) {
-                    if(Auth::user()->can('manage-any-sales-invoices')) {
+                ->where(function ($q) {
+                    if (Auth::user()->can('manage-any-sales-invoices')) {
                         $q->where('created_by', creatorId());
-                    } elseif(Auth::user()->can('manage-own-sales-invoices')) {
-                        $q->where('creator_id', Auth::id())->orWhere('customer_id',Auth::id());
-                        if(Auth::user()->type == 'client') {
-                            $q->where('status','!=', 'draft');
+                    } elseif (Auth::user()->can('manage-own-sales-invoices')) {
+                        $q->where('creator_id', Auth::id())->orWhere('customer_id', Auth::id());
+                        if (Auth::user()->type == 'client') {
+                            $q->where('status', '!=', 'draft');
                         }
                     } else {
                         $q->whereRaw('1 = 0');
@@ -112,8 +112,8 @@ class SalesInvoiceController extends Controller
             if ($request->status) {
                 if ($request->status === 'overdue') {
                     $query->where('due_date', '<', $today)
-                    ->whereIn('status', ['posted', 'partial'])
-                    ->where('balance_amount', '>', 0);
+                        ->whereIn('status', ['posted', 'partial'])
+                        ->where('balance_amount', '>', 0);
                 } elseif ($request->status === 'outstanding') {
                     $query->whereIn('status', ['posted', 'partial']);
                 } elseif (isset($agingFilters[$request->status])) {
@@ -192,15 +192,14 @@ class SalesInvoiceController extends Controller
                 'customerSummaries' => $customerSummaries,
                 'filters' => $request->only(['customer_id', 'warehouse_id', 'status', 'search', 'date_range'])
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function create()
     {
-        if(Auth::user()->can('create-sales-invoices')){
+        if (Auth::user()->can('create-sales-invoices')) {
             $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
             $products = ProductServiceItem::with(['unitRelation', 'warehouseStocks'])
                 ->select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
@@ -239,15 +238,14 @@ class SalesInvoiceController extends Controller
                 'warehouses' => $warehouses,
                 'default_payment_terms' => $setupSettings['sales_invoice_default_payment_terms'] ?? '',
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function store(StoreSalesInvoiceRequest $request)
     {
-        if(Auth::user()->can('create-sales-invoices')){
+        if (Auth::user()->can('create-sales-invoices')) {
             $totals = $this->calculateTotals($request->items);
 
             $invoice = new SalesInvoice();
@@ -286,7 +284,7 @@ class SalesInvoiceController extends Controller
 
                 CreateSalesInvoice::dispatch($request, $invoice);
                 // Send sales invoice mail
-                if(company_setting('Sales Invoice') == 'on') {
+                if (company_setting('Sales Invoice') == 'on') {
                     $customerEmail = $invoice->customer?->email ?? $invoice->customer_email;
                     $customerName = $invoice->customer?->name ?? $invoice->customer_name;
                     $emailData = [
@@ -306,36 +304,39 @@ class SalesInvoiceController extends Controller
 
             return redirect()->route('sales-invoices.index')->with('success', __('The sales invoice created successfully.'));
 
-        }
-        else{
+        } else {
             return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
         }
     }
 
     public function show(SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('view-sales-invoices')){
-            if(!$this->checkInvoiceAccess($salesInvoice)){
+        if (Auth::user()->can('view-sales-invoices')) {
+            if (!$this->checkInvoiceAccess($salesInvoice)) {
                 return back()->with('error', __('Permission denied'));
             }
 
-            $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse', 'paymentAllocations']);
-
+            $salesInvoice->load([
+                'customer',
+                'customerDetails',
+                'items.product.unitRelation',
+                'items.taxes',
+                'warehouse',
+                'paymentAllocations.payment.bankAccount',
+                'paymentAllocations'
+            ]);
+            // dd($salesInvoice);
             return Inertia::render('Sales/View', [
                 'invoice' => $salesInvoice,
-                'auth' => [
-                    'user' => Auth::user(),
-                ],
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function edit(SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('edit-sales-invoices') && $salesInvoice->created_by == creatorId()){
+        if (Auth::user()->can('edit-sales-invoices') && $salesInvoice->created_by == creatorId()) {
             if ($salesInvoice->status != 'draft') {
                 return redirect()->route('sales-invoices.index')->with('error', __('Cannot edit posted invoice.'));
             }
@@ -381,15 +382,14 @@ class SalesInvoiceController extends Controller
                 'products' => $products,
                 'warehouses' => $warehouses,
             ]);
-        }
-        else{
+        } else {
             return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
         }
     }
 
     public function update(UpdateSalesInvoiceRequest $request, SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('edit-sales-invoices') && $salesInvoice->created_by == creatorId()){
+        if (Auth::user()->can('edit-sales-invoices') && $salesInvoice->created_by == creatorId()) {
             if ($salesInvoice->status != 'draft') {
                 return redirect()->route('sales-invoices.index')->with('error', __('Cannot update posted invoice.'));
             }
@@ -428,15 +428,14 @@ class SalesInvoiceController extends Controller
             UpdateSalesInvoice::dispatch($request, $salesInvoice);
 
             return redirect()->route('sales-invoices.index')->with('success', __('The sales invoice details are updated successfully.'));
-        }
-        else{
+        } else {
             return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
         }
     }
 
     public function destroy(SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('delete-sales-invoices')){
+        if (Auth::user()->can('delete-sales-invoices')) {
             if ($salesInvoice->status === 'posted') {
                 return back()->withErrors(['error' => __('Cannot delete posted invoice.')]);
             }
@@ -447,10 +446,17 @@ class SalesInvoiceController extends Controller
             $salesInvoice->delete();
 
             return redirect()->route('sales-invoices.index')->with('success', __('The sales invoice has been deleted.'));
-        }
-        else{
+        } else {
             return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
         }
+    }
+
+    public function clientInvoice($id)
+    {
+        $invoice = SalesInvoice::with(['customer', 'items', 'items.taxes'])->find($id);
+        return Inertia::render('Account/SalesInvoices/ClientView', [
+            'invoice' => $invoice,
+        ]);
     }
 
     private function calculateTotals($items)
@@ -507,29 +513,28 @@ class SalesInvoiceController extends Controller
 
     public function post(SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('post-sales-invoices')){
-        if ($salesInvoice->status !== 'draft') {
-            return back()->withErrors(['error' => __('Only draft invoices can be posted.')]);
-        }
+        if (Auth::user()->can('post-sales-invoices')) {
+            if ($salesInvoice->status !== 'draft') {
+                return back()->withErrors(['error' => __('Only draft invoices can be posted.')]);
+            }
 
-        try {
-            PostSalesInvoice::dispatch($salesInvoice);
-        } catch (\Throwable $th) {
-            return back()->with('error', $th->getMessage());
-        }
+            try {
+                PostSalesInvoice::dispatch($salesInvoice);
+            } catch (\Throwable $th) {
+                return back()->with('error', $th->getMessage());
+            }
 
-        $salesInvoice->update(['status' => 'posted']);
+            $salesInvoice->update(['status' => 'posted']);
 
-        return back()->with('success', __('The sales invoice has been posted successfully.'));
-        }
-        else{
+            return back()->with('success', __('The sales invoice has been posted successfully.'));
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function getWarehouseProducts(Request $request)
     {
-        if(Auth::user()->can('create-sales-invoices') || Auth::user()->can('edit-sales-invoices')){
+        if (Auth::user()->can('create-sales-invoices') || Auth::user()->can('edit-sales-invoices')) {
             $warehouseId = $request->warehouse_id;
 
             if (!$warehouseId) {
@@ -538,13 +543,15 @@ class SalesInvoiceController extends Controller
             $products = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
                 ->where('created_by', creatorId())
-                ->whereHas('warehouseStocks', function($q) use ($warehouseId) {
+                ->whereHas('warehouseStocks', function ($q) use ($warehouseId) {
                     $q->where('warehouse_id', $warehouseId)
-                      ->where('quantity', '>', 0);
+                        ->where('quantity', '>', 0);
                 })
-                ->with(['warehouseStocks' => function($q) use ($warehouseId) {
-                    $q->where('warehouse_id', $warehouseId);
-                }])
+                ->with([
+                    'warehouseStocks' => function ($q) use ($warehouseId) {
+                        $q->where('warehouse_id', $warehouseId);
+                    }
+                ])
                 ->get()
                 ->map(function ($product) {
                     $stock = $product->warehouseStocks->first();
@@ -566,15 +573,14 @@ class SalesInvoiceController extends Controller
                     ];
                 });
             return response()->json($products);
-        }
-        else{
+        } else {
             return response()->json([], 403);
         }
     }
 
     public function getServices(Request $request)
     {
-        if(Auth::user()->can('create-sales-invoices') || Auth::user()->can('edit-sales-invoices')){
+        if (Auth::user()->can('create-sales-invoices') || Auth::user()->can('edit-sales-invoices')) {
             $services = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
                 ->where('type', 'service')
@@ -598,20 +604,26 @@ class SalesInvoiceController extends Controller
                     ];
                 });
             return response()->json($services);
-        }
-        else{
+        } else {
             return response()->json([], 403);
         }
     }
 
     public function print(SalesInvoice $salesInvoice)
     {
-        if(Auth::user()->can('print-sales-invoices')){
-            if(!$this->checkInvoiceAccess($salesInvoice)){
+        if (Auth::user()->can('print-sales-invoices')) {
+            if (!$this->checkInvoiceAccess($salesInvoice)) {
                 return back()->with('error', __('Permission denied'));
             }
 
-            $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
+            $salesInvoice->load([
+                'customer',
+                'customerDetails',
+                'items.product.unitRelation',
+                'items.taxes',
+                'warehouse',
+                'paymentAllocations.payment.bankAccount',
+            ]);
 
             $creatorId = $salesInvoice->created_by ?? creatorId();
             $salesInvoiceSetting = SalesInvoiceSetup::getSettings($creatorId);
@@ -619,8 +631,7 @@ class SalesInvoiceController extends Controller
                 'invoice' => $salesInvoice,
                 'salesInvoiceSetting' => $salesInvoiceSetting,
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -628,11 +639,18 @@ class SalesInvoiceController extends Controller
     public function downloadPdf(SalesInvoice $salesInvoice)
     {
         if (Auth::user()->can('print-sales-invoices')) {
-            if(!$this->checkInvoiceAccess($salesInvoice)){
+            if (!$this->checkInvoiceAccess($salesInvoice)) {
                 return back()->with('error', __('Permission denied'));
             }
 
-            $salesInvoice->load(['customer', 'customerDetails', 'items.product.unitRelation', 'items.taxes', 'warehouse']);
+            $salesInvoice->load([
+                'customer',
+                'customerDetails',
+                'items.product.unitRelation',
+                'items.taxes',
+                'warehouse',
+                'paymentAllocations.payment.bankAccount',
+            ]);
 
             $creatorId = $salesInvoice->created_by ?? creatorId();
             $salesInvoiceSetting = SalesInvoiceSetup::getSettings($creatorId);
@@ -655,24 +673,24 @@ class SalesInvoiceController extends Controller
 
     public function setup()
     {
-        if (Auth::user()->can('manage-sales-invoice-setup') || Auth::user()->can('manage-sales-invoices') || Auth::user()->can('manage-settings')) {
-            $settings = SalesInvoiceSetup::getSettings(creatorId());
-            return Inertia::render('Sales/SystemSetup/Index', [
-                'settings' => $settings,
-            ]);
-        } else {
-            return back()->with('error', __('Permission denied'));
+        if (!Auth::user()->can('manage-sales-invoice-setup')) {
+            return redirect()->route('dashboard')->with('error', __('Permission denied'));
         }
+
+        $settings = SalesInvoiceSetup::getSettings(creatorId());
+        return Inertia::render('Sales/SystemSetup/Index', [
+            'settings' => $settings,
+        ]);
     }
 
     public function updateSetup(Request $request)
     {
-        if (Auth::user()->can('manage-sales-invoice-setup') || Auth::user()->can('manage-sales-invoices') || Auth::user()->can('manage-settings')) {
-            $settings = $request->input('settings', $request->except(['_token', '_method']));
-            SalesInvoiceSetup::setSettings($settings, creatorId());
-            return redirect()->back()->with('success', __('Sales Invoice setup updated successfully.'));
-        } else {
+        if (!Auth::user()->can('manage-sales-invoice-setup')) {
             return redirect()->back()->with('error', __('Permission denied'));
         }
+
+        $settings = $request->input('settings', $request->except(['_token', '_method']));
+        SalesInvoiceSetup::setSettings($settings, creatorId());
+        return redirect()->back()->with('success', __('Sales Invoice setup updated successfully.'));
     }
 }

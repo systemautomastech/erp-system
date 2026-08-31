@@ -2,6 +2,7 @@
 
 namespace Automas\Account\Http\Controllers;
 
+use App\Models\SalesInvoiceSetup;
 use Automas\Account\Models\CustomerPayment;
 use Automas\Account\Models\CustomerPaymentAllocation;
 use Automas\Account\Models\BankAccount;
@@ -34,13 +35,13 @@ class CustomerPaymentController extends Controller
 
     public function index(Request $request)
     {
-        if(Auth::user()->can('manage-customer-payments')){
+        if (Auth::user()->can('manage-customer-payments')) {
             $query = CustomerPayment::with(['customer', 'bankAccount', 'allocations.invoice', 'creditNoteApplications.creditNote'])
-                ->where(function($q) {
-                    if(Auth::user()->can('manage-any-customer-payments')) {
+                ->where(function ($q) {
+                    if (Auth::user()->can('manage-any-customer-payments')) {
                         $q->where('created_by', creatorId());
-                    } elseif(Auth::user()->can('manage-own-customer-payments')) {
-                        $q->where('creator_id', Auth::id())->orWhere('customer_id',Auth::id());
+                    } elseif (Auth::user()->can('manage-own-customer-payments')) {
+                        $q->where('creator_id', Auth::id())->orWhere('customer_id', Auth::id());
                     } else {
                         $q->whereRaw('1 = 0');
                     }
@@ -81,15 +82,14 @@ class CustomerPaymentController extends Controller
                 'bankAccounts' => $bankAccounts,
                 'filters' => $request->only(['customer_id', 'status', 'search', 'bank_account_id'])
             ]);
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
 
     public function store(StoreCustomerPaymentRequest $request)
     {
-        if(Auth::user()->can('create-customer-payments')){
+        if (Auth::user()->can('create-customer-payments')) {
             // Validate that at least one invoice allocation exists
             if (!$request->allocations || count($request->allocations) === 0) {
                 return back()->with('error', __('At least one invoice allocation is required to create a payment.'));
@@ -120,10 +120,14 @@ class CustomerPaymentController extends Controller
             // Create allocations if provided
             if ($request->allocations) {
                 foreach ($request->allocations as $allocation) {
+                    $invoices = SalesInvoice::where('id', $allocation['invoice_id'])->first();
                     $paymentAllocation = new CustomerPaymentAllocation();
                     $paymentAllocation->payment_id = $payment->id;
                     $paymentAllocation->invoice_id = $allocation['invoice_id'];
                     $paymentAllocation->allocated_amount = $allocation['amount'];
+                    $paymentAllocation->dues = $invoices->balance_amount - $allocation['amount'];
+                    $paymentAllocation->creator_id = Auth::id();
+                    $paymentAllocation->created_by = creatorId();
                     $paymentAllocation->save();
                 }
             }
@@ -132,7 +136,8 @@ class CustomerPaymentController extends Controller
             if ($request->credit_notes) {
                 foreach ($request->credit_notes as $creditNote) {
                     $creditNoteModel = CreditNote::find($creditNote['credit_note_id']);
-                    if (!$creditNoteModel) continue;
+                    if (!$creditNoteModel)
+                        continue;
 
                     // Create credit note application entry
                     CreditNoteApplication::create([
@@ -150,8 +155,7 @@ class CustomerPaymentController extends Controller
             CreateCustomerPayment::dispatch($request, $payment);
 
             return redirect()->route('account.customer-payments.index')->with('success', __('The customer payment has been created successfully.'));
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -180,12 +184,11 @@ class CustomerPaymentController extends Controller
 
     public function updateStatus(Request $request, CustomerPayment $customerPayment)
     {
-        if(Auth::user()->can('cleared-customer-payments') && $customerPayment->created_by == creatorId()){
+        if (Auth::user()->can('cleared-customer-payments') && $customerPayment->created_by == creatorId()) {
             try {
                 // Create journal entry and update invoices when payment is cleared
-                if($request->status === 'cleared') {
-                    if($customerPayment->payment_amount > 0)
-                    {
+                if ($request->status === 'cleared') {
+                    if ($customerPayment->payment_amount > 0) {
                         $this->journalService->createCustomerPaymentJournal($customerPayment);
                         $this->bankTransactionsService->createCustomerPayment($customerPayment);
                     }
@@ -215,21 +218,21 @@ class CustomerPaymentController extends Controller
                 }
 
                 $customerPayment->update(['status' => $request->status]);
-                 // Dispatch event
+                // Dispatch event
                 UpdateCustomerPaymentStatus::dispatch($request, $customerPayment);
-                if($customerPayment->status == "cleared"){
+                if ($customerPayment->status == "cleared") {
                     // Send email notification
-                    if(company_setting('Customer Payment') == 'on') {
+                    if (company_setting('Customer Payment') == 'on') {
                         $customerPayment->load('customer');
                         $emailData = [
-                            'payment_number'   => $customerPayment->payment_number ?? null,
-                            'payment_date'     => $customerPayment->payment_date ? \Carbon\Carbon::parse($customerPayment->payment_date)->format('d M Y') : null,
-                            'customer_name'    => $customerPayment->customer->name ?? null,
-                            'payment_amount'   => number_format($customerPayment->payment_amount, 2),
+                            'payment_number' => $customerPayment->payment_number ?? null,
+                            'payment_date' => $customerPayment->payment_date ? \Carbon\Carbon::parse($customerPayment->payment_date)->format('d M Y') : null,
+                            'customer_name' => $customerPayment->customer->name ?? null,
+                            'payment_amount' => number_format($customerPayment->payment_amount, 2),
                             'reference_number' => $customerPayment->reference_number ?? null,
                         ];
                         $message = EmailTemplate::sendEmailTemplate('Customer Payment', [$customerPayment->customer->email ?? null], $emailData);
-                        if($message['is_success'] == false && !empty($message['error'])) {
+                        if ($message['is_success'] == false && !empty($message['error'])) {
                             return back()
                                 ->with('success', __('The payment status are updated successfully.'))
                                 ->with('error', $message['error']);
@@ -240,8 +243,7 @@ class CustomerPaymentController extends Controller
             } catch (\Exception $e) {
                 return back()->with('error', $e->getMessage());
             }
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }
@@ -251,8 +253,12 @@ class CustomerPaymentController extends Controller
         if (Auth::user()->can('view-customer-payments') || Auth::user()->can('manage-customer-payments')) {
             $customerPayment->load(['customer', 'bankAccount', 'allocations.invoice', 'creditNoteApplications.creditNote']);
 
+            $creatorId = $customerPayment->created_by ?? creatorId();
+            $salesInvoiceSetting = SalesInvoiceSetup::getSettings($creatorId);
+
             return Inertia::render('Account/CustomerPayments/Print', [
                 'payment' => $customerPayment,
+                'salesInvoiceSetting' => $salesInvoiceSetting,
             ]);
         } else {
             return back()->with('error', __('Permission denied'));
@@ -261,15 +267,14 @@ class CustomerPaymentController extends Controller
 
     public function destroy(CustomerPayment $customerPayment)
     {
-        if(Auth::user()->can('delete-customer-payments') && $customerPayment->created_by == creatorId() && $customerPayment->status === 'pending'){
+        if (Auth::user()->can('delete-customer-payments') && $customerPayment->created_by == creatorId() && $customerPayment->status === 'pending') {
 
             // Dispatch event before deletion
             DestroyCustomerPayment::dispatch($customerPayment);
 
             $customerPayment->delete();
             return back()->with('success', __('The customer payment has been deleted.'));
-        }
-        else{
+        } else {
             return back()->with('error', __('Permission denied'));
         }
     }

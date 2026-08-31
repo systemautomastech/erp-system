@@ -291,12 +291,23 @@
         $termsLines = !empty($termsText) ? max(ceil(strlen($termsText) / 75), $termsBlockTags, 1) : 0;
         $termsHeightMm = $termsLines > 0 ? (12 + $termsLines * 5) : 0;
 
-        // Base Summary (Subtotal + Total + Greeting + margins) = ~34mm + (extra tax/discount rows * 6mm) + Payment terms
+        $allPaymentAllocations = $invoice->paymentAllocations ?? $invoice->payment_allocations ?? collect();
+        $clearedPaymentAllocations = collect($allPaymentAllocations)->filter(function ($alloc) {
+            $status = $alloc->payment->status ?? $alloc->status ?? 'cleared';
+            return strtolower($status) === 'cleared';
+        })->values();
+        $paymentCount = count($clearedPaymentAllocations);
+        $paymentSummaryHeightMm = $paymentCount > 0 ? (16 + ($paymentCount * 7.5)) : 0;
+
+        // Base Summary (Subtotal + Total + Greeting + margins) = ~34mm + (extra tax/discount/paid/balance rows * 6mm) + Payment terms + Payment Summary
         $extraSummaryRows = 1;
         if (($invoice->discount_amount ?? 0) > 0) $extraSummaryRows++;
         if (($invoice->tax_amount ?? 0) > 0) $extraSummaryRows++;
+        if (($invoice->paid_amount ?? 0) > 0 && ($invoice->balance_amount ?? 0) > 0) {
+            $extraSummaryRows += 2; // Paid Amount + Balance Due
+        }
         
-        $summaryTotalHeightMm = 34 + ($extraSummaryRows * 6) + $termsHeightMm;
+        $summaryTotalHeightMm = 34 + ($extraSummaryRows * 6) + $termsHeightMm + $paymentSummaryHeightMm;
 
         $rawItems = $invoice->items ? $invoice->items->all() : [];
         $chunks = [];
@@ -595,10 +606,63 @@
                                         <td style="padding: 6px 8px; font-size: 11px; color: #0f172a; border: 1px solid #94a3b8; text-align: right;">{{ __('TOTAL') }}:</td>
                                         <td style="padding: 6px 8px; font-size: 11px; text-align: right; color: #0f172a; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->total_amount) }}</td>
                                     </tr>
+                                    @if(($invoice->paid_amount ?? 0) > 0 && ($invoice->balance_amount ?? 0) > 0)
+                                        <tr class="page-break-inside-avoid">
+                                            <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                                            <td style="padding: 5px 8px; font-weight: 600; color: #475569; border: 1px solid #94a3b8; text-align: right;">{{ __('Paid Amount') }}:</td>
+                                            <td style="padding: 5px 8px; text-align: right; font-weight: 600; color: #1e293b; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->paid_amount) }}</td>
+                                        </tr>
+                                        <tr class="page-break-inside-avoid" style="font-weight: 700;">
+                                            <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                                            <td style="padding: 5px 8px; font-size: 10.5px; color: #0f172a; border: 1px solid #94a3b8; text-align: right;">{{ __('Balance Due') }}:</td>
+                                            <td style="padding: 5px 8px; font-size: 10.5px; text-align: right; color: #0f172a; border: 1px solid #94a3b8;">{{ $formatCurrency($invoice->balance_amount) }}</td>
+                                        </tr>
+                                    @endif
                                 </tfoot>
                             @endif
                         </table>
                     </div>
+
+                    @php
+                        $paymentAllocations = $clearedPaymentAllocations ?? collect();
+                    @endphp
+
+                    <!-- Payment Summary Table (Exact same design as Items Table, Shown on Last Page only if cleared allocations exist) -->
+                    @if($isLastPage && count($paymentAllocations) > 0)
+                        <div class="mb-4 page-break-inside-avoid">
+                            <div style="font-size: 10px; font-weight: 700; color: #0f172a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                {{ __('Payment Summary') }}
+                            </div>
+                            <table style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #94a3b8;">
+                                <thead>
+                                    <tr style="background-color: #e2e8f0; color: #0f172a; font-weight: 700;">
+                                        <th style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; font-size: 9.5px; width: 6%;">{{ __('SN') }}</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: left; font-size: 9.5px; width: 26%;">{{ __('Payment Date') }}</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: left; font-size: 9.5px; width: 44%;">{{ __('Payment Method') }}</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; font-size: 9.5px; width: 24%;">{{ __('Allocated Amount') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($paymentAllocations as $pIdx => $alloc)
+                                        @php
+                                            $pPayment = $alloc->payment ?? null;
+                                            $pBankAccount = $pPayment?->bankAccount ?? $pPayment?->bank_account ?? null;
+                                            $pMethod = !empty($pBankAccount?->account_name)
+                                                ? ($pBankAccount->account_name . (!empty($pBankAccount->account_number) ? ' (' . $pBankAccount->account_number . ')' : ''))
+                                                : ($pPayment?->payment_method ?: '-');
+                                            $pDate = $pPayment?->payment_date ?: $alloc->created_at;
+                                        @endphp
+                                        <tr class="page-break-inside-avoid">
+                                            <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #475569;">{{ $pIdx + 1 }}</td>
+                                            <td style="padding: 6px 8px; border: 1px solid #94a3b8; vertical-align: top; color: #475569;">{{ $formatDate($pDate) }}</td>
+                                            <td style="padding: 6px 8px; border: 1px solid #94a3b8; vertical-align: top; color: #0f172a; font-weight: 500;">{{ $pMethod }}</td>
+                                            <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; font-weight: 600; color: #0f172a;">{{ $formatCurrency($alloc->allocated_amount ?? 0) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
 
                 <!-- Footer (Payment Terms & Business Greeting on Last Page Only) -->
@@ -645,7 +709,7 @@
                             if (loader) loader.classList.add('hidden');
                         }, 2000);
                     }, 800);
-                } else if (urlParams.get('print') === '1' || urlParams.has('print')) {
+                } else {
                     setTimeout(() => window.print(), 400);
                 }
             });

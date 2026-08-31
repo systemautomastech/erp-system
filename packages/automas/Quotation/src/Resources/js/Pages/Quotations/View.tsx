@@ -6,7 +6,7 @@ import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { RefreshCw, Download, ArrowLeft, Printer } from 'lucide-react';
+import { RefreshCw, Download, ArrowLeft, Printer, Edit } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFormFields } from '@/hooks/useFormFields';
 
@@ -15,7 +15,12 @@ interface SalesQuotation {
     quotation_number: string;
     quotation_date: string;
     due_date: string;
-    customer: { id: number; name: string; email: string };
+    customer_id?: number | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
+    customer: { id: number; name: string; email: string; phone?: string; address?: string };
     subtotal: number;
     tax_amount: number;
     discount_amount: number;
@@ -29,6 +34,8 @@ interface SalesQuotation {
     items?: Array<{
         id: number;
         product_id: number;
+        description?: string;
+        product_description?: string;
         quantity: number;
         unit_price: number;
         discount_percentage: number;
@@ -36,17 +43,16 @@ interface SalesQuotation {
         tax_percentage: number;
         tax_amount: number;
         total_amount: number;
+        section?: 'otc' | 'mrc' | null;
         product?: {
             id: number;
             name: string;
-            sku?: string;
+            sku: string;
             description?: string;
+            sale_price?: number;
+            unit?: string;
+            unitRelation?: { unit_name: string };
         };
-        taxes?: Array<{
-            id: number;
-            tax_name: string;
-            tax_rate: number;
-        }>;
     }>;
 }
 
@@ -63,7 +69,7 @@ export default function View() {
 
     useFlashMessages();
 
-    const customFields = useFormFields('getCustomFields', { module: 'General', sub_module: 'quotation', id: quotation.id }, () => {}, {}, 'view', t);
+    const customFields = useFormFields('getCustomFields', { ...quotation, module: 'Quotation', sub_module: 'Quotation', id: quotation.id }, () => {}, {}, 'view', t);
 
     const getquotationStatusColor = (status: string) => {
         switch (status?.toLowerCase()) {
@@ -160,7 +166,16 @@ export default function View() {
                                 </div>
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap gap-2">
+                                            {auth.user?.permissions?.includes('edit-quotations') && (
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('quotations.edit', quotation.id))}
+                                                >
+                                                    <Edit className="h-4 w-4 mr-2" />
+                                                    {t('Edit')}
+                                                </Button>
+                                            )}
                                             {auth.user?.permissions?.includes('print-quotations') && (
                                                 <>
                                                     <Button

@@ -43,17 +43,17 @@ class QuotationDefaultPageController extends Controller
 
     private function authorizePage(QuotationDefaultPage $defaultPage): bool
     {
-        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $creatorId = creatorId() ?? Auth::id();
         return $defaultPage->created_by == $creatorId && ($defaultPage->creator_id == Auth::id() || $defaultPage->creator_id == $creatorId);
     }
 
     public function create()
     {
-        if (!Auth::user()->can('manage-quotations')) {
-            return back()->with('error', __('Permission denied'));
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
+            return redirect()->route('quotations.index')->with('error', __('Permission denied'));
         }
 
-        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $creatorId = creatorId() ?? Auth::id();
         $settings = QuotationSetting::getSettings($creatorId);
         $maxSortOrder = QuotationDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
 
@@ -66,11 +66,11 @@ class QuotationDefaultPageController extends Controller
 
     public function store(StoreQuotationDefaultPageRequest $request)
     {
-        if (!Auth::user()->can('manage-quotations')) {
-            return back()->with('error', __('Permission denied'));
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
+            return redirect()->route('quotations.index')->with('error', __('Permission denied'));
         }
 
-        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $creatorId = creatorId() ?? Auth::id();
         $validated = $request->validated();
 
         QuotationDefaultPage::create(array_merge($validated, [
@@ -87,15 +87,15 @@ class QuotationDefaultPageController extends Controller
 
     public function edit(QuotationDefaultPage $defaultPage)
     {
-        if (!Auth::user()->can('manage-quotations')) {
-            return back()->with('error', __('Permission denied'));
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
+            return redirect()->route('quotations.index')->with('error', __('Permission denied'));
         }
 
         if (!$this->authorizePage($defaultPage)) {
             return redirect()->route('quotation-setup.index')->with('error', __('Unauthorized access.'));
         }
 
-        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $creatorId = creatorId() ?? Auth::id();
         $settings = QuotationSetting::getSettings($creatorId);
 
         return Inertia::render('Quotation/Settings/DefaultPages/Edit', [
@@ -107,15 +107,15 @@ class QuotationDefaultPageController extends Controller
 
     public function update(UpdateQuotationDefaultPageRequest $request, QuotationDefaultPage $defaultPage)
     {
-        if (!Auth::user()->can('manage-quotations')) {
-            return back()->with('error', __('Permission denied'));
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
+            return redirect()->route('quotations.index')->with('error', __('Permission denied'));
         }
 
         if (!$this->authorizePage($defaultPage)) {
             return redirect()->route('quotation-setup.index')->with('error', __('Unauthorized access.'));
         }
 
-        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $creatorId = creatorId() ?? Auth::id();
         $validated = $request->validated();
 
         $defaultPage->update(array_merge($validated, [
@@ -132,7 +132,7 @@ class QuotationDefaultPageController extends Controller
 
     public function destroy(QuotationDefaultPage $defaultPage)
     {
-        if (!Auth::user()->can('manage-quotations')) {
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
             return back()->with('error', __('Permission denied'));
         }
 

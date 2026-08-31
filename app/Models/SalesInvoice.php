@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Automas\Account\Models\CustomerPaymentAllocation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -67,7 +68,7 @@ class SalesInvoice extends Model
 
     public function paymentAllocations(): HasMany
     {
-        return $this->hasMany(\Automas\Account\Models\CustomerPaymentAllocation::class, 'invoice_id');
+        return $this->hasMany(CustomerPaymentAllocation::class, 'invoice_id');
     }
 
     public function salesReturns(): HasMany

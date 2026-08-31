@@ -29,6 +29,33 @@ export interface SalesInvoice {
     customer_details?: CustomerDetails;
     warehouse?: Warehouse;
     items?: SalesInvoiceItem[];
+    paymentAllocations?: CustomerPaymentAllocation[];
+    payment_allocations?: CustomerPaymentAllocation[];
+}
+
+export interface CustomerPaymentAllocation {
+    id?: number;
+    payment_id?: number;
+    invoice_id?: number;
+    allocated_amount?: number;
+    dues?: number;
+    created_at?: string;
+    updated_at?: string;
+    payment?: {
+        id?: number;
+        payment_date?: string;
+        payment_method?: string;
+        status?: string;
+        bank_account_id?: number;
+        bankAccount?: {
+            id?: number;
+            account_name?: string;
+            account_number?: string;
+            bank_name?: string;
+        };
+        [key: string]: any;
+    };
+    [key: string]: any;
 }
 
 export interface SalesInvoiceItem {

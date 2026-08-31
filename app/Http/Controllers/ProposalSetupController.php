@@ -14,6 +14,10 @@ class ProposalSetupController extends Controller
 {
     public function index()
     {
+        if (!Auth::user()->can('manage-proposal-system-setup')) {
+            return redirect()->route('dashboard')->with('error', __('Permission denied'));
+        }
+
         $settings = ProposalSetting::getSettings(creatorId());
 
         $defaultPages = ProposalDefaultPage::with('authorUser:id,name,email')
@@ -33,6 +37,10 @@ class ProposalSetupController extends Controller
 
     public function updateSettings(Request $request)
     {
+        if (!Auth::user()->can('manage-proposal-system-setup')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
         $settingsData = $request->input('settings', $request->except(['_token', '_method']));
 
         ProposalSetting::setSettings($settingsData, creatorId());
@@ -70,6 +78,10 @@ class ProposalSetupController extends Controller
 
     public function createDefaultPage()
     {
+        if (!Auth::user()->can('manage-proposal-system-setup')) {
+            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
+        }
+
         $settings = ProposalSetting::getSettings(creatorId());
         $maxSortOrder = ProposalDefaultPage::where('created_by', creatorId())->max('sort_order') ?? 0;
 
@@ -82,6 +94,10 @@ class ProposalSetupController extends Controller
 
     public function storeDefaultPage(StoreDefaultPageRequest $request)
     {
+        if (!Auth::user()->can('manage-proposal-system-setup')) {
+            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
+        }
+
         $validated = $request->validated();
         ProposalDefaultPage::create(array_merge($validated, [
             'created_by' => creatorId(),
@@ -103,6 +119,10 @@ class ProposalSetupController extends Controller
 
     public function editDefaultPage(ProposalDefaultPage $defaultPage)
     {
+        if (!Auth::user()->can('manage-proposal-system-setup')) {
+            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
+        }
+
         if (!$this->authorizePage($defaultPage)) {
             return redirect()->route('proposal-setup.index')->with('error', __('Unauthorized access.'));
         }
@@ -118,6 +138,10 @@ class ProposalSetupController extends Controller
 
     public function updateDefaultPage(UpdateDefaultPageRequest $request, ProposalDefaultPage $defaultPage)
     {
+        if (!Auth::user()->can('manage-proposal-system-setup')) {
+            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
+        }
+
         if (!$this->authorizePage($defaultPage)) {
             return redirect()->route('proposal-setup.index')->with('error', __('Unauthorized access.'));
         }
@@ -138,6 +162,10 @@ class ProposalSetupController extends Controller
 
     public function destroyDefaultPage(ProposalDefaultPage $defaultPage)
     {
+        if (!Auth::user()->can('manage-proposal-system-setup')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
         if (!$this->authorizePage($defaultPage)) {
             return redirect()->back()->with('error', __('Unauthorized access.'));
         }
