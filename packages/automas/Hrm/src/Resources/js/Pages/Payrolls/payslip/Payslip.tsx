@@ -155,20 +155,15 @@ export default function Payslip() {
     const letterheadUrl = bgLetterhead ? getImagePath(bgLetterhead) : '';
     const hrSignatureUrl = hrSignature ? getImagePath(hrSignature) : '';
 
-    // useEffect(() => {
-    //     const urlParams = new URLSearchParams(window.location.search);
-    //     if (urlParams.get('download') === 'pdf') {
-    //         downloadPDF();
-    //     }
-    // }, []);
-
-    const downloadPDF = () => {
-        setIsDownloading(true);
-        window.location.href = route('hrm.payroll-entries.download', payrollEntry.id);
-        setTimeout(() => {
-            setIsDownloading(false);
-        }, 2000);
-    };
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('print') === '1' || urlParams.get('autoprint') === '1' || urlParams.get('download') === 'pdf') {
+            const timer = setTimeout(() => {
+                window.print();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, []);
 
     const handlePrint = () => {
         window.print();
@@ -214,31 +209,13 @@ export default function Payslip() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={handlePrint}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-300 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white rounded transition-colors"
                     >
                         <Printer className="h-3.5 w-3.5" />
                         {t('Print')}
                     </button>
-                    <button
-                        onClick={downloadPDF}
-                        disabled={isDownloading}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white rounded transition-colors disabled:opacity-50"
-                    >
-                        <Download className="h-3.5 w-3.5" />
-                        {isDownloading ? t('Generating PDF...') : t('Download PDF')}
-                    </button>
                 </div>
             </div>
-
-            {/* Downloading Overlay */}
-            {isDownloading && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 no-print">
-                    <div className="bg-white p-5 rounded-lg shadow-xl flex items-center space-x-3 border border-slate-200">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-900 border-t-transparent"></div>
-                        <p className="text-sm font-semibold text-slate-800">{t('Generating Payslip PDF...')}</p>
-                    </div>
-                </div>
-            )}
 
             {/* Printable Payslip Container (Strict 1-Page A4 Dimensions) */}
             <div

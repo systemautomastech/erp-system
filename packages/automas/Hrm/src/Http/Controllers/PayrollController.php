@@ -24,7 +24,6 @@ use Automas\Hrm\Events\DestroyPayroll;
 use Automas\Hrm\Events\DestroySalarySlip;
 use Automas\Hrm\Events\PaySalary;
 use App\Models\EmailTemplate;
-use Spatie\LaravelPdf\Facades\Pdf;
 
 class PayrollController extends Controller
 {
@@ -562,35 +561,6 @@ class PayrollController extends Controller
                 'payrollEntry' => $payrollEntry,
                 'companySettings' => getCompanyAllSetting(),
             ]);
-        } else {
-            return redirect()->back()->with('error', __('Permission denied'));
-        }
-    }
-
-    public function downloadPayslip(PayrollEntry $payrollEntry)
-    {
-        if (Auth::user()->can('download-payslip')) {
-            $payrollEntry->load([
-                'employee.user',
-                'employee.designation',
-                'employee.department',
-                'payroll',
-            ]);
-
-            $companySettings = getCompanyAllSetting();
-
-            $empName = $payrollEntry->employee->user->name ?? $payrollEntry->employee->name ?? 'Employee';
-            $sanitizedName = preg_replace('/[^\w\.-]/', '_', str_replace(' ', '_', $empName));
-            $payPeriodStart = \Carbon\Carbon::parse($payrollEntry->payroll->pay_period_start ?? now())->format('Y-m-d');
-            $filename = "payslip-{$sanitizedName}-{$payPeriodStart}.pdf";
-
-            return Pdf::view('hrm::payrolls.payslip.pdf', [
-                'payrollEntry' => $payrollEntry,
-                'companySettings' => $companySettings,
-            ])
-                ->format('a4')
-                ->portrait()
-                ->download($filename);
         } else {
             return redirect()->back()->with('error', __('Permission denied'));
         }

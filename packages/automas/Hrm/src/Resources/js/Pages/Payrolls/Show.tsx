@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Calculator, Users, DollarSign, Calendar, Download, Eye, Trash2, CreditCard } from "lucide-react";
+import { Calculator, Users, DollarSign, Calendar, Printer, Eye, Trash2, CreditCard, Search, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDate, formatCurrency } from '@/utils/helpers';
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface PayrollEntry {
     id: number;
@@ -74,7 +76,17 @@ export default function Show() {
     const { payroll, auth } = usePage<ShowProps>().props;
     const [selectedPayrollEntry, setSelectedPayrollEntry] = useState<PayrollEntry | null>(null);
     const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
-    
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+
+    const filteredEntries = (payroll.payroll_entries || []).filter((entry) => {
+        const name = entry.employee?.user?.name || entry.employee?.name || '';
+        const email = entry.employee?.user?.email || entry.employee?.email || '';
+        const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || email.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || (entry.status || 'unpaid') === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
     useFlashMessages();
 
     const openPayslipModal = (entry: PayrollEntry) => {
@@ -95,7 +107,7 @@ export default function Show() {
             }
         });
     };
-    
+
     const { deleteState, openDeleteDialog, closeDeleteDialog, confirmDelete } = useDeleteHandler({
         routeName: 'hrm.payroll-entries.destroy',
         defaultMessage: t('Are you sure you want to delete this payroll entry? This will remove the salary calculation for this employee.')
@@ -202,12 +214,12 @@ export default function Show() {
                         {auth.user?.permissions?.includes('download-payslip') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="sm" onClick={() => window.open(route('hrm.payroll-entries.print', entry.id) + '?download=pdf', '_blank')} className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700">
-                                        <Download className="h-4 w-4" />
+                                    <Button variant="ghost" size="sm" onClick={() => window.open(route('hrm.payroll-entries.print', entry.id) + '?print=1', '_blank')} className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700">
+                                        <Printer className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>{t('Download')}</p>
+                                    <p>{t('Print Payslip')}</p>
                                 </TooltipContent>
                             </Tooltip>
                         )}
@@ -282,13 +294,12 @@ export default function Show() {
                                     </div>
                                 </div>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                payroll.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                payroll.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                                payroll.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                payroll.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
-                            }`}>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${payroll.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                                    payroll.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                        payroll.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                            payroll.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                                'bg-yellow-100 text-yellow-800'
+                                }`}>
                                 {t(payroll.status?.charAt(0).toUpperCase() + payroll.status?.slice(1) || 'Draft')}
                             </span>
                         </div>
@@ -338,14 +349,48 @@ export default function Show() {
 
                 {/* Employee Salary Details */}
                 <Card className="shadow-sm">
-                    <CardHeader className="pb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                                <Users className="h-5 w-5 text-gray-600" />
+                    <CardHeader className="pb-4 border-b">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <Users className="h-5 w-5 text-gray-600" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">{t('Employee Salary Details')}</CardTitle>
+                                    <p className="text-sm text-gray-600 mt-1">{t('Detailed breakdown of employee salaries and deductions')}</p>
+                                </div>
                             </div>
-                            <div>
-                                <CardTitle className="text-lg font-semibold text-gray-900">{t('Employee Salary Details')}</CardTitle>
-                                <p className="text-sm text-gray-600 mt-1">{t('Detailed breakdown of employee salaries and deductions')}</p>
+
+                            {/* Filter Options */}
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <div className="relative w-full sm:w-64">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder={t('Search employee...')}
+                                        className="pl-9 pr-8 bg-white h-9 text-sm"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSearchQuery('')}
+                                            className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val)}>
+                                    <SelectTrigger className="w-36 bg-white h-9 text-sm">
+                                        <SelectValue placeholder={t('Status')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{t('All Status')}</SelectItem>
+                                        <SelectItem value="paid">{t('Paid')}</SelectItem>
+                                        <SelectItem value="unpaid">{t('Unpaid')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                     </CardHeader>
@@ -353,7 +398,7 @@ export default function Show() {
                         <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[60vh] rounded-none w-full">
                             <div className="min-w-[1200px]">
                                 <DataTable
-                                    data={payroll.payroll_entries || []}
+                                    data={filteredEntries}
                                     columns={tableColumns}
                                     className="rounded-none"
                                     emptyState={
@@ -363,7 +408,9 @@ export default function Show() {
                                             </div>
                                             <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('No Salary Data')}</h3>
                                             <p className="text-gray-500 text-center max-w-md leading-relaxed">
-                                                {t('No employee salary data found for this payroll. Run the payroll process to generate salary calculations.')}
+                                                {searchQuery || statusFilter !== 'all'
+                                                    ? t('No employee salary data matching your search filters.')
+                                                    : t('No employee salary data found for this payroll. Run the payroll process to generate salary calculations.')}
                                             </p>
                                         </div>
                                     }
@@ -373,7 +420,7 @@ export default function Show() {
                     </CardContent>
                 </Card>
             </div>
-            
+
             <ConfirmationDialog
                 open={deleteState.isOpen}
                 onOpenChange={closeDeleteDialog}
@@ -383,7 +430,7 @@ export default function Show() {
                 onConfirm={confirmDelete}
                 variant="destructive"
             />
-            
+
             <PayslipModal
                 open={isPayslipModalOpen}
                 onOpenChange={closePayslipModal}
