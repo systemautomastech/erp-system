@@ -3,6 +3,7 @@ import { PaginatedData, ModalState, AuthContext, CreateProps, EditProps } from '
 export interface Pipeline {
     id: number;
     name: string;
+    is_default?: boolean | number;
     created_at: string;
 }
 

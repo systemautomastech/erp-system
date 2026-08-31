@@ -34,7 +34,7 @@ class LeadStageController extends Controller
 
             return Inertia::render('Lead/SystemSetup/LeadStages/Index', [
                 'leadstages' => $leadstages,
-                'pipelines' => Pipeline::where('created_by', creatorId())->select('id', 'name')->get(),
+                'pipelines' => Pipeline::where('created_by', creatorId())->select('id', 'name')->orderBy('id', 'desc')->get(),
             ]);
         }
         else{

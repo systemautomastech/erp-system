@@ -108,12 +108,7 @@ class LeadController extends Controller
                 })
                 ->when(request('is_active') !== null && request('is_active') !== '', fn($q) => $q->where('is_active', request('is_active') === '1' ? 1 : 0))
                 ->when(request('user_id') && request('user_id') !== '', fn($q) => $q->where('user_id', request('user_id')))
-                ->when(request('pipeline_id') && request('pipeline_id') !== '', fn($q) => $q->where('pipeline_id', request('pipeline_id')), function ($q) use ($defaultPipelineId) {
-                    // If no pipeline_id in request, use default pipeline
-                    if ($defaultPipelineId) {
-                        $q->where('pipeline_id', $defaultPipelineId);
-                    }
-                })
+                ->when(request('pipeline_id') && request('pipeline_id') !== '' && request('pipeline_id') !== 'all', fn($q) => $q->where('pipeline_id', request('pipeline_id')))
                 ->when(request('stage_id') && request('stage_id') !== '', fn($q) => $q->where('stage_id', request('stage_id')))
                 ->when(request('date_from'), fn($q) => $q->whereDate('date', '>=', request('date_from')))
                 ->when(request('date_to'), fn($q) => $q->whereDate('date', '<=', request('date_to')))
@@ -126,11 +121,12 @@ class LeadController extends Controller
                 ->select('id', 'name')
                 ->get();
 
-            $pipelines = Pipeline::where('created_by', creatorId())->select('id', 'name')->get();
-            $activePipelineId = request('pipeline_id') ?: $defaultPipelineId;
+            $pipelines = Pipeline::where('created_by', creatorId())->orderBy('id', 'desc')->select('id', 'name')->get();
+            $activePipelineId = (request('pipeline_id') && request('pipeline_id') !== 'all') ? request('pipeline_id') : null;
             $stages = LeadStage::where('created_by', creatorId())
                 ->when($activePipelineId, fn($q) => $q->where('pipeline_id', $activePipelineId))
-                ->select('id', 'name', 'pipeline_id')
+                ->orderBy('order', 'asc')
+                ->select('id', 'name', 'pipeline_id', 'order')
                 ->get();
             $labels = Label::with('pipeline')->where('created_by', creatorId())->select('id', 'name', 'color', 'pipeline_id')->get();
             $sources = Source::where('created_by', creatorId())->get(['id', 'name']);
@@ -145,7 +141,7 @@ class LeadController extends Controller
                 'sources' => $sources,
                 'subjects' => $subjects,
                 'products' => $products,
-                'currentPipelineId' => request('pipeline_id') ?: $defaultPipelineId,
+                'currentPipelineId' => $activePipelineId,
                 'pbxModuleActive' => module_is_active('Pbx'),
             ]);
         } else {
@@ -160,19 +156,40 @@ class LeadController extends Controller
             $validated['is_active'] = $request->boolean('is_active', true);
 
             $usr = Auth::user();
-            $pipelines = Pipeline::where('created_by', '=', creatorId());
+            $pipeline = null;
 
-            if ($usr->default_pipeline) {
-                $pipeline = $pipelines->where('id', '=', $usr->default_pipeline)->first();
-                if (!$pipeline) {
-                    $pipeline = $pipelines->first();
+            if ($request->filled('pipeline_id')) {
+                $pipeline = Pipeline::where('created_by', '=', creatorId())
+                    ->where('id', '=', $request->pipeline_id)
+                    ->first();
+            }
+
+            if (!$pipeline) {
+                if ($usr->default_pipeline) {
+                    $pipeline = Pipeline::where('created_by', '=', creatorId())
+                        ->where('id', '=', $usr->default_pipeline)
+                        ->first();
                 }
-            } else {
-                $pipeline = $pipelines->first();
+                if (!$pipeline) {
+                    $pipeline = Pipeline::where('created_by', '=', creatorId())
+                        ->where('is_default', '=', true)
+                        ->first();
+                }
+                if (!$pipeline) {
+                    $pipeline = Pipeline::where('created_by', '=', creatorId())->first();
+                }
             }
 
             if (!empty($pipeline)) {
-                $stage = LeadStage::where('pipeline_id', '=', $pipeline->id)->first();
+                $stage = null;
+                if ($request->filled('stage_id')) {
+                    $stage = LeadStage::where('pipeline_id', '=', $pipeline->id)
+                        ->where('id', '=', $request->stage_id)
+                        ->first();
+                }
+                if (!$stage) {
+                    $stage = LeadStage::where('pipeline_id', '=', $pipeline->id)->orderBy('order', 'asc')->first();
+                }
             } else {
                 return redirect()->route('lead.leads.index')->with('error', __('Please create pipeline.'));
             }
@@ -406,6 +423,7 @@ class LeadController extends Controller
     {
         $stages = LeadStage::where('pipeline_id', $pipelineId)
             ->where('created_by', creatorId())
+            ->orderBy('order', 'asc')
             ->select('id', 'name')
             ->get();
 

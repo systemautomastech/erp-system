@@ -55,23 +55,7 @@ class DealController extends Controller
     public function index()
     {
         if (Auth::user()->can('manage-deals')) {
-            // Get user's default pipeline or first available pipeline
             $usr = Auth::user();
-            $defaultPipelineId = null;
-
-            if ($usr->default_pipeline) {
-                $pipeline = Pipeline::where('created_by', creatorId())
-                    ->where('id', $usr->default_pipeline)
-                    ->first();
-                if ($pipeline) {
-                    $defaultPipelineId = $pipeline->id;
-                }
-            }
-
-            if (!$defaultPipelineId) {
-                $pipeline = Pipeline::where('created_by', creatorId())->first();
-                $defaultPipelineId = $pipeline ? $pipeline->id : null;
-            }
 
             $deals = Deal::select('id', 'name', 'price', 'pipeline_id', 'stage_id', 'phone', 'status', 'sources', 'products', 'notes', 'labels', 'created_at')
                 ->with(['pipeline:id,name', 'stage:id,name', 'creator:id,name', 'users:id,name,avatar', 'clientDeals:id,deal_id,client_id', 'clientDeals.client:id,name,avatar'])
@@ -91,20 +75,19 @@ class DealController extends Controller
                     }
                 })
                 ->when(request('name'), fn($q) => $q->where('name', 'like', '%' . request('name') . '%'))
-                ->when(request('pipeline_id') && request('pipeline_id') !== '', fn($q) => $q->where('pipeline_id', request('pipeline_id')), function ($q) use ($defaultPipelineId) {
-                    // If no pipeline_id in request, use default pipeline
-                    if ($defaultPipelineId) {
-                        $q->where('pipeline_id', $defaultPipelineId);
-                    }
-                })
-                ->when(request('stage_id'), fn($q) => $q->where('stage_id', request('stage_id')))
+                ->when(request('pipeline_id') && request('pipeline_id') !== '' && request('pipeline_id') !== 'all', fn($q) => $q->where('pipeline_id', request('pipeline_id')))
+                ->when(request('stage_id') && request('stage_id') !== '', fn($q) => $q->where('stage_id', request('stage_id')))
                 ->when(request('status') !== null && request('status') !== '', fn($q) => $q->where('status', request('status')))
                 ->when(request('sort'), fn($q) => $q->orderBy(request('sort'), request('direction', 'asc')), fn($q) => $q->latest())
                 ->paginate(request('per_page', 10))
                 ->withQueryString();
 
-            $pipelines = Pipeline::where('created_by', creatorId())->get(['id', 'name']);
-            $stages = DealStage::where('created_by', creatorId())->get(['id', 'name', 'pipeline_id']);
+            $pipelines = Pipeline::where('created_by', creatorId())->orderBy('id', 'desc')->get(['id', 'name']);
+            $activePipelineId = (request('pipeline_id') && request('pipeline_id') !== 'all') ? request('pipeline_id') : null;
+            $stages = DealStage::where('created_by', creatorId())
+                ->when($activePipelineId, fn($q) => $q->where('pipeline_id', $activePipelineId))
+                ->orderBy('order', 'asc')
+                ->get(['id', 'name', 'pipeline_id', 'order']);
             $users = User::where('created_by', creatorId())->where('type', 'client')->get(['id', 'name']);
             $sources = Source::where('created_by', creatorId())->get(['id', 'name']);
             $products = Module_is_active('ProductService') ? ProductServiceItem::where('created_by', creatorId())->get(['id', 'name']) : [];
@@ -118,7 +101,7 @@ class DealController extends Controller
                 'sources' => $sources,
                 'products' => $products,
                 'labels' => $labels,
-                'currentPipelineId' => request('pipeline_id') ?: $defaultPipelineId,
+                'currentPipelineId' => $activePipelineId,
                 'pbxModuleActive' => module_is_active('Pbx'),
             ]);
         } else {
@@ -131,16 +114,17 @@ class DealController extends Controller
         if (Auth::user()->can('create-deals')) {
             $validated = $request->validated();
             $usr = Auth::user();
-            $pipelines = Pipeline::where('created_by', '=', creatorId());
+            $pipeline = null;
             if ($usr->default_pipeline) {
-                $pipeline = $pipelines->where('id', '=', $usr->default_pipeline)->first();
-                if (!$pipeline) {
-                    $pipeline = $pipelines->first();
-                }
-            } else {
-                $pipeline = $pipelines->first();
+                $pipeline = Pipeline::where('created_by', '=', creatorId())->where('id', '=', $usr->default_pipeline)->first();
             }
-            $stage = DealStage::where('pipeline_id', '=', $pipeline->id)->first();
+            if (!$pipeline) {
+                $pipeline = Pipeline::where('created_by', '=', creatorId())->where('is_default', '=', true)->first();
+            }
+            if (!$pipeline) {
+                $pipeline = Pipeline::where('created_by', '=', creatorId())->first();
+            }
+            $stage = DealStage::where('pipeline_id', '=', $pipeline->id)->orderBy('order', 'asc')->first();
             if (empty($stage)) {
                 return redirect()->route('lead.deals.index')->with('error', __('Please create stage for this pipeline.'));
             } else {

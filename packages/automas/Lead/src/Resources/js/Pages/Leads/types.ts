@@ -54,6 +54,9 @@ export interface CreateLeadFormData {
     email: string;
     phone: string;
     date: string;
+    pipeline_id?: string;
+    stage_id?: string;
+    sources?: string[];
 }
 
 export interface EditLeadFormData {

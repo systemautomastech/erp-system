@@ -20,7 +20,9 @@ class StoreLeadRequest extends FormRequest
             'phone' => 'nullable|string|regex:/^\+?\d{10,16}$/',
             'date' => 'nullable|date',
             'user_id' => 'required|exists:users,id',
-            'sources' => 'nullable|exists:sources,id',
+            'sources' => 'nullable',
+            'pipeline_id' => 'nullable|exists:pipelines,id',
+            'stage_id' => 'nullable|exists:lead_stages,id',
         ];
     }
 }

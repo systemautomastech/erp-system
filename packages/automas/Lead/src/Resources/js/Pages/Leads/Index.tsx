@@ -25,7 +25,7 @@ import LabelView from './LabelView';
 import ConvertToDeal from './Show/ConvertToDeal';
 import NoRecordsFound from '@/components/no-records-found';
 import { Lead, LeadsIndexProps, LeadFilters, LeadModalState } from './types';
-import { formatDate, formatDateTime, getImagePath } from '@/utils/helpers';
+import { formatDate, formatDateTime, getImagePath, formatTimeFromDate } from '@/utils/helpers';
 import { usePageButtons } from '@/hooks/usePageButtons';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 
@@ -42,7 +42,7 @@ export default function Index() {
         subject: urlParams.get('subject') || '',
         is_active: urlParams.get('is_active') || '',
         user_id: urlParams.get('user_id') || '',
-        pipeline_id: urlParams.get('pipeline_id') || (currentPipelineId?.toString() || ''),
+        pipeline_id: urlParams.get('pipeline_id') || '',
         stage_id: urlParams.get('stage_id') || '',
         date_range: (() => {
             const fromDate = urlParams.get('date_from');
@@ -507,9 +507,15 @@ export default function Index() {
                 if (!value) return '-';
                 const isExpired = new Date(value) < new Date();
                 return (
-                    <span className={isExpired ? 'text-red-600 font-medium' : ''}>
-                        {formatDate(value)}
-                    </span>
+                    <div className="whitespace-nowrap text-sm">
+                        <div className="text-foreground">
+                            {formatDate(value)}
+                        </div>
+
+                        <div className="text-xs text-muted-foreground">
+                            {formatTimeFromDate(value)}
+                        </div>
+                    </div>
                 );
             }
         },
@@ -521,7 +527,7 @@ export default function Index() {
                 const stageName = row.stage?.name || stages?.find(item => item.id.toString() === row.stage_id?.toString())?.name;
                 const color = getStageColor(row.stage_id);
                 return (
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: `${color}20`, color }}>
+                    <span className="inline-block max-w-[120px] leading-snug break-words px-2 py-1 text-xs font-medium rounded-md" style={{ backgroundColor: `${color}20`, color }}>
                         {stageName || 'No Stage'}
                     </span>
                 );
@@ -673,7 +679,7 @@ export default function Index() {
             pageActions={
                 <div className="flex items-center gap-2">
                     <TooltipProvider>
-                        <Select value={filters.pipeline_id || currentPipelineId?.toString() || ''} onValueChange={(value) => {
+                        <Select value={filters.pipeline_id || 'all'} onValueChange={(value) => {
                             const pipelineId = value === 'all' ? '' : value;
                             setFilters({ ...filters, pipeline_id: pipelineId });
 
@@ -699,6 +705,7 @@ export default function Index() {
                                 <SelectValue placeholder={t('Select Pipeline')} />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="all">{t('All Pipelines')}</SelectItem>
                                 {pipelines?.map((pipeline: any) => (
                                     <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                                         {pipeline.name}

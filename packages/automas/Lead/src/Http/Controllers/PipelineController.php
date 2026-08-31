@@ -21,7 +21,7 @@ class PipelineController extends Controller
     public function index()
     {
         if(Auth::user()->can('manage-pipelines')){
-            $pipelines = Pipeline::select('id', 'name', 'created_at')
+            $pipelines = Pipeline::select('id', 'name', 'is_default', 'created_at')
                 ->where(function($q) {
                     if(Auth::user()->can('manage-any-pipelines')) {
                         $q->where('created_by', creatorId());
@@ -48,9 +48,11 @@ class PipelineController extends Controller
     {
         if(Auth::user()->can('create-pipelines')){
             $validated = $request->validated();
+            $isFirst = Pipeline::where('created_by', creatorId())->count() === 0;
 
             $pipeline             = new Pipeline();
             $pipeline->name       = $validated['name'];
+            $pipeline->is_default = $isFirst;
             $pipeline->creator_id = Auth::id();
             $pipeline->created_by = creatorId();
             $pipeline->save();
@@ -85,6 +87,22 @@ class PipelineController extends Controller
         }
         else{
             return redirect()->route('lead.pipelines.index')->with('error', __('Permission denied'));
+        }
+    }
+
+    public function setDefault(Pipeline $pipeline)
+    {
+        if (Auth::user()->can('edit-pipelines') && $pipeline->created_by == creatorId()) {
+            Pipeline::where('created_by', creatorId())->update(['is_default' => false]);
+            $pipeline->is_default = true;
+            $pipeline->save();
+
+            User::where('created_by', creatorId())->update(['default_pipeline' => $pipeline->id]);
+
+            return back()->with('success', __('Default pipeline updated successfully.'));
+        }
+        else {
+            return back()->with('error', __('Permission denied'));
         }
     }
 

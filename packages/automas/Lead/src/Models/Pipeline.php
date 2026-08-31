@@ -11,6 +11,7 @@ class Pipeline extends Model
 
     protected $fillable = [
         'name',
+        'is_default',
         'creator_id',
         'created_by',
     ];

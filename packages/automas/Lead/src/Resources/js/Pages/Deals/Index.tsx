@@ -27,7 +27,7 @@ import View from './View';
 import LabelView from './LabelView';
 import NoRecordsFound from '@/components/no-records-found';
 import { Deal, DealsIndexProps, DealFilters, DealModalState } from './types';
-import { formatDate, formatTime, formatDateTime, formatCurrency, getImagePath } from '@/utils/helpers';
+import { formatDate, formatTime, formatDateTime, formatCurrency, getImagePath, formatTimeFromDate } from '@/utils/helpers';
 import { usePageButtons } from '@/hooks/usePageButtons';
 
 
@@ -40,7 +40,7 @@ export default function Index() {
         name: urlParams.get('name') || '',
         phone: urlParams.get('phone') || '',
         notes: urlParams.get('notes') || '',
-        pipeline_id: urlParams.get('pipeline_id') || (pipelines?.[0]?.id?.toString() || ''),
+        pipeline_id: urlParams.get('pipeline_id') || '',
         stage_id: urlParams.get('stage_id') || '',
         status: urlParams.get('status') || '',
         is_active: urlParams.get('is_active') || '',
@@ -507,7 +507,7 @@ export default function Index() {
                 const stageName = row.stage?.name || stages?.find(item => item.id.toString() === row.stage_id?.toString())?.name;
                 const color = getStageColor(row.stage_id);
                 return (
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: `${color}20`, color }}>
+                    <span className="inline-block max-w-[120px] leading-snug break-words px-2 py-1 text-xs font-medium rounded-md" style={{ backgroundColor: `${color}20`, color }}>
                         {stageName || 'No Stage'}
                     </span>
                 );
@@ -531,9 +531,17 @@ export default function Index() {
             header: t('Created'),
             sortable: false,
             render: (value: string) => (
-                <span className="text-xs text-gray-600">
-                    {formatDate(value)}
-                </span>
+                <>
+                    <div className="whitespace-nowrap text-sm">
+                        <div className="text-foreground">
+                            {formatDate(value)}
+                        </div>
+
+                        <div className="text-xs text-muted-foreground">
+                            {formatTimeFromDate(value)}
+                        </div>
+                    </div>
+                </>
             )
         },
         {
@@ -650,7 +658,7 @@ export default function Index() {
             pageActions={
                 <div className="flex items-center gap-2">
                     <TooltipProvider>
-                        <Select value={filters.pipeline_id || pipelines?.[0]?.id?.toString() || 'all'} onValueChange={(value) => {
+                        <Select value={filters.pipeline_id || 'all'} onValueChange={(value) => {
                             const pipelineId = value === 'all' ? '' : value;
                             setFilters({ ...filters, pipeline_id: pipelineId });
 
@@ -675,6 +683,7 @@ export default function Index() {
                                 <SelectValue placeholder={t('Select Pipeline')} />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="all">{t('All Pipelines')}</SelectItem>
                                 {pipelines?.map((pipeline: any) => (
                                     <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                                         {pipeline.name}
