@@ -110,6 +110,7 @@ class LeadController extends Controller
                 ->when(request('user_id') && request('user_id') !== '', fn($q) => $q->where('user_id', request('user_id')))
                 ->when(request('pipeline_id') && request('pipeline_id') !== '' && request('pipeline_id') !== 'all', fn($q) => $q->where('pipeline_id', request('pipeline_id')))
                 ->when(request('stage_id') && request('stage_id') !== '', fn($q) => $q->where('stage_id', request('stage_id')))
+                ->when(request('lead_import_id'), fn($q) => $q->where('lead_import_id', request('lead_import_id')))
                 ->when(request('date_from'), fn($q) => $q->whereDate('date', '>=', request('date_from')))
                 ->when(request('date_to'), fn($q) => $q->whereDate('date', '<=', request('date_to')))
                 ->when(request('sort'), fn($q) => $q->orderBy(request('sort'), request('direction', 'asc')), fn($q) => $q->latest())

@@ -16,6 +16,7 @@ import {
     CheckCircle2,
     ChevronRight,
     FileSpreadsheet,
+    GitBranch,
     Info,
     LoaderCircle,
     Plus,
@@ -66,6 +67,17 @@ interface ImportUser {
     email?: string | null;
 }
 
+interface Pipeline {
+    id: number;
+    name: string;
+}
+
+interface Stage {
+    id: number;
+    name: string;
+    pipeline_id: number;
+}
+
 interface LeadImport {
     uuid: string;
     original_filename: string;
@@ -88,6 +100,12 @@ interface PreviewProps {
     preview: PreviewData;
     crmFields: CrmField[];
     users: ImportUser[];
+    pipelines?: Pipeline[];
+    stages?: Stage[];
+    defaults?: {
+        pipeline_id: number;
+        stage_id: number;
+    };
 }
 
 interface AssignmentRange {
@@ -122,8 +140,30 @@ export default function Preview({
     preview,
     crmFields,
     users,
+    pipelines = [],
+    stages = [],
+    defaults = { pipeline_id: 0, stage_id: 0 },
 }: PreviewProps) {
     const { t } = useTranslation();
+
+    const isDirectMode = leadImport.mode === 'direct';
+
+    const [pipelineId, setPipelineId] = useState<string>(
+        String(defaults?.pipeline_id || pipelines[0]?.id || '')
+    );
+    const [stageId, setStageId] = useState<string>(
+        String(defaults?.stage_id || stages.filter(s => String(s.pipeline_id) === String(defaults?.pipeline_id || pipelines[0]?.id))?.[0]?.id || '')
+    );
+
+    const availableStages = useMemo(() => {
+        return stages.filter((stage) => String(stage.pipeline_id) === pipelineId);
+    }, [stages, pipelineId]);
+
+    const changePipeline = (pId: string): void => {
+        setPipelineId(pId);
+        const pStages = stages.filter((s) => String(s.pipeline_id) === pId);
+        setStageId(pStages[0] ? String(pStages[0].id) : '');
+    };
 
     /*
      * Convert saved mapping:
@@ -157,6 +197,16 @@ export default function Preview({
 
     const [assignmentRanges, setAssignmentRanges] =
         useState<AssignmentRange[]>([]);
+
+    useEffect(() => {
+        if (assignmentRanges.length === 0) {
+            const initialRange = createRange();
+            if (users.length === 1) {
+                initialRange.user_id = String(users[0].id);
+            }
+            setAssignmentRanges([initialRange]);
+        }
+    }, []);
 
     const {
         data,
@@ -426,6 +476,388 @@ export default function Preview({
             }
         );
     };
+
+    const directSubmit = (event: FormEvent): void => {
+        event.preventDefault();
+
+        if (assignmentRanges.length === 0 || rangeErrors.length > 0 || !pipelineId || !stageId) {
+            return;
+        }
+
+        router.post(
+            route('lead.leads.import.direct-start', leadImport.uuid),
+            {
+                pipeline_id: pipelineId,
+                stage_id: stageId,
+                assignment_ranges: assignmentRanges.map((range) => ({
+                    from_row: range.from_row,
+                    to_row: range.to_row,
+                    user_id: range.user_id,
+                })),
+            },
+            {
+                preserveScroll: true,
+            }
+        );
+    };
+
+    if (isDirectMode) {
+        return (
+            <AuthenticatedLayout
+                breadcrumbs={[
+                    {
+                        label: t('CRM'),
+                        url: route('lead.index'),
+                    },
+                    {
+                        label: t('Leads'),
+                        url: route('lead.leads.index'),
+                    },
+                    {
+                        label: t('Bulk Import'),
+                        url: route('lead.leads.import.index'),
+                    },
+                    {
+                        label: t('Direct Import'),
+                    },
+                ]}
+                pageTitle={t('Direct Lead Import')}
+                pageActions={
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={processing}
+                        onClick={() => router.get(route('lead.leads.import.index'))}
+                    >
+                        <Upload className="mr-2 h-4 w-4" />
+                        {t('Upload Another File')}
+                    </Button>
+                }
+            >
+                <Head title={t('Direct Lead Import')} />
+
+                <form onSubmit={directSubmit} className="space-y-6">
+                    <Card className="shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                <div className="flex min-w-0 items-center gap-4">
+                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                                        <FileSpreadsheet className="h-6 w-6 text-primary" />
+                                    </div>
+
+                                    <div className="min-w-0">
+                                        <h2 className="truncate text-lg font-semibold">
+                                            {leadImport.original_filename}
+                                        </h2>
+
+                                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                            <span>{formatFileSize(leadImport.file_size)}</span>
+                                            <span>
+                                                {t('Delimiter')}:{' '}
+                                                {leadImport.delimiter_name || t('Unknown')}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Badge className="w-fit bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300">
+                                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                    {t('Direct Upload Mode')}
+                                </Badge>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Pipeline & Stage Card */}
+                    <Card className="shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <GitBranch className="h-4 w-4 text-primary" />
+                                {t('Pipeline and Stage')}
+                            </CardTitle>
+                            <CardDescription>
+                                {t('Select the target pipeline and stage for imported leads.')}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label className="mb-2 block text-xs font-medium">
+                                    {t('Pipeline')} <span className="text-destructive">*</span>
+                                </label>
+                                <Select
+                                    value={pipelineId}
+                                    disabled={processing}
+                                    onValueChange={changePipeline}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('Select pipeline')} />
+                                    </SelectTrigger>
+                                    <SelectContent searchable>
+                                        {pipelines.map((pipeline) => (
+                                            <SelectItem
+                                                key={pipeline.id}
+                                                value={String(pipeline.id)}
+                                            >
+                                                {pipeline.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-xs font-medium">
+                                    {t('Initial Stage')} <span className="text-destructive">*</span>
+                                </label>
+                                <Select
+                                    value={stageId}
+                                    disabled={processing || availableStages.length === 0}
+                                    onValueChange={setStageId}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('Select stage')} />
+                                    </SelectTrigger>
+                                    <SelectContent searchable>
+                                        {availableStages.map((stage) => (
+                                            <SelectItem
+                                                key={stage.id}
+                                                value={String(stage.id)}
+                                            >
+                                                {stage.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Assign Leads by Row Range Block ONLY */}
+                    <Card className="shadow-sm">
+                        <CardHeader>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                        <UserRoundCog className="h-4 w-4" />
+                                        {t('Assign Leads by Row Range')}
+                                    </CardTitle>
+
+                                    <CardDescription className="mt-1">
+                                        {t('Assign different CSV row ranges to team members before uploading.')}
+                                    </CardDescription>
+                                </div>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={processing}
+                                    onClick={addAssignmentRange}
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    {t('Add Range')}
+                                </Button>
+                            </div>
+                        </CardHeader>
+
+                        <CardContent className="space-y-4">
+                            {assignmentRanges.length === 0 ? (
+                                <div className="rounded-lg border border-dashed p-8 text-center">
+                                    <UserRoundCog className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+
+                                    <p className="font-medium">
+                                        {t('No user assignment ranges')}
+                                    </p>
+
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        {t('Imported leads will remain unassigned unless you add a row range.')}
+                                    </p>
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-4"
+                                        onClick={addAssignmentRange}
+                                    >
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        {t('Add First Range')}
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {assignmentRanges.map((range, index) => (
+                                        <div
+                                            key={range.id}
+                                            className="grid gap-3 rounded-lg border p-4 md:grid-cols-[120px_120px_minmax(220px,1fr)_auto] md:items-end"
+                                        >
+                                            <div>
+                                                <label className="mb-2 block text-sm font-medium">
+                                                    {t('From Row')}
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    step={1}
+                                                    disabled={processing}
+                                                    value={range.from_row}
+                                                    placeholder="1"
+                                                    onChange={(event) =>
+                                                        updateAssignmentRange(
+                                                            range.id,
+                                                            'from_row',
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="mb-2 block text-sm font-medium">
+                                                    {t('To Row')}
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    step={1}
+                                                    disabled={processing}
+                                                    value={range.to_row}
+                                                    placeholder="100"
+                                                    onChange={(event) =>
+                                                        updateAssignmentRange(
+                                                            range.id,
+                                                            'to_row',
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="mb-2 block text-sm font-medium">
+                                                    {t('Assign User')}
+                                                </label>
+                                                <Select
+                                                    value={range.user_id}
+                                                    disabled={processing}
+                                                    onValueChange={(value) =>
+                                                        updateAssignmentRange(
+                                                            range.id,
+                                                            'user_id',
+                                                            value
+                                                        )
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={t('Select user')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent searchable>
+                                                        {users.map((user) => (
+                                                            <SelectItem
+                                                                key={user.id}
+                                                                value={String(user.id)}
+                                                            >
+                                                                {user.name}
+                                                                {user.email ? ` — ${user.email}` : ''}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                disabled={processing}
+                                                className="text-destructive hover:text-destructive"
+                                                onClick={() => removeAssignmentRange(range.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="sr-only">{t('Remove range')}</span>
+                                            </Button>
+
+                                            <div className="md:col-span-4">
+                                                <p className="text-xs text-muted-foreground">
+                                                    {t('Range')} {index + 1}
+                                                    {range.from_row && range.to_row
+                                                        ? `: ${range.from_row}–${range.to_row}`
+                                                        : ''}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {rangeErrors.map((message) => (
+                                <div
+                                    key={message}
+                                    className="flex items-start gap-2 text-sm text-destructive"
+                                >
+                                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                    <span>{message}</span>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    {/* Direct Submit Actions Bar */}
+                    <div className="sticky bottom-0 z-20 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:mx-0 sm:rounded-lg sm:border">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                {rangeErrors.length === 0 && pipelineId && stageId ? (
+                                    <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        <span>{t('Ready for direct upload & processing.')}</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-start gap-2 text-sm text-destructive">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>
+                                            {!pipelineId || !stageId
+                                                ? t('Select pipeline and stage before starting.')
+                                                : t('Fix user assignment ranges before starting.')}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={processing}
+                                    onClick={() => router.get(route('lead.leads.import.index'))}
+                                >
+                                    <ArrowLeft className="mr-2 h-4 w-4" />
+                                    {t('Cancel')}
+                                </Button>
+
+                                <Button
+                                    type="submit"
+                                    disabled={
+                                        rangeErrors.length > 0 ||
+                                        !pipelineId ||
+                                        !stageId ||
+                                        processing
+                                    }
+                                >
+                                    {processing ? (
+                                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <ChevronRight className="mr-2 h-4 w-4" />
+                                    )}
+                                    {t('Start Direct Import')}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </AuthenticatedLayout>
+        );
+    }
 
     return (
         <AuthenticatedLayout

@@ -75,10 +75,15 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
         'leads/import/{leadImport:uuid}/start',
         [LeadImportController::class, 'start']
     )->name('lead.leads.import.start');
+    Route::post('leads/import/{leadImport:uuid}/direct-start', [LeadImportController::class, 'directStart'])->name('lead.leads.import.direct-start');
     Route::get(
-    'leads/import/{leadImport:uuid}/progress',
-    [LeadImportController::class, 'progress']
-)->name('lead.leads.import.progress');
+        'leads/import/{leadImport:uuid}/progress',
+        [LeadImportController::class, 'progress']
+    )->name('lead.leads.import.progress');
+    Route::get('leads/import/{leadImport:uuid}/status-data', [LeadImportController::class, 'status'])->name('lead.leads.import.status-data');
+    Route::get('leads/import/{leadImport:uuid}/validate', [LeadImportController::class, 'validateSummary'])->name('lead.leads.import.validate');
+    Route::get('leads/import/{leadImport:uuid}/download-failures', [LeadImportController::class, 'downloadFailures'])->name('lead.leads.import.download-failures');
+    Route::post('leads/import/{leadImport:uuid}/cancel', [LeadImportController::class, 'cancel'])->name('lead.leads.import.cancel');
 
     Route::resource('crm/leads', LeadController::class)->names('lead.leads');
     Route::put('crm/leads/{lead}/notes', [LeadController::class, 'updateNotes'])->name('lead.leads.update-notes');

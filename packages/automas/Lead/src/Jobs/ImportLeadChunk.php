@@ -129,6 +129,7 @@ class ImportLeadChunk implements ShouldQueue
             );
 
             $duplicateStrategy = $import->duplicate_strategy ?: 'skip';
+            $sourceId = data_get($options, 'source_id');
 
             $now = now();
 
@@ -144,6 +145,14 @@ class ImportLeadChunk implements ShouldQueue
             $failureRows = [];
 
             foreach ($rows as $chunkRow) {
+                if ($processedCount % 200 === 0) {
+                    $freshStatus = DB::table('lead_imports')->where('id', $import->id)->value('status');
+                    if (in_array($freshStatus, ['cancel_requested', 'cancelled'], true)) {
+                        DB::table('lead_import_chunks')->where('id', $chunk->id)->update(['status' => 'cancelled']);
+                        return;
+                    }
+                }
+
                 $processedCount++;
 
                 $rowNumber = (int) ($chunkRow['row_number'] ?? 0);
@@ -153,7 +162,7 @@ class ImportLeadChunk implements ShouldQueue
 
                 $assignedUserId = $this->resolveAssignedUser(
                     $rowNumber,
-                    $assignmentRanges
+                    $options
                 );
 
                 if (!$assignedUserId) {
@@ -164,6 +173,7 @@ class ImportLeadChunk implements ShouldQueue
                         importId: $import->id,
                         chunkId: $chunk->id,
                         rowNumber: $rowNumber,
+                        category: 'unassigned_user',
                         values: $values,
                         errors: ['No assigned user was found for this row.'],
                         now: $now
@@ -194,12 +204,32 @@ class ImportLeadChunk implements ShouldQueue
                 if ($errors !== []) {
                     $failedCount++;
 
+                    $hasMissingField = !$leadData['name'] || !$leadData['subject'] || !$leadData['phone'];
+
                     $failureRows[] = $this->failureRow(
                         importId: $import->id,
                         chunkId: $chunk->id,
                         rowNumber: $rowNumber,
+                        category: $hasMissingField ? 'missing_required_field' : 'validation_error',
                         values: $values,
                         errors: $errors,
+                        now: $now
+                    );
+
+                    continue;
+                }
+
+                if (!empty($chunkRow['is_file_duplicate'])) {
+                    $duplicateCount++;
+                    $skippedCount++;
+
+                    $failureRows[] = $this->failureRow(
+                        importId: $import->id,
+                        chunkId: $chunk->id,
+                        rowNumber: $rowNumber,
+                        category: 'duplicate_in_csv',
+                        values: $values,
+                        errors: ['This row is a duplicate within the uploaded CSV file.'],
                         now: $now
                     );
 
@@ -252,6 +282,7 @@ class ImportLeadChunk implements ShouldQueue
                         importId: $import->id,
                         chunkId: $chunk->id,
                         rowNumber: $rowNumber,
+                        category: 'duplicate_in_csv',
                         values: $leadData,
                         errors: ['This value is duplicated inside the uploaded CSV file.'],
                         now: $now
@@ -270,8 +301,9 @@ class ImportLeadChunk implements ShouldQueue
                             importId: $import->id,
                             chunkId: $chunk->id,
                             rowNumber: $rowNumber,
+                            category: 'duplicate_in_crm',
                             values: $leadData,
-                            errors: ['A duplicate lead already exists.'],
+                            errors: ['A duplicate lead already exists in CRM.'],
                             now: $now
                         );
 
@@ -279,11 +311,6 @@ class ImportLeadChunk implements ShouldQueue
                     }
 
                     if ($duplicateStrategy === 'update') {
-                        /*
-                     * Keying by lead ID means that when the same
-                     * lead appears more than once in one chunk,
-                     * the last valid CSV row wins.
-                     */
                         $updateRows[$existingLeadId] = [
                             'id' => $existingLeadId,
                             'name' => $leadData['name'],
@@ -295,6 +322,7 @@ class ImportLeadChunk implements ShouldQueue
                             'user_id' => $assignedUserId,
                             'pipeline_id' => (int) $defaults['pipeline_id'],
                             'stage_id' => (int) $defaults['stage_id'],
+                            'sources' => $sourceId,
                             'is_active' => (bool) data_get(
                                 $defaults,
                                 'is_active',
@@ -302,6 +330,7 @@ class ImportLeadChunk implements ShouldQueue
                             ),
                             'creator_id' => (int) $import->creator_id,
                             'created_by' => (int) $import->created_by,
+                            'lead_import_id' => (int) $import->id,
                             'updated_at' => $now,
                         ];
 
@@ -309,11 +338,6 @@ class ImportLeadChunk implements ShouldQueue
 
                         continue;
                     }
-
-                    /*
-                 * duplicate_strategy=create:
-                 * continue to normal insertion.
-                 */
                 }
 
                 $importKey = (string) Str::uuid();
@@ -325,7 +349,7 @@ class ImportLeadChunk implements ShouldQueue
                     'user_id' => $assignedUserId,
                     'pipeline_id' => (int) $defaults['pipeline_id'],
                     'stage_id' => (int) $defaults['stage_id'],
-                    'sources' => null,
+                    'sources' => $sourceId,
                     'products' => null,
                     'notes' => $leadData['notes'],
                     'labels' => null,
@@ -340,6 +364,7 @@ class ImportLeadChunk implements ShouldQueue
                     'date' => $leadData['date'],
                     'creator_id' => (int) $import->creator_id,
                     'created_by' => (int) $import->created_by,
+                    'lead_import_id' => (int) $import->id,
                     'import_key' => $importKey,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -680,8 +705,20 @@ class ImportLeadChunk implements ShouldQueue
 
     private function resolveAssignedUser(
         int $rowNumber,
-        array $ranges
+        array $options
     ): ?int {
+        $method = (string) data_get($options, 'assignment_method', 'ranges');
+
+        if ($method === 'round_robin') {
+            $selectedUsers = (array) data_get($options, 'selected_user_ids', []);
+            if (!empty($selectedUsers)) {
+                $idx = ($rowNumber - 1) % count($selectedUsers);
+                return (int) $selectedUsers[$idx];
+            }
+            return null;
+        }
+
+        $ranges = (array) data_get($options, 'assignment_ranges', []);
         foreach ($ranges as $range) {
             $from = (int) ($range['from_row'] ?? 0);
             $to = (int) ($range['to_row'] ?? 0);
@@ -809,6 +846,7 @@ class ImportLeadChunk implements ShouldQueue
         int $importId,
         int $chunkId,
         int $rowNumber,
+        string $category,
         array $values,
         array $errors,
         mixed $now
@@ -817,6 +855,7 @@ class ImportLeadChunk implements ShouldQueue
             'lead_import_id' => $importId,
             'lead_import_chunk_id' => $chunkId,
             'row_number' => $rowNumber,
+            'category' => $category,
             'row_data' => json_encode(
                 $values,
                 JSON_UNESCAPED_UNICODE

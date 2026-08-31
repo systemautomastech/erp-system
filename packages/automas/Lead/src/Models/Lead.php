@@ -29,7 +29,14 @@ class Lead extends Model
         'date',
         'creator_id',
         'created_by',
+        'import_key',
+        'lead_import_id',
     ];
+
+    public function leadImport()
+    {
+        return $this->belongsTo(LeadImport::class, 'lead_import_id');
+    }
 
     protected function casts(): array
     {

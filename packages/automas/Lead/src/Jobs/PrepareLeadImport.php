@@ -69,6 +69,13 @@ class PrepareLeadImport implements ShouldQueue
         }
 
         $options = $import->options ?? [];
+        $mapping = $import->column_mapping ?? [];
+        $duplicateBy = (string) data_get($options, 'duplicate_by', 'phone');
+        $phoneIndex = isset($mapping['phone']) ? (int) $mapping['phone'] : null;
+        $emailIndex = isset($mapping['email']) ? (int) $mapping['email'] : null;
+
+        $seenPhones = [];
+        $seenEmails = [];
 
         $delimiter = (string) data_get(
             $options,
@@ -137,6 +144,14 @@ class PrepareLeadImport implements ShouldQueue
         $chunkRows = [];
 
         while (!$source->eof()) {
+            if ($dataRowNumber % 1000 === 0) {
+                $freshStatus = DB::table('lead_imports')->where('id', $import->id)->value('status');
+                if (in_array($freshStatus, ['cancel_requested', 'cancelled'], true)) {
+                    DB::table('lead_imports')->where('id', $import->id)->update(['status' => 'cancelled']);
+                    return;
+                }
+            }
+
             $row = $source->fgetcsv();
 
             if (
@@ -153,17 +168,40 @@ class PrepareLeadImport implements ShouldQueue
 
             $dataRowNumber++;
 
-            /*
-             * Keep the original data-row number with every row.
-             * Range 1–100 therefore remains accurate in every chunk.
-             */
+            $rawValues = array_map(
+                fn(mixed $value): string => trim((string) $value),
+                $row
+            );
+
+            $isFileDuplicate = false;
+            $phone = null;
+            $email = null;
+
+            if ($phoneIndex !== null && isset($rawValues[$phoneIndex])) {
+                $phone = $this->normalizePhoneForDeduplication($rawValues[$phoneIndex]);
+            }
+            if ($emailIndex !== null && isset($rawValues[$emailIndex])) {
+                $email = mb_strtolower(trim($rawValues[$emailIndex]));
+            }
+
+            if (in_array($duplicateBy, ['phone', 'phone_or_email'], true) && $phone && isset($seenPhones[$phone])) {
+                $isFileDuplicate = true;
+            }
+            if (in_array($duplicateBy, ['email', 'phone_or_email'], true) && $email && isset($seenEmails[$email])) {
+                $isFileDuplicate = true;
+            }
+
+            if ($phone) {
+                $seenPhones[$phone] = true;
+            }
+            if ($email) {
+                $seenEmails[$email] = true;
+            }
+
             $chunkRows[] = [
                 'row_number' => $dataRowNumber,
-                'values' => array_map(
-                    fn(mixed $value): string =>
-                    trim((string) $value),
-                    $row
-                ),
+                'is_file_duplicate' => $isFileDuplicate,
+                'values' => $rawValues,
             ];
 
             if (count($chunkRows) >= $chunkSize) {
@@ -284,5 +322,38 @@ class PrepareLeadImport implements ShouldQueue
                 ),
                 'completed_at' => now(),
             ]);
+    }
+
+    private function normalizePhoneForDeduplication(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        if (preg_match('/^[+-]?\d+(?:\.\d+)?E[+-]?\d+$/i', $value)) {
+            $value = number_format((float) $value, 0, '', '');
+        }
+
+        $value = preg_replace('/\D+/', '', $value) ?? '';
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, '880')) {
+            $value = substr($value, 3);
+        }
+
+        if (strlen($value) === 10 && str_starts_with($value, '1')) {
+            $value = '0' . $value;
+        }
+
+        if (strlen($value) === 11 && str_starts_with($value, '0')) {
+            return $value;
+        }
+
+        return null;
     }
 }
