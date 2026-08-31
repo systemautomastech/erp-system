@@ -95,7 +95,7 @@ class ProposalService
         $emailRecipient = null;
 
         if ($templateName === 'Proposal Sent') {
-            $emailRecipient = $proposal->customer?->email;
+            $emailRecipient = $proposal->customer?->email ?: $proposal->customer_email;
         } elseif ($templateName === 'Proposal Approved') {
             $author = User::find($proposal->creator_id);
             $emailRecipient = company_setting('company_email', $proposal->created_by) ?: $author?->email;
@@ -107,7 +107,7 @@ class ProposalService
 
         $emailData = [
             'proposal_number' => $proposal->proposal_number ?? null,
-            'sales_customer_name' => $proposal->customer?->name ?? null,
+            'sales_customer_name' => $proposal->customer?->name ?: $proposal->customer_name ?: 'Customer',
             'total_amount' => $proposal->total_amount ?? null,
             'discount_amount' => $proposal->discount_amount ?? null,
         ];
