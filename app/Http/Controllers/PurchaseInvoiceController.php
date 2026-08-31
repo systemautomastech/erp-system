@@ -549,25 +549,25 @@ class PurchaseInvoiceController extends Controller
 
     public function setup()
     {
-        if (Auth::user()->can('manage-purchase-invoice-setup') || Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
-            $settings = PurchaseInvoiceSetup::getSettings(creatorId());
-            return Inertia::render('Purchase/SystemSetup/Index', [
-                'settings' => $settings,
-            ]);
-        } else {
-            return back()->with('error', __('Permission denied'));
+        if (!Auth::user()->can('manage-purchase-invoice-setup')) {
+            return redirect()->route('dashboard')->with('error', __('Permission denied'));
         }
+
+        $settings = PurchaseInvoiceSetup::getSettings(creatorId());
+        return Inertia::render('Purchase/SystemSetup/Index', [
+            'settings' => $settings,
+        ]);
     }
 
     public function updateSetup(Request $request)
     {
-        if (Auth::user()->can('manage-purchase-invoice-setup') || Auth::user()->can('manage-purchase-invoices') || Auth::user()->can('manage-settings')) {
-            $settings = $request->input('settings', $request->except(['_token', '_method']));
-            PurchaseInvoiceSetup::setSettings($settings, creatorId());
-            return redirect()->back()->with('success', __('Purchase Invoice setup updated successfully.'));
-        } else {
+        if (!Auth::user()->can('manage-purchase-invoice-setup')) {
             return redirect()->back()->with('error', __('Permission denied'));
         }
+
+        $settings = $request->input('settings', $request->except(['_token', '_method']));
+        PurchaseInvoiceSetup::setSettings($settings, creatorId());
+        return redirect()->back()->with('success', __('Purchase Invoice setup updated successfully.'));
     }
 }
 
