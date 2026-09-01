@@ -193,6 +193,8 @@ export default function Edit({ settings, defaultPage, variables }: EditProps) {
         ? getImagePath(data.background_image)
         : (defaultTemplateBg ? getImagePath(defaultTemplateBg) : '');
 
+    const isFixedPage = defaultPage.page_type === 'otc' || defaultPage.page_type === 'mrc';
+
     const isLogoEnabled = settings?.show_logo !== undefined
         ? (settings.show_logo === '1' || settings.show_logo === true || settings.show_logo === 1 || settings.show_logo === 'true')
         : true;
@@ -319,37 +321,59 @@ export default function Edit({ settings, defaultPage, variables }: EditProps) {
             />
 
             <div className="grid grid-cols-12 gap-6">
-                {/* Left Column: Grouped Variables Section */}
+                {/* Left Column: Grouped Variables Section or Fixed Page Info Card */}
                 <div className="col-span-12 lg:col-span-3 space-y-6">
-                    <Card>
-                        <CardHeader className="p-3 pb-2 border-b">
-                            <CardTitle className="text-sm font-semibold">{t('Variables')}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 space-y-4">
-                            {defaultProposalVariableGroups.map((group) => (
-                                <div key={group.title} className="space-y-1.5">
-                                    <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-1">
-                                        {t(group.title)}
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        {group.items.map(({ label, key }) => (
-                                            <div
-                                                key={key}
-                                                className="flex items-center justify-between group cursor-pointer hover:bg-muted/70 py-1 px-1.5 rounded transition-colors leading-tight text-xs"
-                                                onClick={() => handleCopyVariable(key)}
-                                                title={t('Click to copy')}
-                                            >
-                                                <span className="text-slate-600 dark:text-slate-400">{t(label)}:</span>
-                                                <span className="text-primary font-mono font-medium group-hover:underline">
-                                                    {`{${key}}`}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
+                    {isFixedPage ? (
+                        <Card className="border-amber-500/30 bg-amber-500/[0.03]">
+                            <CardHeader className="p-3 pb-2 border-b border-amber-500/20">
+                                <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                                    <Info className="h-4 w-4 text-amber-600" />
+                                    {t('System Fixed Page')}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 space-y-3 text-xs text-muted-foreground leading-relaxed">
+                                <p>
+                                    {defaultPage.page_type === 'otc'
+                                        ? t('This is the One-Time Charges (OTC) system section. When one-time products/services are added to a proposal, this section is automatically generated with its pricing table.')
+                                        : t('This is the Monthly Recurring Charges (MRC) system section. When recurring products/services are added to a proposal, this section is automatically generated with its pricing table.')
+                                    }
+                                </p>
+                                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-[11px] font-medium">
+                                    {t('You can configure its default sort order below so it automatically appears in your desired position when creating proposals.')}
                                 </div>
-                            ))}
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card>
+                            <CardHeader className="p-3 pb-2 border-b">
+                                <CardTitle className="text-sm font-semibold">{t('Variables')}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 space-y-4">
+                                {defaultProposalVariableGroups.map((group) => (
+                                    <div key={group.title} className="space-y-1.5">
+                                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-1">
+                                            {t(group.title)}
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            {group.items.map(({ label, key }) => (
+                                                <div
+                                                    key={key}
+                                                    className="flex items-center justify-between group cursor-pointer hover:bg-muted/70 py-1 px-1.5 rounded transition-colors leading-tight text-xs"
+                                                    onClick={() => handleCopyVariable(key)}
+                                                    title={t('Click to copy')}
+                                                >
+                                                    <span className="text-slate-600 dark:text-slate-400">{t(label)}:</span>
+                                                    <span className="text-primary font-mono font-medium group-hover:underline">
+                                                        {`{${key}}`}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Right Column: Form with Clean & Spacious Hierarchy */}
@@ -365,14 +389,22 @@ export default function Edit({ settings, defaultPage, variables }: EditProps) {
                                         value={data.title}
                                         onChange={(e) => setData('title', e.target.value)}
                                         placeholder={t('Enter page title')}
+                                        disabled={isFixedPage}
                                         required
                                     />
                                     {errors.title && (
                                         <p className="text-red-500 text-sm mt-1">{errors.title}</p>
                                     )}
+                                    {isFixedPage && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('The title for fixed system sections is predefined.')}
+                                        </p>
+                                    )}
                                 </div>
 
-                                {/* Background Image Selection */}
+                                {!isFixedPage && (
+                                    <>
+                                        {/* Background Image Selection */}
                                 <div className="space-y-3">
                                     <Label className="text-sm font-medium flex items-center gap-1.5">
                                         <ImageIcon className="h-4 w-4 text-primary" />
@@ -640,8 +672,10 @@ export default function Edit({ settings, defaultPage, variables }: EditProps) {
                                         <p className="text-red-500 text-sm mt-1">{errors.content}</p>
                                     )}
                                 </div>
+                            </>
+                        )}
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                                     <div className="space-y-2">
                                         <Label htmlFor="sort-order" className="text-sm font-medium">{t('Sort Order')}</Label>
                                         <Input
@@ -662,7 +696,9 @@ export default function Edit({ settings, defaultPage, variables }: EditProps) {
                                             <Switch
                                                 id="page-active"
                                                 checked={data.is_active}
+                                                disabled={isFixedPage}
                                                 onCheckedChange={(checked) => setData('is_active', checked)}
+                                                className={isFixedPage ? "opacity-50 cursor-not-allowed" : ""}
                                             />
                                         </div>
                                     </div>

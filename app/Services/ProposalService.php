@@ -84,7 +84,7 @@ class ProposalService
             })
             ->where('is_active', true)
             ->orderBy('sort_order')
-            ->get(['id', 'title', 'content', 'background_image', 'sort_order', 'creator_id', 'created_by']);
+            ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order', 'creator_id', 'created_by']);
     }
 
     /**
