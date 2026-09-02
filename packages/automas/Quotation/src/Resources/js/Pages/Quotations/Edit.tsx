@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
+import { route } from 'ziggy-js';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
 import { QuotationItem, QuotationDefaultPage, SalesQuotation } from './types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
-import QuotationItemsTable from './components/QuotationItemsTable';
+import ItemsTable from './components/ItemsTable';
+import PageOrder from './components/PageOrder';
+import PreviewModal from '@/components/PreviewModal';
 import { useTaxCalculator } from '@/pages/Sales/components/TaxCalculator';
-import { formatCurrency } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,45 +17,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, Users, UserPlus, X } from 'lucide-react';
-import RichTextEditor from '@/components/ui/rich-text-editor';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import PreviewModal from '@/components/PreviewModal';
-import ChargeItemsTable from './components/ChargeItemsTable';
-import PageOrderSection from './components/PageOrderSection';
-
-
-interface SalesQuotation {
-    id: number;
-    quotation_number: string;
-    reference?: string;
-    subject?: string;
-    quotation_date: string;
-    due_date: string;
-    customer_id?: number | null;
-    customer_name?: string | null;
-    customer_email?: string | null;
-    customer_phone?: string | null;
-    customer_address?: string | null;
-    warehouse_id?: number;
-    type?: string;
-    is_tax_enabled?: boolean | number;
-    is_prepaid?: boolean | number;
-    payment_terms?: string;
-    notes?: string;
-    items: any[];
-    other_details?: string;
-    quotation_content?: any;
-}
+import RichTextEditor from '@/components/ui/rich-text-editor';
+import { CalendarDays, FileText, Eye, User, Users, UserPlus, X } from 'lucide-react';
 
 interface EditProps {
     quotation: SalesQuotation;
-    customers: Array<{ id: number; name: string; email: string }>;
+    customers: Array<{ id: number; name: string; email: string; [key: string]: any }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
     defaultPages?: QuotationDefaultPage[];
     defaultTerms?: string | null;
@@ -70,7 +42,7 @@ export default function Edit() {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // Initialize Quotation sections with existing contents or fallback to defaultPages
-    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
+    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean; default_page_id?: number }>>(() => {
         const contentsRel = (quotation as any).contents;
         let parsed: any[] = [];
         if (Array.isArray(contentsRel) && contentsRel.length > 0) {
@@ -94,7 +66,7 @@ export default function Edit() {
                     } else if (content === '[OTHER_DETAILS_CONTENT]' || title.toLowerCase().includes('other details')) {
                         page_type = 'other-details';
                     } else {
-                        page_type = 'content';
+                        page_type = 'general';
                     }
                 }
 
@@ -104,6 +76,7 @@ export default function Edit() {
                     page_type: page_type,
                     background_image: dec?.background_image || c.background_image || '',
                     order: typeof c.sort_order !== 'undefined' ? Number(c.sort_order) : (typeof c.order !== 'undefined' ? Number(c.order) : 1),
+                    default_page_id: dec?.default_page_id || c.default_page_id,
                 };
             });
         } else {
@@ -133,7 +106,7 @@ export default function Edit() {
                     } else if (content === '[OTHER_DETAILS_CONTENT]' || title.toLowerCase().includes('other details')) {
                         page_type = 'other-details';
                     } else {
-                        page_type = 'content';
+                        page_type = 'general';
                     }
                 }
 
@@ -143,6 +116,7 @@ export default function Edit() {
                     page_type: page_type,
                     background_image: p.background_image || '',
                     order: Number(p.sort_order) || idx + 1,
+                    default_page_id: p.id,
                 };
             });
         }
@@ -155,9 +129,10 @@ export default function Edit() {
 
         return parsed.map((item: any, idx: number) => ({
             id: `sec-${idx}-${Date.now()}`,
+            default_page_id: item.default_page_id,
             title: item.title || (item.page_type === 'otc' ? 'One-Time Charges (OTC)' : item.page_type === 'mrc' ? 'Monthly Recurring Charges (MRC)' : item.page_type === 'other-details' ? 'Other Details' : `Page ${idx + 1}`),
             content: item.content || '',
-            page_type: item.page_type || 'content',
+            page_type: item.page_type || 'general',
             background_image: item.background_image || '',
             order: typeof item.order === 'number' ? item.order : (parseInt(item.order, 10) || (idx + 1)),
             isExpanded: false,
@@ -171,14 +146,13 @@ export default function Edit() {
         subject: quotation.subject || '',
         quotation_date: quotation.quotation_date || new Date().toISOString().split('T')[0],
         due_date: quotation.due_date || '',
-        customer_type: (!quotation.customer_id && (quotation.customer_name || quotation.customer_email)) ? 'new' : 'existing',
+        customer_type: (!quotation.customer_id && (quotation.customer_name || quotation.customer_email) ? 'new' : 'existing') as 'existing' | 'new',
         customer_id: quotation.customer_id ? quotation.customer_id.toString() : '',
         customer_name: quotation.customer_name || '',
         customer_email: quotation.customer_email || '',
         customer_phone: quotation.customer_phone || '',
         customer_address: quotation.customer_address || '',
         warehouse_id: quotation.warehouse_id ? quotation.warehouse_id.toString() : '',
-        type: quotation.type || 'product',
         is_tax_enabled: quotation.is_tax_enabled !== undefined ? Boolean(quotation.is_tax_enabled) : true,
         is_prepaid: quotation.is_prepaid !== undefined ? Boolean(quotation.is_prepaid) : false,
         otc_discount_type: (quotation.otc_discount_type || 'percentage') as 'percentage' | 'fixed',
@@ -212,79 +186,90 @@ export default function Edit() {
             total_amount: 0
         }] as QuotationItem[],
         contents: [],
-        other_details: quotation.other_details || '',
+        other_details: quotation.other_details || (sections.find(s => s.page_type === 'other-details')?.content !== '[OTHER_DETAILS_CONTENT]' ? (sections.find(s => s.page_type === 'other-details')?.content || '') : ''),
     });
 
     // Auto-sync OTC, MRC, and Other Details section cards into Page Order list when products exist in those tables
     useEffect(() => {
         const hasOtcItems = data.items.some(
-            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== '') || Number(i.unit_price) > 0)
         );
         const hasMrcItems = data.items.some(
-            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== '') || Number(i.unit_price) > 0)
         );
-
         const hasOtherDetails = Boolean(data.other_details && data.other_details.trim() !== '' && data.other_details !== '<p></p>');
 
         setSections((prev) => {
-            let updated = [...prev];
-            let changed = false;
+            const currentHasOtc = prev.some((s) => s.page_type === 'otc');
+            const currentHasMrc = prev.some((s) => s.page_type === 'mrc');
+            const currentHasOther = prev.some((s) => s.page_type === 'other-details');
 
-            // OTC Card
-            const otcIdx = updated.findIndex((s) => s.page_type === 'otc');
-            if (hasOtcItems && otcIdx === -1) {
-                updated.push({
-                    id: `sec-otc-${Date.now()}`,
-                    title: 'One-Time Charges (OTC)',
+            if (hasOtcItems === currentHasOtc && hasMrcItems === currentHasMrc && hasOtherDetails === currentHasOther) {
+                return prev;
+            }
+
+            const defaultOtc = defaultPages?.find((p) => p.page_type === 'otc');
+            const defaultMrc = defaultPages?.find((p) => p.page_type === 'mrc');
+            const defaultOther = defaultPages?.find((p) => p.page_type === 'other-details');
+
+            let nextSections = [...prev];
+
+            // 1. Remove sections if items no longer exist
+            if (!hasOtcItems && currentHasOtc) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'otc');
+            }
+            if (!hasMrcItems && currentHasMrc) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'mrc');
+            }
+            if (!hasOtherDetails && currentHasOther) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'other-details');
+            }
+
+            // 2. Add OTC if items exist and not present
+            if (hasOtcItems && !currentHasOtc) {
+                nextSections.push({
+                    id: `sec-otc-${defaultOtc?.id || 'dynamic'}`,
+                    default_page_id: defaultOtc?.id,
+                    title: defaultOtc?.title || 'One-Time Charges (OTC)',
                     content: '[OTC_CHARGES_TABLE]',
                     page_type: 'otc',
-                    order: updated.length + 1,
+                    background_image: defaultOtc?.background_image || '',
+                    order: defaultOtc?.sort_order !== undefined ? Number(defaultOtc.sort_order) : 99,
                     isExpanded: false,
                 });
-                changed = true;
-            } else if (!hasOtcItems && otcIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'otc');
-                changed = true;
             }
 
-            // MRC Card
-            const mrcIdx = updated.findIndex((s) => s.page_type === 'mrc');
-            if (hasMrcItems && mrcIdx === -1) {
-                updated.push({
-                    id: `sec-mrc-${Date.now()}`,
-                    title: 'Monthly Recurring Charges (MRC)',
+            // 3. Add MRC if items exist and not present
+            if (hasMrcItems && !currentHasMrc) {
+                nextSections.push({
+                    id: `sec-mrc-${defaultMrc?.id || 'dynamic'}`,
+                    default_page_id: defaultMrc?.id,
+                    title: defaultMrc?.title || 'Monthly Recurring Charges (MRC)',
                     content: '[MRC_CHARGES_TABLE]',
                     page_type: 'mrc',
-                    order: updated.length + 1,
+                    background_image: defaultMrc?.background_image || '',
+                    order: defaultMrc?.sort_order !== undefined ? Number(defaultMrc.sort_order) : 100,
                     isExpanded: false,
                 });
-                changed = true;
-            } else if (!hasMrcItems && mrcIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'mrc');
-                changed = true;
             }
 
-            // Other Details Card
-            const otherIdx = updated.findIndex((s) => s.page_type === 'other-details');
-            if (hasOtherDetails && otherIdx === -1) {
-                updated.push({
-                    id: `sec-other-${Date.now()}`,
-                    title: 'Other Details',
+            // 4. Add Other Details if present
+            if (hasOtherDetails && !currentHasOther) {
+                nextSections.push({
+                    id: `sec-other-details-${defaultOther?.id || 'dynamic'}`,
+                    default_page_id: defaultOther?.id,
+                    title: defaultOther?.title || 'Other Details',
                     content: '[OTHER_DETAILS_CONTENT]',
                     page_type: 'other-details',
-                    order: updated.length + 1,
+                    background_image: defaultOther?.background_image || '',
+                    order: defaultOther?.sort_order !== undefined ? Number(defaultOther.sort_order) : 101,
                     isExpanded: false,
                 });
-                changed = true;
-            } else if (!hasOtherDetails && otherIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'other-details');
-                changed = true;
             }
 
-            if (!changed) return prev;
-            return updated.map((item, idx) => ({ ...item, order: idx + 1 }));
+            return nextSections.map((s, idx) => ({ ...s, order: idx + 1 }));
         });
-    }, [data.items, data.other_details]);
+    }, [data.items, data.other_details, defaultPages]);
 
     // Selected Customer Details
     const selectedCustomer = useMemo(() => {
@@ -300,10 +285,25 @@ export default function Edit() {
                 type: data.customer_type,
             };
         }
-        return customers?.find((c: any) => c.id.toString() === data.customer_id) || null;
-    }, [data.customer_type, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.customer_address, customers]);
+        return customers.find((c) => String(c.id) === String(data.customer_id)) || null;
+    }, [data.customer_id, data.customer_type, data.customer_name, data.customer_email, data.customer_phone, data.customer_address, customers]);
 
-    // Get custom fields using useFormFields hook
+    // Auto-fill customer info when existing customer is selected
+    useEffect(() => {
+        if (data.customer_type === 'existing' && data.customer_id) {
+            const cust = customers.find((c) => String(c.id) === String(data.customer_id));
+            if (cust) {
+                setData((prev) => ({
+                    ...prev,
+                    customer_name: cust.name || '',
+                    customer_email: cust.email || '',
+                    customer_phone: (cust as any).mobile_no || (cust as any).phone || '',
+                    customer_address: (cust as any).address || '',
+                }));
+            }
+        }
+    }, [data.customer_id, data.customer_type]);
+
     const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Quotation', id: quotation.id }, setData, errors, 'edit', t);
 
     const [isRefreshingProducts, setIsRefreshingProducts] = useState(false);
@@ -353,6 +353,47 @@ export default function Edit() {
         }
     };
 
+    const handleTaxToggle = (checked: boolean) => {
+        setData('is_tax_enabled', checked);
+        const updatedItems = data.items.map((item) => {
+            const qty = Number(item.quantity) || 0;
+            const price = Number(item.unit_price) || 0;
+            const disc = Number(item.discount_percentage) || 0;
+            const lineTotal = qty * price;
+            const discountAmount = (lineTotal * disc) / 100;
+            const discountedTotal = lineTotal - discountAmount;
+
+            if (!checked) {
+                return {
+                    ...item,
+                    tax_percentage: 0,
+                    tax_amount: 0,
+                    total_amount: discountedTotal,
+                    taxes: [],
+                };
+            }
+
+            const product = availableProducts.find((p) => String(p.id) === String(item.product_id));
+            const prodTaxes = product?.taxes || [];
+            const totalTaxRate = prodTaxes.reduce((sum: number, tax: any) => sum + (Number(tax.rate) || 0), 0);
+            const taxes = prodTaxes.map((tax: any) => ({
+                tax_name: tax.tax_name,
+                tax_rate: tax.rate,
+            }));
+            const taxRate = totalTaxRate > 0 ? totalTaxRate : (Number(item.tax_percentage) || 0);
+            const taxAmount = (discountedTotal * taxRate) / 100;
+
+            return {
+                ...item,
+                tax_percentage: taxRate,
+                tax_amount: taxAmount,
+                total_amount: discountedTotal + taxAmount,
+                taxes: taxes.length > 0 ? taxes : (item.taxes || []),
+            };
+        });
+        setData('items', updatedItems);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -360,7 +401,7 @@ export default function Edit() {
             ...formData,
             contents: sections.map((item, index) => ({
                 title: item.title,
-                content: item.content,
+                content: item.page_type === 'other-details' ? (data.other_details || item.content || '') : item.content,
                 page_type: item.page_type || 'content',
                 background_image: item.background_image || '',
                 sort_order: index + 1,
@@ -434,7 +475,8 @@ export default function Edit() {
                                 {t('Sales Quotation Details')}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-5">
+                            {/* Row 1: Quotation Number & Subject */}
                             <div className="flex flex-col md:flex-row gap-4 border-b pb-4 items-start">
                                 <div className="w-full md:w-64 shrink-0">
                                     <Label htmlFor="quotation_number">{t('Quotation Number')}</Label>
@@ -468,8 +510,8 @@ export default function Edit() {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                const nextType = data.customer_type === 'new' ? 'existing' : 'new';
-                                                setData('customer_type', nextType);
+                                                const nextMode = data.customer_type === 'new' ? 'existing' : 'new';
+                                                setData('customer_type', nextMode);
                                             }}
                                             className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer transition-colors"
                                         >
@@ -481,7 +523,7 @@ export default function Edit() {
                                             ) : (
                                                 <>
                                                     <UserPlus className="h-3 w-3" />
-                                                    {t('+ New Customer')}
+                                                    {t('New Customer')}
                                                 </>
                                             )}
                                         </button>
@@ -541,7 +583,7 @@ export default function Edit() {
                                             )}
                                         </>
                                     ) : (
-                                        <div className="h-9 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
+                                        <div className="h-10 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
                                             <span className="flex items-center gap-1.5">
                                                 <UserPlus className="h-3.5 w-3.5" />
                                                 {data.customer_name || t('New Customer Mode')}
@@ -555,53 +597,53 @@ export default function Edit() {
 
                                 <div>
                                     <Label htmlFor="quotation_date" required>
-                                         {t('Quotation Date')}
-                                     </Label>
-                                     <DatePicker
-                                         id="quotation_date"
-                                         value={data.quotation_date}
-                                         onChange={(value) => setData('quotation_date', value)}
-                                         required
-                                     />
-                                     <InputError message={errors.quotation_date} />
-                                 </div>
+                                        {t('Quotation Date')}
+                                    </Label>
+                                    <DatePicker
+                                        id="quotation_date"
+                                        value={data.quotation_date}
+                                        onChange={(value) => setData('quotation_date', value)}
+                                        required
+                                    />
+                                    <InputError message={errors.quotation_date} />
+                                </div>
 
                                 <div>
                                     <Label htmlFor="due_date" required>
-                                         {t('Due Date')}
-                                     </Label>
-                                     <DatePicker
-                                         id="due_date"
-                                         value={data.due_date}
-                                         onChange={(value) => setData('due_date', value)}
-                                         required
-                                     />
-                                     <InputError message={errors.due_date} />
-                                 </div>
+                                        {t('Due Date')}
+                                    </Label>
+                                    <DatePicker
+                                        id="due_date"
+                                        value={data.due_date}
+                                        onChange={(value) => setData('due_date', value)}
+                                        required
+                                    />
+                                    <InputError message={errors.due_date} />
+                                </div>
 
                                 <div>
                                     <Label htmlFor="warehouse_id" required>
-                                         {t('Warehouse')}
-                                     </Label>
-                                     <Select value={data.warehouse_id} onValueChange={handleWarehouseChange}>
-                                         <SelectTrigger>
-                                             <SelectValue placeholder={t('Select Warehouse')} />
-                                         </SelectTrigger>
-                                         <SelectContent searchable>
-                                             {warehouses?.map((warehouse) => (
-                                                 <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                     {warehouse.name}
-                                                 </SelectItem>
-                                             ))}
-                                         </SelectContent>
-                                     </Select>
-                                     <InputError message={errors.warehouse_id} />
-                                 </div>
+                                        {t('Warehouse')}
+                                    </Label>
+                                    <Select value={data.warehouse_id} onValueChange={handleWarehouseChange}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('Select Warehouse')} />
+                                        </SelectTrigger>
+                                        <SelectContent searchable>
+                                            {warehouses?.map((warehouse) => (
+                                                <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                                                    {warehouse.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.warehouse_id} />
+                                </div>
                             </div>
 
                             {/* New Customer Form Row when New Mode is Active */}
                             {data.customer_type === 'new' && (
-                                <div className="p-3 rounded-xl border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200 mt-4">
+                                <div className="p-3 rounded-xl border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200">
                                     <div className="flex items-center justify-between pb-1 border-b border-primary/10">
                                         <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
                                             <UserPlus className="h-3.5 w-3.5" />
@@ -688,58 +730,19 @@ export default function Edit() {
                                 {t('One-Time Charges (OTC)')}
                             </CardTitle>
                             <div className="flex items-center gap-2">
-                                <Label htmlFor="enable-tax-toggle-edit" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
+                                <Label htmlFor="enable-tax-toggle" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
                                     {t('Enable VAT/Tax')}
                                 </Label>
                                 <Switch
-                                    id="enable-tax-toggle-edit"
+                                    id="enable-tax-toggle"
                                     size="sm"
                                     checked={data.is_tax_enabled}
-                                    onCheckedChange={(checked) => {
-                                        setData('is_tax_enabled', checked);
-                                        const updatedItems = data.items.map(item => {
-                                            const qty = Number(item.quantity) || 0;
-                                            const price = Number(item.unit_price) || 0;
-                                            const disc = Number(item.discount_percentage) || 0;
-                                            const lineTotal = qty * price;
-                                            const discountAmount = (lineTotal * disc) / 100;
-                                            const discountedTotal = lineTotal - discountAmount;
-
-                                            if (!checked) {
-                                                return {
-                                                    ...item,
-                                                    tax_percentage: 0,
-                                                    tax_amount: 0,
-                                                    total_amount: discountedTotal,
-                                                    taxes: []
-                                                };
-                                            } else {
-                                                const product = availableProducts.find(p => String(p.id) === String(item.product_id));
-                                                const prodTaxes = product?.taxes || [];
-                                                const totalTaxRate = prodTaxes.reduce((sum: number, tax: any) => sum + (Number(tax.rate) || 0), 0);
-                                                const taxes = prodTaxes.map((tax: any) => ({
-                                                    tax_name: tax.tax_name,
-                                                    tax_rate: tax.rate
-                                                }));
-                                                const taxRate = totalTaxRate > 0 ? totalTaxRate : (Number(item.tax_percentage) || 0);
-                                                const taxAmount = (discountedTotal * taxRate) / 100;
-
-                                                return {
-                                                    ...item,
-                                                    tax_percentage: taxRate,
-                                                    tax_amount: taxAmount,
-                                                    total_amount: discountedTotal + taxAmount,
-                                                    taxes: taxes.length > 0 ? taxes : (item.taxes || [])
-                                                };
-                                            }
-                                        });
-                                        setData('items', updatedItems);
-                                    }}
+                                    onCheckedChange={handleTaxToggle}
                                 />
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <QuotationItemsTable
+                            <ItemsTable
                                 items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
                                 warehouseId={data.warehouse_id}
@@ -748,7 +751,6 @@ export default function Edit() {
                                     const mrcItems = data.items.filter(i => i.section === 'mrc');
                                     setData('items', [...formattedOtc, ...mrcItems]);
                                 }}
-                                invoiceType={data.type as 'product' | 'service'}
                                 errors={errors}
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
@@ -770,11 +772,11 @@ export default function Edit() {
                                 {t('Monthly Recurring Charges (MRC)')}
                             </CardTitle>
                             <div className="flex items-center gap-2">
-                                <Label htmlFor="prepaid-toggle-edit" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
+                                <Label htmlFor="prepaid-toggle" className="text-xs cursor-pointer font-medium text-slate-700 dark:text-slate-300">
                                     {t('Prepaid')}
                                 </Label>
                                 <Switch
-                                    id="prepaid-toggle-edit"
+                                    id="prepaid-toggle"
                                     size="sm"
                                     checked={data.is_prepaid}
                                     onCheckedChange={(checked) => setData('is_prepaid', checked)}
@@ -782,7 +784,7 @@ export default function Edit() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <QuotationItemsTable
+                            <ItemsTable
                                 items={data.items.filter(i => i.section === 'mrc')}
                                 products={availableProducts}
                                 warehouseId={data.warehouse_id}
@@ -791,7 +793,6 @@ export default function Edit() {
                                     const otcItems = data.items.filter(i => i.section !== 'mrc');
                                     setData('items', [...otcItems, ...formattedMrc]);
                                 }}
-                                invoiceType={data.type as 'product' | 'service'}
                                 errors={errors}
                                 onRefresh={refreshProducts}
                                 isRefreshing={isRefreshingProducts}
@@ -823,11 +824,11 @@ export default function Edit() {
                     </Card>
 
                     {/* Page Order Section */}
-                    <PageOrderSection
+                    <PageOrder
                         sections={sections as any}
                         setSections={setSections as any}
                         defaultPages={defaultPages}
-                        QuotationSetting={activeSetting}
+                        quotationSetting={activeSetting}
                     />
 
                     {/* Additional Notes Section */}
@@ -841,7 +842,7 @@ export default function Edit() {
                                     id="notes"
                                     value={data.notes}
                                     onChange={(e) => setData('notes', e.target.value)}
-                                    placeholder={t('Enter any additional notes or terms...')}
+                                    placeholder={t('Enter additional notes...')}
                                     rows={4}
                                 />
                                 <InputError message={errors.notes} />
@@ -868,9 +869,9 @@ export default function Edit() {
                         </Card>
                     )}
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">
-                            {data.items.length} {t('items added')}
+                            {data.items.length} {t('items')}
                         </div>
                         <div className="flex gap-3">
                             <Button
@@ -881,45 +882,14 @@ export default function Edit() {
                                 {t('Cancel')}
                             </Button>
                             <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => setIsPreviewOpen(true)}
-                                className="gap-2"
-                            >
-                                <Eye className="h-4 w-4" />
-                                {t('Preview')}
-                            </Button>
-                            <Button
                                 type="submit"
-                                disabled={processing || data.items.length === 0}
+                                disabled={processing}
                             >
                                 {processing ? t('Updating...') : t('Update')}
                             </Button>
                         </div>
                     </div>
                 </form>
-
-                <PreviewModal
-                    isOpen={isPreviewOpen}
-                    onClose={() => setIsPreviewOpen(false)}
-                    formData={{
-                        ...data,
-                        id: quotation.id,
-                        quotation_number: quotation.quotation_number || (quotation.id ? `QT-${quotation.id}` : undefined),
-                    }}
-                    sections={sections as any}
-                    customers={customers}
-                    warehouses={warehouses}
-                    availableProducts={availableProducts}
-                    totals={{
-                        subtotal: totals.subtotal,
-                        tax_amount: totals.taxAmount,
-                        discount_amount: totals.discountAmount,
-                        total_amount: totals.total,
-                    }}
-                    proposalSetting={activeSetting}
-                    other_details={data.other_details}
-                />
             </div>
         </AuthenticatedLayout>
     );

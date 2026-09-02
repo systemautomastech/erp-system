@@ -51,7 +51,7 @@
         return \Illuminate\Support\Facades\Storage::url($cleanPath);
     };
 
-    $showLogo = isset($quotationSetting['show_logo']) 
+    $showLogo = isset($quotationSetting['show_logo'])
         ? in_array($quotationSetting['show_logo'], [1, '1', true, 'true'], true)
         : true;
     $rawLogo = $quotationSetting['logo_image'] ?? $quotationSetting['company_logo'] ?? '';
@@ -86,7 +86,8 @@
     $pdfFilename = "{$companyName}_Sales Quotation_#{$quotationNumber}.pdf";
 
     $replaceQuotationShortcodes = function ($content) use ($quotation, $quotationSetting, $getImagePath, $logoImage, $templateColor, $creatorId) {
-        if (empty($content)) return '';
+        if (empty($content))
+            return '';
         $customer = $quotation->customer ?? null;
         $dateFormat = $quotationSetting['dateFormat'] ?? 'Y-m-d';
 
@@ -99,15 +100,15 @@
             ?? admin_setting('logo')
             ?? 'uploads/logo/logo_dark.png';
         $companyLogoUrl = $getImagePath($rawCompanyLogo) ?: asset('uploads/logo/logo_dark.png');
-        $rawProposalLogo = $quotationSetting['logo_image'] ?? $rawCompanyLogo;
-        $proposalLogoUrl = $getImagePath($rawProposalLogo) ?: $logoImage;
+        $rawQuotationLogo = $quotationSetting['logo_image'] ?? $rawCompanyLogo;
+        $quotationLogoUrl = $getImagePath($rawQuotationLogo) ?: $logoImage;
 
         $authorUser = \App\Models\User::with('employee')->find($creatorId);
         $employeeRecord = $authorUser?->employee;
-        $compPhone = $quotationSetting['company_telephone'] 
-            ?? $quotationSetting['company_phone'] 
-            ?? company_setting('company_telephone', $creatorId) 
-            ?? company_setting('company_phone', $creatorId) 
+        $compPhone = $quotationSetting['company_telephone']
+            ?? $quotationSetting['company_phone']
+            ?? company_setting('company_telephone', $creatorId)
+            ?? company_setting('company_phone', $creatorId)
             ?? '';
 
         $custAddr = $customer->address ?? '';
@@ -183,19 +184,19 @@
 
         // Handle attributes
         $res = preg_replace('/src=(["\'])\s*\{\s*company_logo\s*\}\s*\1/i', 'src=$1' . $companyLogoUrl . '$1', $res);
-        $res = preg_replace('/src=(["\'])\s*\{\s*proposal_logo\s*\}\s*\1/i', 'src=$1' . $proposalLogoUrl . '$1', $res);
-        $res = preg_replace('/src=(["\'])\s*\{\s*quotation_logo\s*\}\s*\1/i', 'src=$1' . $proposalLogoUrl . '$1', $res);
+        $res = preg_replace('/src=(["\'])\s*\{\s*proposal_logo\s*\}\s*\1/i', 'src=$1' . $quotationLogoUrl . '$1', $res);
+        $res = preg_replace('/src=(["\'])\s*\{\s*quotation_logo\s*\}\s*\1/i', 'src=$1' . $quotationLogoUrl . '$1', $res);
 
         // Handle standalone tags
         if ($companyLogoUrl) {
-            $res = preg_replace('/\{\s*company_logo\s*\}/i', '<img src="' . $companyLogoUrl . '" alt="Company Logo" class="proposal-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
+            $res = preg_replace('/\{\s*company_logo\s*\}/i', '<img src="' . $companyLogoUrl . '" alt="Company Logo" class="quotation-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
         } else {
             $res = preg_replace('/\{\s*company_logo\s*\}/i', '', $res);
         }
 
-        if ($proposalLogoUrl) {
-            $res = preg_replace('/\{\s*proposal_logo\s*\}/i', '<img src="' . $proposalLogoUrl . '" alt="Proposal Logo" class="proposal-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
-            $res = preg_replace('/\{\s*quotation_logo\s*\}/i', '<img src="' . $proposalLogoUrl . '" alt="Quotation Logo" class="proposal-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
+        if ($quotationLogoUrl) {
+            $res = preg_replace('/\{\s*proposal_logo\s*\}/i', '<img src="' . $quotationLogoUrl . '" alt="Quotation Logo" class="quotation-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
+            $res = preg_replace('/\{\s*quotation_logo\s*\}/i', '<img src="' . $quotationLogoUrl . '" alt="Quotation Logo" class="quotation-logo" style="display: inline-block !important; vertical-align: middle; max-height: 64px; max-width: 220px; object-fit: contain;" />', $res);
         } else {
             $res = preg_replace('/\{\s*proposal_logo\s*\}/i', '', $res);
             $res = preg_replace('/\{\s*quotation_logo\s*\}/i', '', $res);
@@ -217,16 +218,20 @@
     <title>Sales Quotation #{{ $quotation->quotation_number }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
-    @vite(['resources/css/app.css'])
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
     <style>
         :root {
-            --template-color: {{ $templateColor }} !important;
-            --sp-accent-color: {{ $templateColor }} !important;
+            --template-color:
+                {{ $templateColor }}
+                !important;
+            --sp-accent-color:
+                {{ $templateColor }}
+                !important;
             --sp-text-title: #111827;
             --sp-text-sub: #64748b;
             --sp-text-body: #334155;
-            --sp-border: #e5e7eb;
+            --sp-border: #cbd5e1;
             --sp-bg-light-1: #f9fafb;
             --sp-bg-light-2: #eef2f7;
         }
@@ -255,12 +260,12 @@
             font-family: "Open Sans", sans-serif !important;
         }
 
-        .proposal-preview-sheet,
-        .proposal-cover__sheet {
+        .quotation-preview-sheet,
+        .quotation-cover__sheet {
             width: 210mm;
-            min-height: 296mm;
-            height: 296mm;
-            max-height: 296mm;
+            min-height: 297mm;
+            height: 297mm;
+            max-height: 297mm;
             background-color: #ffffff;
             margin: 0 auto;
             page-break-after: always;
@@ -272,134 +277,260 @@
             position: relative !important;
             overflow: hidden !important;
             box-sizing: border-box !important;
-            --template-color: {{ $templateColor }} !important;
-            --sp-accent-color: {{ $templateColor }} !important;
+            --template-color:
+                {{ $templateColor }}
+                !important;
+            --sp-accent-color:
+                {{ $templateColor }}
+                !important;
         }
 
-        .proposal-page__body {
-            position: relative !important;
-            z-index: 1 !important;
-            padding: 32mm 15mm 20mm !important;
-            height: 296mm !important;
-            max-height: 296mm !important;
-            box-sizing: border-box !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: space-between !important;
-        }
-
-        .proposal-preview-sheet:last-child,
-        .proposal-cover__sheet:last-child {
+        .quotation-preview-sheet:last-child,
+        .quotation-cover__sheet:last-child {
             page-break-after: avoid !important;
             break-after: avoid !important;
         }
 
-        /* Dynamic Table Header Coloring */
-        .proposal-preview-sheet table thead,
-        .proposal-preview-sheet table thead tr,
-        .proposal-preview-sheet table thead th,
-        .proposal-preview-sheet table th,
-        .proposal-page__body table thead,
-        .proposal-page__body table thead tr,
-        .proposal-page__body table thead th,
-        .proposal-page__body table th,
-        .html-preview-container table thead,
-        .html-preview-container table thead tr,
-        .html-preview-container table thead th,
-        .html-preview-container table th {
-            background-color: {{ $templateColor }} !important;
-            color: #ffffff !important;
+        .quotation-bg-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
         }
 
-        .proposal-preview-sheet table thead th,
-        .proposal-preview-sheet table th,
-        .proposal-page__body table thead th,
-        .proposal-page__body table th,
-        .html-preview-container table thead th,
-        .html-preview-container table th {
+        .quotation-bg-layer img {
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            display: block;
+        }
+
+        .quotation-header-logo-container {
+            position: absolute;
+            top: 8mm;
+            z-index: 20;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            max-height: 20mm;
+            max-width: 60mm;
+        }
+
+        .quotation-header-logo-container img {
+            max-height: 16mm;
+            max-width: 55mm;
+            object-fit: contain;
+        }
+
+        .quotation-page__body {
+            position: relative !important;
+            z-index: 1 !important;
+            padding: 32mm 15mm 20mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+        }
+
+        .quotation-page__body.body-combined {
+            padding: 28mm 15mm 18mm !important;
+        }
+
+        .quotation-section-title {
+            font-weight: 700;
+            margin-top: 12px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #293240;
+        }
+
+        .quotation-page__body > :first-child .quotation-section-title,
+        .quotation-charges-wrapper:first-child .quotation-section-title {
+            margin-top: 0;
+        }
+
+        /* Quotation Table System */
+        .quotation-table {
+            width: 100% !important;
+            font-size: 10px !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            border: 1px solid #cbd5e1 !important;
+            margin-bottom: 8px !important;
+        }
+
+        .quotation-table thead tr {
+            background-color:
+                {{ $templateColor }}
+                !important;
             color: #ffffff !important;
+            text-align: center;
             font-weight: 600;
         }
 
-        /* Accent & Badge Dynamic Coloring */
-        .sp-doc-badge-label {
-            color: {{ $templateColor }} !important;
+        .quotation-table thead th {
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            color: #ffffff !important;
+            font-size: 10px;
+            font-weight: 600;
+            background-color:
+                {{ $templateColor }}
+                !important;
+            box-sizing: border-box;
         }
 
-        table {
-            width: 100% !important;
-            table-layout: fixed !important;
-            border-collapse: collapse !important;
-            word-wrap: break-word !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
+        .quotation-table th.col-sn {
+            width: 5%;
+            text-align: center;
+            padding: 6px 4px;
         }
 
-        th, td {
-            word-wrap: break-word !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
-            white-space: normal !important;
-            box-sizing: border-box !important;
+        .quotation-table th.col-item {
+            width: 16%;
+            text-align: left;
         }
 
-        th *, td * {
-            word-wrap: break-word !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
-            max-width: 100% !important;
+        .quotation-table th.col-desc {
+            width: 33%;
+            text-align: left;
         }
 
-        .sp-doc-accent-line {
-            background-color: {{ $templateColor }} !important;
-            background: {{ $templateColor }} !important;
+        .quotation-table th.col-qty {
+            width: 7%;
+            text-align: center;
+            padding: 6px 4px;
         }
 
-        .sp-doc-date-tag {
-            border-color: {{ $templateColor }} !important;
-            color: {{ $templateColor }} !important;
+        .quotation-table th.col-price {
+            width: 12%;
+            text-align: right;
         }
 
-        /* Ensure images and logos respect parent text alignment (center/left/right) */
-        .proposal-preview-sheet img,
-        .proposal-page__body img,
-        img.proposal-logo,
-        .proposal-logo {
-            display: inline-block !important;
+        .quotation-table th.col-tax {
+            width: 14%;
+            text-align: right;
+        }
+
+        .quotation-table th.col-total {
+            width: 13%;
+            text-align: right;
+        }
+
+        .quotation-table tbody td {
+            border: 1px solid #cbd5e1;
+            color: #293240;
+            vertical-align: middle;
+            box-sizing: border-box;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            font-size: 10px;
+        }
+
+        .quotation-td-sn {
+            padding: 4px;
+            text-align: center;
+        }
+
+        .quotation-td-item {
+            padding: 4px 6px;
+            font-weight: 500;
+        }
+
+        .quotation-td-qty {
+            padding: 4px;
+            text-align: center;
+        }
+
+        .quotation-td-price {
+            padding: 4px 6px;
+            text-align: right;
+        }
+
+        .quotation-td-tax {
+            padding: 4px 6px;
+            text-align: right;
+        }
+
+        .quotation-td-total {
+            padding: 4px 6px;
+            text-align: right;
+            font-weight: 700;
+        }
+
+        .quotation-no-items {
+            padding: 16px;
+            text-align: center;
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .quotation-summary-label {
+            padding: 4px 6px;
+            border: 1px solid #cbd5e1;
+            text-align: right;
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 10px;
+            white-space: nowrap;
             vertical-align: middle;
         }
 
-        .proposal-preview-sheet [style*="text-align: center"] img,
-        .proposal-preview-sheet [style*="text-align:center"] img,
-        .proposal-page__body [style*="text-align: center"] img,
-        .proposal-page__body [style*="text-align:center"] img,
-        .text-center img {
-            display: inline-block !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
+        .quotation-summary-value {
+            padding: 4px 6px;
+            border: 1px solid #cbd5e1;
+            text-align: right;
+            font-weight: 700;
+            color: #0f172a;
+            font-size: 10px;
+            white-space: nowrap;
+            vertical-align: middle;
         }
 
-        .proposal-preview-sheet [style*="text-align: right"] img,
-        .proposal-preview-sheet [style*="text-align:right"] img,
-        .proposal-page__body [style*="text-align: right"] img,
-        .proposal-page__body [style*="text-align:right"] img,
-        .text-right img {
-            display: inline-block !important;
-            margin-left: auto !important;
-            margin-right: 0 !important;
+        /* Description HTML Typography */
+        .quotation-item-desc {
+            padding: 4px 6px;
+            text-align: left;
+            font-size: 10px;
+            line-height: 1.35;
+            color: #293240;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
-        .proposal-preview-sheet [style*="text-align: left"] img,
-        .proposal-preview-sheet [style*="text-align:left"] img,
-        .proposal-page__body [style*="text-align: left"] img,
-        .proposal-page__body [style*="text-align:left"] img,
-        .text-left img {
-            display: inline-block !important;
-            margin-right: auto !important;
-            margin-left: 0 !important;
+        .quotation-item-desc p {
+            margin: 0 0 2px 0 !important;
+            padding: 0 !important;
+            line-height: 1.35 !important;
         }
 
-        /* HTML Preview Container Typography matching Unified Preview Modal */
+        .quotation-item-desc p:last-child {
+            margin-bottom: 0 !important;
+        }
+
+        .quotation-item-desc ul,
+        .quotation-item-desc ol {
+            margin: 0 0 2px 0 !important;
+            padding-left: 14px !important;
+            list-style-position: outside !important;
+        }
+
+        .quotation-item-desc li {
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.35 !important;
+        }
+
+        .quotation-item-desc li p {
+            display: inline !important;
+            margin: 0 !important;
+        }
+
+        /* Content / Other Details Typography */
         .html-preview-container {
             font-size: 14px;
             line-height: 1.5;
@@ -407,61 +538,142 @@
             width: 100%;
         }
 
-        .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; color: #0f172a; }
-        .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; color: #0f172a; }
-        .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; color: #0f172a; }
-        .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; color: #0f172a; }
-        .html-preview-container p { margin: 4px 0; }
-        .html-preview-container > p:first-child { margin-top: 0; }
-        .html-preview-container > p:last-child { margin-bottom: 0; }
-        .html-preview-container p:empty { min-height: 1.15em; margin: 0; }
-        .html-preview-container p:empty::before { content: "\00a0"; }
-        .html-preview-container ul { list-style-type: disc; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
-        .html-preview-container ol { list-style-type: decimal; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
-        .html-preview-container li { margin-top: 2px; margin-bottom: 2px; }
-        .html-preview-container blockquote { border-left: 4px solid #cbd5e1; padding-left: 16px; font-style: italic; margin: 8px 0; }
-        .html-preview-container a { color: #2563eb; text-decoration: underline; }
-        .html-preview-container table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #cbd5e1; }
-        .html-preview-container th { border: 1px solid #cbd5e1; padding: 8px 10px; font-weight: 600; text-align: left; }
-        .html-preview-container td { border: 1px solid #cbd5e1; padding: 8px 10px; color: #1e293b; }
+        .html-preview-container h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 8px 0;
+            color: #0f172a;
+        }
 
-        /* Line item description HTML typography styles */
-        .proposal-item-desc {
-            font-size: 10px;
-            line-height: 1.4;
-            color: #293240;
-            word-wrap: break-word !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
+        .html-preview-container h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 8px 0;
+            color: #0f172a;
         }
-        .proposal-item-desc * {
-            word-wrap: break-word !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
+
+        .html-preview-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 6px 0;
+            color: #0f172a;
         }
-        .proposal-item-desc p {
-            margin: 2px 0 !important;
-            word-wrap: break-word !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
+
+        .html-preview-container h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 4px 0;
+            color: #0f172a;
         }
-        .proposal-item-desc p:empty {
-            min-height: 0.8em;
+
+        .html-preview-container p {
+            margin: 4px 0;
+        }
+
+        .html-preview-container>p:first-child {
+            margin-top: 0;
+        }
+
+        .html-preview-container>p:last-child {
+            margin-bottom: 0;
+        }
+
+        .html-preview-container p:empty {
+            min-height: 1.15em;
             margin: 0;
         }
-        .proposal-item-desc ul {
-            list-style-type: disc !important;
-            margin-left: 18px !important;
-            padding-left: 0 !important;
-            margin-top: 3px !important;
-            margin-bottom: 3px !important;
+
+        .html-preview-container p:empty::before {
+            content: "\00a0";
         }
-        .proposal-item-desc ol {
-            list-style-type: decimal !important;
-            margin-left: 18px !important;
-            padding-left: 0 !important;
-            margin-top: 3px !important;
-            margin-bottom: 3px !important;
+
+        .html-preview-container ul {
+            list-style-type: disc;
+            margin-left: 24px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .html-preview-container ol {
+            list-style-type: decimal;
+            margin-left: 24px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .html-preview-container li {
+            margin-top: 2px;
+            margin-bottom: 2px;
+        }
+
+        .html-preview-container blockquote {
+            border-left: 4px solid #cbd5e1;
+            padding-left: 16px;
+            font-style: italic;
+            margin: 8px 0;
+        }
+
+        .html-preview-container a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
+        .html-preview-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            border: 1px solid #cbd5e1;
+        }
+
+        .html-preview-container th {
+            border: 1px solid #cbd5e1;
+            padding: 8px 10px;
+            font-weight: 600;
+            text-align: left;
+            background-color:
+                {{ $templateColor }}
+                !important;
+            color: #ffffff !important;
+        }
+
+        .html-preview-container table td {
+            border: 1px solid #cbd5e1;
+            padding: 8px 10px;
+            color: #1e293b;
+        }
+
+        /* Accent & Badge Dynamic Coloring */
+        .sp-doc-badge-label {
+            color:
+                {{ $templateColor }}
+                !important;
+        }
+
+        .sp-doc-accent-line {
+            background-color:
+                {{ $templateColor }}
+                !important;
+            background:
+                {{ $templateColor }}
+                !important;
+        }
+
+        .sp-doc-date-tag {
+            border-color:
+                {{ $templateColor }}
+                !important;
+            color:
+                {{ $templateColor }}
+                !important;
+        }
+
+        /* Logo alignments */
+        .quotation-preview-sheet img,
+        .quotation-page__body img,
+        img.quotation-logo,
+        .quotation-logo {
+            display: inline-block !important;
+            vertical-align: middle;
         }
 
         @media print {
@@ -479,8 +691,8 @@
                 background-color: #ffffff !important;
             }
 
-            .proposal-preview-sheet,
-            .proposal-cover__sheet {
+            .quotation-preview-sheet,
+            .quotation-cover__sheet {
                 width: 210mm !important;
                 height: 297mm !important;
                 min-height: 297mm !important;
@@ -495,7 +707,7 @@
                 overflow: hidden !important;
             }
 
-            .proposal-page__body {
+            .quotation-page__body {
                 position: relative !important;
                 z-index: 1 !important;
                 padding: 32mm 15mm 20mm !important;
@@ -504,11 +716,15 @@
                 box-sizing: border-box !important;
                 display: flex !important;
                 flex-direction: column !important;
-                justify-content: space-between !important;
+                justify-content: flex-start !important;
             }
 
-            .proposal-preview-sheet:last-child,
-            .proposal-cover__sheet:last-child {
+            .quotation-page__body.body-combined {
+                padding: 28mm 15mm 18mm !important;
+            }
+
+            .quotation-preview-sheet:last-child,
+            .quotation-cover__sheet:last-child {
                 page-break-after: auto !important;
                 break-after: auto !important;
             }
@@ -520,7 +736,7 @@
     @php
         $items = $quotation->items ?? collect();
         $otcItems = $items->filter(function ($i) {
-            return ($i->section === 'otc' || $i->section === 'general' || !$i->section) && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
+            return ($i->section === 'otc' || $i->section === 'general' || !$i->section) && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->description) || !empty($i->product_description));
         })->values();
 
         $otcSubtotal = $otcItems->sum(fn($i) => (float) ($i->quantity * $i->unit_price));
@@ -528,7 +744,7 @@
         $otcTax = $otcItems->sum(fn($i) => (float) ($i->tax_amount ?? 0));
 
         $mrcItems = $items->filter(function ($i) {
-            return $i->section === 'mrc' && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
+            return $i->section === 'mrc' && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->description) || !empty($i->product_description));
         })->values();
 
         $mrcSubtotal = $mrcItems->sum(fn($i) => (float) ($i->quantity * $i->unit_price));
@@ -549,17 +765,17 @@
         $mrcTotal = max(0, $mrcSubtotal - $mrcDiscount + $mrcTax);
 
         // Helper to format discount label with percentage if applicable
-        $getDiscountLabel = function($discountAmount, $subtotal, $items) {
+        $getDiscountLabel = function ($discountAmount, $subtotal, $items) {
             if ($discountAmount <= 0) {
                 return 'Discount:';
             }
             // Check if items have uniform percentage
-            $discountedItems = $items->filter(fn($i) => (float)($i->discount_amount ?? 0) > 0);
+            $discountedItems = $items->filter(fn($i) => (float) ($i->discount_amount ?? 0) > 0);
             if ($discountedItems->count() > 0) {
-                $percentages = $discountedItems->map(fn($i) => (float)($i->discount_percentage ?? 0))->unique();
+                $percentages = $discountedItems->map(fn($i) => (float) ($i->discount_percentage ?? 0))->unique();
                 if ($percentages->count() === 1 && $percentages->first() > 0) {
                     $pct = $percentages->first();
-                    $pctStr = ($pct == (int)$pct) ? (int)$pct : rtrim(rtrim(number_format($pct, 2), '0'), '.');
+                    $pctStr = ($pct == (int) $pct) ? (int) $pct : rtrim(rtrim(number_format($pct, 2), '0'), '.');
                     return "Discount ({$pctStr}%):";
                 }
             }
@@ -569,7 +785,7 @@
                 $roundedPct = round($calcPct, 2);
                 $diff = abs($discountAmount - (($subtotal * $roundedPct) / 100));
                 if ($diff < 0.05) {
-                    $pctStr = ($roundedPct == (int)$roundedPct) ? (int)$roundedPct : rtrim(rtrim(number_format($roundedPct, 2), '0'), '.');
+                    $pctStr = ($roundedPct == (int) $roundedPct) ? (int) $roundedPct : rtrim(rtrim(number_format($roundedPct, 2), '0'), '.');
                     return "Discount ({$pctStr}%):";
                 }
             }
@@ -582,15 +798,49 @@
         // Build Sections Source for this individual quotation
         $customContentPages = [];
         if (isset($quotation->contents) && count($quotation->contents) > 0) {
-            $customContentPages = $quotation->contents->map(function ($c) {
-                $decoded = is_string($c->quotation_content ?? $c->content) ? json_decode($c->quotation_content ?? $c->content, true) : null;
-                return is_array($decoded) ? $decoded : [
+            $customContentPages = collect($quotation->contents)->map(function ($c) {
+                $c = (object) $c;
+                $decoded = is_string($c->quotation_content ?? $c->content ?? null) ? json_decode($c->quotation_content ?? $c->content, true) : null;
+                if (is_array($decoded)) {
+                    return [
+                        'title' => $decoded['title'] ?? $c->title ?? '',
+                        'content' => $decoded['content'] ?? $c->content ?? $c->quotation_content ?? '',
+                        'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
+                        'background_image' => $decoded['background_image'] ?? $c->background_image ?? null,
+                        'order' => $c->sort_order ?? $c->order ?? 1,
+                    ];
+                }
+                return [
                     'title' => $c->title ?? '',
                     'content' => $c->content ?? $c->quotation_content ?? '',
+                    'page_type' => $c->page_type ?? 'content',
                     'background_image' => $c->background_image ?? null,
                     'order' => $c->sort_order ?? $c->order ?? 1,
                 ];
             })->toArray();
+        } elseif (\Illuminate\Support\Facades\Schema::hasTable('sales_quotation_contents')) {
+            $dbContents = \Illuminate\Support\Facades\DB::table('sales_quotation_contents')->where('quotation_id', $quotation->id)->orderBy('sort_order')->get();
+            if ($dbContents && $dbContents->count() > 0) {
+                $customContentPages = $dbContents->map(function ($c) {
+                    $decoded = is_string($c->quotation_content ?? $c->content ?? null) ? json_decode($c->quotation_content ?? $c->content, true) : null;
+                    if (is_array($decoded)) {
+                        return [
+                            'title' => $decoded['title'] ?? $c->title ?? '',
+                            'content' => $decoded['content'] ?? $c->content ?? $c->quotation_content ?? '',
+                            'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
+                            'background_image' => $decoded['background_image'] ?? $c->background_image ?? null,
+                            'order' => $c->sort_order ?? $c->order ?? 1,
+                        ];
+                    }
+                    return [
+                        'title' => $c->title ?? '',
+                        'content' => $c->content ?? $c->quotation_content ?? '',
+                        'page_type' => $c->page_type ?? 'content',
+                        'background_image' => $c->background_image ?? null,
+                        'order' => $c->sort_order ?? $c->order ?? 1,
+                    ];
+                })->toArray();
+            }
         }
 
         if (empty($customContentPages)) {
@@ -602,101 +852,54 @@
             }
         }
 
-        if (empty($customContentPages) && !empty($defaultPages)) {
-            $customContentPages = collect($defaultPages)->map(function ($p, $idx) {
+        if (empty($customContentPages)) {
+            $creatorId = $quotation->created_by ?? null;
+            $defaultPages = \Automas\Quotation\Models\QuotationDefaultPage::where('created_by', $creatorId)
+                ->where('is_active', 1)
+                ->orderBy('sort_order')
+                ->get();
+
+            if ($defaultPages->isEmpty()) {
+                $defaultPages = \Automas\Quotation\Models\QuotationDefaultPage::where('is_active', 1)
+                    ->orderBy('sort_order')
+                    ->get();
+            }
+
+            $customContentPages = $defaultPages->map(function ($p) {
                 return [
-                    'title' => $p->title ?? '',
-                    'content' => $p->content ?? '',
+                    'title' => $p->title,
+                    'content' => $p->content,
+                    'page_type' => $p->page_type ?? 'content',
                     'background_image' => $p->background_image ?? null,
-                    'order' => $p->sort_order ?? $idx + 1,
+                    'order' => $p->sort_order,
                 ];
             })->toArray();
         }
 
-        if (empty($customContentPages) || !is_array($customContentPages)) {
-            $customContentPages = [];
-        }
-
         $sectionsSource = $customContentPages;
+        if (empty($sectionsSource)) {
+            $sectionsSource = [
+                ['title' => 'One-Time Charges (OTC)', 'content' => '[OTC_CHARGES_TABLE]', 'page_type' => 'otc', 'order' => 1],
+                ['title' => 'Monthly Recurring Charges (MRC)', 'content' => '[MRC_CHARGES_TABLE]', 'page_type' => 'mrc', 'order' => 2],
+            ];
+        }
 
         // Sort sections by order
         usort($sectionsSource, function ($a, $b) {
-            return ($a['order'] ?? 0) <=> ($b['order'] ?? 0);
+            $orderA = $a['order'] ?? 999;
+            $orderB = $b['order'] ?? 999;
+            return $orderA <=> $orderB;
         });
 
-        // Helper for estimating item weight in blade
-        $estimateItemWeight = function ($item) {
-            $desc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
-            $plainText = trim(preg_replace('/\s+/', ' ', strip_tags($desc)));
-            $blockTags = preg_match_all('/<\/p>|<br\s*\/?>|<\/li>|<\/h[1-6]>/i', $desc, $matches);
-            $textLines = ceil(strlen($plainText) / 48);
-            $descLines = max($textLines, $blockTags, (!empty($desc) ? 1 : 0));
-
-            $pName = $item->product->name ?? $item->product_name ?? '';
-            $nameLines = max(ceil(strlen($pName) / 28), 1);
-            $effectiveLines = max($descLines, $nameLines);
-
-            return 1 + ($effectiveLines - 1) * 0.7;
-        };
-
-        // Helper for chunking items dynamically in blade
-        $chunkItemsDynamic = function ($itemsList) use ($estimateItemWeight) {
-            if (count($itemsList) === 0)
-                return [];
-            $chunks = [];
-            $currentChunk = [];
-            $currentWeight = 0;
-            $currentStartIndex = 0;
-
-            $REGULAR_PAGE_CAPACITY = 26;
-            $LAST_PAGE_CAPACITY = 25;
-            $totalCount = count($itemsList);
-
-            foreach ($itemsList as $idx => $item) {
-                $itemWeight = $estimateItemWeight($item);
-                $remainingItems = $totalCount - $idx;
-                $capacity = ($remainingItems <= 5) ? $LAST_PAGE_CAPACITY : $REGULAR_PAGE_CAPACITY;
-
-                if (count($currentChunk) > 0 && ($currentWeight + $itemWeight > $capacity)) {
-                    $chunks[] = ['items' => $currentChunk, 'startIndex' => $currentStartIndex];
-                    $currentChunk = [$item];
-                    $currentWeight = $itemWeight;
-                    $currentStartIndex = $idx;
-                } else {
-                    $currentChunk[] = $item;
-                    $currentWeight += $itemWeight;
-                }
-            }
-
-            if (count($currentChunk) > 0) {
-                $chunks[] = ['items' => $currentChunk, 'startIndex' => $currentStartIndex];
-            }
-
-            return $chunks;
-        };
-
-        // Calculate total weight of OTC and MRC to check if they can fit together on one page
-        $totalOtcWeight = 0;
-        foreach ($otcItems as $item) {
-            $totalOtcWeight += $estimateItemWeight($item);
-        }
-        $totalMrcWeight = 0;
-        foreach ($mrcItems as $item) {
-            $totalMrcWeight += $estimateItemWeight($item);
-        }
-
-        // A single page has capacity of ~22 weight units for combined tables including headings and summary rows
-        $COMBINED_PAGE_CAPACITY = 20;
-        $canCombineCharges = (count($otcItems) > 0 && count($mrcItems) > 0 && ($totalOtcWeight + $totalMrcWeight) <= $COMBINED_PAGE_CAPACITY);
-        $chargesCombinedRendered = false;
-
-        // Ensure OTC and MRC are in sectionsSource if not present and items exist
+        // Prepare Section Pages
+        // In this clean architecture, each section is rendered in full into a page template container.
+        // If OTC and MRC are adjacent or fit together, client-side pagination keeps them on the same sheet.
         $hasOtcInSource = false;
         $hasMrcInSource = false;
         $hasOtherInSource = false;
         foreach ($sectionsSource as $sec) {
             $sec = (array) $sec;
-            $rawContent = trim((string)($sec['content'] ?? ''));
+            $rawContent = trim((string) ($sec['content'] ?? ''));
             $title = $sec['title'] ?? '';
             if ($rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false)) {
                 $hasOtcInSource = true;
@@ -734,671 +937,325 @@
             ];
         }
 
-        // Build Renderable Pages Array matching exact user section order
-        $renderablePages = [];
+        // Build Renderable Page Blocks matching section order
+        $renderableSections = [];
+        $otcRendered = false;
+        $mrcRendered = false;
+        $otherRendered = false;
+
         foreach ($sectionsSource as $sIdx => $sec) {
             $sec = (array) $sec;
-            $rawContent = trim((string)($sec['content'] ?? ''));
+            $rawContent = trim((string) ($sec['content'] ?? ''));
             $title = $sec['title'] ?? '';
-            $isOtc = $rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false);
-            $isMrc = $rawContent === '[MRC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'monthly recurring charges') !== false);
-            $isOther = $rawContent === '[OTHER_DETAILS_CONTENT]' || (!empty($title) && stripos($title, 'other details') !== false);
+            $pageType = $sec['page_type'] ?? '';
+            $isOtc = $pageType === 'otc' || $rawContent === '[OTC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'one-time charges') !== false);
+            $isMrc = $pageType === 'mrc' || $rawContent === '[MRC_CHARGES_TABLE]' || (!empty($title) && stripos($title, 'monthly recurring charges') !== false);
+            $isOther = $pageType === 'other-details' || $rawContent === '[OTHER_DETAILS_CONTENT]' || (!empty($title) && stripos($title, 'other details') !== false);
 
-            if ($isOtc || $isMrc) {
-                if ($canCombineCharges) {
-                    if (!$chargesCombinedRendered) {
-                        $renderablePages[] = [
-                            'key' => "combined-charges-{$sIdx}",
-                            'type' => 'combined-charges',
-                            'otcTitle' => 'One-Time Charges (OTC)',
-                            'mrcTitle' => 'Monthly Recurring Charges (MRC)',
-                            'background_image' => $sec['background_image'] ?? null,
-                            'otcItems' => $otcItems,
-                            'mrcItems' => $mrcItems,
-                            'otcSubtotal' => $otcSubtotal,
-                            'otcDiscount' => $otcDiscount,
-                            'otcDiscountLabel' => $otcDiscountLabel,
-                            'otcTax' => $otcTax,
-                            'otcTotal' => $otcTotal,
-                            'mrcSubtotal' => $mrcSubtotal,
-                            'mrcDiscount' => $mrcDiscount,
-                            'mrcDiscountLabel' => $mrcDiscountLabel,
-                            'mrcTax' => $mrcTax,
-                            'mrcTotal' => $mrcTotal,
-                        ];
-                        $chargesCombinedRendered = true;
-                    }
-                    continue;
-                }
-            }
-
-            if ($isOtc) {
+            if ($isOtc && !$otcRendered) {
                 if (count($otcItems) > 0) {
-                    $itemChunks = $chunkItemsDynamic($otcItems);
-                    $totalChunks = count($itemChunks);
-
-                    foreach ($itemChunks as $cIdx => $chk) {
-                        $renderablePages[] = [
-                            'key' => "otc-chunk-{$cIdx}-{$sIdx}",
-                            'type' => 'otc',
-                            'title' => !empty($title) ? $title : 'One-Time Charges (OTC)',
-                            'background_image' => $sec['background_image'] ?? null,
-                            'items' => $chk['items'],
-                            'startIndex' => $chk['startIndex'],
-                            'isLastChunk' => ($cIdx === $totalChunks - 1),
-                            'subtotal' => $otcSubtotal,
-                            'discount' => $otcDiscount,
-                            'discountLabel' => $otcDiscountLabel,
-                            'tax' => $otcTax,
-                            'total' => $otcTotal,
-                        ];
-                    }
+                    $renderableSections[] = [
+                        'id' => "otc-section-{$sIdx}",
+                        'type' => 'otc',
+                        'title' => !empty($title) ? $title : 'One-Time Charges (OTC)',
+                        'background_image' => $sec['background_image'] ?? null,
+                    ];
+                    $otcRendered = true;
                 }
                 continue;
             }
 
-            if ($isMrc) {
+            if ($isMrc && !$mrcRendered) {
                 if (count($mrcItems) > 0) {
-                    $itemChunks = $chunkItemsDynamic($mrcItems);
-                    $totalChunks = count($itemChunks);
-
-                    foreach ($itemChunks as $cIdx => $chk) {
-                        $renderablePages[] = [
-                            'key' => "mrc-chunk-{$cIdx}-{$sIdx}",
-                            'type' => 'mrc',
-                            'title' => !empty($title) ? $title : 'Monthly Recurring Charges (MRC)',
-                            'background_image' => $sec['background_image'] ?? null,
-                            'items' => $chk['items'],
-                            'startIndex' => $chk['startIndex'],
-                            'isLastChunk' => ($cIdx === $totalChunks - 1),
-                            'subtotal' => $mrcSubtotal,
-                            'discount' => $mrcDiscount,
-                            'discountLabel' => $mrcDiscountLabel,
-                            'tax' => $mrcTax,
-                            'total' => $mrcTotal,
-                        ];
-                    }
+                    $renderableSections[] = [
+                        'id' => "mrc-section-{$sIdx}",
+                        'type' => 'mrc',
+                        'title' => !empty($title) ? $title : 'Monthly Recurring Charges (MRC)',
+                        'background_image' => $sec['background_image'] ?? null,
+                    ];
+                    $mrcRendered = true;
                 }
                 continue;
             }
 
-            if ($isOther) {
+            if ($isOther && !$otherRendered) {
                 if (!empty($quotation->other_details) && trim($quotation->other_details) !== '' && $quotation->other_details !== '<p></p>') {
-                    $renderablePages[] = [
-                        'key' => "other-details-{$sIdx}",
+                    $renderableSections[] = [
+                        'id' => "other-section-{$sIdx}",
                         'type' => 'other-details',
                         'title' => !empty($title) ? $title : 'OTHER DETAILS',
                         'content' => $quotation->other_details,
                         'background_image' => $sec['background_image'] ?? null,
                     ];
+                    $otherRendered = true;
                 }
                 continue;
             }
 
-            // Normal Content Page
-            $renderablePages[] = [
-                'key' => "content-{$sIdx}",
+            // Normal Custom / Default Content Page
+            $renderableSections[] = [
+                'id' => "content-section-{$sIdx}",
                 'type' => 'content',
                 'title' => $title,
                 'content' => $sec['content'] ?? '',
                 'background_image' => $sec['background_image'] ?? null,
             ];
         }
-        $totalPages = count($renderablePages);
     @endphp
 
+    {{-- SECTIONS CONTAINER --}}
     <div class="print-container" id="boxes">
-        @foreach($renderablePages as $pIdx => $page)
+        @foreach($renderableSections as $pIdx => $page)
             @php
-                $pageNum = $pIdx + 1;
                 $sheetBgUrl = $getPageBgUrl($page['background_image'] ?? null);
             @endphp
 
-            {{-- 0. COMBINED CHARGES SHEET (OTC + MRC on Same Page) --}}
-            @if($page['type'] === 'combined-charges')
-                <div class="proposal-preview-sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+            {{-- 1. OTC CHARGES SECTION --}}
+            @if($page['type'] === 'otc')
+                <div class="quotation-preview-sheet otc-paginated-page" id="{{ $page['id'] }}" data-page-type="otc">
                     @if(!empty($sheetBgUrl))
-                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
-                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        <div class="quotation-bg-layer">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" />
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
-                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        <div class="quotation-header-logo-container" style="{{ $headerLogoStyle }}">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" />
                         </div>
                     @endif
-                    <div class="proposal-page__body"
-                        style="position: relative; z-index: 1; padding: 28mm 15mm 18mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div style="margin-top:1.5rem">
-                            {{-- OTC Table --}}
-                            <div style="font-weight: 700; margin-bottom: 6px; font-size: 13px; color: #293240;">
-                                {{ $page['otcTitle'] }}
-                            </div>
-                            <table
-                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 8px;">
-                                <thead>
-                                    <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%;">S/N</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left;">Item / Service</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left;">Description</th>
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center;">Qty.</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right;">Price (BDT)</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Tax / VAT</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right;">Total (BDT)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($page['otcItems'] as $index => $item)
-                                        @php
-                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
-                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
-                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
-                                            $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
-                                        @endphp
-                                        <tr>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle;">{{ $index + 1 }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $pName }}</td>
-                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">{!! $pDesc !!}</td>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
-                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                                    @foreach($item->taxes as $tItem)
-                                                        <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
-                                                    @endforeach
-                                                @elseif((float)($item->tax_percentage ?? 0) > 0)
-                                                    <div>{{ (float)$item->tax_percentage }}%</div>
-                                                @elseif((float)($item->tax_amount ?? 0) > 0)
-                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
-                                                @else
-                                                    <span style="color: #94a3b8;">-</span>
-                                                @endif
-                                            </td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($lTotal, 2) }}</td>
-                                        </tr>
-                                    @endforeach
-                                    <tr>
-                                        <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Total (BDT):</td>
-                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['otcSubtotal'], 2) }}</td>
-                                    </tr>
-                                     @if($page['otcDiscount'] > 0)
-                                        <tr>
-                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">{{ $page['otcDiscountLabel'] ?? 'Discount:' }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">-{{ number_format($page['otcDiscount'], 2) }}</td>
-                                        </tr>
-                                     @endif
-                                     @if($page['otcTax'] > 0)
-                                        <tr>
-                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; font-size: 10px; white-space: nowrap;">VAT/Tax:</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; font-size: 10px; white-space: nowrap;">+{{ number_format($page['otcTax'], 2) }}</td>
-                                        </tr>
-                                     @endif
-                                     @if($page['otcDiscount'] > 0 || $page['otcTax'] > 0)
-                                        <tr>
-                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">Grand Total:</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['otcTotal'], 2) }}</td>
-                                        </tr>
-                                     @endif
-                                </tbody>
-                            </table>
-
-                            {{-- MRC Table --}}
-                            <div style="font-weight: 700; margin-top: 28px; margin-bottom: 8px; font-size: 13px; color: #293240;">
-                                {{ $page['mrcTitle'] }}
-                            </div>
-                            <table
-                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1;">
-                                <thead>
-                                    <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%;">S/N</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left;">Item / Service</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left;">Description</th>
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center;">Qty.</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right;">Price (BDT)</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Tax / VAT</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right;">Total (BDT)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($page['mrcItems'] as $index => $item)
-                                        @php
-                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
-                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
-                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
-                                            $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
-                                        @endphp
-                                        <tr>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle;">{{ $index + 1 }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $pName }}</td>
-                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">{!! $pDesc !!}</td>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
-                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                                    @foreach($item->taxes as $tItem)
-                                                        <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
-                                                    @endforeach
-                                                @elseif((float)($item->tax_percentage ?? 0) > 0)
-                                                    <div>{{ (float)$item->tax_percentage }}%</div>
-                                                @elseif((float)($item->tax_amount ?? 0) > 0)
-                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
-                                                @else
-                                                    <span style="color: #94a3b8;">-</span>
-                                                @endif
-                                            </td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($lTotal, 2) }}</td>
-                                        </tr>
-                                    @endforeach
-                                    <tr>
-                                        <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Total (BDT):</td>
-                                        <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['mrcSubtotal'], 2) }}</td>
-                                    </tr>
-                                    @if($page['mrcDiscount'] > 0)
-                                        <tr>
-                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">{{ $page['mrcDiscountLabel'] ?? 'Discount:' }}</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">-{{ number_format($page['mrcDiscount'], 2) }}</td>
-                                        </tr>
-                                    @endif
-                                    @if($page['mrcTax'] > 0)
-                                        <tr>
-                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; font-size: 10px; white-space: nowrap;">VAT/Tax:</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; font-size: 10px; white-space: nowrap;">+{{ number_format($page['mrcTax'], 2) }}</td>
-                                        </tr>
-                                    @endif
-                                    @if($page['mrcDiscount'] > 0 || $page['mrcTax'] > 0)
-                                        <tr>
-                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">Grand Total:</td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['mrcTotal'], 2) }}</td>
-                                        </tr>
-                                    @endif
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-            {{-- 1. OTC CHARGES SHEET --}}
-            @elseif($page['type'] === 'otc')
-                <div class="proposal-preview-sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
-                    @if(!empty($sheetBgUrl))
-                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
-                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
-                        </div>
-                    @endif
-                    @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
-                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
-                        </div>
-                    @endif
-                    <div class="proposal-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div style="margin-top:2rem">
-                            <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #293240;">
+                    <div class="quotation-page__body">
+                        <div class="quotation-charges-wrapper">
+                            <div class="quotation-section-title">
                                 {{ $page['title'] }}
                             </div>
 
-                            <table
-                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 12px;">
+                            <table class="quotation-table">
                                 <thead>
-                                    <tr
-                                        style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
-                                        <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; word-break: break-word; overflow-wrap: anywhere;">
-                                            S/N</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
-                                            Item / Service</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
-                                            Description</th>
-                                        <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; word-break: break-word; overflow-wrap: anywhere;">
-                                            Qty.</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
-                                            Price (BDT)</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
-                                            Tax / VAT</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
-                                            Total (BDT)</th>
+                                    <tr>
+                                        <th class="col-sn">S/N</th>
+                                        <th class="col-item">Item / Service</th>
+                                        <th class="col-desc">Description</th>
+                                        <th class="col-qty">Qty.</th>
+                                        <th class="col-price">Price (BDT)</th>
+                                        <th class="col-tax">Tax / VAT</th>
+                                        <th class="col-total">Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @if(count($page['items']) === 0)
-                                        <tr>
-                                            <td colSpan="7"
-                                                style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic; border: 1px solid #cbd5e1;">
-                                                No items in this charge section.
-                                            </td>
-                                        </tr>
-                                    @else
+                                    @forelse($otcItems as $index => $item)
                                         @php
-                                            $startIdx = $page['startIndex'] ?? 0;
+                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
+                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                            $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
                                         @endphp
-                                        @foreach($page['items'] as $index => $item)
-                                            @php
-                                                $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                $pDesc = $item->product->description ?? $item->product_description ?? '';
-                                                $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
-                                                $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
-                                                $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
-                                            @endphp
+                                        <tr>
+                                            <td class="quotation-td-sn">{{ $index + 1 }}</td>
+                                            <td class="quotation-td-item">{{ $pName }}</td>
+                                            <td class="quotation-item-desc">{!! $pDesc !!}</td>
+                                            <td class="quotation-td-qty">
+                                                {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
+                                            </td>
+                                            <td class="quotation-td-price">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td class="quotation-td-tax">
+                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                    @foreach($item->taxes as $tItem)
+                                                        <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
+                                                    @endforeach
+                                                @elseif((float) ($item->tax_percentage ?? 0) > 0)
+                                                    <div>{{ (float) $item->tax_percentage }}%</div>
+                                                @elseif((float) ($item->tax_amount ?? 0) > 0)
+                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                @else
+                                                    <span style="color: #94a3b8;">-</span>
+                                                @endif
+                                            </td>
+                                            <td class="quotation-td-total">{{ number_format($lTotal, 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="7" class="quotation-no-items">No OTC items added.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tfoot>
+                                    @if(count($otcItems) > 0)
+                                        <tr>
+                                            <td colspan="5"></td>
+                                            <td class="quotation-summary-label">Total (BDT):</td>
+                                            <td class="quotation-summary-value">{{ number_format($otcSubtotal, 2) }}</td>
+                                        </tr>
+                                        @if($otcDiscount > 0)
                                             <tr>
-                                                <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ $startIdx + $index + 1 }}</td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ $pName }}</td>
-                                                <td
-                                                    class="proposal-item-desc"
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
-                                                    {!! $pDesc !!}</td>
-                                                <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ number_format($item->unit_price, 2) }}</td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
-                                                    @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                                        @foreach($item->taxes as $tItem)
-                                                            <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
-                                                        @endforeach
-                                                    @elseif((float)($item->tax_percentage ?? 0) > 0)
-                                                        <div>{{ (float)$item->tax_percentage }}%</div>
-                                                    @elseif((float)($item->tax_amount ?? 0) > 0)
-                                                        <div>{{ number_format($item->tax_amount, 2) }}</div>
-                                                    @else
-                                                        <span style="color: #94a3b8;">-</span>
-                                                    @endif
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ number_format($lTotal, 2) }}</td>
+                                                <td colspan="5"></td>
+                                                <td class="quotation-summary-label">{{ $otcDiscountLabel ?? 'Discount:' }}</td>
+                                                <td class="quotation-summary-value">-{{ number_format($otcDiscount, 2) }}</td>
                                             </tr>
-                                        @endforeach
-
-                                        @if(!empty($page['isLastChunk']))
+                                        @endif
+                                        @if($otcTax > 0)
                                             <tr>
-                                                <td colspan="5"
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #64748b; font-style: italic; vertical-align: middle; word-break: break-word;">
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    Total (BDT):
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    {{ number_format($page['subtotal'], 2) }}
-                                                </td>
+                                                <td colspan="5"></td>
+                                                <td class="quotation-summary-label">VAT/Tax:</td>
+                                                <td class="quotation-summary-value">+{{ number_format($otcTax, 2) }}</td>
                                             </tr>
-                                            @if($page['discount'] > 0)
-                                                <tr>
-                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        {{ $page['discountLabel'] ?? 'Discount:' }}
-                                                    </td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        -{{ number_format($page['discount'], 2) }}
-                                                    </td>
-                                                </tr>
-                                            @endif
-                                            @if($page['tax'] > 0)
-                                                <tr>
-                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        VAT/Tax:
-                                                    </td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        +{{ number_format($page['tax'], 2) }}
-                                                    </td>
-                                                </tr>
-                                            @endif
+                                        @endif
+                                        @if($otcDiscount > 0 || $otcTax > 0)
                                             <tr>
-                                                <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    Grand Total:
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    {{ number_format($page['total'], 2) }}
-                                                </td>
+                                                <td colspan="5"></td>
+                                                <td class="quotation-summary-label">Grand Total:</td>
+                                                <td class="quotation-summary-value">{{ number_format($otcTotal, 2) }}</td>
                                             </tr>
                                         @endif
                                     @endif
-                                </tbody>
+                                </tfoot>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                {{-- 3. MRC CHARGES SHEET --}}
+            {{-- 2. MRC CHARGES SECTION --}}
             @elseif($page['type'] === 'mrc')
-                <div class="proposal-preview-sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                <div class="quotation-preview-sheet mrc-paginated-page" id="{{ $page['id'] }}" data-page-type="mrc">
                     @if(!empty($sheetBgUrl))
-                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
-                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        <div class="quotation-bg-layer">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" />
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
-                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        <div class="quotation-header-logo-container" style="{{ $headerLogoStyle }}">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" />
                         </div>
                     @endif
-                    <div class="proposal-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div style="margin-top:2rem">
-                            <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #293240;">
+                    <div class="quotation-page__body">
+                        <div class="quotation-charges-wrapper">
+                            <div class="quotation-section-title title-mrc">
                                 {{ $page['title'] }}
                             </div>
 
-                            <table
-                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 12px;">
+                            <table class="quotation-table">
                                 <thead>
-                                    <tr
-                                        style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
-                                        <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; word-break: break-word; overflow-wrap: anywhere;">
-                                            S/N</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
-                                            Item / Service</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
-                                            Description</th>
-                                        <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; word-break: break-word; overflow-wrap: anywhere;">
-                                            Qty.</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
-                                            Price (BDT)</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
-                                            Tax / VAT</th>
-                                        <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
-                                            Total (BDT)</th>
+                                    <tr>
+                                        <th class="col-sn">S/N</th>
+                                        <th class="col-item">Item / Service</th>
+                                        <th class="col-desc">Description</th>
+                                        <th class="col-qty">Qty.</th>
+                                        <th class="col-price">Price (BDT)</th>
+                                        <th class="col-tax">Tax / VAT</th>
+                                        <th class="col-total">Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @if(count($page['items']) === 0)
-                                        <tr>
-                                            <td colSpan="7"
-                                                style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic; border: 1px solid #cbd5e1;">
-                                                No items in this charge section.
-                                            </td>
-                                        </tr>
-                                    @else
+                                    @forelse($mrcItems as $index => $item)
                                         @php
-                                            $startIdx = $page['startIndex'] ?? 0;
+                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
+                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                            $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
                                         @endphp
-                                        @foreach($page['items'] as $index => $item)
-                                            @php
-                                                 $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                                 $pDesc = $item->product->description ?? $item->product_description ?? '';
-                                                 $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
-                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
-                                                 $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
-                                            @endphp
+                                        <tr>
+                                            <td class="quotation-td-sn">{{ $index + 1 }}</td>
+                                            <td class="quotation-td-item">{{ $pName }}</td>
+                                            <td class="quotation-item-desc">{!! $pDesc !!}</td>
+                                            <td class="quotation-td-qty">
+                                                {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
+                                            </td>
+                                            <td class="quotation-td-price">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td class="quotation-td-tax">
+                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                    @foreach($item->taxes as $tItem)
+                                                        <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
+                                                    @endforeach
+                                                @elseif((float) ($item->tax_percentage ?? 0) > 0)
+                                                    <div>{{ (float) $item->tax_percentage }}%</div>
+                                                @elseif((float) ($item->tax_amount ?? 0) > 0)
+                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                @else
+                                                    <span style="color: #94a3b8;">-</span>
+                                                @endif
+                                            </td>
+                                            <td class="quotation-td-total">{{ number_format($lTotal, 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="7" class="quotation-no-items">No MRC items added.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tfoot>
+                                    @if(count($mrcItems) > 0)
+                                        <tr>
+                                            <td colspan="5"></td>
+                                            <td class="quotation-summary-label">Total (BDT):</td>
+                                            <td class="quotation-summary-value">{{ number_format($mrcSubtotal, 2) }}</td>
+                                        </tr>
+                                        @if($mrcDiscount > 0)
                                             <tr>
-                                                <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ $startIdx + $index + 1 }}</td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ $pName }}</td>
-                                                <td
-                                                    class="proposal-item-desc"
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
-                                                    {!! $pDesc !!}</td>
-                                                <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ number_format($item->unit_price, 2) }}</td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
-                                                    @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                                        @foreach($item->taxes as $tItem)
-                                                            <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
-                                                        @endforeach
-                                                    @elseif((float)($item->tax_percentage ?? 0) > 0)
-                                                        <div>{{ (float)$item->tax_percentage }}%</div>
-                                                    @elseif((float)($item->tax_amount ?? 0) > 0)
-                                                        <div>{{ number_format($item->tax_amount, 2) }}</div>
-                                                    @else
-                                                        <span style="color: #94a3b8;">-</span>
-                                                    @endif
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
-                                                    {{ number_format($lTotal, 2) }}</td>
+                                                <td colspan="5"></td>
+                                                <td class="quotation-summary-label">{{ $mrcDiscountLabel ?? 'Discount:' }}</td>
+                                                <td class="quotation-summary-value">-{{ number_format($mrcDiscount, 2) }}</td>
                                             </tr>
-                                        @endforeach
-
-                                        @if(!empty($page['isLastChunk']))
+                                        @endif
+                                        @if($mrcTax > 0)
                                             <tr>
-                                                <td colspan="5"
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #64748b; font-style: italic; vertical-align: middle; word-break: break-word;">
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    Total (BDT):
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    {{ number_format($page['subtotal'], 2) }}
-                                                </td>
+                                                <td colspan="5"></td>
+                                                <td class="quotation-summary-label">VAT/Tax:</td>
+                                                <td class="quotation-summary-value">+{{ number_format($mrcTax, 2) }}</td>
                                             </tr>
-                                            @if($page['discount'] > 0)
-                                                <tr>
-                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        {{ $page['discountLabel'] ?? 'Discount:' }}
-                                                    </td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        -{{ number_format($page['discount'], 2) }}
-                                                    </td>
-                                                </tr>
-                                            @endif
-                                            @if($page['tax'] > 0)
-                                                <tr>
-                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        VAT/Tax:
-                                                    </td>
-                                                    <td
-                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                        +{{ number_format($page['tax'], 2) }}
-                                                    </td>
-                                                </tr>
-                                            @endif
+                                        @endif
+                                        @if($mrcDiscount > 0 || $mrcTax > 0)
                                             <tr>
-                                                <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    Grand Total:
-                                                </td>
-                                                <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
-                                                    {{ number_format($page['total'], 2) }}
-                                                </td>
+                                                <td colspan="5"></td>
+                                                <td class="quotation-summary-label">Grand Total:</td>
+                                                <td class="quotation-summary-value">{{ number_format($mrcTotal, 2) }}</td>
                                             </tr>
                                         @endif
                                     @endif
-                                </tbody>
+                                </tfoot>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                {{-- 4. OTHER DETAILS SHEET --}}
+            {{-- 3. OTHER DETAILS SECTION --}}
             @elseif($page['type'] === 'other-details')
-                <div class="proposal-preview-sheet proposal-cover__sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                <div class="quotation-preview-sheet quotation-cover__sheet other-details-page" id="{{ $page['id'] }}">
                     @if(!empty($sheetBgUrl))
-                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
-                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        <div class="quotation-bg-layer">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" />
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
-                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        <div class="quotation-header-logo-container" style="{{ $headerLogoStyle }}">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" />
                         </div>
                     @endif
-                    <div class="proposal-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div class="html-preview-container" style="margin-top:2rem">
+                    <div class="quotation-page__body">
+                        <div class="html-preview-container">
                             <h3 style="font-size: 14px; font-weight: 700; color: #293240; margin-bottom: 12px;">
-                                {{ $replaceQuotationShortcodes($page['title']) }}</h3>
+                                {{ $replaceQuotationShortcodes($page['title']) }}
+                            </h3>
                             {!! $replaceQuotationShortcodes($page['content']) !!}
                         </div>
                     </div>
                 </div>
 
-                {{-- 5. CONTENT / DEFAULT PAGES --}}
+            {{-- 4. CONTENT / DEFAULT PAGES --}}
             @else
-                <div class="proposal-preview-sheet proposal-cover__sheet"
-                    style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background-color: #ffffff; padding: 0; box-sizing: border-box; {{ !$loop->last ? 'page-break-after: always; break-after: page;' : 'page-break-after: avoid; break-after: avoid;' }} position: relative; overflow: hidden; --template-color: {{ $templateColor }}; --sp-accent-color: {{ $templateColor }};">
+                <div class="quotation-preview-sheet quotation-cover__sheet content-page" id="{{ $page['id'] }}">
                     @if(!empty($sheetBgUrl))
-                        <div style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden;">
-                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" style="width: 100%; height: 100%; object-fit: fill; display: block;" />
+                        <div class="quotation-bg-layer">
+                            <img src="{{ $sheetBgUrl }}" alt="Sheet Background" />
                         </div>
                     @endif
                     @if(!empty($headerLogoUrl))
-                        <div style="position: absolute; top: 8mm; {{ $headerLogoStyle }} z-index: 20; pointer-events: none; display: flex; align-items: center; max-height: 20mm; max-width: 60mm;">
-                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" style="max-height: 16mm; max-width: 55mm; object-fit: contain;" />
+                        <div class="quotation-header-logo-container" style="{{ $headerLogoStyle }}">
+                            <img src="{{ $headerLogoUrl }}" alt="Header Logo" />
                         </div>
                     @endif
-                    <div class="proposal-page__body"
-                        style="position: relative; z-index: 1; padding: 32mm 15mm 20mm; height: 297mm; max-height: 297mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div class="html-preview-container" style="margin-top:2rem">
+                    <div class="quotation-page__body">
+                        <div class="html-preview-container">
                             {!! $replaceQuotationShortcodes($page['content']) !!}
                         </div>
                     </div>
@@ -1407,18 +1264,224 @@
         @endforeach
     </div>
 
-    @if(empty($isServerPdf))
+    {{-- CLIENT-SIDE DYNAMIC PAGINATION ENGINE --}}
     <script>
-        window.addEventListener('DOMContentLoaded', function () {
-            var urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('print') === '1' || urlParams.has('print')) {
-                setTimeout(function () {
-                    window.print();
-                }, 400);
+        function getBodyContentHeight(body) {
+            if (!body) return 0;
+            let total = 0;
+            Array.from(body.children).forEach(child => {
+                total += (child.offsetHeight || child.scrollHeight || 0);
+            });
+            return total;
+        }
+
+        function paginateTablePage(pageElement, maxContentHeight = 905) {
+            if (!pageElement) return;
+
+            let body = pageElement.querySelector(".quotation-page__body");
+            let wrapper = pageElement.querySelector(".quotation-charges-wrapper");
+            if (!body || !wrapper) return;
+
+            let table = wrapper.querySelector("table");
+            if (!table) return;
+
+            let tbody = table.querySelector("tbody");
+            let tfoot = table.querySelector("tfoot");
+            let rows = Array.from(tbody.querySelectorAll("tr"));
+
+            if (rows.length === 0) return;
+
+            // Only paginate if rows cause actual overflow
+            let initialHeight = getBodyContentHeight(body);
+            if (initialHeight <= maxContentHeight) {
+                return;
             }
+
+            let currentPage = pageElement;
+            let currentBody = body;
+            let currentWrapper = wrapper;
+            let currentTbody = tbody;
+            let currentTable = table;
+
+            let tfootClone = tfoot ? tfoot.cloneNode(true) : null;
+            if (tfoot) {
+                tfoot.remove();
+            }
+
+            currentTbody.innerHTML = "";
+
+            rows.forEach((row) => {
+                currentTbody.appendChild(row);
+                let height = getBodyContentHeight(currentBody);
+
+                if (height > maxContentHeight && currentTbody.children.length > 1) {
+                    currentTbody.removeChild(row);
+
+                    let newPage = pageElement.cloneNode(true);
+                    newPage.removeAttribute("id");
+                    let newBody = newPage.querySelector(".quotation-page__body");
+                    let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
+                    let newTable = newWrapper.querySelector("table");
+                    let newTbody = newTable.querySelector("tbody");
+                    let newTfoot = newTable.querySelector("tfoot");
+                    if (newTfoot) newTfoot.remove();
+
+                    newTbody.innerHTML = "";
+                    newTbody.appendChild(row);
+
+                    currentPage.after(newPage);
+
+                    currentPage = newPage;
+                    currentBody = newBody;
+                    currentWrapper = newWrapper;
+                    currentTbody = newTbody;
+                    currentTable = newTable;
+                }
+            });
+
+            if (tfootClone) {
+                currentTable.appendChild(tfootClone);
+
+                if (getBodyContentHeight(currentBody) > maxContentHeight && currentTbody.children.length > 1) {
+                    let lastRow = currentTbody.lastElementChild;
+                    currentTbody.removeChild(lastRow);
+
+                    let newPage = pageElement.cloneNode(true);
+                    newPage.removeAttribute("id");
+                    let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
+                    let newTable = newWrapper.querySelector("table");
+                    let newTbody = newTable.querySelector("tbody");
+                    newTbody.innerHTML = "";
+                    newTbody.appendChild(lastRow);
+                    newTable.appendChild(tfootClone);
+
+                    currentPage.after(newPage);
+                }
+            }
+        }
+
+        // Dynamic Charges Pagination: Paginates OTC and MRC together seamlessly
+        function runDynamicChargesPagination(maxContentHeight = 905) {
+            // 1. First paginate OTC
+            let otcPages = Array.from(document.querySelectorAll(".otc-paginated-page"));
+            otcPages.forEach(page => paginateTablePage(page, maxContentHeight));
+
+            // 2. Find the last page of OTC
+            let allOtcPages = Array.from(document.querySelectorAll(".otc-paginated-page"));
+            let lastOtcPage = allOtcPages.length > 0 ? allOtcPages[allOtcPages.length - 1] : null;
+
+            let mrcPage = document.querySelector(".mrc-paginated-page");
+            if (!mrcPage) return;
+
+            // If there is an OTC page right before MRC, try flowing MRC directly into the last OTC page
+            if (lastOtcPage && lastOtcPage.nextElementSibling === mrcPage) {
+                let mrcWrapper = mrcPage.querySelector(".quotation-charges-wrapper");
+                let mrcTable = mrcWrapper ? mrcWrapper.querySelector("table") : null;
+
+                if (mrcWrapper && mrcTable) {
+                    let otcBody = lastOtcPage.querySelector(".quotation-page__body");
+                    let mrcCloneWrapper = mrcWrapper.cloneNode(true);
+                    let mrcCloneTable = mrcCloneWrapper.querySelector("table");
+                    let mrcCloneTbody = mrcCloneTable.querySelector("tbody");
+                    let mrcCloneTfoot = mrcCloneTable.querySelector("tfoot");
+                    let mrcRows = Array.from(mrcCloneTbody.querySelectorAll("tr"));
+
+                    let tfootClone = mrcCloneTfoot ? mrcCloneTfoot.cloneNode(true) : null;
+                    if (mrcCloneTfoot) mrcCloneTfoot.remove();
+
+                    mrcCloneTbody.innerHTML = "";
+                    otcBody.appendChild(mrcCloneWrapper);
+
+                    let currentPage = lastOtcPage;
+                    let currentBody = otcBody;
+                    let currentMrcWrapper = mrcCloneWrapper;
+                    let currentMrcTable = mrcCloneTable;
+                    let currentMrcTbody = mrcCloneTbody;
+
+                    mrcRows.forEach((row) => {
+                        currentMrcTbody.appendChild(row);
+                        let height = getBodyContentHeight(currentBody);
+
+                        if (height > maxContentHeight) {
+                            currentMrcTbody.removeChild(row);
+
+                            // If not even 1 row fit on this page, remove the orphan header completely from this page
+                            if (currentMrcTbody.children.length === 0) {
+                                currentBody.removeChild(currentMrcWrapper);
+                            }
+
+                            // Spawn new page
+                            let newPage = mrcPage.cloneNode(true);
+                            newPage.removeAttribute("id");
+                            let newBody = newPage.querySelector(".quotation-page__body");
+                            let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
+                            let newTable = newWrapper.querySelector("table");
+                            let newTbody = newTable.querySelector("tbody");
+                            let newTfoot = newTable.querySelector("tfoot");
+                            if (newTfoot) newTfoot.remove();
+
+                            newTbody.innerHTML = "";
+                            newTbody.appendChild(row);
+
+                            currentPage.after(newPage);
+
+                            currentPage = newPage;
+                            currentBody = newBody;
+                            currentMrcWrapper = newWrapper;
+                            currentMrcTable = newTable;
+                            currentMrcTbody = newTbody;
+                        }
+                    });
+
+                    // Append MRC footer
+                    if (tfootClone) {
+                        currentMrcTable.appendChild(tfootClone);
+                        let height = getBodyContentHeight(currentBody);
+
+                        if (height > maxContentHeight && currentMrcTbody.children.length > 1) {
+                            let lastRow = currentMrcTbody.lastElementChild;
+                            currentMrcTbody.removeChild(lastRow);
+
+                            let newPage = mrcPage.cloneNode(true);
+                            newPage.removeAttribute("id");
+                            let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
+                            let newTable = newWrapper.querySelector("table");
+                            let newTbody = newTable.querySelector("tbody");
+                            newTbody.innerHTML = "";
+                            newTbody.appendChild(lastRow);
+                            newTable.appendChild(tfootClone);
+
+                            currentPage.after(newPage);
+                        }
+                    }
+
+                    // Remove original template MRC page since we flowed its rows
+                    mrcPage.remove();
+                    return;
+                }
+            }
+
+            // Fallback: paginate MRC normally if not adjacent to OTC
+            paginateTablePage(mrcPage, maxContentHeight);
+        }
+
+        function runDynamicPagination() {
+            runDynamicChargesPagination(905);
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            runDynamicPagination();
+
+            @if(empty($isServerPdf))
+                var urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('print') === '1' || urlParams.has('print')) {
+                    setTimeout(function () {
+                        window.print();
+                    }, 400);
+                }
+            @endif
         });
     </script>
-    @endif
 </body>
 
 </html>

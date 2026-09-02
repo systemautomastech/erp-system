@@ -53,6 +53,7 @@ export interface QuotationSectionItem {
     page_type?: string;
     background_image?: string;
     order: number;
+    default_page_id?: number;
 }
 
 interface QuotationDefaultPage {
@@ -100,7 +101,7 @@ const defaultQuotationVariables: Record<string, string> = {
 
 
 
-export default function PageOrderSection({ sections, setSections, defaultPages = [], quotationSetting: propSetting }: Props) {
+export default function PageOrder({ sections, setSections, defaultPages = [], quotationSetting: propSetting }: Props) {
     const { t } = useTranslation();
     const pageProps = usePage<any>().props;
     const settings = propSetting || pageProps.quotationSetting || {};
@@ -252,9 +253,10 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         if (modalMode === 'add') {
             const newSection: QuotationSectionItem = {
                 id: `sec-${Date.now()}`,
+                default_page_id: addTab === 'existing' && selectedDefaultPage ? selectedDefaultPage.id : undefined,
                 title: modalTitle.trim(),
                 content: modalContent,
-                page_type: modalPageType || 'content',
+                page_type: modalPageType || 'general',
                 background_image: modalBackground,
                 order: sections.length + 1,
             };

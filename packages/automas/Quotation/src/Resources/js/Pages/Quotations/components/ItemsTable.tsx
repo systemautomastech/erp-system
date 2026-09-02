@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { QuotationItem } from '../types';
-import QuotationProductSelector from './QuotationProductSelector';
+import ProductSelector from './ProductSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputError } from '@/components/ui/input-error';
@@ -28,7 +28,7 @@ interface Props {
     onDiscountValueChange?: (value: number) => void;
 }
 
-export default function QuotationItemsTable({
+export default function ItemsTable({
     items,
     onChange,
     errors = {},
@@ -106,7 +106,7 @@ export default function QuotationItemsTable({
             tax_rate: tax.rate
         })) || []) : [];
 
-        const defaultDesc = product?.description || product?.long_description || '';
+        const defaultDesc = product?.long_description || product?.description || '';
 
         newItems[index] = {
             ...newItems[index],
@@ -255,7 +255,7 @@ export default function QuotationItemsTable({
                                         </div>
                                     </td>
                                     <td className="px-4 py-4 min-w-[280px]">
-                                        <QuotationProductSelector
+                                        <ProductSelector
                                             products={filteredProducts}
                                             value={item.product_id}
                                             warehouseId={warehouseId}
