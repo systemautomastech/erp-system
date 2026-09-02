@@ -162,7 +162,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       existingStyle.id = 'brand-sidebar-styles';
       document.head.appendChild(existingStyle);
     }
-
     if (
       settings.sidebarStyle === 'colored' ||
       settings.sidebarStyle === 'gradient'
