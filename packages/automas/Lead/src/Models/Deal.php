@@ -8,10 +8,11 @@ use Automas\Lead\Models\Pipeline;
 use Automas\Lead\Models\Stage;
 use Automas\Lead\Models\Group;
 use App\Models\User;
+use Automas\Lead\Traits\TracksDealActivity;
 
 class Deal extends Model
 {
-    use HasFactory;
+    use HasFactory, TracksDealActivity;
 
     protected $fillable = [
         'name',

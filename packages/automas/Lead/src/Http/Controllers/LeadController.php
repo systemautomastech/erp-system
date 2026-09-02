@@ -110,6 +110,7 @@ class LeadController extends Controller
                 ->when(request('user_id') && request('user_id') !== '', fn($q) => $q->where('user_id', request('user_id')))
                 ->when(request('pipeline_id') && request('pipeline_id') !== '' && request('pipeline_id') !== 'all', fn($q) => $q->where('pipeline_id', request('pipeline_id')))
                 ->when(request('stage_id') && request('stage_id') !== '', fn($q) => $q->where('stage_id', request('stage_id')))
+                ->when(request('lead_import_id'), fn($q) => $q->where('lead_import_id', request('lead_import_id')))
                 ->when(request('date_from'), fn($q) => $q->whereDate('date', '>=', request('date_from')))
                 ->when(request('date_to'), fn($q) => $q->whereDate('date', '<=', request('date_to')))
                 ->when(request('sort'), fn($q) => $q->orderBy(request('sort'), request('direction', 'asc')), fn($q) => $q->latest())
@@ -196,18 +197,18 @@ class LeadController extends Controller
             if (empty($stage)) {
                 return redirect()->route('lead.leads.index')->with('error', __('Please create stage for this pipeline.'));
             } else {
-                $lead                 = new Lead();
-                $lead->name           = $request->name;
-                $lead->email          = $request->email ?? null;
-                $lead->subject        = $request->subject;
-                $lead->user_id        = $request->user_id;
-                $lead->pipeline_id    = $pipeline->id;
-                $lead->stage_id       = $stage->id;
-                $lead->sources        = $request->sources ? implode(',', $request->sources) : null;
-                $lead->phone          = $request->phone;
-                $lead->date           = $request->date;
-                $lead->creator_id     = Auth::id();
-                $lead->created_by     = creatorId();
+                $lead = new Lead();
+                $lead->name = $request->name;
+                $lead->email = $request->email ?? null;
+                $lead->subject = $request->subject;
+                $lead->user_id = $request->user_id;
+                $lead->pipeline_id = $pipeline->id;
+                $lead->stage_id = $stage->id;
+                $lead->sources = $request->sources ? implode(',', $request->sources) : null;
+                $lead->phone = $request->phone;
+                $lead->date = $request->date;
+                $lead->creator_id = Auth::id();
+                $lead->created_by = creatorId();
                 $lead->save();
 
                 // if (Auth::user()->type == 'company') {
@@ -243,10 +244,10 @@ class LeadController extends Controller
 
             if (company_setting('Lead Assign') == 'on') {
                 $emailData = [
-                    'lead_name'     => $lead->name,
-                    'lead_email'    => $lead->email,
+                    'lead_name' => $lead->name,
+                    'lead_email' => $lead->email,
                     'lead_pipeline' => $pipeline->name,
-                    'lead_stage'    => $stage->name,
+                    'lead_stage' => $stage->name,
                 ];
                 $assignedUsers = User::whereIn('id', $usrLeads)->get()->pluck('email', 'id')->toArray();
                 if (!empty($assignedUsers)) {
@@ -382,18 +383,18 @@ class LeadController extends Controller
             $validated['is_active'] = $request->boolean('is_active', true);
 
 
-            $lead->name        = $validated['name'];
-            $lead->email       = $validated['email'] ?? null;
-            $lead->subject     = $validated['subject'];
-            $lead->user_id     = $validated['user_id'];
-            $lead->phone       = $validated['phone'];
-            $lead->date        = $validated['date'];
+            $lead->name = $validated['name'];
+            $lead->email = $validated['email'] ?? null;
+            $lead->subject = $validated['subject'];
+            $lead->user_id = $validated['user_id'];
+            $lead->phone = $validated['phone'];
+            $lead->date = $validated['date'];
             $lead->pipeline_id = $validated['pipeline_id'] ?? $lead->pipeline_id;
-            $lead->stage_id    = $validated['stage_id'] ?? $lead->stage_id;
-            $lead->sources     = array_key_exists('sources', $validated) ? (is_array($validated['sources']) ? (empty($validated['sources']) ? null : implode(',', array_filter($validated['sources']))) : ($validated['sources'] ?? $lead->sources)) : $lead->sources;
-            $lead->products    = array_key_exists('products', $validated) ? (is_array($validated['products']) ? (empty($validated['products']) ? null : implode(',', array_filter($validated['products']))) : ($validated['products'] ?? $lead->products)) : $lead->products;
-            $lead->notes       = $validated['notes'] ?? $lead->notes;
-            $lead->labels      = $request->input('labels', $lead->labels) ? (is_array($request->input('labels')) ? implode(',', array_filter($request->input('labels'))) : $request->input('labels')) : null;
+            $lead->stage_id = $validated['stage_id'] ?? $lead->stage_id;
+            $lead->sources = array_key_exists('sources', $validated) ? (is_array($validated['sources']) ? (empty($validated['sources']) ? null : implode(',', array_filter($validated['sources']))) : ($validated['sources'] ?? $lead->sources)) : $lead->sources;
+            $lead->products = array_key_exists('products', $validated) ? (is_array($validated['products']) ? (empty($validated['products']) ? null : implode(',', array_filter($validated['products']))) : ($validated['products'] ?? $lead->products)) : $lead->products;
+            $lead->notes = $validated['notes'] ?? $lead->notes;
+            $lead->labels = $request->input('labels', $lead->labels) ? (is_array($request->input('labels')) ? implode(',', array_filter($request->input('labels'))) : $request->input('labels')) : null;
             $lead->save();
 
             UpdateLead::dispatch($request, $lead);
@@ -503,12 +504,12 @@ class LeadController extends Controller
 
             if (!empty($newUserIds) && company_setting('Lead Assign') == 'on') {
                 $emailData = [
-                    'lead_name'     => $lead->name,
-                    'lead_email'    => $lead->email,
-                    'lead_subject'  => $lead->subject,
+                    'lead_name' => $lead->name,
+                    'lead_email' => $lead->email,
+                    'lead_subject' => $lead->subject,
                     'follow_up_date' => $lead->date ? \Carbon\Carbon::parse($lead->date)->format('d M Y, h:i A') : null,
                     'lead_pipeline' => $lead->pipeline->name ?? '',
-                    'lead_stage'    => $lead->stage->name ?? '',
+                    'lead_stage' => $lead->stage->name ?? '',
                 ];
                 $newUsers = User::whereIn('id', $newUserIds)->get()->pluck('email', 'id')->toArray();
                 if (!empty($newUsers)) {
@@ -563,7 +564,7 @@ class LeadController extends Controller
     public function assignProducts(Request $request, Lead $lead)
     {
         if (Auth::user()->can('create-lead-products')) {
-            $usr        = Auth::user();
+            $usr = Auth::user();
             $existingIds = $lead->products ? explode(',', $lead->products) : [];
             $newIds = array_merge($existingIds, $request->product_ids);
             $uniqueIds = array_unique(array_filter($newIds));
@@ -624,7 +625,7 @@ class LeadController extends Controller
     public function assignSources(Request $request, Lead $lead)
     {
         if (Auth::user()->can('create-lead-sources')) {
-            $usr        = Auth::user();
+            $usr = Auth::user();
             $existingIds = $lead->sources ? explode(',', $lead->sources) : [];
             $newIds = array_merge($existingIds, $request->source_ids);
             $uniqueIds = array_unique(array_filter($newIds));
@@ -680,7 +681,7 @@ class LeadController extends Controller
                     'remark' => json_encode(['title' => 'Create new Lead Email']),
                 ]
             );
-            if (!empty(company_setting('Lead Emails')) && company_setting('Lead Emails')  == true) {
+            if (!empty(company_setting('Lead Emails')) && company_setting('Lead Emails') == true) {
                 $lead_users[] = $request->to;
                 $emailData = [
                     'lead_name' => $lead->name,
@@ -732,7 +733,7 @@ class LeadController extends Controller
             foreach ($request->images as $imagePath) {
                 $mediaFile = Media::where('file_name', basename($imagePath))->first();
                 LeadFile::create([
-                    'lead_id'   => $lead->id,
+                    'lead_id' => $lead->id,
                     'file_name' => $mediaFile ? $mediaFile->name : basename($imagePath),
                     'file_path' => basename($imagePath),
                 ]);
@@ -740,10 +741,10 @@ class LeadController extends Controller
             }
 
             LeadActivityLog::create([
-                'user_id'  => Auth::user()->id,
-                'lead_id'  => $lead->id,
+                'user_id' => Auth::user()->id,
+                'lead_id' => $lead->id,
                 'log_type' => 'Upload File',
-                'remark'   => json_encode(['title' => 'File Upload - ' . count($request->images) . ' file(s) uploaded']),
+                'remark' => json_encode(['title' => 'File Upload - ' . count($request->images) . ' file(s) uploaded']),
             ]);
 
             return redirect()->route('lead.leads.show', $lead->id)->with('success', __('Files have been uploaded successfully.'));
@@ -771,14 +772,14 @@ class LeadController extends Controller
     {
         if (Auth::user()->can('create-lead-calls')) {
             $validated = $request->validated();
-            $usr  = Auth::user();
+            $usr = Auth::user();
             $lead = Lead::find($request->lead_id);
-            $call              = new LeadCall();
-            $call->lead_id     = $request->lead_id;
-            $call->subject     = $request->subject;
-            $call->call_type   = $request->call_type;
-            $call->duration    = $request->duration;
-            $call->user_id     = $request->assignee;
+            $call = new LeadCall();
+            $call->lead_id = $request->lead_id;
+            $call->subject = $request->subject;
+            $call->call_type = $request->call_type;
+            $call->duration = $request->duration;
+            $call->user_id = $request->assignee;
             $call->description = $request->description;
             $call->call_result = $request->call_result;
             $call->save();
@@ -804,10 +805,10 @@ class LeadController extends Controller
             $validated = $request->validated();
 
             $call = LeadCall::find($callId);
-            $call->subject     = $request->subject;
-            $call->call_type   = $request->call_type;
-            $call->duration    = $request->duration;
-            $call->user_id     = $request->assignee;
+            $call->subject = $request->subject;
+            $call->call_type = $request->call_type;
+            $call->duration = $request->duration;
+            $call->user_id = $request->assignee;
             $call->description = $request->description;
             $call->call_result = $request->call_result;
             $call->save();
@@ -837,21 +838,21 @@ class LeadController extends Controller
     {
 
         if (Auth::user()->can('lead-move')) {
-            $post       = $request->all();
-            $lead       = Lead::find($post['lead_id']);
+            $post = $request->all();
+            $lead = Lead::find($post['lead_id']);
             $lead_users = $lead->userLeads()->with('user')->get()->pluck('user.email', 'user.id')->toArray();
 
             if ($lead->stage_id != $post['stage_id']) {
 
-                $newStage     = LeadStage::find($post['stage_id']);
-                $oldStage     = $lead->stage;
+                $newStage = LeadStage::find($post['stage_id']);
+                $oldStage = $lead->stage;
 
                 LeadActivityLog::create([
-                    'user_id'  => Auth::user()->id,
-                    'lead_id'  => $lead->id,
+                    'user_id' => Auth::user()->id,
+                    'lead_id' => $lead->id,
                     'log_type' => 'Move',
-                    'remark'   => json_encode([
-                        'title'      => $lead->name,
+                    'remark' => json_encode([
+                        'title' => $lead->name,
                         'old_status' => $oldStage->name,
                         'new_status' => $newStage->name,
                     ]),
@@ -859,9 +860,9 @@ class LeadController extends Controller
 
                 if (company_setting('Lead Move') == 'on') {
                     $emailData = [
-                        'lead_name'      => $lead->name,
-                        'lead_email'     => $lead->email,
-                        'lead_pipeline'  => $lead->pipeline->name ?? '',
+                        'lead_name' => $lead->name,
+                        'lead_email' => $lead->email,
+                        'lead_pipeline' => $lead->pipeline->name ?? '',
                         'lead_old_stage' => $oldStage->name,
                         'lead_new_stage' => $newStage->name,
                     ];
@@ -1002,19 +1003,19 @@ class LeadController extends Controller
             if (!$stage) {
                 return back()->with('error', __('Please create stage for this pipeline.'));
             }
-            $deal              = new Deal();
-            $deal->name        = $request->name;
-            $deal->phone       = $request->client_phone;
-            $deal->price       = $request->price ?? 0;
+            $deal = new Deal();
+            $deal->name = $request->name;
+            $deal->phone = $request->client_phone;
+            $deal->price = $request->price ?? 0;
             $deal->pipeline_id = $lead->pipeline_id;
-            $deal->stage_id    = $stage->id;
-            $deal->sources     = in_array('sources', $request->is_transfer ?? []) ? $lead->sources : null;
-            $deal->products    = in_array('products', $request->is_transfer ?? []) ? $lead->products : null;
-            $deal->notes       = in_array('notes', $request->is_transfer ?? []) ? $lead->notes : null;
-            $deal->labels      = $lead->labels;
-            $deal->status      = 'Active';
-            $deal->creator_id  = Auth::id();
-            $deal->created_by  = $lead->created_by;
+            $deal->stage_id = $stage->id;
+            $deal->sources = in_array('sources', $request->is_transfer ?? []) ? $lead->sources : null;
+            $deal->products = in_array('products', $request->is_transfer ?? []) ? $lead->products : null;
+            $deal->notes = in_array('notes', $request->is_transfer ?? []) ? $lead->notes : null;
+            $deal->labels = $lead->labels;
+            $deal->status = 'Active';
+            $deal->creator_id = Auth::id();
+            $deal->created_by = $lead->created_by;
             $deal->save();
 
             if ($client) {
@@ -1041,11 +1042,11 @@ class LeadController extends Controller
 
             if ($client && company_setting('Deal Assign') == 'on') {
                 $emailData = [
-                    'deal_name'     => $deal->name,
+                    'deal_name' => $deal->name,
                     'deal_pipeline' => $deal->pipeline->name,
-                    'deal_stage'    => $deal->stage->name,
-                    'deal_status'   => $deal->status,
-                    'deal_price'    => $deal->price,
+                    'deal_stage' => $deal->stage->name,
+                    'deal_status' => $deal->status,
+                    'deal_price' => $deal->price,
                 ];
                 if (!empty($emailData)) {
                     $message = EmailTemplate::sendEmailTemplate('Deal Assign', [$client->email], $emailData);

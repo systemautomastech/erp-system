@@ -11,6 +11,7 @@ class LeadImportFailure extends Model
         'lead_import_id',
         'lead_import_chunk_id',
         'row_number',
+        'category',
         'row_data',
         'errors',
     ];

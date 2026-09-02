@@ -2,6 +2,9 @@
 
 namespace Automas\Lead\Services;
 
+use Automas\Lead\Models\LeadImport;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use SplFileObject;
 
@@ -405,5 +408,225 @@ class LeadImportCsvService
             '|' => 'pipe',
             default => 'unknown',
         };
+    }
+
+    public function validateImport(
+        LeadImport $leadImport,
+        array $mapping,
+        array $options
+    ): array {
+        $absolutePath = Storage::disk('local')->path($leadImport->stored_path);
+
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            throw new RuntimeException(__('The source CSV file could not be found.'));
+        }
+
+        $delimiter = (string) data_get($options, 'delimiter', ',');
+        $hasHeader = (bool) data_get($options, 'has_header', true);
+        $duplicateBy = (string) data_get($options, 'duplicate_by', 'phone');
+        $duplicateStrategy = $leadImport->duplicate_strategy ?: 'skip';
+        $assignmentMethod = (string) data_get($options, 'assignment_method', 'ranges');
+        $assignmentRanges = (array) data_get($options, 'assignment_ranges', []);
+        $selectedUserIds = (array) data_get($options, 'selected_user_ids', []);
+
+        $file = new SplFileObject($absolutePath, 'r');
+        $file->setFlags(SplFileObject::READ_CSV | SplFileObject::DROP_NEW_LINE);
+        $file->setCsvControl(separator: $delimiter, enclosure: '"', escape: '\\');
+
+        $headerSkipped = !$hasHeader;
+        $totalRows = 0;
+        $missingRequired = 0;
+        $fileDuplicates = 0;
+        $crmDuplicates = 0;
+        $unassignedRows = 0;
+        $skippedStrategyRows = 0;
+        $readyToImport = 0;
+
+        $seenPhones = [];
+        $seenEmails = [];
+
+        $companyCreatorId = (int) $leadImport->created_by;
+
+        $crmPhones = [];
+        $crmEmails = [];
+
+        if (in_array($duplicateBy, ['phone', 'phone_or_email'], true)) {
+            $crmPhones = DB::table('leads')
+                ->where('created_by', $companyCreatorId)
+                ->whereNotNull('phone')
+                ->pluck('phone')
+                ->flip()
+                ->all();
+        }
+
+        if (in_array($duplicateBy, ['email', 'phone_or_email'], true)) {
+            $crmEmails = DB::table('leads')
+                ->where('created_by', $companyCreatorId)
+                ->whereNotNull('email')
+                ->pluck('email')
+                ->map(fn($e) => mb_strtolower(trim((string) $e)))
+                ->flip()
+                ->all();
+        }
+
+        while (!$file->eof()) {
+            $row = $file->fgetcsv();
+
+            if ($row === false || $this->isEmptyRow($row)) {
+                continue;
+            }
+
+            if (!$headerSkipped) {
+                $headerSkipped = true;
+                continue;
+            }
+
+            $totalRows++;
+
+            $name = $this->mappedValueFromRow($row, $mapping, 'name');
+            $subject = $this->mappedValueFromRow($row, $mapping, 'subject');
+            $rawPhone = $this->mappedValueFromRow($row, $mapping, 'phone');
+            $rawEmail = $this->mappedValueFromRow($row, $mapping, 'email');
+
+            $phone = $this->normalizePhoneValue($rawPhone);
+            $email = $this->normalizeEmailValue($rawEmail);
+
+            if (!$name || !$subject || !$phone) {
+                $missingRequired++;
+                continue;
+            }
+
+            $assignedUserId = null;
+            if ($assignmentMethod === 'round_robin') {
+                if (!empty($selectedUserIds)) {
+                    $assignedUserId = (int) $selectedUserIds[($totalRows - 1) % count($selectedUserIds)];
+                }
+            } else {
+                foreach ($assignmentRanges as $range) {
+                    $from = (int) ($range['from_row'] ?? 0);
+                    $to = (int) ($range['to_row'] ?? 0);
+                    $uId = (int) ($range['user_id'] ?? 0);
+
+                    if ($uId > 0 && $totalRows >= $from && $totalRows <= $to) {
+                        $assignedUserId = $uId;
+                        break;
+                    }
+                }
+            }
+
+            if (!$assignedUserId) {
+                $unassignedRows++;
+                continue;
+            }
+
+            $isFileDuplicate = false;
+            if (in_array($duplicateBy, ['phone', 'phone_or_email'], true) && $phone && isset($seenPhones[$phone])) {
+                $isFileDuplicate = true;
+            }
+            if (in_array($duplicateBy, ['email', 'phone_or_email'], true) && $email && isset($seenEmails[$email])) {
+                $isFileDuplicate = true;
+            }
+
+            if ($phone) {
+                $seenPhones[$phone] = true;
+            }
+            if ($email) {
+                $seenEmails[$email] = true;
+            }
+
+            if ($isFileDuplicate) {
+                $fileDuplicates++;
+                if ($duplicateStrategy === 'skip') {
+                    $skippedStrategyRows++;
+                }
+                continue;
+            }
+
+            $isCrmDuplicate = false;
+            if (in_array($duplicateBy, ['phone', 'phone_or_email'], true) && $phone && isset($crmPhones[$phone])) {
+                $isCrmDuplicate = true;
+            }
+            if (in_array($duplicateBy, ['email', 'phone_or_email'], true) && $email && isset($crmEmails[$email])) {
+                $isCrmDuplicate = true;
+            }
+
+            if ($isCrmDuplicate) {
+                $crmDuplicates++;
+                if ($duplicateStrategy === 'skip') {
+                    $skippedStrategyRows++;
+                } else {
+                    $readyToImport++;
+                }
+                continue;
+            }
+
+            $readyToImport++;
+        }
+
+        return [
+            'total_rows' => $totalRows,
+            'ready_to_import' => $readyToImport,
+            'duplicates_in_file' => $fileDuplicates,
+            'existing_crm_duplicates' => $crmDuplicates,
+            'missing_required_fields' => $missingRequired,
+            'unassigned_rows' => $unassignedRows,
+            'skipped_by_strategy' => $skippedStrategyRows,
+        ];
+    }
+
+    private function mappedValueFromRow(array $row, array $mapping, string $field): ?string
+    {
+        if (!array_key_exists($field, $mapping)) {
+            return null;
+        }
+
+        $columnIndex = (int) $mapping[$field];
+
+        if (!array_key_exists($columnIndex, $row)) {
+            return null;
+        }
+
+        $val = trim((string) $row[$columnIndex]);
+        return $val !== '' ? $val : null;
+    }
+
+    private function normalizePhoneValue(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if (preg_match('/^[+-]?\d+(?:\.\d+)?E[+-]?\d+$/i', $value)) {
+            $value = number_format((float) $value, 0, '', '');
+        }
+
+        $value = preg_replace('/\D+/', '', $value) ?? '';
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, '880')) {
+            $value = substr($value, 3);
+        }
+
+        if (strlen($value) === 10 && str_starts_with($value, '1')) {
+            $value = '0' . $value;
+        }
+
+        if (strlen($value) === 11 && str_starts_with($value, '0')) {
+            return $value;
+        }
+
+        return null;
+    }
+
+    private function normalizeEmailValue(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        return mb_strtolower(trim($value));
     }
 }

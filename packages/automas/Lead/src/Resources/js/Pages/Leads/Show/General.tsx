@@ -239,7 +239,7 @@ export default function General({ lead }: GeneralProps) {
                             </div>
                             <div>
                                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{t('Follow Up Date & Time')}</p>
-                                <p className={`text-sm font-medium ${lead.date && new Date(lead.date) < new Date() ? 'text-red-500' : 'text-gray-800'
+                                <p className={`text-sm font-medium ${lead.date && new Date(typeof lead.date === 'string' && lead.date.includes(' ') && !lead.date.includes('T') ? lead.date.replace(' ', 'T') : lead.date) < new Date() ? 'text-red-500' : 'text-gray-800'
                                     }`}>
                                     {lead.date ? formatDateTime(lead.date) : '-'}
                                 </p>

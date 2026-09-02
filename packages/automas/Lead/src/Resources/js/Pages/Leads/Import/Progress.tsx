@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -21,6 +21,7 @@ import { Progress as ProgressBar } from '@/components/ui/progress';
 interface LeadImportProgress {
     uuid: string;
     original_filename: string;
+
     status:
         | 'pending'
         | 'preparing'
@@ -47,24 +48,36 @@ interface LeadImportProgress {
     failure_message?: string | null;
 }
 
+interface FailureItem {
+    id: number;
+    row_number: number;
+    row_data: Record<string, any> | string[] | null;
+    errors: string[];
+}
+
 interface ProgressProps {
     leadImport: LeadImportProgress;
+    failures?: FailureItem[];
 }
 
 export default function Progress({
     leadImport,
+    failures = [],
 }: ProgressProps) {
     const { t } = useTranslation();
+
+    const [importData, setImportData] = useState<LeadImportProgress>(leadImport);
+    const [failureData, setFailureData] = useState<FailureItem[]>(failures);
 
     const isFinished = [
         'completed',
         'completed_with_errors',
         'failed',
         'cancelled',
-    ].includes(leadImport.status);
+    ].includes(importData.status);
 
     const rowPercentage = useMemo(() => {
-        if (leadImport.total_rows <= 0) {
+        if (importData.total_rows <= 0) {
             return 0;
         }
 
@@ -72,18 +85,18 @@ export default function Progress({
             100,
             Math.round(
                 (
-                    leadImport.processed_rows /
-                    leadImport.total_rows
+                    importData.processed_rows /
+                    importData.total_rows
                 ) * 100
             )
         );
     }, [
-        leadImport.processed_rows,
-        leadImport.total_rows,
+        importData.processed_rows,
+        importData.total_rows,
     ]);
 
     const chunkPercentage = useMemo(() => {
-        if (leadImport.total_chunks <= 0) {
+        if (importData.total_chunks <= 0) {
             return 0;
         }
 
@@ -91,15 +104,40 @@ export default function Progress({
             100,
             Math.round(
                 (
-                    leadImport.completed_chunks /
-                    leadImport.total_chunks
+                    importData.completed_chunks /
+                    importData.total_chunks
                 ) * 100
             )
         );
     }, [
-        leadImport.completed_chunks,
-        leadImport.total_chunks,
+        importData.completed_chunks,
+        importData.total_chunks,
     ]);
+
+    const fetchStatusData = async () => {
+        try {
+            const response = await fetch(
+                route('lead.leads.import.status-data', importData.uuid),
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                }
+            );
+            if (response.ok) {
+                const result = await response.json();
+                if (result.leadImport) {
+                    setImportData(result.leadImport);
+                }
+                if (result.failures) {
+                    setFailureData(result.failures);
+                }
+            }
+        } catch (err) {
+            // Ignore temporary network errors during polling
+        }
+    };
 
     useEffect(() => {
         if (isFinished) {
@@ -107,17 +145,13 @@ export default function Progress({
         }
 
         const interval = window.setInterval(() => {
-            router.reload({
-                only: ['leadImport'],
-                preserveScroll: true,
-                preserveState: true,
-            });
-        }, 2500);
+            fetchStatusData();
+        }, 2000);
 
         return () => {
             window.clearInterval(interval);
         };
-    }, [isFinished]);
+    }, [isFinished, importData.uuid]);
 
     const formatNumber = (
         value: number
@@ -160,21 +194,21 @@ export default function Progress({
     };
 
     const statusIcon = () => {
-        if (leadImport.status === 'completed') {
+        if (importData.status === 'completed') {
             return (
                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
             );
         }
 
-        if (leadImport.status === 'failed') {
+        if (importData.status === 'failed') {
             return (
                 <XCircle className="mr-1 h-3.5 w-3.5" />
             );
         }
 
         if (
-            leadImport.status === 'pending' ||
-            leadImport.status === 'queued'
+            importData.status === 'pending' ||
+            importData.status === 'queued'
         ) {
             return (
                 <Clock3 className="mr-1 h-3.5 w-3.5" />
@@ -182,7 +216,7 @@ export default function Progress({
         }
 
         if (
-            leadImport.status === 'cancelled'
+            importData.status === 'cancelled'
         ) {
             return (
                 <XCircle className="mr-1 h-3.5 w-3.5" />
@@ -197,37 +231,37 @@ export default function Progress({
     const statistics = [
         {
             label: t('Imported'),
-            value: leadImport.inserted_rows,
+            value: importData.inserted_rows,
             valueClass:
                 'text-emerald-700 dark:text-emerald-400',
         },
         {
             label: t('Updated'),
-            value: leadImport.updated_rows,
+            value: importData.updated_rows,
             valueClass:
                 'text-blue-700 dark:text-blue-400',
         },
         {
             label: t('Duplicates'),
-            value: leadImport.duplicate_rows,
+            value: importData.duplicate_rows,
             valueClass:
                 'text-amber-700 dark:text-amber-400',
         },
         {
             label: t('Failed'),
-            value: leadImport.failed_rows,
+            value: importData.failed_rows,
             valueClass: 'text-destructive',
         },
         {
             label: t('No Assigned User'),
             value:
-                leadImport.skipped_unassigned_rows,
+                importData.skipped_unassigned_rows,
             valueClass:
                 'text-amber-700 dark:text-amber-400',
         },
         {
             label: t('Total Skipped'),
-            value: leadImport.skipped_rows,
+            value: importData.skipped_rows,
             valueClass: 'text-foreground',
         },
     ];
@@ -292,14 +326,14 @@ export default function Progress({
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold">
                                 {
-                                    leadImport.original_filename
+                                    importData.original_filename
                                 }
                             </p>
 
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                 <span>
                                     {formatNumber(
-                                        leadImport.total_rows
+                                        importData.total_rows
                                     )}{' '}
                                     {t('rows')}
                                 </span>
@@ -308,7 +342,7 @@ export default function Progress({
 
                                 <span>
                                     {formatNumber(
-                                        leadImport.total_chunks
+                                        importData.total_chunks
                                     )}{' '}
                                     {t('chunks')}
                                 </span>
@@ -317,7 +351,7 @@ export default function Progress({
 
                                 <span>
                                     {formatNumber(
-                                        leadImport.processed_rows
+                                        importData.processed_rows
                                     )}{' '}
                                     {t('processed')}
                                 </span>
@@ -330,7 +364,7 @@ export default function Progress({
                         className={[
                             'w-fit',
                             statusClass[
-                                leadImport.status
+                                importData.status
                             ] ??
                                 'border-border bg-muted text-muted-foreground',
                         ].join(' ')}
@@ -338,13 +372,13 @@ export default function Progress({
                         {statusIcon()}
 
                         {statusLabel[
-                            leadImport.status
-                        ] ?? leadImport.status}
+                            importData.status
+                        ] ?? importData.status}
                     </Badge>
                 </div>
 
                 {/* Failure message */}
-                {leadImport.failure_message && (
+                {importData.failure_message && (
                     <div
                         role="alert"
                         className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-destructive"
@@ -358,7 +392,7 @@ export default function Progress({
 
                             <p className="mt-0.5 text-sm">
                                 {
-                                    leadImport.failure_message
+                                    importData.failure_message
                                 }
                             </p>
                         </div>
@@ -375,11 +409,11 @@ export default function Progress({
 
                             <p className="mt-0.5 text-xs text-muted-foreground">
                                 {formatNumber(
-                                    leadImport.processed_rows
+                                    importData.processed_rows
                                 )}
                                 {' / '}
                                 {formatNumber(
-                                    leadImport.total_rows
+                                    importData.total_rows
                                 )}{' '}
                                 {t('rows processed')}
                             </p>
@@ -403,11 +437,11 @@ export default function Progress({
 
                             <span className="text-sm font-medium">
                                 {formatNumber(
-                                    leadImport.processed_rows
+                                    importData.processed_rows
                                 )}
                                 {' / '}
                                 {formatNumber(
-                                    leadImport.total_rows
+                                    importData.total_rows
                                 )}
                             </span>
                         </div>
@@ -419,11 +453,11 @@ export default function Progress({
 
                             <span className="text-sm font-medium">
                                 {formatNumber(
-                                    leadImport.completed_chunks
+                                    importData.completed_chunks
                                 )}
                                 {' / '}
                                 {formatNumber(
-                                    leadImport.total_chunks
+                                    importData.total_chunks
                                 )}
                                 {' · '}
                                 {chunkPercentage}%
@@ -473,7 +507,7 @@ export default function Progress({
 
                             <p className="mt-1 text-lg font-semibold text-amber-700 dark:text-amber-400">
                                 {formatNumber(
-                                    leadImport.skipped_unassigned_rows
+                                    importData.skipped_unassigned_rows
                                 )}
                             </p>
                         </div>
@@ -489,7 +523,7 @@ export default function Progress({
 
                             <p className="mt-1 text-lg font-semibold">
                                 {formatNumber(
-                                    leadImport.skipped_rows
+                                    importData.skipped_rows
                                 )}
                             </p>
                         </div>
@@ -512,7 +546,7 @@ export default function Progress({
 
                             <span className="text-muted-foreground">
                                 {t(
-                                    'This page refreshes automatically every few seconds.'
+                                    'Progress updates live automatically.'
                                 )}
                             </span>
                         </p>
@@ -520,7 +554,7 @@ export default function Progress({
                 )}
 
                 {/* Completed notice */}
-                {leadImport.status ===
+                {importData.status ===
                     'completed' && (
                     <div className="flex items-center gap-3 rounded-lg border-l-4 border-emerald-500 bg-emerald-500/5 px-4 py-3">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
@@ -534,7 +568,7 @@ export default function Progress({
                 )}
 
                 {/* Completed with errors */}
-                {leadImport.status ===
+                {importData.status ===
                     'completed_with_errors' && (
                     <div className="flex items-center gap-3 rounded-lg border-l-4 border-amber-500 bg-amber-500/5 px-4 py-3">
                         <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
@@ -547,6 +581,65 @@ export default function Progress({
                     </div>
                 )}
 
+                {/* Failed / Skipped Rows breakdown table */}
+                {failureData && failureData.length > 0 && (
+                    <div className="rounded-lg border bg-card p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-semibold text-destructive flex items-center gap-2">
+                                    <AlertCircle className="h-4 w-4" />
+                                    {t('Unimported / Failed Rows Details')}
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {t('List of rows that were skipped or encountered errors during processing.')}
+                                </p>
+                            </div>
+                            <Badge variant="outline" className="text-destructive border-destructive/30">
+                                {failureData.length} {t('records')}
+                            </Badge>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-md border">
+                            <table className="w-full text-left text-xs">
+                                <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] tracking-wider border-b">
+                                    <tr>
+                                        <th className="px-3 py-2 w-20">{t('Row #')}</th>
+                                        <th className="px-3 py-2">{t('Error Reason')}</th>
+                                        <th className="px-3 py-2">{t('Provided Row Values')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {failureData.map((item) => {
+                                        const valuesStr = Array.isArray(item.row_data)
+                                            ? item.row_data.join(', ')
+                                            : typeof item.row_data === 'object' && item.row_data !== null
+                                            ? Object.entries(item.row_data)
+                                                  .map(([k, v]) => `${k}: ${v}`)
+                                                  .join(' | ')
+                                            : String(item.row_data || '');
+
+                                        return (
+                                            <tr key={item.id} className="hover:bg-muted/30">
+                                                <td className="px-3 py-2 font-mono font-medium text-foreground">
+                                                    #{item.row_number}
+                                                </td>
+                                                <td className="px-3 py-2 font-medium text-destructive">
+                                                    {Array.isArray(item.errors)
+                                                        ? item.errors.join(', ')
+                                                        : item.errors}
+                                                </td>
+                                                <td className="px-3 py-2 text-muted-foreground font-mono truncate max-w-xs">
+                                                    {valuesStr}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                 {/* Actions */}
                 <div className="sticky bottom-0 z-20 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:mx-0 sm:rounded-lg sm:border">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -556,7 +649,7 @@ export default function Progress({
                                       'Import processing has finished.'
                                   )
                                 : t(
-                                      'Progress refreshes automatically.'
+                                      'Progress updates live automatically.'
                                   )}
                         </div>
 
@@ -578,17 +671,7 @@ export default function Progress({
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() =>
-                                    router.reload({
-                                        only: [
-                                            'leadImport',
-                                        ],
-                                        preserveScroll:
-                                            true,
-                                        preserveState:
-                                            true,
-                                    })
-                                }
+                                onClick={fetchStatusData}
                             >
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 {t('Refresh')}

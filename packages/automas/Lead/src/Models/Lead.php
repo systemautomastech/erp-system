@@ -6,10 +6,11 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Automas\ProductService\Models\ProductServiceItem;
+use Automas\Lead\Traits\TracksLeadActivity;
 
 class Lead extends Model
 {
-    use HasFactory;
+    use HasFactory, TracksLeadActivity;
 
     protected $fillable = [
         'name',
@@ -29,7 +30,14 @@ class Lead extends Model
         'date',
         'creator_id',
         'created_by',
+        'import_key',
+        'lead_import_id',
     ];
+
+    public function leadImport()
+    {
+        return $this->belongsTo(LeadImport::class, 'lead_import_id');
+    }
 
     protected function casts(): array
     {

@@ -22,6 +22,25 @@ class LeadServiceProvider extends ServiceProvider
         if (is_dir($migrationsPath)) {
             $this->loadMigrationsFrom($migrationsPath);
         }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Automas\Lead\Console\Commands\CleanExpiredLeadImportFiles::class,
+            ]);
+        }
+
+        $this->registerCommandSchedules();
+    }
+
+    protected function registerCommandSchedules(): void
+    {
+        $this->app->booted(function () {
+            $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+
+            $schedule->command('lead-import:clean-expired-files')
+                ->daily()
+                ->withoutOverlapping();
+        });
     }
 
     public function register(): void

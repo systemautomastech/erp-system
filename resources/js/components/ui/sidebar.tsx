@@ -296,14 +296,17 @@ const SidebarTrigger = React.forwardRef<
       ref={ref}
       variant="ghost"
       size="icon"
-      className={cn("h-8 w-8 !text-gray-700 dark:!text-gray-200 hover:!text-gray-900 dark:hover:!text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors", className)}
+      className={cn(
+        "h-8 w-8 text-black dark:text-white hover:bg-accent hover:text-black dark:hover:text-white transition-colors",
+        className
+      )}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
       }}
       {...props}
     >
-      <PanelLeft className="h-5 w-5" />
+      <PanelLeft className="h-4 w-4 text-black dark:text-white" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
@@ -429,7 +432,7 @@ const SidebarContent = React.forwardRef<
       ref={ref}
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto",
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden sidebar-scrollbar",
         className
       )}
       {...props}
