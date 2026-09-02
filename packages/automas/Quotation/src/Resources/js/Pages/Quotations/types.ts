@@ -68,6 +68,10 @@ export interface SalesQuotation {
     type?: string;
     is_tax_enabled?: boolean | number;
     is_prepaid?: boolean | number;
+    otc_discount_type?: 'percentage' | 'fixed';
+    otc_discount_value?: number;
+    mrc_discount_type?: 'percentage' | 'fixed';
+    mrc_discount_value?: number;
     subtotal: number;
     tax_amount: number;
     discount_amount: number;

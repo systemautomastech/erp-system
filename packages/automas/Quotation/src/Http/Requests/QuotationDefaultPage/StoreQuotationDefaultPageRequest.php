@@ -23,23 +23,17 @@ class StoreQuotationDefaultPageRequest extends FormRequest
 
     public function rules(): array
     {
-        $creatorId = auth()->check() ? creatorId() : null;
-
         return [
-            'title' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('quotation_default_pages', 'title')->where(fn ($query) => $query->where('created_by', $creatorId)),
-            ],
+            'title' => 'required|string|max:255',
             'content' => 'nullable|string',
+            'page_type' => 'sometimes|string',
             'background_image' => 'nullable|string',
             'is_active' => 'sometimes|boolean',
             'sort_order' => [
-                'sometimes',
+                'required',
                 'integer',
                 'min:1',
-                Rule::unique('quotation_default_pages', 'sort_order')->where(fn ($query) => $query->where('created_by', $creatorId)),
+                Rule::unique('quotation_default_pages', 'sort_order')->where(fn ($query) => $query->where('created_by', creatorId())),
             ],
             'created_by' => 'nullable|exists:users,id',
         ];

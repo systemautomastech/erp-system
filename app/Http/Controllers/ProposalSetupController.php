@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ProposalDefaultPage\StoreDefaultPageRequest;
-use App\Http\Requests\ProposalDefaultPage\UpdateDefaultPageRequest;
 use App\Models\ProposalDefaultPage;
 use App\Models\ProposalSetting;
 use Illuminate\Http\Request;
@@ -18,13 +16,16 @@ class ProposalSetupController extends Controller
             return redirect()->route('dashboard')->with('error', __('Permission denied'));
         }
 
-        $settings = ProposalSetting::getSettings(creatorId());
+        $creatorId = creatorId();
+        $this->syncFixedPages($creatorId);
+
+        $settings = ProposalSetting::getSettings($creatorId);
 
         $defaultPages = ProposalDefaultPage::with('authorUser:id,name,email')
-            ->where('created_by', creatorId())
-            ->where(function ($query) {
+            ->where('created_by', $creatorId)
+            ->where(function ($query) use ($creatorId) {
                 $query->where('creator_id', Auth::id())
-                    ->orWhere('creator_id', creatorId());
+                    ->orWhere('creator_id', $creatorId);
             })
             ->orderBy('sort_order')
             ->get();
@@ -41,137 +42,55 @@ class ProposalSetupController extends Controller
             return back()->with('error', __('Permission denied'));
         }
 
-        $settingsData = $request->input('settings', $request->except(['_token', '_method']));
+        $data = $request->input('settings', $request->except(['_token', '_method']));
+        $saved = ProposalSetting::setSettings($data, creatorId());
 
-        ProposalSetting::setSettings($settingsData, creatorId());
+        $status = $saved ? 'success' : 'error';
+        $message = $saved ? __('Settings saved successfully.')
+            : __('Failed to save settings.');
 
-        return redirect()->back()->with('success', __('Settings saved successfully.'));
+        return redirect()->back()->with($status, $message);
     }
 
-    private function getProposalVariables(): array
+    private function syncFixedPages(int $creatorId): void
     {
-        return [
-            'App Name' => 'app_name',
-            'Company Name' => 'company_name',
-            'Company Logo' => 'company_logo',
-            'Proposal Logo' => 'proposal_logo',
-            'Company Email' => 'company_email',
-            'Company Phone' => 'company_phone',
-            'Company Address' => 'company_address',
-            'Company Website' => 'company_website',
-            'User Name' => 'user_name',
-            'User Email' => 'user_email',
-            'User Phone' => 'user_phone',
-            'Proposal Number' => 'proposal_number',
-            'Proposal Date' => 'proposal_date',
-            'Due Date' => 'due_date',
-            'Customer Name' => 'customer_name',
-            'Customer Email' => 'customer_email',
-            'Customer Phone' => 'customer_phone',
-            'Customer Address' => 'customer_address',
-            'Total Amount' => 'total_amount',
-            'Sub Total' => 'sub_total',
-            'Total Tax' => 'total_tax',
-            'Total Discount' => 'total_discount',
-        ];
-    }
+        if (!$creatorId)
+            return;
 
-    public function createDefaultPage()
-    {
-        if (!Auth::user()->can('manage-proposal-system-setup')) {
-            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
+        // 1. OTC Page
+        $otc = ProposalDefaultPage::where('created_by', $creatorId)
+            ->where('page_type', 'otc')
+            ->first();
+
+        if (!$otc) {
+            $maxOrder = ProposalDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
+            ProposalDefaultPage::create([
+                'title' => 'One-Time Charges (OTC)',
+                'content' => '',
+                'page_type' => 'otc',
+                'sort_order' => $maxOrder + 1,
+                'is_active' => true,
+                'created_by' => $creatorId,
+                'creator_id' => $creatorId,
+            ]);
         }
 
-        $settings = ProposalSetting::getSettings(creatorId());
-        $maxSortOrder = ProposalDefaultPage::where('created_by', creatorId())->max('sort_order') ?? 0;
+        // 2. MRC Page
+        $mrc = ProposalDefaultPage::where('created_by', $creatorId)
+            ->where('page_type', 'mrc')
+            ->first();
 
-        return Inertia::render('SalesProposalSetup/DefaultPages/Create', [
-            'settings' => $settings,
-            'nextSortOrder' => $maxSortOrder + 1,
-            'variables' => $this->getProposalVariables(),
-        ]);
-    }
-
-    public function storeDefaultPage(StoreDefaultPageRequest $request)
-    {
-        if (!Auth::user()->can('manage-proposal-system-setup')) {
-            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
+        if (!$mrc) {
+            $maxOrder = ProposalDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
+            ProposalDefaultPage::create([
+                'title' => 'Monthly Recurring Charges (MRC)',
+                'content' => '',
+                'page_type' => 'mrc',
+                'sort_order' => $maxOrder + 1,
+                'is_active' => true,
+                'created_by' => $creatorId,
+                'creator_id' => $creatorId,
+            ]);
         }
-
-        $validated = $request->validated();
-        ProposalDefaultPage::create(array_merge($validated, [
-            'created_by' => creatorId(),
-            'creator_id' => Auth::id(),
-            'page_type' => $request->input('page_type', 'general'),
-            'content' => $request->input('content', ''),
-            'background_image' => $request->input('background_image'),
-            'is_active' => $request->boolean('is_active', true),
-            'sort_order' => $request->input('sort_order', 1),
-        ]));
-
-        return redirect()->route('proposal-setup.index')->with('success', __('Default page created successfully.'));
-    }
-
-    private function authorizePage(ProposalDefaultPage $defaultPage): bool
-    {
-        return $defaultPage->created_by == creatorId() && $defaultPage->creator_id == Auth::id();
-    }
-
-    public function editDefaultPage(ProposalDefaultPage $defaultPage)
-    {
-        if (!Auth::user()->can('manage-proposal-system-setup')) {
-            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
-        }
-
-        if (!$this->authorizePage($defaultPage)) {
-            return redirect()->route('proposal-setup.index')->with('error', __('Unauthorized access.'));
-        }
-
-        $settings = ProposalSetting::getSettings(creatorId());
-
-        return Inertia::render('SalesProposalSetup/DefaultPages/Edit', [
-            'settings' => $settings,
-            'defaultPage' => $defaultPage,
-            'variables' => $this->getProposalVariables(),
-        ]);
-    }
-
-    public function updateDefaultPage(UpdateDefaultPageRequest $request, ProposalDefaultPage $defaultPage)
-    {
-        if (!Auth::user()->can('manage-proposal-system-setup')) {
-            return redirect()->route('sales-proposals.index')->with('error', __('Permission denied'));
-        }
-
-        if (!$this->authorizePage($defaultPage)) {
-            return redirect()->route('proposal-setup.index')->with('error', __('Unauthorized access.'));
-        }
-
-        $validated = $request->validated();
-        $defaultPage->update(array_merge($validated, [
-            'created_by' => creatorId(),
-            'creator_id' => Auth::id(),
-            'page_type' => $request->input('page_type', $defaultPage->page_type),
-            'content' => $request->has('content') ? $request->input('content', '') : $defaultPage->content,
-            'background_image' => $request->has('background_image') ? $request->input('background_image') : $defaultPage->background_image,
-            'sort_order' => $request->input('sort_order', $defaultPage->sort_order),
-            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $defaultPage->is_active,
-        ]));
-
-        return redirect()->route('proposal-setup.index')->with('success', __('Default page updated successfully.'));
-    }
-
-    public function destroyDefaultPage(ProposalDefaultPage $defaultPage)
-    {
-        if (!Auth::user()->can('manage-proposal-system-setup')) {
-            return back()->with('error', __('Permission denied'));
-        }
-
-        if (!$this->authorizePage($defaultPage)) {
-            return redirect()->back()->with('error', __('Unauthorized access.'));
-        }
-
-        $defaultPage->delete();
-
-        return redirect()->back()->with('success', __('Default page deleted successfully.'));
     }
 }

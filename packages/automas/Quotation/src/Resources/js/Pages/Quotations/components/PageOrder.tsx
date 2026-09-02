@@ -39,23 +39,24 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getImagePath } from '@/utils/helpers';
-import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
+import { replaceQuotationShortcodes } from '../utils/quotationShortcodes';
 import {
     ProposalPreviewSheet,
     paginateDomContainer,
     PROPOSAL_CONTENT_CLASSES,
 } from '@/components/PreviewModal';
 
-export interface ProposalSectionItem {
+export interface QuotationSectionItem {
     id: string;
     title: string;
     content: string;
     page_type?: string;
     background_image?: string;
     order: number;
+    default_page_id?: number;
 }
 
-interface ProposalDefaultPage {
+interface QuotationDefaultPage {
     id: number;
     title: string;
     content: string;
@@ -67,17 +68,17 @@ interface ProposalDefaultPage {
 }
 
 interface Props {
-    sections: ProposalSectionItem[];
-    setSections: React.Dispatch<React.SetStateAction<ProposalSectionItem[]>>;
-    defaultPages?: ProposalDefaultPage[];
-    proposalSetting?: any;
+    sections: QuotationSectionItem[];
+    setSections: React.Dispatch<React.SetStateAction<QuotationSectionItem[]>>;
+    defaultPages?: QuotationDefaultPage[];
+    quotationSetting?: any;
 }
 
-const defaultProposalVariables: Record<string, string> = {
+const defaultQuotationVariables: Record<string, string> = {
     'App Name': 'app_name',
     'Company Name': 'company_name',
     'Company Logo': 'company_logo',
-    'Proposal Logo': 'proposal_logo',
+    'Quotation Logo': 'Quotation_logo',
     'Company Email': 'company_email',
     'Company Phone': 'company_phone',
     'Company Address': 'company_address',
@@ -85,8 +86,8 @@ const defaultProposalVariables: Record<string, string> = {
     'User Name': 'user_name',
     'User Email': 'user_email',
     'User Phone': 'user_phone',
-    'Proposal Number': 'proposal_number',
-    'Proposal Date': 'proposal_date',
+    'Quotation Number': 'Quotation_number',
+    'Quotation Date': 'Quotation_date',
     'Due Date': 'due_date',
     'Customer Name': 'customer_name',
     'Customer Email': 'customer_email',
@@ -100,10 +101,10 @@ const defaultProposalVariables: Record<string, string> = {
 
 
 
-export default function PageOrderSection({ sections, setSections, defaultPages = [], proposalSetting: propSetting }: Props) {
+export default function PageOrder({ sections, setSections, defaultPages = [], quotationSetting: propSetting }: Props) {
     const { t } = useTranslation();
     const pageProps = usePage<any>().props;
-    const settings = propSetting || pageProps.proposalSetting || {};
+    const settings = propSetting || pageProps.quotationSetting || {};
 
     const templateColor = settings?.template_color || '#E9591C';
     const defaultTemplateBg = settings?.background_image || '';
@@ -125,8 +126,8 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     const [modalContent, setModalContent] = useState('');
     const [modalBackground, setModalBackground] = useState('');
     const [modalPageType, setModalPageType] = useState('general');
-    const [selectedDefaultPage, setSelectedDefaultPage] = useState<ProposalDefaultPage | null>(null);
-    const [editingSection, setEditingSection] = useState<ProposalSectionItem | null>(null);
+    const [selectedDefaultPage, setSelectedDefaultPage] = useState<QuotationDefaultPage | null>(null);
+    const [editingSection, setEditingSection] = useState<QuotationSectionItem | null>(null);
 
     // Editor mode ('rich' | 'code' | 'preview')
     const [editorMode, setEditorMode] = useState<'rich' | 'code' | 'preview'>('rich');
@@ -146,20 +147,8 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
 
     const processedContent = useMemo(() => {
         if (!modalContent) return '';
-        return replaceProposalShortcodes(modalContent, { settings, pageProps });
+        return replaceQuotationShortcodes(modalContent, { settings, pageProps });
     }, [modalContent, settings, pageProps]);
-
-    // Detect if modal content has raw/custom HTML code
-    const hasRawHtml = useMemo(() => {
-        if (!modalContent) return false;
-        return /<(?:div|style|section|article|main|iframe|script|table|thead|tbody|tfoot|tr|th|td)\b|style=["'][^"']*["']/i.test(modalContent);
-    }, [modalContent]);
-
-    useEffect(() => {
-        if (hasRawHtml && editorMode === 'rich') {
-            setEditorMode('code');
-        }
-    }, [hasRawHtml, editorMode]);
 
     useEffect(() => {
         if (!processedContent) {
@@ -168,16 +157,9 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         }
 
         const runPagination = () => {
-            const hasExplicitBreak = /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(processedContent);
-
             if (measureContainerRef.current) {
-                const scrollH = measureContainerRef.current.scrollHeight;
-                if (!hasExplicitBreak && scrollH <= 980) {
-                    setPaginatedPreviewPages([processedContent]);
-                } else {
-                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
-                    setPaginatedPreviewPages(chunks);
-                }
+                const chunks = paginateDomContainer(measureContainerRef.current, 900);
+                setPaginatedPreviewPages(chunks);
             } else {
                 setPaginatedPreviewPages([processedContent]);
             }
@@ -189,10 +171,6 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     }, [processedContent, editorMode, isModalOpen]);
 
     const handleSwitchMode = (mode: 'rich' | 'code' | 'preview') => {
-        if (mode === 'rich' && hasRawHtml) {
-            toast.error(t('Text Editor is disabled because this page contains custom HTML & CSS code. Please use HTML Code or Preview editor.'));
-            return;
-        }
         if (mode === 'rich') {
             setEditorKey((prev) => prev + 1);
         }
@@ -209,9 +187,10 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     const handleOpenAddModal = () => {
         setModalMode('add');
         setEditorMode('rich');
-        if (defaultPages && defaultPages.length > 0) {
+        const customDefaultPages = defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc');
+        if (customDefaultPages && customDefaultPages.length > 0) {
             setAddTab('existing');
-            const firstPage = defaultPages[0];
+            const firstPage = customDefaultPages[0];
             setSelectedDefaultPage(firstPage);
             setModalTitle(firstPage.title || '');
             setModalContent(firstPage.content || '');
@@ -231,7 +210,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     };
 
     // Select existing default page in Add Modal
-    const handleSelectDefaultPage = (page: ProposalDefaultPage) => {
+    const handleSelectDefaultPage = (page: QuotationDefaultPage) => {
         setSelectedDefaultPage(page);
         setModalTitle(page.title);
         setModalContent(page.content || '');
@@ -241,7 +220,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     };
 
     // Open Edit Modal / Jump to section for OTC/MRC/Other Details
-    const handleOpenEditModal = (sec: ProposalSectionItem) => {
+    const handleOpenEditModal = (sec: QuotationSectionItem) => {
         if (sec.page_type === 'otc' || sec.page_type === 'mrc' || sec.page_type === 'other-details') {
             const targetId = sec.page_type === 'otc' ? 'otc-section' : (sec.page_type === 'mrc' ? 'mrc-section' : 'other-details-section');
             const el = document.getElementById(targetId);
@@ -272,17 +251,18 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
         }
 
         if (modalMode === 'add') {
-            const newSection: ProposalSectionItem = {
+            const newSection: QuotationSectionItem = {
                 id: `sec-${Date.now()}`,
+                default_page_id: addTab === 'existing' && selectedDefaultPage ? selectedDefaultPage.id : undefined,
                 title: modalTitle.trim(),
                 content: modalContent,
-                page_type: modalPageType || 'content',
+                page_type: modalPageType || 'general',
                 background_image: modalBackground,
                 order: sections.length + 1,
             };
 
             setSections((prev) => [...prev, newSection]);
-            toast.success(t('Page added to proposal order.'));
+            toast.success(t('Page added to Quotation order.'));
         } else if (modalMode === 'edit' && editingSection) {
             setSections((prev) =>
                 prev.map((s) =>
@@ -304,7 +284,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     };
 
     // Delete section / Jump to section if dynamic
-    const handleRemoveSection = (sec: ProposalSectionItem) => {
+    const handleRemoveSection = (sec: QuotationSectionItem) => {
         if (sec.page_type === 'otc' || sec.page_type === 'mrc' || sec.page_type === 'other-details') {
             const targetId = sec.page_type === 'otc' ? 'otc-section' : (sec.page_type === 'mrc' ? 'mrc-section' : 'other-details-section');
             const el = document.getElementById(targetId);
@@ -386,7 +366,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                             {t('Page Order')}
                         </h3>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            {t('Organize, add, edit, or reorder proposal pages.')}
+                            {t('Organize, add, edit, or reorder Quotation pages.')}
                         </p>
                     </div>
                     <Button
@@ -530,11 +510,11 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                             </div>
                             <div className="min-w-0">
                                 <DialogTitle className="text-base font-semibold truncate">
-                                    {modalMode === 'add' ? t('Add Page to Proposal') : t('Edit Proposal Page')}
+                                    {modalMode === 'add' ? t('Add Page to Quotation') : t('Edit Quotation Page')}
                                 </DialogTitle>
                                 <p className="text-xs text-muted-foreground truncate">
                                     {modalMode === 'add'
-                                        ? t('Create a custom proposal page or load from existing default pages.')
+                                        ? t('Create a custom Quotation page or load from existing default pages.')
                                         : t('Customize title, background, and content for this page.')}
                                 </p>
                             </div>
@@ -590,7 +570,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                         <div className="grid grid-cols-12 gap-6">
                             {/* Left Column: Existing Templates list (if add) & Variables */}
                             <div className="col-span-12 lg:col-span-3 space-y-4">
-                                {modalMode === 'add' && addTab === 'existing' && defaultPages.length > 0 && (
+                                {modalMode === 'add' && addTab === 'existing' && defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc').length > 0 && (
                                     <Card className="shadow-xs border">
                                         <CardHeader className="p-3 pb-2 border-b">
                                             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -599,7 +579,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-2 space-y-1 max-h-[220px] overflow-y-auto">
-                                            {defaultPages.map((page) => {
+                                            {defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc').map((page) => {
                                                 const isSelected = selectedDefaultPage?.id === page.id;
                                                 const isAlreadyAdded = sections.some(s => s.title.toLowerCase() === page.title.toLowerCase());
 
@@ -651,7 +631,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                     </CardHeader>
                                     <CardContent className="p-3 pt-0">
                                         <div className="grid grid-cols-1 gap-1 text-xs">
-                                            {Object.entries(defaultProposalVariables).map(([key, value]) => (
+                                            {Object.entries(defaultQuotationVariables).map(([key, value]) => (
                                                 <div
                                                     key={key}
                                                     className="flex items-center justify-between group cursor-pointer hover:bg-muted/60 py-1 px-1.5 rounded transition-colors leading-tight"
@@ -719,7 +699,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                                         </div>
                                                     </div>
                                                     <a
-                                                        href={route('proposal-setup.index')}
+                                                        href={route('quotation-setup.index')}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         onClick={(e) => e.stopPropagation()}
@@ -771,19 +751,17 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
 
                                                 {/* Mode Tabs (Order: Text Editor, HTML Code, Preview) */}
                                                 <div className="flex items-center bg-muted/70 p-1 rounded-lg border border-border gap-1">
-                                                    {/* 1. Text Editor */}
+                                                    {/* 1. Text Editor (Default) */}
                                                     <Button
                                                         type="button"
                                                         variant={editorMode === 'rich' ? 'secondary' : 'ghost'}
                                                         size="sm"
-                                                        disabled={hasRawHtml}
                                                         className={cn(
                                                             "h-7 px-2.5 text-xs gap-1.5 font-medium transition-all shadow-none",
-                                                            editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold",
-                                                            hasRawHtml && "opacity-50 cursor-not-allowed"
+                                                            editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold"
                                                         )}
                                                         onClick={() => handleSwitchMode('rich')}
-                                                        title={hasRawHtml ? t('Text Editor disabled for raw HTML') : t('Use WYSIWYG text toolbar')}
+                                                        title={t('Use WYSIWYG text toolbar')}
                                                     >
                                                         <PenTool className="h-3.5 w-3.5 text-blue-500" />
                                                         <span>{t('Text Editor')}</span>
@@ -929,7 +907,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                             {modalMode === 'add' ? (
                                 <>
                                     <Plus className="h-4 w-4" />
-                                    {t('Add to Proposal')}
+                                    {t('Add to Quotation')}
                                 </>
                             ) : (
                                 <>

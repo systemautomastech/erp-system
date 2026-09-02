@@ -71,7 +71,7 @@ export default function Index({ settings, defaultPages = [] }: Props) {
         >
             <Head title={t('Proposal System Setup')} />
 
-            <div className="flex flex-col md:flex-row gap-8">
+            <div className="flex flex-col md:flex-row gap-8 pb-32">
                 <SetupSidebar activeSection={activeSection} onNavClick={handleNavClick} />
 
                 <div className="flex-1 space-y-8">

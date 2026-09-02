@@ -11,6 +11,7 @@ class QuotationDefaultPage extends Model
     protected $fillable = [
         'title',
         'content',
+        'page_type',
         'background_image',
         'sort_order',
         'is_active',

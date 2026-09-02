@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
-import { ProposalItem } from '@/pages/SalesProposals/types';
+import { ProposalItem, SalesProposal as SalesProposalType } from '@/pages/SalesProposals/types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
-import ProposalItemsTable from '@/pages/SalesProposals/components/ProposalItemsTable';
-import { useTaxCalculator } from '@/pages/Sales/components/TaxCalculator';
-import { formatCurrency } from '@/utils/helpers';
+import ItemsTable from './components/ItemsTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,17 +13,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, Users, UserPlus, X } from 'lucide-react';
-import RichTextEditor from '@/components/ui/rich-text-editor';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
+import { CalendarDays, Plus, Trash2, GripVertical, FileText, User, Users, UserPlus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import RichTextEditor from '@/components/ui/rich-text-editor';
+import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import PreviewModal from '@/components/PreviewModal';
-import ChargeItemsTable from './components/ChargeItemsTable';
-import PageOrderSection from './components/PageOrderSection';
+import PageOrder from './components/PageOrder';
 
 interface ProposalDefaultPage {
     id: number;
@@ -36,28 +30,7 @@ interface ProposalDefaultPage {
     sort_order: number;
 }
 
-interface SalesProposal {
-    id: number;
-    proposal_number: string;
-    reference?: string;
-    subject?: string;
-    proposal_date: string;
-    due_date: string;
-    customer_id?: number | null;
-    customer_name?: string | null;
-    customer_email?: string | null;
-    customer_phone?: string | null;
-    customer_address?: string | null;
-    warehouse_id?: number;
-    type?: string;
-    is_tax_enabled?: boolean | number;
-    is_prepaid?: boolean | number;
-    payment_terms?: string;
-    notes?: string;
-    items: any[];
-    other_details?: string;
-    proposal_content?: any;
-}
+type SalesProposal = SalesProposalType;
 
 interface EditProps {
     proposal: SalesProposal;
@@ -76,7 +49,7 @@ export default function Edit() {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     // Initialize proposal sections with existing proposal_content or fallback to defaultPages
-    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
+    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean; default_page_id?: number }>>(() => {
         const contentsRel = (proposal as any).contents;
         let parsed: any[] = [];
         if (Array.isArray(contentsRel) && contentsRel.length > 0) {
@@ -92,18 +65,20 @@ export default function Edit() {
                     return {
                         title: dec.title || c.title || '',
                         content: dec.content || c.proposal_content || '',
-                        page_type: dec.page_type || c.page_type || 'content',
+                        page_type: dec.page_type || c.page_type || 'general',
                         background_image: dec.background_image || c.background_image || '',
                         order: typeof c.order !== 'undefined' ? Number(c.order) : (typeof dec.order !== 'undefined' ? Number(dec.order) : 1),
+                        default_page_id: dec.default_page_id || c.default_page_id,
                     };
                 }
 
                 return {
                     title: c.title || '',
                     content: c.proposal_content || '',
-                    page_type: c.page_type || 'content',
+                    page_type: c.page_type || 'general',
                     background_image: c.background_image || '',
                     order: typeof c.order !== 'undefined' ? Number(c.order) : 1,
+                    default_page_id: c.default_page_id,
                 };
             });
         } else {
@@ -120,15 +95,18 @@ export default function Edit() {
         }
 
         if (parsed.length === 0 && defaultPages && defaultPages.length > 0) {
-            parsed = defaultPages.map((p, idx) => ({
-                title: p.title,
-                content: p.content || '',
-                page_type: p.page_type || 'content',
-                background_image: p.background_image || '',
-                order: Number(p.sort_order) || idx + 1,
-            }));
+            parsed = defaultPages
+                .map((p, idx) => ({
+                    default_page_id: p.id,
+                    title: p.title,
+                    content: p.content || '',
+                    page_type: p.page_type || 'general',
+                    background_image: p.background_image || '',
+                    order: Number(p.sort_order) || idx + 1,
+                }));
         }
 
+        // Sort strictly according to saved order
         parsed.sort((a: any, b: any) => {
             const orderA = typeof a.order === 'number' ? a.order : (parseInt(a.order, 10) || 0);
             const orderB = typeof b.order === 'number' ? b.order : (parseInt(b.order, 10) || 0);
@@ -137,9 +115,10 @@ export default function Edit() {
 
         return parsed.map((item: any, idx: number) => ({
             id: `sec-${idx}-${Date.now()}`,
+            default_page_id: item.default_page_id,
             title: item.title || (item.page_type === 'otc' ? 'One-Time Charges (OTC)' : item.page_type === 'mrc' ? 'Monthly Recurring Charges (MRC)' : item.page_type === 'other-details' ? 'Other Details' : `Page ${idx + 1}`),
             content: item.content || '',
-            page_type: item.page_type || 'content',
+            page_type: item.page_type || 'general',
             background_image: item.background_image || '',
             order: typeof item.order === 'number' ? item.order : (parseInt(item.order, 10) || (idx + 1)),
             isExpanded: false,
@@ -158,11 +137,16 @@ export default function Edit() {
         customer_name: proposal.customer_name || '',
         customer_email: proposal.customer_email || '',
         customer_phone: proposal.customer_phone || '',
+        customer_type: (proposal.customer_type || 'Individual') as 'Individual' | 'Company',
         customer_address: proposal.customer_address || '',
         warehouse_id: proposal.warehouse_id ? proposal.warehouse_id.toString() : '',
         type: proposal.type || 'product',
         is_tax_enabled: proposal.is_tax_enabled !== undefined ? Boolean(proposal.is_tax_enabled) : true,
         is_prepaid: proposal.is_prepaid !== undefined ? Boolean(proposal.is_prepaid) : false,
+        otc_discount_type: (proposal.otc_discount_type || 'percentage') as 'percentage' | 'fixed',
+        otc_discount_value: proposal.otc_discount_value || 0,
+        mrc_discount_type: (proposal.mrc_discount_type || 'percentage') as 'percentage' | 'fixed',
+        mrc_discount_value: proposal.mrc_discount_value || 0,
         payment_terms: proposal.payment_terms || '',
         notes: proposal.notes || '',
         items: (proposal.items && proposal.items.length > 0) ? proposal.items.map(item => ({
@@ -178,94 +162,92 @@ export default function Edit() {
             tax_percentage: item.tax_percentage || 0,
             tax_amount: item.tax_amount || 0,
             total_amount: item.total_amount || 0,
-        })) : [{
-            product_id: 0,
-            section: 'general',
-            product_type: 'product',
-            description: '',
-            product_description: '',
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }] as ProposalItem[],
+        })) : [] as ProposalItem[],
         proposal_content: [],
-        other_details: proposal.other_details || '',
+        other_details: proposal.other_details || (sections.find(s => s.page_type === 'other-details')?.content !== '[OTHER_DETAILS_CONTENT]' ? (sections.find(s => s.page_type === 'other-details')?.content || '') : ''),
     });
 
-    // Auto-sync OTC, MRC, and Other Details section cards into Page Order list when products exist in those tables
+    // Auto-sync OTC, MRC, and Other Details section cards in Edit page without overwriting user's saved page sequence
     useEffect(() => {
-        const hasOtcItems = data.items.some(
-            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+        const hasOtc = data.items.some(
+            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== ''))
         );
-        const hasMrcItems = data.items.some(
-            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+        const hasMrc = data.items.some(
+            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== ''))
         );
-
-        const hasOtherDetails = Boolean(data.other_details && data.other_details.trim() !== '' && data.other_details !== '<p></p>');
+        const hasOther = Boolean(data.other_details && data.other_details.trim() !== '' && data.other_details !== '<p></p>');
 
         setSections((prev) => {
-            let updated = [...prev];
-            let changed = false;
+            const currentHasOtc = prev.some((s) => s.page_type === 'otc');
+            const currentHasMrc = prev.some((s) => s.page_type === 'mrc');
+            const currentHasOther = prev.some((s) => s.page_type === 'other-details');
 
-            // OTC Card
-            const otcIdx = updated.findIndex((s) => s.page_type === 'otc');
-            if (hasOtcItems && otcIdx === -1) {
-                updated.push({
-                    id: `sec-otc-${Date.now()}`,
-                    title: 'One-Time Charges (OTC)',
+            if (hasOtc === currentHasOtc && hasMrc === currentHasMrc && hasOther === currentHasOther) {
+                return prev;
+            }
+
+            const defaultOtc = defaultPages?.find((p) => p.page_type === 'otc');
+            const defaultMrc = defaultPages?.find((p) => p.page_type === 'mrc');
+            const defaultOther = defaultPages?.find((p) => p.page_type === 'other-details');
+
+            let nextSections = [...prev];
+
+            // 1. Remove if items no longer exist
+            if (!hasOtc && currentHasOtc) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'otc');
+            }
+            if (!hasMrc && currentHasMrc) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'mrc');
+            }
+            if (!hasOther && currentHasOther) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'other-details');
+            }
+
+            // 2. Add OTC if items exist and not present
+            if (hasOtc && !currentHasOtc) {
+                nextSections.push({
+                    id: `sec-otc-${defaultOtc?.id || 'dynamic'}`,
+                    default_page_id: defaultOtc?.id,
+                    title: defaultOtc?.title || 'One-Time Charges (OTC)',
                     content: '[OTC_CHARGES_TABLE]',
                     page_type: 'otc',
-                    order: updated.length + 1,
+                    background_image: defaultOtc?.background_image || '',
+                    order: nextSections.length + 1,
                     isExpanded: false,
                 });
-                changed = true;
-            } else if (!hasOtcItems && otcIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'otc');
-                changed = true;
             }
 
-            // MRC Card
-            const mrcIdx = updated.findIndex((s) => s.page_type === 'mrc');
-            if (hasMrcItems && mrcIdx === -1) {
-                updated.push({
-                    id: `sec-mrc-${Date.now()}`,
-                    title: 'Monthly Recurring Charges (MRC)',
+            // 3. Add MRC if items exist and not present
+            if (hasMrc && !currentHasMrc) {
+                nextSections.push({
+                    id: `sec-mrc-${defaultMrc?.id || 'dynamic'}`,
+                    default_page_id: defaultMrc?.id,
+                    title: defaultMrc?.title || 'Monthly Recurring Charges (MRC)',
                     content: '[MRC_CHARGES_TABLE]',
                     page_type: 'mrc',
-                    order: updated.length + 1,
+                    background_image: defaultMrc?.background_image || '',
+                    order: nextSections.length + 1,
                     isExpanded: false,
                 });
-                changed = true;
-            } else if (!hasMrcItems && mrcIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'mrc');
-                changed = true;
             }
 
-            // Other Details Card
-            const otherIdx = updated.findIndex((s) => s.page_type === 'other-details');
-            if (hasOtherDetails && otherIdx === -1) {
-                updated.push({
-                    id: `sec-other-${Date.now()}`,
-                    title: 'Other Details',
+            // 4. Add Other Details if present
+            if (hasOther && !currentHasOther) {
+                nextSections.push({
+                    id: `sec-other-details-${defaultOther?.id || 'dynamic'}`,
+                    default_page_id: defaultOther?.id,
+                    title: defaultOther?.title || 'Other Details',
                     content: '[OTHER_DETAILS_CONTENT]',
                     page_type: 'other-details',
-                    order: updated.length + 1,
+                    background_image: defaultOther?.background_image || '',
+                    order: nextSections.length + 1,
                     isExpanded: false,
                 });
-                changed = true;
-            } else if (!hasOtherDetails && otherIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'other-details');
-                changed = true;
             }
 
-            if (!changed) return prev;
-            return updated.map((item, idx) => ({ ...item, order: idx + 1 }));
+            return nextSections.map((s, idx) => ({ ...s, order: idx + 1 }));
         });
-    }, [data.items, data.other_details]);
+    }, [data.items, data.other_details, defaultPages]);
 
     // Selected Customer Details
     const selectedCustomer: any = customers?.find((c: any) => String(c.id) === String(data.customer_id));
@@ -320,7 +302,7 @@ export default function Edit() {
             ...formData,
             proposal_content: sections.map((item, index) => ({
                 title: item.title,
-                content: item.content,
+                content: item.page_type === 'other-details' ? (data.other_details || item.content || '') : item.content,
                 page_type: item.page_type || 'content',
                 background_image: item.background_image || '',
                 order: index + 1,
@@ -330,7 +312,50 @@ export default function Edit() {
         put(route('sales-proposals.update', proposal.id));
     };
 
-    const totals = useTaxCalculator(data.items);
+    const totals = useMemo(() => {
+        const otcItems = data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section);
+        const mrcItems = data.items.filter(i => i.section === 'mrc');
+
+        const otcSubtotal = otcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+        const mrcSubtotal = mrcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+
+        let otcDiscount = 0;
+        if (data.otc_discount_type === 'percentage') {
+            otcDiscount = (otcSubtotal * Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            otcDiscount = Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), otcSubtotal);
+        }
+
+        let mrcDiscount = 0;
+        if (data.mrc_discount_type === 'percentage') {
+            mrcDiscount = (mrcSubtotal * Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            mrcDiscount = Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), mrcSubtotal);
+        }
+
+        const otcTax = otcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+        const mrcTax = mrcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+
+        const subtotal = otcSubtotal + mrcSubtotal;
+        const discountAmount = otcDiscount + mrcDiscount;
+        const taxAmount = otcTax + mrcTax;
+        const total = Math.max(0, subtotal - discountAmount + taxAmount);
+
+        return {
+            subtotal,
+            discountAmount,
+            taxAmount,
+            total,
+            otcSubtotal,
+            otcDiscount,
+            otcTax,
+            otcTotal: Math.max(0, otcSubtotal - otcDiscount + otcTax),
+            mrcSubtotal,
+            mrcDiscount,
+            mrcTax,
+            mrcTotal: Math.max(0, mrcSubtotal - mrcDiscount + mrcTax),
+        };
+    }, [data.items, data.otc_discount_type, data.otc_discount_value, data.mrc_discount_type, data.mrc_discount_value]);
 
     return (
         <AuthenticatedLayout
@@ -656,10 +681,11 @@ export default function Edit() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <ProposalItemsTable
+                            <ItemsTable
                                 items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
-                                onChange={(updatedOtcItems) => {
+                                warehouseId={data.warehouse_id}
+                                onChange={(updatedOtcItems: ProposalItem[]) => {
                                     const formattedOtc = updatedOtcItems.map(i => ({ ...i, section: 'otc' }));
                                     const mrcItems = data.items.filter(i => i.section === 'mrc');
                                     setData('items', [...formattedOtc, ...mrcItems]);
@@ -670,6 +696,10 @@ export default function Edit() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="otc"
+                                discountType={data.otc_discount_type}
+                                discountValue={data.otc_discount_value}
+                                onDiscountTypeChange={(val: 'percentage' | 'fixed') => setData('otc_discount_type', val)}
+                                onDiscountValueChange={(val: number) => setData('otc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>
@@ -694,10 +724,11 @@ export default function Edit() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <ProposalItemsTable
+                            <ItemsTable
                                 items={data.items.filter(i => i.section === 'mrc')}
                                 products={availableProducts}
-                                onChange={(updatedMrcItems) => {
+                                warehouseId={data.warehouse_id}
+                                onChange={(updatedMrcItems: ProposalItem[]) => {
                                     const formattedMrc = updatedMrcItems.map(i => ({ ...i, section: 'mrc' }));
                                     const otcItems = data.items.filter(i => i.section !== 'mrc');
                                     setData('items', [...otcItems, ...formattedMrc]);
@@ -708,6 +739,10 @@ export default function Edit() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="mrc"
+                                discountType={data.mrc_discount_type}
+                                discountValue={data.mrc_discount_value}
+                                onDiscountTypeChange={(val: 'percentage' | 'fixed') => setData('mrc_discount_type', val)}
+                                onDiscountValueChange={(val: number) => setData('mrc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>
@@ -730,7 +765,7 @@ export default function Edit() {
                     </Card>
 
                     {/* Page Order Section */}
-                    <PageOrderSection
+                    <PageOrder
                         sections={sections as any}
                         setSections={setSections as any}
                         defaultPages={defaultPages}
@@ -788,45 +823,14 @@ export default function Edit() {
                                 {t('Cancel')}
                             </Button>
                             <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => setIsPreviewOpen(true)}
-                                className="gap-2"
-                            >
-                                <Eye className="h-4 w-4" />
-                                {t('Preview')}
-                            </Button>
-                            <Button
                                 type="submit"
                                 disabled={processing || data.items.length === 0}
                             >
-                                {processing ? t('Updating...') : t('Update')}
+                                {processing ? t('Updating...') : t('Update Proposal')}
                             </Button>
                         </div>
                     </div>
                 </form>
-
-                <PreviewModal
-                    isOpen={isPreviewOpen}
-                    onClose={() => setIsPreviewOpen(false)}
-                    formData={{
-                        ...data,
-                        id: proposal.id,
-                        proposal_number: proposal.proposal_number || (proposal.id ? `PROP-${proposal.id}` : undefined),
-                    }}
-                    sections={sections as any}
-                    customers={customers}
-                    warehouses={warehouses}
-                    availableProducts={availableProducts}
-                    totals={{
-                        subtotal: totals.subtotal,
-                        tax_amount: totals.taxAmount,
-                        discount_amount: totals.discountAmount,
-                        total_amount: totals.total,
-                    }}
-                    proposalSetting={proposalSetting}
-                    other_details={data.other_details}
-                />
             </div>
         </AuthenticatedLayout>
     );

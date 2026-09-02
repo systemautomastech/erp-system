@@ -1,8 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { QuotationItem } from '../types';
-import QuotationProductSelector from './QuotationProductSelector';
-import { calculateLineItemAmounts } from '@/pages/Sales/components/TaxCalculator';
+import { ProposalItem } from '../types';
+import ProductSelector from './ProductSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputError } from '@/components/ui/input-error';
@@ -12,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import RichTextEditor from '@/components/ui/rich-text-editor';
 
 interface Props {
-    items: QuotationItem[];
-    onChange: (items: QuotationItem[]) => void;
+    items: ProposalItem[];
+    onChange: (items: ProposalItem[]) => void;
     errors?: any;
     products?: Array<{ id: number; name: string; type?: string; description?: string; long_description?: string; sale_price: number; unit?: string; unit_name?: string; stock_quantity?: number; taxes?: Array<{ id: number; tax_name: string; rate: number }> }>;
     showAddButton?: boolean;
@@ -23,13 +22,33 @@ interface Props {
     isRefreshing?: boolean;
     isTaxEnabled?: boolean;
     defaultSection?: string;
+    discountType?: 'percentage' | 'fixed';
+    discountValue?: number;
+    onDiscountTypeChange?: (type: 'percentage' | 'fixed') => void;
+    onDiscountValueChange?: (value: number) => void;
 }
 
-export default function QuotationItemsTable({ items, onChange, errors = {}, products = [], showAddButton = true, invoiceType = 'product', warehouseId, onRefresh, isRefreshing = false, isTaxEnabled = true, defaultSection = 'otc' }: Props) {
+export default function ItemsTable({
+    items,
+    onChange,
+    errors = {},
+    products = [],
+    showAddButton = true,
+    invoiceType = 'product',
+    warehouseId,
+    onRefresh,
+    isRefreshing = false,
+    isTaxEnabled = true,
+    defaultSection = 'otc',
+    discountType = 'percentage',
+    discountValue = 0,
+    onDiscountTypeChange,
+    onDiscountValueChange,
+}: Props) {
     const { t } = useTranslation();
 
     const addItem = () => {
-        const newItem: QuotationItem = {
+        const newItem: ProposalItem = {
             product_id: 0,
             section: defaultSection,
             product_type: invoiceType || 'product',
@@ -51,7 +70,7 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
         onChange(newItems);
     };
 
-    const updateItem = (index: number, field: keyof QuotationItem, value: any) => {
+    const updateItem = (index: number, field: keyof ProposalItem, value: any) => {
         const newItems = [...items];
         newItems[index] = { ...newItems[index], [field]: value };
 
@@ -62,23 +81,19 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
             item.taxes = [];
         }
 
-        if (field === 'unit_price' || field === 'quantity' || field === 'discount_percentage' || field === 'tax_percentage') {
+        if (field === 'unit_price' || field === 'quantity' || field === 'tax_percentage') {
             item.quantity = Math.min(Math.max(Number(item.quantity) || 0, 0), 999999);
             item.unit_price = Number(item.unit_price) || 0;
-            item.discount_percentage = Number(item.discount_percentage) || 0;
             item.tax_percentage = isTaxEnabled ? (Number(item.tax_percentage) || 0) : 0;
         }
 
-        const calculations = calculateLineItemAmounts(
-            item.quantity,
-            item.unit_price,
-            item.discount_percentage,
-            isTaxEnabled ? item.tax_percentage : 0
-        );
+        const lineTotal = item.quantity * item.unit_price;
+        const taxAmount = isTaxEnabled ? (lineTotal * (Number(item.tax_percentage) || 0)) / 100 : 0;
 
-        item.discount_amount = calculations.discountAmount;
-        item.tax_amount = isTaxEnabled ? calculations.taxAmount : 0;
-        item.total_amount = calculations.totalAmount;
+        item.discount_percentage = 0;
+        item.discount_amount = 0;
+        item.tax_amount = taxAmount;
+        item.total_amount = lineTotal + taxAmount;
 
         onChange(newItems);
     };
@@ -91,7 +106,7 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
             tax_rate: tax.rate
         })) || []) : [];
 
-        const defaultDesc = product?.description || product?.long_description || '';
+        const defaultDesc = product?.long_description || product?.description || '';
 
         newItems[index] = {
             ...newItems[index],
@@ -104,18 +119,14 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
 
         const item = newItems[index];
         item.quantity = Number(item.quantity) || 1;
-        item.discount_percentage = Number(item.discount_percentage) || 0;
 
-        const calculations = calculateLineItemAmounts(
-            item.quantity,
-            item.unit_price,
-            item.discount_percentage,
-            isTaxEnabled ? item.tax_percentage : 0
-        );
+        const lineTotal = item.quantity * item.unit_price;
+        const taxAmount = isTaxEnabled ? (lineTotal * (Number(item.tax_percentage) || 0)) / 100 : 0;
 
-        item.discount_amount = Number(calculations.discountAmount) || 0;
-        item.tax_amount = isTaxEnabled ? (Number(calculations.taxAmount) || 0) : 0;
-        item.total_amount = Number(calculations.totalAmount) || 0;
+        item.discount_percentage = 0;
+        item.discount_amount = 0;
+        item.tax_amount = taxAmount;
+        item.total_amount = lineTotal + taxAmount;
 
         onChange(newItems);
     };
@@ -141,9 +152,6 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
                                 {t('Unit Price')} <span className="text-red-500">*</span>
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                {t('Discount')} %
-                            </th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                                 {t('Tax')}
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
@@ -162,7 +170,7 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
                                         .map((p) => p.type)
                                         .filter((t): t is string => Boolean(t && t.trim() !== ''))
                                 )
-                            );
+                            ).filter(Boolean);
 
                             const selectableTypes = availableTypes.length > 0
                                 ? availableTypes
@@ -205,7 +213,7 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
                                                 <SelectContent>
                                                     {selectableTypes.map((typeOption) => (
                                                         <SelectItem key={typeOption} value={typeOption} className="capitalize">
-                                                             {formatTypeName(typeOption)}
+                                                            {formatTypeName(typeOption)}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -247,7 +255,7 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
                                         </div>
                                     </td>
                                     <td className="px-4 py-4 min-w-[280px]">
-                                        <QuotationProductSelector
+                                        <ProductSelector
                                             products={filteredProducts}
                                             value={item.product_id}
                                             warehouseId={warehouseId}
@@ -316,23 +324,12 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
                                             type="number"
                                             value={item.unit_price}
                                             onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                                            className="w-24 text-sm"
+                                            className="w-28 text-sm"
                                             min="0"
                                             step="0.01"
                                             required
                                         />
                                         <InputError message={errors[`items.${index}.unit_price`]} />
-                                    </td>
-                                    <td className="px-4 py-4">
-                                        <Input
-                                            type="number"
-                                            value={item.discount_percentage}
-                                            onChange={(e) => updateItem(index, 'discount_percentage', parseFloat(e.target.value) || 0)}
-                                            className="w-20 text-sm"
-                                            min="0"
-                                            max="100"
-                                            step="0.01"
-                                        />
                                     </td>
                                     <td className="px-4 py-4">
                                         <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">
@@ -378,9 +375,17 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
 
             {(() => {
                 const sectionSubTotal = items.reduce((acc, item) => acc + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0);
-                const sectionDiscountTotal = items.reduce((acc, item) => acc + (Number(item.discount_amount) || 0), 0);
                 const sectionTaxTotal = items.reduce((acc, item) => acc + (Number(item.tax_amount) || 0), 0);
-                const sectionGrandTotal = items.reduce((acc, item) => acc + (Number(item.total_amount) || 0), 0);
+
+                let calculatedDiscount = 0;
+                const numericDiscVal = Number(discountValue) || 0;
+                if (discountType === 'percentage') {
+                    calculatedDiscount = (sectionSubTotal * Math.min(Math.max(numericDiscVal, 0), 100)) / 100;
+                } else {
+                    calculatedDiscount = Math.min(Math.max(numericDiscVal, 0), sectionSubTotal);
+                }
+
+                const sectionGrandTotal = Math.max(0, sectionSubTotal - calculatedDiscount + sectionTaxTotal);
 
                 return (
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4 pt-4 border-t border-slate-200 dark:border-slate-800">
@@ -398,22 +403,90 @@ export default function QuotationItemsTable({ items, onChange, errors = {}, prod
                         </div>
 
                         {items.length > 0 && (
-                            <div className="w-full sm:w-72 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3.5 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                            <div className="w-full sm:w-80 bg-slate-50 dark:bg-slate-900/60 rounded-lg p-3.5 border border-slate-200 dark:border-slate-800 text-xs space-y-2.5">
+                                {/* 1. Sub Total */}
                                 <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
                                     <span className="font-medium">{t('Sub Total (৳)')}</span>
-                                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(sectionSubTotal)}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{formatCurrency(sectionSubTotal)}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                                    <span className="font-medium">{t('Discount (৳)')}</span>
-                                    <span className="font-semibold text-slate-900 dark:text-slate-100">{sectionDiscountTotal > 0 ? `-${formatCurrency(sectionDiscountTotal)}` : formatCurrency(0)}</span>
+
+                                {/* 2. Minimal Discount Row */}
+                                <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-slate-600 dark:text-slate-400">
+                                            {discountType === 'percentage' && discountValue > 0
+                                                ? `${t('Discount')} (${discountValue}%)`
+                                                : t('Discount')}
+                                        </span>
+
+                                        {/* Minimal Type Toggle (% / ৳) */}
+                                        <div className="inline-flex rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs">
+                                            <button
+                                                type="button"
+                                                onClick={() => onDiscountTypeChange && onDiscountTypeChange('percentage')}
+                                                className={`px-2 py-0.5 text-[10px] font-semibold rounded flex items-center gap-1 transition-all ${
+                                                    discountType === 'percentage'
+                                                        ? 'bg-primary text-primary-foreground shadow-2xs'
+                                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <span>%</span>
+                                                <span>{t('Percent')}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onDiscountTypeChange && onDiscountTypeChange('fixed')}
+                                                className={`px-2 py-0.5 text-[10px] font-semibold rounded flex items-center gap-1 transition-all ${
+                                                    discountType === 'fixed'
+                                                        ? 'bg-primary text-primary-foreground shadow-2xs'
+                                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <span>৳</span>
+                                                <span>{t('Fixed')}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Input & Live Result */}
+                                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                                        <div className="relative w-24">
+                                            <Input
+                                                type="number"
+                                                value={discountValue === 0 ? '' : discountValue}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    if (onDiscountValueChange) {
+                                                        onDiscountValueChange(Math.max(0, val));
+                                                    }
+                                                }}
+                                                placeholder="0"
+                                                className="h-7 text-xs font-semibold text-right pr-4 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 focus-visible:ring-primary"
+                                                min="0"
+                                                max={discountType === 'percentage' ? 100 : sectionSubTotal}
+                                                step={discountType === 'percentage' ? '0.1' : '1'}
+                                            />
+                                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
+                                                {discountType === 'percentage' ? '%' : '৳'}
+                                            </span>
+                                        </div>
+
+                                        <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
+                                            {calculatedDiscount > 0 ? `-${formatCurrency(calculatedDiscount)}` : formatCurrency(0)}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+
+                                {/* 3. VAT/Tax */}
+                                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400 pt-1 border-t border-slate-200/80 dark:border-slate-800">
                                     <span className="font-medium">{t('VAT/Tax (৳)')}</span>
                                     <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(sectionTaxTotal)}</span>
                                 </div>
+
+                                {/* 4. Total Amount */}
                                 <div className="flex justify-between items-center text-sm font-bold text-slate-900 dark:text-slate-100 pt-2 border-t border-slate-200 dark:border-slate-700">
                                     <span>{t('Total Amount (৳)')}</span>
-                                    <span className="text-primary">{formatCurrency(sectionGrandTotal)}</span>
+                                    <span className="text-primary text-base">{formatCurrency(sectionGrandTotal)}</span>
                                 </div>
                             </div>
                         )}

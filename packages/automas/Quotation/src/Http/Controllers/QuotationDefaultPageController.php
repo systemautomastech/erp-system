@@ -9,6 +9,7 @@ use Automas\Quotation\Models\QuotationDefaultPage;
 use Automas\Quotation\Models\QuotationSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class QuotationDefaultPageController extends Controller
@@ -55,11 +56,11 @@ class QuotationDefaultPageController extends Controller
 
         $creatorId = creatorId() ?? Auth::id();
         $settings = QuotationSetting::getSettings($creatorId);
-        $maxSortOrder = QuotationDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
+        $maxOrder = QuotationDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
 
         return Inertia::render('Quotation/Settings/DefaultPages/Create', [
             'settings' => $settings,
-            'nextSortOrder' => $maxSortOrder + 1,
+            'nextSortOrder' => $maxOrder + 1,
             'variables' => $this->getQuotationVariables(),
         ]);
     }
@@ -73,16 +74,21 @@ class QuotationDefaultPageController extends Controller
         $creatorId = creatorId() ?? Auth::id();
         $validated = $request->validated();
 
-        QuotationDefaultPage::create(array_merge($validated, [
+        $page = QuotationDefaultPage::create(array_merge($validated, [
             'created_by' => $creatorId,
             'creator_id' => Auth::id(),
+            'page_type' => $request->input('page_type', 'general'),
             'content' => $request->input('content', ''),
             'background_image' => $request->input('background_image'),
             'is_active' => $request->boolean('is_active', true),
             'sort_order' => $request->input('sort_order', 1),
         ]));
 
-        return redirect()->route('quotation-setup.index')->with('success', __('Default page created successfully.'));
+        $status = $page ? 'success' : 'error';
+        $message = $page ? __('Default page created successfully.')
+            : __('Failed to create default page.');
+
+        return redirect()->route('quotation-setup.index')->with($status, $message);
     }
 
     public function edit(QuotationDefaultPage $defaultPage)
@@ -116,18 +122,32 @@ class QuotationDefaultPageController extends Controller
         }
 
         $creatorId = creatorId() ?? Auth::id();
-        $validated = $request->validated();
+        $isFixed = in_array($defaultPage->page_type, ['otc', 'mrc']);
 
-        $defaultPage->update(array_merge($validated, [
-            'created_by' => $creatorId,
-            'creator_id' => Auth::id(),
-            'content' => $request->has('content') ? $request->input('content', '') : $defaultPage->content,
-            'background_image' => $request->has('background_image') ? $request->input('background_image') : $defaultPage->background_image,
+        $data = [
             'sort_order' => $request->input('sort_order', $defaultPage->sort_order),
-            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $defaultPage->is_active,
-        ]));
+            'is_active' => $isFixed ? true : ($request->has('is_active') ? $request->boolean('is_active') : $defaultPage->is_active),
+        ];
 
-        return redirect()->route('quotation-setup.index')->with('success', __('Default page updated successfully.'));
+        if (!$isFixed) {
+            $validated = $request->validated();
+            $data = array_merge($validated, $data, [
+                'created_by' => $creatorId,
+                'creator_id' => Auth::id(),
+                'title' => $request->input('title', $defaultPage->title),
+                'page_type' => $request->input('page_type', $defaultPage->page_type),
+                'content' => $request->has('content') ? $request->input('content', '') : $defaultPage->content,
+                'background_image' => $request->has('background_image') ? $request->input('background_image') : $defaultPage->background_image,
+            ]);
+        }
+
+        $updated = $defaultPage->update($data);
+
+        $status = $updated ? 'success' : 'error';
+        $message = $updated ? __('Default page updated successfully.')
+            : __('Failed to update default page.');
+
+        return redirect()->route('quotation-setup.index')->with($status, $message);
     }
 
     public function destroy(QuotationDefaultPage $defaultPage)
@@ -136,12 +156,55 @@ class QuotationDefaultPageController extends Controller
             return back()->with('error', __('Permission denied'));
         }
 
+        if (in_array($defaultPage->page_type, ['otc', 'mrc'])) {
+            return redirect()->back()->with('error', __('Fixed system pages cannot be deleted.'));
+        }
+
         if (!$this->authorizePage($defaultPage)) {
             return redirect()->back()->with('error', __('Unauthorized access.'));
         }
 
-        $defaultPage->delete();
+        $deleted = $defaultPage->delete();
 
-        return redirect()->back()->with('success', __('Default page deleted successfully.'));
+        $status = $deleted ? 'success' : 'error';
+        $message = $deleted ? __('Default page deleted successfully.')
+            : __('Failed to delete default page.');
+
+        return redirect()->back()->with($status, $message);
+    }
+
+    public function reorder(Request $request)
+    {
+        if (!Auth::user()->can('manage-quotation-system-setup')) {
+            return response()->json(['error' => __('Permission denied')], 403);
+        }
+
+        $request->validate([
+            'orders' => 'required|array',
+            'orders.*.id' => 'required|integer|exists:quotation_default_pages,id',
+            'orders.*.sort_order' => 'required|integer|min:0',
+        ]);
+
+        $creatorId = creatorId() ?? Auth::id();
+
+        DB::transaction(function () use ($request, $creatorId) {
+            QuotationDefaultPage::where('created_by', $creatorId)
+                ->update([
+                    'sort_order' => DB::raw('100000 + id')
+                ]);
+
+            foreach ($request->orders as $item) {
+                QuotationDefaultPage::where('id', $item['id'])
+                    ->where('created_by', $creatorId)
+                    ->update([
+                        'sort_order' => (int) $item['sort_order'],
+                    ]);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Sort order updated successfully.'),
+        ]);
     }
 }

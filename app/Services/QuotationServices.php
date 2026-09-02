@@ -18,9 +18,6 @@ use Illuminate\Support\Facades\Schema;
 
 class QuotationServices
 {
-    /**
-     * Get default relations needed for quotation loading
-     */
     public function getQuotationRelations(): array
     {
         $relations = ['customer', 'items.product.unitRelation', 'items.taxes', 'warehouse'];
@@ -32,9 +29,6 @@ class QuotationServices
         return $relations;
     }
 
-    /**
-     * Get active default page templates for proposal
-     */
     public function getActiveDefaultPages(int $authorId)
     {
         return QuotationDefaultPage::where('created_by', creatorId())
@@ -44,20 +38,14 @@ class QuotationServices
             })
             ->where('is_active', true)
             ->orderBy('sort_order')
-            ->get(['id', 'title', 'content', 'background_image', 'sort_order', 'creator_id', 'created_by']);
+            ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order', 'creator_id', 'created_by']);
     }
 
-    /**
-     * Get quotation settings
-     */
     public function getQuotationSetting()
     {
         return QuotationSetting::getSettings(creatorId());
     }
 
-    /**
-     * Get aggregated quotation statistics in a single optimized query
-     */
     public function getQuotationStatistics($quotation): array
     {
         $stats = (clone $quotation)->withoutEagerLoads()
@@ -93,14 +81,14 @@ class QuotationServices
         ];
     }
 
-    /**
-     * Calculate line item amounts and grand totals
-     */
-    public function calculateQuotationTotals(?array $items, bool $isTaxEnabled = true): array
+    public function calculateQuotationTotals(?array $items, bool $isTaxEnabled = true, array $options = []): array
     {
         $subtotal = 0.0;
-        $totalTax = 0.0;
-        $totalDiscount = 0.0;
+        $tax = 0.0;
+        $itemDiscountTotal = 0.0;
+
+        $otcSubtotal = 0.0;
+        $mrcSubtotal = 0.0;
 
         if (!empty($items)) {
             foreach ($items as $item) {
@@ -108,43 +96,69 @@ class QuotationServices
                     continue;
                 }
 
-                $quantity = max(1, (int) ($item['quantity'] ?? 1));
-                $unitPrice = max(0, (float) ($item['unit_price'] ?? 0));
-                $discountPercentage = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
-                $taxPercentage = $this->calculateEffectiveTaxRate($item, $isTaxEnabled);
+                $qty = max(1, (int) ($item['quantity'] ?? 1));
+                $price = max(0, (float) ($item['unit_price'] ?? 0));
+                $section = $item['section'] ?? 'otc';
+                $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+                $taxRate = $this->calculateEffectiveTaxRate($item, $isTaxEnabled);
 
-                $lineTotal = $quantity * $unitPrice;
-                $discountAmount = ($lineTotal * $discountPercentage) / 100;
-                $priceAfterDiscount = $lineTotal - $discountAmount;
-                $taxAmount = ($priceAfterDiscount * $taxPercentage) / 100;
+                $lineTotal = $qty * $price;
+                $discAmount = ($lineTotal * $discRate) / 100;
+                $netTotal = $lineTotal - $discAmount;
+                $taxAmount = ($lineTotal * $taxRate) / 100;
 
                 $subtotal += $lineTotal;
-                $totalDiscount += $discountAmount;
-                $totalTax += $taxAmount;
+                $itemDiscountTotal += $discAmount;
+                $tax += $taxAmount;
+
+                if ($section === 'mrc') {
+                    $mrcSubtotal += $lineTotal;
+                } else {
+                    $otcSubtotal += $lineTotal;
+                }
             }
         }
 
+        // Section level discount calculations if provided
+        $otcDiscount = 0.0;
+        $otcDiscType = $options['otc_discount_type'] ?? 'percentage';
+        $otcDiscVal = max(0, (float) ($options['otc_discount_value'] ?? 0));
+        if ($otcDiscVal > 0) {
+            $otcDiscount = $otcDiscType === 'percentage'
+                ? ($otcSubtotal * min(100, $otcDiscVal)) / 100
+                : min($otcSubtotal, $otcDiscVal);
+        }
+
+        $mrcDiscount = 0.0;
+        $mrcDiscType = $options['mrc_discount_type'] ?? 'percentage';
+        $mrcDiscVal = max(0, (float) ($options['mrc_discount_value'] ?? 0));
+        if ($mrcDiscVal > 0) {
+            $mrcDiscount = $mrcDiscType === 'percentage'
+                ? ($mrcSubtotal * min(100, $mrcDiscVal)) / 100
+                : min($mrcSubtotal, $mrcDiscVal);
+        }
+
+        $sectionDiscountTotal = $otcDiscount + $mrcDiscount;
+        $finalDiscount = $sectionDiscountTotal > 0 ? $sectionDiscountTotal : $itemDiscountTotal;
+
         return [
             'subtotal' => round($subtotal, 2),
-            'tax_amount' => round($totalTax, 2),
-            'discount_amount' => round($totalDiscount, 2),
-            'total_amount' => round($subtotal + $totalTax - $totalDiscount, 2)
+            'tax_amount' => round($tax, 2),
+            'discount_amount' => round($finalDiscount, 2),
+            'total_amount' => round(max(0, $subtotal + $tax - $finalDiscount), 2)
         ];
     }
 
-    /**
-     * Create a new sales quotation with items and contents
-     */
     public function createQuotation(array $data): SalesQuotation
     {
         return DB::transaction(function () use ($data) {
             $isTaxEnabled = filter_var($data['is_tax_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN);
             $items = $data['items'] ?? [];
-            $totals = $this->calculateQuotationTotals($items, $isTaxEnabled);
+            $totals = $this->calculateQuotationTotals($items, $isTaxEnabled, $data);
 
             $quotation = new SalesQuotation();
-            $quotationDate = $data['quotation_date'] ?? $data['invoice_date'] ?? now();
-            $quotation->quotation_number = SalesQuotation::generateQuotationNumber($quotationDate);
+            $date = $data['quotation_date'] ?? $data['invoice_date'] ?? now();
+            $quotation->quotation_number = SalesQuotation::generateQuotationNumber($date);
             $quotation->creator_id = Auth::id();
             $quotation->created_by = creatorId();
             $quotation->status = 'draft';
@@ -159,15 +173,12 @@ class QuotationServices
         });
     }
 
-    /**
-     * Update an existing sales quotation
-     */
     public function updateQuotation(SalesQuotation $quotation, array $data): SalesQuotation
     {
         return DB::transaction(function () use ($quotation, $data) {
             $isTaxEnabled = filter_var($data['is_tax_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN);
             $items = $data['items'] ?? [];
-            $totals = $this->calculateQuotationTotals($items, $isTaxEnabled);
+            $totals = $this->calculateQuotationTotals($items, $isTaxEnabled, $data);
 
             $this->hydrateQuotationData($quotation, $data, $totals, $isTaxEnabled);
             $quotation->save();
@@ -180,46 +191,39 @@ class QuotationServices
         });
     }
 
-    /**
-     * Convert sales quotation to a draft sales invoice
-     */
     public function convertToInvoice(SalesQuotation $quotation): SalesInvoice
     {
         return DB::transaction(function () use ($quotation) {
-            $invoiceData = [
+            $invoice = SalesInvoice::create([
                 'customer_id' => $quotation->customer_id,
                 'warehouse_id' => $quotation->warehouse_id ?? 1,
                 'type' => 'product',
                 'invoice_date' => now(),
-                'due_date' => $quotation->due_date,
-                'subtotal' => $quotation->subtotal,
-                'tax_amount' => $quotation->tax_amount,
-                'discount_amount' => $quotation->discount_amount,
-                'total_amount' => $quotation->total_amount,
-                'balance_amount' => $quotation->total_amount,
+                'due_date' => $quotation->due_date ?? now(),
+                'subtotal' => $quotation->subtotal ?? 0,
+                'tax_amount' => $quotation->tax_amount ?? 0,
+                'discount_amount' => $quotation->discount_amount ?? 0,
+                'total_amount' => $quotation->total_amount ?? 0,
+                'balance_amount' => $quotation->total_amount ?? 0,
                 'paid_amount' => 0,
                 'payment_terms' => $quotation->payment_terms,
                 'notes' => $quotation->notes,
                 'status' => 'draft',
                 'creator_id' => Auth::id(),
                 'created_by' => creatorId(),
-            ];
+            ]);
 
-            $invoice = SalesInvoice::create($invoiceData);
-
-            foreach ($quotation->items as $quotationItem) {
-                $invoiceItemData = [
+            foreach ($quotation->items as $item) {
+                $invoiceItem = SalesInvoiceItem::create([
                     'invoice_id' => $invoice->id,
-                    'product_id' => $quotationItem->product_id,
-                    'quantity' => $quotationItem->quantity,
-                    'unit_price' => $quotationItem->unit_price,
-                    'discount_percentage' => $quotationItem->discount_percentage,
-                    'tax_percentage' => $quotationItem->tax_percentage,
-                ];
+                    'product_id' => $item->product_id,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'discount_percentage' => $item->discount_percentage,
+                    'tax_percentage' => $item->tax_percentage,
+                ]);
 
-                $invoiceItem = SalesInvoiceItem::create($invoiceItemData);
-
-                foreach ($quotationItem->taxes as $tax) {
+                foreach ($item->taxes as $tax) {
                     SalesInvoiceItemTax::create([
                         'item_id' => $invoiceItem->id,
                         'tax_name' => $tax->tax_name,
@@ -237,55 +241,47 @@ class QuotationServices
         });
     }
 
-    /**
-     * Save line items and item taxes
-     */
     public function saveQuotationItems(int $quotationId, ?array $items, bool $isTaxEnabled = true): void
     {
         if (empty($items)) {
             return;
         }
 
-        foreach ($items as $itemData) {
-            if (empty($itemData['product_id']) || (int) $itemData['product_id'] <= 0) {
+        foreach ($items as $item) {
+            if (empty($item['product_id']) || (int) $item['product_id'] <= 0) {
                 continue;
             }
 
-            $quantity = max(1, (int) ($itemData['quantity'] ?? 1));
-            $unitPrice = max(0, (float) ($itemData['unit_price'] ?? 0));
-            $discountPercentage = max(0, min(100, (float) ($itemData['discount_percentage'] ?? 0)));
-            $taxPercentage = $this->calculateEffectiveTaxRate($itemData, $isTaxEnabled);
+            $qty = max(1, (int) ($item['quantity'] ?? 1));
+            $price = max(0, (float) ($item['unit_price'] ?? 0));
+            $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+            $taxRate = $this->calculateEffectiveTaxRate($item, $isTaxEnabled);
 
-            $itemPayload = [
+            $quotationItem = SalesQuotationItem::create([
                 'quotation_id' => $quotationId,
-                'product_id' => $itemData['product_id'],
-                'section' => $itemData['section'] ?? 'otc',
-                'product_type' => $itemData['product_type'] ?? 'product',
-                'description' => $itemData['description'] ?? $itemData['product_description'] ?? null,
-                'quantity' => $quantity,
-                'unit_price' => $unitPrice,
-                'discount_percentage' => $discountPercentage,
-                'tax_percentage' => $taxPercentage,
-            ];
+                'product_id' => $item['product_id'],
+                'section' => $item['section'] ?? 'otc',
+                'item_type' => $item['product_type'] ?? 'product',
+                'description' => $item['description'] ?? $item['product_description'] ?? null,
+                'quantity' => $qty,
+                'unit_price' => $price,
+                'discount_percentage' => $discRate,
+                'tax_percentage' => $taxRate,
+            ]);
 
-            $quotationItem = SalesQuotationItem::create($itemPayload);
-
-            if ($isTaxEnabled && !empty($itemData['taxes']) && is_array($itemData['taxes'])) {
-                foreach ($itemData['taxes'] as $taxData) {
+            if ($isTaxEnabled && !empty($item['taxes']) && is_array($item['taxes'])) {
+                foreach ($item['taxes'] as $tax) {
                     SalesQuotationItemTax::create([
                         'item_id' => $quotationItem->id,
-                        'tax_name' => $taxData['tax_name'] ?? 'Tax',
-                        'tax_rate' => (float) ($taxData['tax_rate'] ?? $taxData['rate'] ?? 0),
+                        'tax_name' => $tax['tax_name'] ?? 'Tax',
+                        'tax_rate' => (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0),
                     ]);
                 }
             }
         }
     }
 
-    /**
-     * Save dynamic page sections & contents
-     */
-    public function saveQuotationPageContents(int $quotationId, $contentPayload): void
+    public function saveQuotationPageContents(int $quotationId, $contents): void
     {
         if (!Schema::hasTable('sales_quotation_contents')) {
             return;
@@ -297,49 +293,47 @@ class QuotationServices
             // Silently catch
         }
 
-        if (empty($contentPayload)) {
+        if (empty($contents)) {
             return;
         }
 
-        $contentItems = is_string($contentPayload) ? json_decode($contentPayload, true) : $contentPayload;
-        if (!is_array($contentItems)) {
+        $items = is_string($contents) ? json_decode($contents, true) : $contents;
+        if (!is_array($items)) {
             return;
         }
 
-        $sequentialOrder = 1;
-        foreach ($contentItems as $contentItem) {
-            if (is_array($contentItem)) {
-                $order = isset($contentItem['order']) ? (int) $contentItem['order'] : $sequentialOrder;
-                $title = $contentItem['title'] ?? null;
-                $htmlContent = $contentItem['content'] ?? null;
-                $backgroundImage = $contentItem['background_image'] ?? null;
+        $index = 1;
+        foreach ($items as $item) {
+            if (is_array($item)) {
+                $order = isset($item['sort_order']) ? (int) $item['sort_order'] : (isset($item['order']) ? (int) $item['order'] : $index);
+                $title = $item['title'] ?? null;
+                $html = $item['content'] ?? null;
+                $bg = $item['background_image'] ?? null;
             } else {
-                $order = $sequentialOrder;
+                $order = $index;
                 $title = null;
-                $htmlContent = (string) $contentItem;
-                $backgroundImage = null;
+                $html = (string) $item;
+                $bg = null;
             }
 
             SalesQuotationContent::create([
                 'quotation_id' => $quotationId,
                 'title' => $title,
-                'content' => $htmlContent,
-                'background_image' => $backgroundImage,
+                'content' => $html,
+                'background_image' => $bg,
                 'sort_order' => $order,
                 'creator_id' => Auth::id(),
             ]);
-            $sequentialOrder++;
+            $index++;
         }
     }
 
-    /**
-     * Hydrate quotation model with request payload, customer details, and calculated totals
-     */
     private function hydrateQuotationData(SalesQuotation $quotation, array $data, array $totals, bool $isTaxEnabled): void
     {
+        $quotationDate = $data['quotation_date'] ?? $data['invoice_date'] ?? $quotation->quotation_date ?? now();
         $quotation->subject = $data['subject'] ?? $quotation->subject ?? null;
-        $quotation->quotation_date = $data['quotation_date'] ?? $data['invoice_date'] ?? $quotation->quotation_date ?? now();
-        $quotation->due_date = $data['due_date'] ?? $quotation->due_date;
+        $quotation->quotation_date = $quotationDate;
+        $quotation->due_date = $data['due_date'] ?? $quotation->due_date ?? $quotationDate;
         $quotation->warehouse_id = $data['warehouse_id'] ?? $quotation->warehouse_id;
         $quotation->payment_terms = $data['payment_terms'] ?? $quotation->payment_terms;
         $quotation->notes = $data['notes'] ?? $quotation->notes;
@@ -354,32 +348,26 @@ class QuotationServices
         $quotation->total_amount = $totals['total_amount'];
     }
 
-    /**
-     * Calculate effective tax rate for a line item based on item taxes array or percentage
-     */
     private function calculateEffectiveTaxRate(array $item, bool $isTaxEnabled): float
     {
         if (!$isTaxEnabled) {
             return 0.0;
         }
 
-        $taxPercentage = (float) ($item['tax_percentage'] ?? 0);
+        $taxRate = (float) ($item['tax_percentage'] ?? 0);
         if (!empty($item['taxes']) && is_array($item['taxes'])) {
-            $taxPercentage = array_reduce($item['taxes'], fn($sum, $tax) => $sum + (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0), 0.0);
+            $taxRate = array_reduce($item['taxes'], fn($sum, $tax) => $sum + (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0), 0.0);
         }
 
-        return $taxPercentage;
+        return $taxRate;
     }
 
-    /**
-     * Helper to assign customer information
-     */
     private function assignCustomerData(SalesQuotation $quotation, array $data): void
     {
-        $customerType = $data['customer_type'] ?? $data['customer_mode'] ?? 'existing';
-        $quotation->customer_type = $customerType;
+        $type = $data['customer_type'] ?? $data['customer_mode'] ?? 'existing';
+        $quotation->customer_type = $type;
 
-        if ($customerType === 'new') {
+        if ($type === 'new') {
             $quotation->customer_id = null;
             $quotation->customer_name = $data['customer_name'] ?? null;
             $quotation->customer_email = $data['customer_email'] ?? null;
@@ -388,11 +376,11 @@ class QuotationServices
         } else {
             $customerId = $data['customer_id'] ?? null;
             $quotation->customer_id = $customerId;
-            $existingCustomer = $customerId ? User::find($customerId) : null;
-            $quotation->customer_name = $existingCustomer?->name;
-            $quotation->customer_email = $existingCustomer?->email;
-            $quotation->customer_phone = $existingCustomer?->phone ?? $existingCustomer?->mobile_no;
-            $quotation->customer_address = $existingCustomer?->address;
+            $customer = $customerId ? User::find($customerId) : null;
+            $quotation->customer_name = $customer?->name;
+            $quotation->customer_email = $customer?->email;
+            $quotation->customer_phone = $customer?->phone ?? $customer?->mobile_no;
+            $quotation->customer_address = $customer?->address;
         }
     }
 }

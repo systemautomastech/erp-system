@@ -166,12 +166,12 @@ export default function View() {
                                         <span className="text-muted-foreground">{t('Warehouse')}</span>
                                         <span>{proposal.warehouse?.name || '-'}</span>
                                     </div>
-                                    {proposal.payment_terms && (
+                                    {/* {proposal.payment_terms && (
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">{t('Terms')}</span>
-                                            <span>{proposal.payment_terms}</span>
+                                            <span>{proposal.payment_terms.replace(/<[^>]*>/g, '').trim()}</span>
                                         </div>
-                                    )}
+                                    )} */}
                                 </div>
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">

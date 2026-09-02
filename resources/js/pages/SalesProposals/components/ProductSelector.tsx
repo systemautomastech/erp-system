@@ -18,7 +18,7 @@ interface Props {
     onChange: (productId: number, product?: Product) => void;
 }
 
-export default function QuotationProductSelector({ products, value, warehouseId, onChange }: Props) {
+export default function ProductSelector({ products, value, warehouseId, onChange }: Props) {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
 
