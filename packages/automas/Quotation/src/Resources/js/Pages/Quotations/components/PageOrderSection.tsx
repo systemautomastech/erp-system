@@ -186,9 +186,10 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
     const handleOpenAddModal = () => {
         setModalMode('add');
         setEditorMode('rich');
-        if (defaultPages && defaultPages.length > 0) {
+        const customDefaultPages = defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc');
+        if (customDefaultPages && customDefaultPages.length > 0) {
             setAddTab('existing');
-            const firstPage = defaultPages[0];
+            const firstPage = customDefaultPages[0];
             setSelectedDefaultPage(firstPage);
             setModalTitle(firstPage.title || '');
             setModalContent(firstPage.content || '');
@@ -567,7 +568,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                         <div className="grid grid-cols-12 gap-6">
                             {/* Left Column: Existing Templates list (if add) & Variables */}
                             <div className="col-span-12 lg:col-span-3 space-y-4">
-                                {modalMode === 'add' && addTab === 'existing' && defaultPages.length > 0 && (
+                                {modalMode === 'add' && addTab === 'existing' && defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc').length > 0 && (
                                     <Card className="shadow-xs border">
                                         <CardHeader className="p-3 pb-2 border-b">
                                             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -576,7 +577,7 @@ export default function PageOrderSection({ sections, setSections, defaultPages =
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-2 space-y-1 max-h-[220px] overflow-y-auto">
-                                            {defaultPages.map((page) => {
+                                            {defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc').map((page) => {
                                                 const isSelected = selectedDefaultPage?.id === page.id;
                                                 const isAlreadyAdded = sections.some(s => s.title.toLowerCase() === page.title.toLowerCase());
 

@@ -72,6 +72,10 @@ export default function Create() {
         warehouse_id: '',
         is_tax_enabled: true,
         is_prepaid: false,
+        otc_discount_type: 'percentage' as 'percentage' | 'fixed',
+        otc_discount_value: 0,
+        mrc_discount_type: 'percentage' as 'percentage' | 'fixed',
+        mrc_discount_value: 0,
         payment_terms: '',
         notes: '',
         items: [{
@@ -205,17 +209,16 @@ export default function Create() {
         const updatedItems = data.items.map((item) => {
             const qty = Number(item.quantity) || 0;
             const price = Number(item.unit_price) || 0;
-            const disc = Number(item.discount_percentage) || 0;
             const lineTotal = qty * price;
-            const discountAmount = (lineTotal * disc) / 100;
-            const discountedTotal = lineTotal - discountAmount;
 
             if (!checked) {
                 return {
                     ...item,
+                    discount_percentage: 0,
+                    discount_amount: 0,
                     tax_percentage: 0,
                     tax_amount: 0,
-                    total_amount: discountedTotal,
+                    total_amount: lineTotal,
                     taxes: [],
                 };
             }
@@ -228,13 +231,15 @@ export default function Create() {
                 tax_rate: tax.rate,
             }));
             const taxRate = totalTaxRate > 0 ? totalTaxRate : (Number(item.tax_percentage) || 0);
-            const taxAmount = (discountedTotal * taxRate) / 100;
+            const taxAmount = (lineTotal * taxRate) / 100;
 
             return {
                 ...item,
+                discount_percentage: 0,
+                discount_amount: 0,
                 tax_percentage: taxRate,
                 tax_amount: taxAmount,
-                total_amount: discountedTotal + taxAmount,
+                total_amount: lineTotal + taxAmount,
                 taxes: taxes.length > 0 ? taxes : (item.taxes || []),
             };
         });
@@ -259,7 +264,50 @@ export default function Create() {
         post(route('quotations.store'));
     };
 
-    const totals = useTaxCalculator(data.items);
+    const totals = useMemo(() => {
+        const otcItems = data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section);
+        const mrcItems = data.items.filter(i => i.section === 'mrc');
+
+        const otcSubtotal = otcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+        const mrcSubtotal = mrcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+
+        let otcDiscount = 0;
+        if (data.otc_discount_type === 'percentage') {
+            otcDiscount = (otcSubtotal * Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            otcDiscount = Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), otcSubtotal);
+        }
+
+        let mrcDiscount = 0;
+        if (data.mrc_discount_type === 'percentage') {
+            mrcDiscount = (mrcSubtotal * Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            mrcDiscount = Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), mrcSubtotal);
+        }
+
+        const otcTax = otcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+        const mrcTax = mrcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+
+        const subtotal = otcSubtotal + mrcSubtotal;
+        const discountAmount = otcDiscount + mrcDiscount;
+        const taxAmount = otcTax + mrcTax;
+        const total = Math.max(0, subtotal - discountAmount + taxAmount);
+
+        return {
+            subtotal,
+            discountAmount,
+            taxAmount,
+            total,
+            otcSubtotal,
+            otcDiscount,
+            otcTax,
+            otcTotal: Math.max(0, otcSubtotal - otcDiscount + otcTax),
+            mrcSubtotal,
+            mrcDiscount,
+            mrcTax,
+            mrcTotal: Math.max(0, mrcSubtotal - mrcDiscount + mrcTax),
+        };
+    }, [data.items, data.otc_discount_type, data.otc_discount_value, data.mrc_discount_type, data.mrc_discount_value]);
 
     const selectedCustomer = useMemo(() => {
         if (data.customer_type === 'new') {
@@ -577,6 +625,10 @@ export default function Create() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="otc"
+                                discountType={data.otc_discount_type}
+                                discountValue={data.otc_discount_value}
+                                onDiscountTypeChange={(val) => setData('otc_discount_type', val)}
+                                onDiscountValueChange={(val) => setData('otc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>
@@ -615,6 +667,10 @@ export default function Create() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="mrc"
+                                discountType={data.mrc_discount_type}
+                                discountValue={data.mrc_discount_value}
+                                onDiscountTypeChange={(val) => setData('mrc_discount_type', val)}
+                                onDiscountValueChange={(val) => setData('mrc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>

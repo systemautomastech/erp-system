@@ -12,6 +12,7 @@ use App\Models\SalesProposalItemTax;
 use App\Models\User;
 use Automas\ProductService\Models\ProductServiceItem;
 use Automas\ProductService\Models\ProductServiceTax;
+use Automas\Quotation\Models\QuotationDefaultPage;
 use Automas\Quotation\Models\SalesQuotation;
 use Automas\Quotation\Models\SalesQuotationItem;
 use Automas\Quotation\Models\SalesQuotationItemTax;
@@ -27,9 +28,6 @@ class ProposalService
     ) {
     }
 
-    /**
-     * Get common relationships loaded for proposal views and exports.
-     */
     public function getProposalRelations(): array
     {
         $relations = ['customer', 'items.product.unitRelation', 'items.taxes', 'warehouse'];
@@ -41,9 +39,6 @@ class ProposalService
         return $relations;
     }
 
-    /**
-     * Check if the authenticated user has access to view or modify the proposal.
-     */
     public function hasProposalAccess(SalesProposal $proposal): bool
     {
         if ($proposal->created_by != creatorId()) {
@@ -61,7 +56,6 @@ class ProposalService
                 return false;
             }
 
-            // Restrict Clients draft proposals
             if ($proposal->creator_id != $user->id && $user->type === 'client' && $proposal->status === 'draft') {
                 return false;
             }
@@ -72,9 +66,6 @@ class ProposalService
         return false;
     }
 
-    /**
-     * Fetch active default proposal pages.
-     */
     public function getActiveDefaultPages(int $authorId)
     {
         return ProposalDefaultPage::where('created_by', creatorId())
@@ -87,25 +78,22 @@ class ProposalService
             ->get(['id', 'title', 'content', 'page_type', 'background_image', 'sort_order', 'creator_id', 'created_by']);
     }
 
-    /**
-     * Send email notifications on proposal status changes.
-     */
     public function notifyCustomerOnStatusChange(SalesProposal $proposal, string $templateName, ?string $statusLabel = null): ?array
     {
-        $emailRecipient = null;
+        $recipient = null;
 
         if ($templateName === 'Proposal Sent') {
-            $emailRecipient = $proposal->customer?->email ?: $proposal->customer_email;
+            $recipient = $proposal->customer?->email ?: $proposal->customer_email;
         } elseif ($templateName === 'Proposal Approved') {
             $author = User::find($proposal->creator_id);
-            $emailRecipient = company_setting('company_email', $proposal->created_by) ?: $author?->email;
+            $recipient = company_setting('company_email', $proposal->created_by) ?: $author?->email;
         }
 
-        if (empty($emailRecipient) || company_setting($templateName) !== 'on') {
+        if (empty($recipient) || company_setting($templateName) !== 'on') {
             return null;
         }
 
-        $emailData = [
+        $data = [
             'proposal_number' => $proposal->proposal_number ?? null,
             'sales_customer_name' => $proposal->customer?->name ?: $proposal->customer_name ?: 'Customer',
             'total_amount' => $proposal->total_amount ?? null,
@@ -113,15 +101,12 @@ class ProposalService
         ];
 
         if ($statusLabel) {
-            $emailData['status'] = $statusLabel;
+            $data['status'] = $statusLabel;
         }
 
-        return EmailTemplate::sendEmailTemplate($templateName, [$emailRecipient], $emailData);
+        return EmailTemplate::sendEmailTemplate($templateName, [$recipient], $data);
     }
 
-    /**
-     * Build base query for proposals based on user role and permissions.
-     */
     public function getProposalsQuery($user)
     {
         return SalesProposal::with(['customer', 'items'])
@@ -143,12 +128,9 @@ class ProposalService
             });
     }
 
-    /**
-     * Get aggregated proposal statistics in a single query.
-     */
     public function getAggregatedStats($baseQuery): array
     {
-        $aggregatedStats = (clone $baseQuery)->withoutEagerLoads()
+        $stats = (clone $baseQuery)->withoutEagerLoads()
             ->selectRaw('
                 COUNT(*) as total_count,
                 SUM(total_amount) as total_value,
@@ -166,43 +148,37 @@ class ProposalService
             ->first();
 
         return [
-            'total_count' => (int) ($aggregatedStats->total_count ?? 0),
-            'total_value' => (float) ($aggregatedStats->total_value ?? 0),
-            'overdue_count' => (int) ($aggregatedStats->overdue_count ?? 0),
-            'accepted_active_count' => (int) ($aggregatedStats->accepted_active_count ?? 0),
-            'draft_count' => (int) ($aggregatedStats->draft_count ?? 0),
-            'draft_value' => (float) ($aggregatedStats->draft_value ?? 0),
-            'sent_count' => (int) ($aggregatedStats->sent_count ?? 0),
-            'sent_value' => (float) ($aggregatedStats->sent_value ?? 0),
-            'accepted_count' => (int) ($aggregatedStats->accepted_count ?? 0),
-            'accepted_value' => (float) ($aggregatedStats->accepted_value ?? 0),
-            'rejected_count' => (int) ($aggregatedStats->rejected_count ?? 0),
-            'rejected_value' => (float) ($aggregatedStats->rejected_value ?? 0),
+            'total_count' => (int) ($stats->total_count ?? 0),
+            'total_value' => (float) ($stats->total_value ?? 0),
+            'overdue_count' => (int) ($stats->overdue_count ?? 0),
+            'accepted_active_count' => (int) ($stats->accepted_active_count ?? 0),
+            'draft_count' => (int) ($stats->draft_count ?? 0),
+            'draft_value' => (float) ($stats->draft_value ?? 0),
+            'sent_count' => (int) ($stats->sent_count ?? 0),
+            'sent_value' => (float) ($stats->sent_value ?? 0),
+            'accepted_count' => (int) ($stats->accepted_count ?? 0),
+            'accepted_value' => (float) ($stats->accepted_value ?? 0),
+            'rejected_count' => (int) ($stats->rejected_count ?? 0),
+            'rejected_value' => (float) ($stats->rejected_value ?? 0),
         ];
     }
 
-    /**
-     * Get board data grouped by status.
-     */
     public function getBoardData($baseQuery): array
     {
         $boardData = [];
-        foreach (['draft', 'sent', 'accepted', 'rejected'] as $boardStatus) {
-            $boardStatusQuery = (clone $baseQuery)->where('status', $boardStatus);
-            if ($boardStatus === 'accepted') {
-                $boardStatusQuery->whereNull('converted_to_invoice');
+        foreach (['draft', 'sent', 'accepted', 'rejected'] as $status) {
+            $query = (clone $baseQuery)->where('status', $status);
+            if ($status === 'accepted') {
+                $query->whereNull('converted_to_invoice');
             }
-            $boardData[$boardStatus] = $boardStatusQuery->orderBy('created_at', 'desc')->limit(8)->get();
+            $boardData[$status] = $query->orderBy('created_at', 'desc')->limit(8)->get();
         }
         return $boardData;
     }
 
-    /**
-     * Get formatted warehouse products list with stock and tax information.
-     */
     public function getFormattedWarehouseProducts(?int $warehouseId = null)
     {
-        $productsQuery = ProductServiceItem::with('unitRelation:id,unit_name')
+        $query = ProductServiceItem::with('unitRelation:id,unit_name')
             ->select('id', 'name', 'sku', 'description', 'sale_price', 'long_description', 'tax_ids', 'unit', 'type')
             ->where('is_active', true)
             ->where(function ($q) {
@@ -211,15 +187,15 @@ class ProposalService
             });
 
         if ($warehouseId) {
-            $productsQuery->where(function ($q) use ($warehouseId) {
+            $query->where(function ($q) use ($warehouseId) {
                 $q->whereHas('warehouseStocks', function ($stockQuery) use ($warehouseId) {
                     $stockQuery->where('warehouse_id', $warehouseId)->where('quantity', '>', 0);
                 })->orWhere('type', 'service')
                     ->orWhereNull('type')
                     ->orWhereDoesntHave('warehouseStocks');
             })->with([
-                        'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
-                    ]);
+                'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
+            ]);
         }
 
         $allTaxes = ProductServiceTax::select('id', 'tax_name', 'rate')
@@ -228,25 +204,25 @@ class ProposalService
             ->get()
             ->keyBy('id');
 
-        return $productsQuery->get()->map(function ($product) use ($allTaxes) {
-            $stockQuantity = $product->relationLoaded('warehouseStocks') && $product->warehouseStocks->isNotEmpty()
+        return $query->get()->map(function ($product) use ($allTaxes) {
+            $stock = $product->relationLoaded('warehouseStocks') && $product->warehouseStocks->isNotEmpty()
                 ? $product->warehouseStocks->first()->quantity
                 : 0;
 
-            $unitName = $product->unitRelation?->unit_name ?? (is_numeric($product->unit) ? '' : ($product->unit ?? ''));
+            $unit = $product->unitRelation?->unit_name ?? (is_numeric($product->unit) ? '' : ($product->unit ?? ''));
 
             $taxIds = $product->tax_ids;
             if (is_string($taxIds)) {
                 $taxIds = json_decode($taxIds, true);
             }
-            $productTaxes = [];
+            $taxes = [];
             if (is_array($taxIds) && !empty($taxIds)) {
-                foreach ($taxIds as $tId) {
-                    if (isset($allTaxes[$tId])) {
-                        $productTaxes[] = [
-                            'id' => $allTaxes[$tId]->id,
-                            'tax_name' => $allTaxes[$tId]->tax_name,
-                            'rate' => $allTaxes[$tId]->rate,
+                foreach ($taxIds as $id) {
+                    if (isset($allTaxes[$id])) {
+                        $taxes[] = [
+                            'id' => $allTaxes[$id]->id,
+                            'tax_name' => $allTaxes[$id]->tax_name,
+                            'rate' => $allTaxes[$id]->rate,
                         ];
                     }
                 }
@@ -260,17 +236,14 @@ class ProposalService
                 'sku' => $product->sku,
                 'sale_price' => $product->sale_price,
                 'unit' => $product->unit,
-                'unit_name' => $unitName,
+                'unit_name' => $unit,
                 'type' => $product->type,
-                'stock_quantity' => $stockQuantity,
-                'taxes' => $productTaxes,
+                'stock_quantity' => $stock,
+                'taxes' => $taxes,
             ];
         });
     }
 
-    /**
-     * Determine if items array contains monthly recurring charge items.
-     */
     public function hasRecurringBillingItems(?array $items): bool
     {
         if (empty($items)) {
@@ -286,14 +259,11 @@ class ProposalService
         return false;
     }
 
-    /**
-     * Calculate line item totals, taxes, and discounts.
-     */
     public function calculateProposalTotals(?array $items, bool $isTaxEnabled = true): array
     {
         $subtotal = 0.0;
-        $totalTax = 0.0;
-        $totalDiscount = 0.0;
+        $tax = 0.0;
+        $discount = 0.0;
 
         if (!empty($items)) {
             foreach ($items as $item) {
@@ -301,40 +271,37 @@ class ProposalService
                     continue;
                 }
 
-                $quantity = max(1, (int) ($item['quantity'] ?? 1));
-                $unitPrice = max(0, (float) ($item['unit_price'] ?? 0));
-                $discountPercentage = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+                $qty = max(1, (int) ($item['quantity'] ?? 1));
+                $price = max(0, (float) ($item['unit_price'] ?? 0));
+                $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
 
-                $taxPercentage = 0.0;
+                $taxRate = 0.0;
                 if ($isTaxEnabled) {
-                    $taxPercentage = (float) ($item['tax_percentage'] ?? 0);
+                    $taxRate = (float) ($item['tax_percentage'] ?? 0);
                     if (!empty($item['taxes']) && is_array($item['taxes'])) {
-                        $taxPercentage = array_reduce($item['taxes'], fn($sum, $tax) => $sum + (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0), 0.0);
+                        $taxRate = array_reduce($item['taxes'], fn($sum, $t) => $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0), 0.0);
                     }
                 }
 
-                $lineTotal = $quantity * $unitPrice;
-                $discountAmount = ($lineTotal * $discountPercentage) / 100;
-                $priceAfterDiscount = $lineTotal - $discountAmount;
-                $taxAmount = ($priceAfterDiscount * $taxPercentage) / 100;
+                $lineTotal = $qty * $price;
+                $discAmount = ($lineTotal * $discRate) / 100;
+                $netTotal = $lineTotal - $discAmount;
+                $taxAmount = ($netTotal * $taxRate) / 100;
 
                 $subtotal += $lineTotal;
-                $totalDiscount += $discountAmount;
-                $totalTax += $taxAmount;
+                $discount += $discAmount;
+                $tax += $taxAmount;
             }
         }
 
         return [
             'subtotal' => round($subtotal, 2),
-            'tax_amount' => round($totalTax, 2),
-            'discount_amount' => round($totalDiscount, 2),
-            'total_amount' => round($subtotal + $totalTax - $totalDiscount, 2)
+            'tax_amount' => round($tax, 2),
+            'discount_amount' => round($discount, 2),
+            'total_amount' => round($subtotal + $tax - $discount, 2)
         ];
     }
 
-    /**
-     * Create or update proposal record with items and contents.
-     */
     public function createProposal(Request $request): SalesProposal
     {
         return DB::transaction(function () use ($request) {
@@ -353,8 +320,8 @@ class ProposalService
             $proposal->due_date = $request->due_date ?? $proposal->proposal_date;
             $proposal->status = 'draft';
 
-            $customerMode = $request->input('customer_mode', 'existing');
-            if ($customerMode === 'new') {
+            $mode = $request->input('customer_mode', 'existing');
+            if ($mode === 'new') {
                 $proposal->customer_id = null;
                 $proposal->customer_name = $request->customer_name;
                 $proposal->customer_email = $request->customer_email;
@@ -362,11 +329,11 @@ class ProposalService
                 $proposal->customer_address = $request->customer_address;
             } else {
                 $proposal->customer_id = $request->customer_id;
-                $existingCustomer = $request->customer_id ? User::find($request->customer_id) : null;
-                $proposal->customer_name = $existingCustomer?->name;
-                $proposal->customer_email = $existingCustomer?->email;
-                $proposal->customer_phone = $existingCustomer?->phone ?? $existingCustomer?->mobile_no;
-                $proposal->customer_address = $existingCustomer?->address;
+                $customer = $request->customer_id ? User::find($request->customer_id) : null;
+                $proposal->customer_name = $customer?->name;
+                $proposal->customer_email = $customer?->email;
+                $proposal->customer_phone = $customer?->phone ?? $customer?->mobile_no;
+                $proposal->customer_address = $customer?->address;
             }
 
             $proposal->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
@@ -391,9 +358,6 @@ class ProposalService
         });
     }
 
-    /**
-     * Update existing proposal record with items and contents.
-     */
     public function updateProposal(SalesProposal $salesProposal, Request $request): SalesProposal
     {
         return DB::transaction(function () use ($salesProposal, $request) {
@@ -409,8 +373,8 @@ class ProposalService
             $salesProposal->proposal_date = $request->invoice_date;
             $salesProposal->due_date = $request->due_date;
 
-            $customerMode = $request->input('customer_mode', 'existing');
-            if ($customerMode === 'new') {
+            $mode = $request->input('customer_mode', 'existing');
+            if ($mode === 'new') {
                 $salesProposal->customer_id = null;
                 $salesProposal->customer_name = $request->customer_name;
                 $salesProposal->customer_email = $request->customer_email;
@@ -418,11 +382,11 @@ class ProposalService
                 $salesProposal->customer_address = $request->customer_address;
             } else {
                 $salesProposal->customer_id = $request->customer_id;
-                $existingCustomer = $request->customer_id ? User::find($request->customer_id) : null;
-                $salesProposal->customer_name = $existingCustomer?->name;
-                $salesProposal->customer_email = $existingCustomer?->email;
-                $salesProposal->customer_phone = $existingCustomer?->phone ?? $existingCustomer?->mobile_no;
-                $salesProposal->customer_address = $existingCustomer?->address;
+                $customer = $request->customer_id ? User::find($request->customer_id) : null;
+                $salesProposal->customer_name = $customer?->name;
+                $salesProposal->customer_email = $customer?->email;
+                $salesProposal->customer_phone = $customer?->phone ?? $customer?->mobile_no;
+                $salesProposal->customer_address = $customer?->address;
             }
 
             $salesProposal->warehouse_id = $salesProposal->type === 'product' ? $request->warehouse_id : null;
@@ -445,14 +409,11 @@ class ProposalService
         });
     }
 
-    /**
-     * Convert proposal into quotation.
-     */
     public function convertProposalToQuotation(SalesProposal $salesProposal): SalesQuotation
     {
         return DB::transaction(function () use ($salesProposal) {
-            $isNewCustomer = empty($salesProposal->customer_id) && (!empty($salesProposal->customer_name) || !empty($salesProposal->customer_email));
-            $customerType = $isNewCustomer ? 'new' : 'existing';
+            $isNew = empty($salesProposal->customer_id) && (!empty($salesProposal->customer_name) || !empty($salesProposal->customer_email));
+            $customerType = $isNew ? 'new' : 'existing';
 
             $quotation = new SalesQuotation();
             $quotation->parent_quotation_id = $salesProposal->id;
@@ -480,24 +441,23 @@ class ProposalService
             $quotation->created_by = creatorId();
             $quotation->save();
 
-            // Save items exactly from proposal items (including OTC/MRC sections and item taxes)
-            foreach ($salesProposal->items as $proposalItem) {
+            foreach ($salesProposal->items as $item) {
                 $quotationItem = new SalesQuotationItem();
                 $quotationItem->quotation_id = $quotation->id;
-                $quotationItem->product_id = $proposalItem->product_id;
-                $quotationItem->section = $proposalItem->section ?? 'general';
-                $quotationItem->item_type = $proposalItem->product_type ?? 'product';
-                $quotationItem->description = $proposalItem->description;
-                $quotationItem->quantity = $proposalItem->quantity ?? 1;
-                $quotationItem->unit_price = $proposalItem->unit_price ?? 0;
-                $quotationItem->discount_percentage = $proposalItem->discount_percentage ?? 0;
-                $quotationItem->discount_amount = $proposalItem->discount_amount ?? 0;
-                $quotationItem->tax_percentage = $proposalItem->tax_percentage ?? 0;
-                $quotationItem->tax_amount = $proposalItem->tax_amount ?? 0;
-                $quotationItem->total_amount = $proposalItem->total_amount ?? 0;
+                $quotationItem->product_id = $item->product_id;
+                $quotationItem->section = $item->section ?? 'general';
+                $quotationItem->item_type = $item->product_type ?? 'product';
+                $quotationItem->description = $item->description;
+                $quotationItem->quantity = $item->quantity ?? 1;
+                $quotationItem->unit_price = $item->unit_price ?? 0;
+                $quotationItem->discount_percentage = $item->discount_percentage ?? 0;
+                $quotationItem->discount_amount = $item->discount_amount ?? 0;
+                $quotationItem->tax_percentage = $item->tax_percentage ?? 0;
+                $quotationItem->tax_amount = $item->tax_amount ?? 0;
+                $quotationItem->total_amount = $item->total_amount ?? 0;
                 $quotationItem->save();
 
-                foreach ($proposalItem->taxes as $tax) {
+                foreach ($item->taxes as $tax) {
                     $quotationTax = new SalesQuotationItemTax();
                     $quotationTax->item_id = $quotationItem->id;
                     $quotationTax->tax_name = $tax->tax_name;
@@ -506,34 +466,80 @@ class ProposalService
                 }
             }
 
-            // Transfer proposal contents or setup quotation default pages
-            $proposalContents = $salesProposal->contents;
-            if ($proposalContents && $proposalContents->count() > 0) {
-                $contentsPayload = $proposalContents->map(function ($c, $index) {
-                    $decoded = is_string($c->proposal_content ?? $c->content) ? json_decode($c->proposal_content ?? $c->content, true) : null;
-                    return [
-                        'title' => $decoded['title'] ?? $c->title ?? '',
-                        'content' => $decoded['content'] ?? $c->proposal_content ?? $c->content ?? '',
-                        'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
-                        'background_image' => $decoded['background_image'] ?? $c->background_image ?? '',
-                        'order' => $decoded['order'] ?? $c->order ?? $index + 1,
+            $hasOtc = $salesProposal->items->contains(function ($i) {
+                return ($i->section === 'otc' || $i->section === 'general' || empty($i->section)) &&
+                    ((int) $i->product_id > 0 || (float) $i->unit_price > 0 || !empty($i->description));
+            });
+
+            $hasMrc = $salesProposal->items->contains(function ($i) {
+                return $i->section === 'mrc' &&
+                    ((int) $i->product_id > 0 || (float) $i->unit_price > 0 || !empty($i->description));
+            });
+
+            $targetCreatorId = $quotation->created_by ?: ($salesProposal->created_by ?: creatorId());
+            $targetAuthorId = $quotation->creator_id ?: ($salesProposal->creator_id ?: Auth::id());
+
+            $defaultPages = QuotationDefaultPage::where('created_by', $targetCreatorId)
+                ->where(function ($query) use ($targetAuthorId, $targetCreatorId) {
+                    $query->where('creator_id', $targetAuthorId)
+                        ->orWhere('creator_id', $targetCreatorId);
+                })
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
+            $pages = [];
+
+            if ($defaultPages && $defaultPages->count() > 0) {
+                foreach ($defaultPages as $page) {
+                    $pageType = $page->page_type ?? 'general';
+
+                    if ($pageType === 'otc' && !$hasOtc) {
+                        continue;
+                    }
+
+                    if ($pageType === 'mrc' && !$hasMrc) {
+                        continue;
+                    }
+
+                    $content = $page->content;
+                    if ($pageType === 'otc' && (empty($content) || trim($content) === '')) {
+                        $content = '[OTC_CHARGES_TABLE]';
+                    } elseif ($pageType === 'mrc' && (empty($content) || trim($content) === '')) {
+                        $content = '[MRC_CHARGES_TABLE]';
+                    }
+
+                    $pages[] = [
+                        'title' => $page->title,
+                        'content' => $content,
+                        'page_type' => $pageType,
+                        'background_image' => $page->background_image ?? '',
+                        'sort_order' => $page->sort_order ?? (count($pages) + 1),
                     ];
-                })->toArray();
-                $this->quotationService->saveQuotationPageContents($quotation->id, $contentsPayload);
-            } else {
-                $defaultPages = $this->quotationService->getActiveDefaultPages(Auth::id());
-                if ($defaultPages && $defaultPages->count() > 0) {
-                    $contentsPayload = $defaultPages->map(function ($page, $index) {
-                        return [
-                            'title' => $page->title,
-                            'content' => $page->content ?? '',
-                            'page_type' => $page->page_type ?? 'content',
-                            'background_image' => $page->background_image ?? '',
-                            'order' => $page->sort_order ?? $index + 1,
-                        ];
-                    })->toArray();
-                    $this->quotationService->saveQuotationPageContents($quotation->id, $contentsPayload);
                 }
+            } else {
+                $orderIndex = 1;
+                if ($hasOtc) {
+                    $pages[] = [
+                        'title' => 'One-Time Charges (OTC)',
+                        'content' => '[OTC_CHARGES_TABLE]',
+                        'page_type' => 'otc',
+                        'background_image' => '',
+                        'order' => $orderIndex++,
+                    ];
+                }
+                if ($hasMrc) {
+                    $pages[] = [
+                        'title' => 'Monthly Recurring Charges (MRC)',
+                        'content' => '[MRC_CHARGES_TABLE]',
+                        'page_type' => 'mrc',
+                        'background_image' => '',
+                        'order' => $orderIndex++,
+                    ];
+                }
+            }
+
+            if (!empty($pages)) {
+                $this->quotationService->saveQuotationPageContents($quotation->id, $pages);
             }
 
             $salesProposal->update([
@@ -545,60 +551,54 @@ class ProposalService
         });
     }
 
-    /**
-     * Save items and item taxes for a proposal.
-     */
     public function saveProposalItems(int $proposalId, ?array $items, bool $isTaxEnabled = true): void
     {
         if (empty($items)) {
             return;
         }
 
-        foreach ($items as $itemData) {
-            if (empty($itemData['product_id']) || (int) $itemData['product_id'] <= 0) {
+        foreach ($items as $item) {
+            if (empty($item['product_id']) || (int) $item['product_id'] <= 0) {
                 continue;
             }
 
-            $quantity = max(1, (int) ($itemData['quantity'] ?? 1));
-            $unitPrice = max(0, (float) ($itemData['unit_price'] ?? 0));
-            $discountPercentage = max(0, min(100, (float) ($itemData['discount_percentage'] ?? 0)));
+            $qty = max(1, (int) ($item['quantity'] ?? 1));
+            $price = max(0, (float) ($item['unit_price'] ?? 0));
+            $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
 
-            $taxPercentage = 0.0;
+            $taxRate = 0.0;
             if ($isTaxEnabled) {
-                $taxPercentage = (float) ($itemData['tax_percentage'] ?? 0);
-                if (!empty($itemData['taxes']) && is_array($itemData['taxes'])) {
-                    $taxPercentage = array_reduce($itemData['taxes'], fn($sum, $tax) => $sum + (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0), 0.0);
+                $taxRate = (float) ($item['tax_percentage'] ?? 0);
+                if (!empty($item['taxes']) && is_array($item['taxes'])) {
+                    $taxRate = array_reduce($item['taxes'], fn($sum, $t) => $sum + (float) ($t['tax_rate'] ?? $t['rate'] ?? 0), 0.0);
                 }
             }
 
             $proposalItem = new SalesProposalItem();
             $proposalItem->proposal_id = $proposalId;
-            $proposalItem->product_id = $itemData['product_id'];
-            $proposalItem->section = $itemData['section'] ?? 'otc';
-            $proposalItem->product_type = $itemData['product_type'] ?? 'product';
-            $proposalItem->description = $itemData['description'] ?? $itemData['product_description'] ?? null;
-            $proposalItem->quantity = $quantity;
-            $proposalItem->unit_price = $unitPrice;
-            $proposalItem->discount_percentage = $discountPercentage;
-            $proposalItem->tax_percentage = $taxPercentage;
+            $proposalItem->product_id = $item['product_id'];
+            $proposalItem->section = $item['section'] ?? 'otc';
+            $proposalItem->product_type = $item['product_type'] ?? 'product';
+            $proposalItem->description = $item['description'] ?? $item['product_description'] ?? null;
+            $proposalItem->quantity = $qty;
+            $proposalItem->unit_price = $price;
+            $proposalItem->discount_percentage = $discRate;
+            $proposalItem->tax_percentage = $taxRate;
             $proposalItem->save();
 
-            if ($isTaxEnabled && !empty($itemData['taxes']) && is_array($itemData['taxes'])) {
-                foreach ($itemData['taxes'] as $taxData) {
-                    $proposalItemTax = new SalesProposalItemTax();
-                    $proposalItemTax->item_id = $proposalItem->id;
-                    $proposalItemTax->tax_name = $taxData['tax_name'] ?? 'Tax';
-                    $proposalItemTax->tax_rate = (float) ($taxData['tax_rate'] ?? $taxData['rate'] ?? 0);
-                    $proposalItemTax->save();
+            if ($isTaxEnabled && !empty($item['taxes']) && is_array($item['taxes'])) {
+                foreach ($item['taxes'] as $tax) {
+                    $itemTax = new SalesProposalItemTax();
+                    $itemTax->item_id = $proposalItem->id;
+                    $itemTax->tax_name = $tax['tax_name'] ?? 'Tax';
+                    $itemTax->tax_rate = (float) ($tax['tax_rate'] ?? $tax['rate'] ?? 0);
+                    $itemTax->save();
                 }
             }
         }
     }
 
-    /**
-     * Save proposal contents.
-     */
-    public function saveProposalPageContents(int $proposalId, $proposalContentPayload): void
+    public function saveProposalPageContents(int $proposalId, $contents): void
     {
         if (!Schema::hasTable('sales_proposal_contents')) {
             return;
@@ -609,33 +609,33 @@ class ProposalService
                 SalesProposalContent::where('proposal_id', $proposalId)->delete();
             }
         } catch (\Throwable $th) {
-            // Silently catch schema/delete errors if table is not strictly fully migrated
+            // Silently catch
         }
 
-        if (empty($proposalContentPayload)) {
+        if (empty($contents)) {
             return;
         }
 
-        $contentItems = is_string($proposalContentPayload) ? json_decode($proposalContentPayload, true) : $proposalContentPayload;
-        if (!is_array($contentItems)) {
+        $items = is_string($contents) ? json_decode($contents, true) : $contents;
+        if (!is_array($items)) {
             return;
         }
 
         $index = 1;
-        foreach ($contentItems as $item) {
+        foreach ($items as $item) {
             if (is_array($item)) {
                 $pageType = $item['page_type'] ?? 'content';
                 $order = isset($item['order']) ? (int) $item['order'] : $index;
                 $title = $item['title'] ?? null;
-                $htmlContent = $item['content'] ?? null;
-                $backgroundImage = $item['background_image'] ?? null;
+                $html = $item['content'] ?? null;
+                $bg = $item['background_image'] ?? null;
                 $serialized = json_encode($item);
             } else {
                 $order = $index;
                 $title = null;
-                $htmlContent = (string) $item;
+                $html = (string) $item;
                 $pageType = 'content';
-                $backgroundImage = null;
+                $bg = null;
                 $serialized = (string) $item;
             }
 
@@ -644,8 +644,8 @@ class ProposalService
                 'title' => $title,
                 'content' => null,
                 'page_type' => $pageType,
-                'background_image' => $backgroundImage,
-                'proposal_content' => $htmlContent ?? $serialized,
+                'background_image' => $bg,
+                'proposal_content' => $html ?? $serialized,
                 'order' => $order,
             ]);
             $index++;

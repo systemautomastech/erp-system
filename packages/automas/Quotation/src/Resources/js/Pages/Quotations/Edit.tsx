@@ -181,6 +181,10 @@ export default function Edit() {
         type: quotation.type || 'product',
         is_tax_enabled: quotation.is_tax_enabled !== undefined ? Boolean(quotation.is_tax_enabled) : true,
         is_prepaid: quotation.is_prepaid !== undefined ? Boolean(quotation.is_prepaid) : false,
+        otc_discount_type: (quotation.otc_discount_type || 'percentage') as 'percentage' | 'fixed',
+        otc_discount_value: quotation.otc_discount_value || 0,
+        mrc_discount_type: (quotation.mrc_discount_type || 'percentage') as 'percentage' | 'fixed',
+        mrc_discount_value: quotation.mrc_discount_value || 0,
         payment_terms: quotation.payment_terms || '',
         notes: quotation.notes || '',
         items: (quotation.items && quotation.items.length > 0) ? quotation.items.map(item => ({
@@ -366,7 +370,50 @@ export default function Edit() {
         put(route('quotations.update', quotation.id));
     };
 
-    const totals = useTaxCalculator(data.items);
+    const totals = useMemo(() => {
+        const otcItems = data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section);
+        const mrcItems = data.items.filter(i => i.section === 'mrc');
+
+        const otcSubtotal = otcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+        const mrcSubtotal = mrcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+
+        let otcDiscount = 0;
+        if (data.otc_discount_type === 'percentage') {
+            otcDiscount = (otcSubtotal * Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            otcDiscount = Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), otcSubtotal);
+        }
+
+        let mrcDiscount = 0;
+        if (data.mrc_discount_type === 'percentage') {
+            mrcDiscount = (mrcSubtotal * Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            mrcDiscount = Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), mrcSubtotal);
+        }
+
+        const otcTax = otcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+        const mrcTax = mrcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+
+        const subtotal = otcSubtotal + mrcSubtotal;
+        const discountAmount = otcDiscount + mrcDiscount;
+        const taxAmount = otcTax + mrcTax;
+        const total = Math.max(0, subtotal - discountAmount + taxAmount);
+
+        return {
+            subtotal,
+            discountAmount,
+            taxAmount,
+            total,
+            otcSubtotal,
+            otcDiscount,
+            otcTax,
+            otcTotal: Math.max(0, otcSubtotal - otcDiscount + otcTax),
+            mrcSubtotal,
+            mrcDiscount,
+            mrcTax,
+            mrcTotal: Math.max(0, mrcSubtotal - mrcDiscount + mrcTax),
+        };
+    }, [data.items, data.otc_discount_type, data.otc_discount_value, data.mrc_discount_type, data.mrc_discount_value]);
 
     return (
         <AuthenticatedLayout
@@ -707,6 +754,10 @@ export default function Edit() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="otc"
+                                discountType={data.otc_discount_type}
+                                discountValue={data.otc_discount_value}
+                                onDiscountTypeChange={(val) => setData('otc_discount_type', val)}
+                                onDiscountValueChange={(val) => setData('otc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>
@@ -746,6 +797,10 @@ export default function Edit() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="mrc"
+                                discountType={data.mrc_discount_type}
+                                discountValue={data.mrc_discount_value}
+                                onDiscountTypeChange={(val) => setData('mrc_discount_type', val)}
+                                onDiscountValueChange={(val) => setData('mrc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>

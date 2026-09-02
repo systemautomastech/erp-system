@@ -163,7 +163,6 @@ export default function ChargeItemsTable({
                             <th className="px-4 py-2.5 text-left">{t('Items')} <span className="text-red-500">*</span></th>
                             <th className="px-3 py-2.5 text-center">{t('Qty')} <span className="text-red-500">*</span></th>
                             <th className="px-3 py-2.5 text-right">{t('Unit Price')} <span className="text-red-500">*</span></th>
-                            <th className="px-3 py-2.5 text-right">{t('Discount %')}</th>
                             <th className="px-3 py-2.5 text-right">{t('Tax %')}</th>
                             <th className="px-4 py-2.5 text-right">{t('Total')}</th>
                             <th className="px-3 py-2.5 text-center">{t('Action')}</th>
@@ -306,17 +305,6 @@ export default function ChargeItemsTable({
                                                 min="0"
                                                 step="0.01"
                                                 required
-                                            />
-                                        </td>
-                                        <td className="p-2">
-                                            <Input
-                                                type="number"
-                                                value={item.discount_percentage}
-                                                onChange={(e) => updateChargeItem(index, 'discount_percentage', parseFloat(e.target.value) || 0)}
-                                                className="w-16 h-8 text-xs text-right"
-                                                min="0"
-                                                max="100"
-                                                step="0.01"
                                             />
                                         </td>
                                         <td className="p-2">

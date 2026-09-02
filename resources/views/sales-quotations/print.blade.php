@@ -327,17 +327,27 @@
         }
 
         table {
+            width: 100% !important;
             table-layout: fixed !important;
+            border-collapse: collapse !important;
             word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
             word-break: break-word !important;
         }
 
         th, td {
             word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
             word-break: break-word !important;
+            white-space: normal !important;
             box-sizing: border-box !important;
+        }
+
+        th *, td * {
+            word-wrap: break-word !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+            max-width: 100% !important;
         }
 
         .sp-doc-accent-line {
@@ -417,7 +427,7 @@
 
         /* Line item description HTML typography styles */
         .proposal-item-desc {
-            font-size: 11px;
+            font-size: 10px;
             line-height: 1.4;
             color: #293240;
             word-wrap: break-word !important;
@@ -513,19 +523,61 @@
             return ($i->section === 'otc' || $i->section === 'general' || !$i->section) && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
         })->values();
 
-        $otcSubtotal = $otcItems->sum(fn($i) => (float) ($i->total_amount ?? ($i->quantity * $i->unit_price)));
+        $otcSubtotal = $otcItems->sum(fn($i) => (float) ($i->quantity * $i->unit_price));
         $otcDiscount = $otcItems->sum(fn($i) => (float) ($i->discount_amount ?? 0));
         $otcTax = $otcItems->sum(fn($i) => (float) ($i->tax_amount ?? 0));
-        $otcTotal = $otcSubtotal - $otcDiscount + $otcTax;
 
         $mrcItems = $items->filter(function ($i) {
             return $i->section === 'mrc' && ((float) $i->unit_price > 0 || (int) $i->product_id > 0 || !empty($i->product_description));
         })->values();
 
-        $mrcSubtotal = $mrcItems->sum(fn($i) => (float) ($i->total_amount ?? ($i->quantity * $i->unit_price)));
+        $mrcSubtotal = $mrcItems->sum(fn($i) => (float) ($i->quantity * $i->unit_price));
         $mrcDiscount = $mrcItems->sum(fn($i) => (float) ($i->discount_amount ?? 0));
         $mrcTax = $mrcItems->sum(fn($i) => (float) ($i->tax_amount ?? 0));
-        $mrcTotal = $mrcSubtotal - $mrcDiscount + $mrcTax;
+
+        // If overall quotation has discount_amount but items discount sum is 0
+        if (($otcDiscount + $mrcDiscount) == 0 && (float) ($quotation->discount_amount ?? 0) > 0) {
+            $overallDisc = (float) $quotation->discount_amount;
+            $allSubtotal = $otcSubtotal + $mrcSubtotal;
+            if ($allSubtotal > 0) {
+                $otcDiscount = ($otcSubtotal / $allSubtotal) * $overallDisc;
+                $mrcDiscount = ($mrcSubtotal / $allSubtotal) * $overallDisc;
+            }
+        }
+
+        $otcTotal = max(0, $otcSubtotal - $otcDiscount + $otcTax);
+        $mrcTotal = max(0, $mrcSubtotal - $mrcDiscount + $mrcTax);
+
+        // Helper to format discount label with percentage if applicable
+        $getDiscountLabel = function($discountAmount, $subtotal, $items) {
+            if ($discountAmount <= 0) {
+                return 'Discount:';
+            }
+            // Check if items have uniform percentage
+            $discountedItems = $items->filter(fn($i) => (float)($i->discount_amount ?? 0) > 0);
+            if ($discountedItems->count() > 0) {
+                $percentages = $discountedItems->map(fn($i) => (float)($i->discount_percentage ?? 0))->unique();
+                if ($percentages->count() === 1 && $percentages->first() > 0) {
+                    $pct = $percentages->first();
+                    $pctStr = ($pct == (int)$pct) ? (int)$pct : rtrim(rtrim(number_format($pct, 2), '0'), '.');
+                    return "Discount ({$pctStr}%):";
+                }
+            }
+            // Fallback: If section subtotal and discount yield a clean percentage
+            if ($subtotal > 0 && $discountAmount > 0) {
+                $calcPct = ($discountAmount / $subtotal) * 100;
+                $roundedPct = round($calcPct, 2);
+                $diff = abs($discountAmount - (($subtotal * $roundedPct) / 100));
+                if ($diff < 0.05) {
+                    $pctStr = ($roundedPct == (int)$roundedPct) ? (int)$roundedPct : rtrim(rtrim(number_format($roundedPct, 2), '0'), '.');
+                    return "Discount ({$pctStr}%):";
+                }
+            }
+            return 'Discount:';
+        };
+
+        $otcDiscountLabel = $getDiscountLabel($otcDiscount, $otcSubtotal, $otcItems);
+        $mrcDiscountLabel = $getDiscountLabel($mrcDiscount, $mrcSubtotal, $mrcItems);
 
         // Build Sections Source for this individual quotation
         $customContentPages = [];
@@ -574,7 +626,7 @@
 
         // Helper for estimating item weight in blade
         $estimateItemWeight = function ($item) {
-            $desc = $item->product->description ?? $item->product_description ?? '';
+            $desc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
             $plainText = trim(preg_replace('/\s+/', ' ', strip_tags($desc)));
             $blockTags = preg_match_all('/<\/p>|<br\s*\/?>|<\/li>|<\/h[1-6]>/i', $desc, $matches);
             $textLines = ceil(strlen($plainText) / 48);
@@ -705,10 +757,12 @@
                             'mrcItems' => $mrcItems,
                             'otcSubtotal' => $otcSubtotal,
                             'otcDiscount' => $otcDiscount,
+                            'otcDiscountLabel' => $otcDiscountLabel,
                             'otcTax' => $otcTax,
                             'otcTotal' => $otcTotal,
                             'mrcSubtotal' => $mrcSubtotal,
                             'mrcDiscount' => $mrcDiscount,
+                            'mrcDiscountLabel' => $mrcDiscountLabel,
                             'mrcTax' => $mrcTax,
                             'mrcTotal' => $mrcTotal,
                         ];
@@ -734,6 +788,7 @@
                             'isLastChunk' => ($cIdx === $totalChunks - 1),
                             'subtotal' => $otcSubtotal,
                             'discount' => $otcDiscount,
+                            'discountLabel' => $otcDiscountLabel,
                             'tax' => $otcTax,
                             'total' => $otcTotal,
                         ];
@@ -758,6 +813,7 @@
                             'isLastChunk' => ($cIdx === $totalChunks - 1),
                             'subtotal' => $mrcSubtotal,
                             'discount' => $mrcDiscount,
+                            'discountLabel' => $mrcDiscountLabel,
                             'tax' => $mrcTax,
                             'total' => $mrcTotal,
                         ];
@@ -820,15 +876,16 @@
                                 {{ $page['otcTitle'] }}
                             </div>
                             <table
-                                style="width: 100%; font-size: 11px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 8px;">
+                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 8px;">
                                 <thead>
                                     <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
                                         <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%;">S/N</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">Item / Service</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 37%; text-align: left;">Description</th>
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 8%; text-align: center;">Qty.</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Price (BDT)</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Total (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left;">Item / Service</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left;">Description</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center;">Qty.</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right;">Price (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Tax / VAT</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right;">Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -838,42 +895,56 @@
                                             $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
                                             $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                             $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                            $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
                                         @endphp
                                         <tr>
                                             <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle;">{{ $index + 1 }}</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $pName }}</td>
-                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{!! $pDesc !!}</td>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">{!! $pDesc !!}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
+                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                    @foreach($item->taxes as $tItem)
+                                                        <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
+                                                    @endforeach
+                                                @elseif((float)($item->tax_percentage ?? 0) > 0)
+                                                    <div>{{ (float)$item->tax_percentage }}%</div>
+                                                @elseif((float)($item->tax_amount ?? 0) > 0)
+                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                @else
+                                                    <span style="color: #94a3b8;">-</span>
+                                                @endif
+                                            </td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($lTotal, 2) }}</td>
                                         </tr>
                                     @endforeach
                                     <tr>
-                                        <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                        <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                         <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Total (BDT):</td>
                                         <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['otcSubtotal'], 2) }}</td>
                                     </tr>
-                                    @if($page['otcDiscount'] > 0)
+                                     @if($page['otcDiscount'] > 0)
                                         <tr>
-                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Discount:</td>
+                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">{{ $page['otcDiscountLabel'] ?? 'Discount:' }}</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">-{{ number_format($page['otcDiscount'], 2) }}</td>
                                         </tr>
-                                    @endif
-                                    @if($page['otcTax'] > 0)
+                                     @endif
+                                     @if($page['otcTax'] > 0)
                                         <tr>
-                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; font-size: 10px; white-space: nowrap;">VAT/Tax:</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; font-size: 10px; white-space: nowrap;">+{{ number_format($page['otcTax'], 2) }}</td>
                                         </tr>
-                                    @endif
-                                    @if($page['otcDiscount'] > 0 || $page['otcTax'] > 0)
+                                     @endif
+                                     @if($page['otcDiscount'] > 0 || $page['otcTax'] > 0)
                                         <tr>
-                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">Grand Total:</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['otcTotal'], 2) }}</td>
                                         </tr>
-                                    @endif
+                                     @endif
                                 </tbody>
                             </table>
 
@@ -882,15 +953,16 @@
                                 {{ $page['mrcTitle'] }}
                             </div>
                             <table
-                                style="width: 100%; font-size: 11px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1;">
+                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1;">
                                 <thead>
                                     <tr style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
                                         <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%;">S/N</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">Item / Service</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 37%; text-align: left;">Description</th>
-                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 8%; text-align: center;">Qty.</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Price (BDT)</th>
-                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Total (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left;">Item / Service</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left;">Description</th>
+                                        <th style="padding: 6px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center;">Qty.</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right;">Price (BDT)</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right;">Tax / VAT</th>
+                                        <th style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right;">Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -900,38 +972,52 @@
                                             $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
                                             $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                             $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                            $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
                                         @endphp
                                         <tr>
                                             <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle;">{{ $index + 1 }}</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $pName }}</td>
-                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{!! $pDesc !!}</td>
-                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                            <td class="proposal-item-desc" style="padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">{!! $pDesc !!}</td>
+                                            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
+                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                    @foreach($item->taxes as $tItem)
+                                                        <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
+                                                    @endforeach
+                                                @elseif((float)($item->tax_percentage ?? 0) > 0)
+                                                    <div>{{ (float)$item->tax_percentage }}%</div>
+                                                @elseif((float)($item->tax_amount ?? 0) > 0)
+                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                @else
+                                                    <span style="color: #94a3b8;">-</span>
+                                                @endif
+                                            </td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">{{ number_format($lTotal, 2) }}</td>
                                         </tr>
                                     @endforeach
                                     <tr>
-                                        <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                        <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                         <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Total (BDT):</td>
                                         <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['mrcSubtotal'], 2) }}</td>
                                     </tr>
                                     @if($page['mrcDiscount'] > 0)
                                         <tr>
-                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
-                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">Discount:</td>
+                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
+                                            <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; white-space: nowrap;">{{ $page['mrcDiscountLabel'] ?? 'Discount:' }}</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">-{{ number_format($page['mrcDiscount'], 2) }}</td>
                                         </tr>
                                     @endif
                                     @if($page['mrcTax'] > 0)
                                         <tr>
-                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; font-size: 10px; white-space: nowrap;">VAT/Tax:</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; font-size: 10px; white-space: nowrap;">+{{ number_format($page['mrcTax'], 2) }}</td>
                                         </tr>
                                     @endif
                                     @if($page['mrcDiscount'] > 0 || $page['mrcTax'] > 0)
                                         <tr>
-                                            <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                            <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">Grand Total:</td>
                                             <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; white-space: nowrap;">{{ number_format($page['mrcTotal'], 2) }}</td>
                                         </tr>
@@ -964,34 +1050,37 @@
                             </div>
 
                             <table
-                                style="width: 100%; font-size: 12px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 12px;">
+                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 12px;">
                                 <thead>
                                     <tr
                                         style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
                                         <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; white-space: nowrap;">
+                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; word-break: break-word; overflow-wrap: anywhere;">
                                             S/N</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
                                             Item / Service</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 38%; text-align: left;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
                                             Description</th>
                                         <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; white-space: nowrap;">
+                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; word-break: break-word; overflow-wrap: anywhere;">
                                             Qty.</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
                                             Price (BDT)</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
+                                            Tax / VAT</th>
+                                        <th
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
                                             Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @if(count($page['items']) === 0)
                                         <tr>
-                                            <td colSpan="6"
+                                            <td colSpan="7"
                                                 style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic; border: 1px solid #cbd5e1;">
                                                 No items in this charge section.
                                             </td>
@@ -1006,77 +1095,93 @@
                                                 $pDesc = $item->product->description ?? $item->product_description ?? '';
                                                 $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                 $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                                $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
                                             @endphp
                                             <tr>
                                                 <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ $startIdx + $index + 1 }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ $pName }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; font-size: 11px;">
+                                                    class="proposal-item-desc"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
                                                     {!! $pDesc !!}</td>
                                                 <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
-                                                    {{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
+                                                    {{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ number_format($item->unit_price, 2) }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
+                                                    @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                        @foreach($item->taxes as $tItem)
+                                                            <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
+                                                        @endforeach
+                                                    @elseif((float)($item->tax_percentage ?? 0) > 0)
+                                                        <div>{{ (float)$item->tax_percentage }}%</div>
+                                                    @elseif((float)($item->tax_amount ?? 0) > 0)
+                                                        <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                    @else
+                                                        <span style="color: #94a3b8;">-</span>
+                                                    @endif
+                                                </td>
+                                                <td
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ number_format($lTotal, 2) }}</td>
                                             </tr>
                                         @endforeach
 
                                         @if(!empty($page['isLastChunk']))
                                             <tr>
-                                                <td colspan="4"
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; font-size: 11px; color: #64748b; font-style: italic; vertical-align: middle; word-break: break-word;">
+                                                <td colspan="5"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #64748b; font-style: italic; vertical-align: middle; word-break: break-word;">
                                                 </td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     Total (BDT):
                                                 </td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     {{ number_format($page['subtotal'], 2) }}
                                                 </td>
                                             </tr>
                                             @if($page['discount'] > 0)
                                                 <tr>
-                                                    <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; vertical-align: middle; white-space: nowrap;">
-                                                        Discount:
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
+                                                        {{ $page['discountLabel'] ?? 'Discount:' }}
                                                     </td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                         -{{ number_format($page['discount'], 2) }}
                                                     </td>
                                                 </tr>
                                             @endif
                                             @if($page['tax'] > 0)
                                                 <tr>
-                                                    <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; vertical-align: middle; white-space: nowrap;">
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                         VAT/Tax:
                                                     </td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                         +{{ number_format($page['tax'], 2) }}
                                                     </td>
                                                 </tr>
                                             @endif
                                             <tr>
-                                                <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                                <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     Grand Total:
                                                 </td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     {{ number_format($page['total'], 2) }}
                                                 </td>
                                             </tr>
@@ -1110,34 +1215,37 @@
                             </div>
 
                             <table
-                                style="width: 100%; font-size: 12px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 12px;">
+                                style="width: 100%; font-size: 10px; table-layout: fixed; border-collapse: collapse; border: 1px solid #cbd5e1; margin-bottom: 12px;">
                                 <thead>
                                     <tr
                                         style="background-color: {{ $templateColor }}; color: #ffffff; text-align: center; font-weight: 600;">
                                         <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; white-space: nowrap;">
+                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 5%; word-break: break-word; overflow-wrap: anywhere;">
                                             S/N</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 22%; text-align: left;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 21%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
                                             Item / Service</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 38%; text-align: left;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 28%; text-align: left; word-break: break-word; overflow-wrap: anywhere;">
                                             Description</th>
                                         <th
-                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; white-space: nowrap;">
+                                            style="padding: 8px 4px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 7%; text-align: center; word-break: break-word; overflow-wrap: anywhere;">
                                             Qty.</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 12%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
                                             Price (BDT)</th>
                                         <th
-                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; white-space: nowrap;">
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 14%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
+                                            Tax / VAT</th>
+                                        <th
+                                            style="padding: 8px; border: 1px solid #cbd5e1; color: #ffffff; font-size: 10px; width: 13%; text-align: right; word-break: break-word; overflow-wrap: anywhere;">
                                             Total (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @if(count($page['items']) === 0)
                                         <tr>
-                                            <td colSpan="6"
+                                            <td colSpan="7"
                                                 style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic; border: 1px solid #cbd5e1;">
                                                 No items in this charge section.
                                             </td>
@@ -1152,77 +1260,93 @@
                                                  $pDesc = $item->product->description ?? $item->product_description ?? '';
                                                  $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
                                                  $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                                 $displayQty = ((float)$item->quantity == (int)$item->quantity) ? (int)$item->quantity : (float)$item->quantity;
                                             @endphp
                                             <tr>
                                                 <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ $startIdx + $index + 1 }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; font-weight: 500; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ $pName }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; font-size: 11px;">
+                                                    class="proposal-item-desc"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: middle; text-align: left; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
                                                     {!! $pDesc !!}</td>
                                                 <td
-                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; white-space: nowrap;">
-                                                    {{ $item->quantity }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
+                                                    style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
+                                                    {{ $displayQty }}{{ $pUnit ? ' ' . $pUnit : '' }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ number_format($item->unit_price, 2) }}</td>
                                                 <td
-                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere; font-size: 10px;">
+                                                    @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                        @foreach($item->taxes as $tItem)
+                                                            <div>{{ $tItem->tax_name }} ({{ (float)$tItem->tax_rate }}%)</div>
+                                                        @endforeach
+                                                    @elseif((float)($item->tax_percentage ?? 0) > 0)
+                                                        <div>{{ (float)$item->tax_percentage }}%</div>
+                                                    @elseif((float)($item->tax_amount ?? 0) > 0)
+                                                        <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                    @else
+                                                        <span style="color: #94a3b8;">-</span>
+                                                    @endif
+                                                </td>
+                                                <td
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; vertical-align: middle; color: #293240; word-break: break-word; overflow-wrap: anywhere;">
                                                     {{ number_format($lTotal, 2) }}</td>
                                             </tr>
                                         @endforeach
 
                                         @if(!empty($page['isLastChunk']))
                                             <tr>
-                                                <td colspan="4"
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; font-size: 11px; color: #64748b; font-style: italic; vertical-align: middle; word-break: break-word;">
+                                                <td colspan="5"
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; color: #64748b; font-style: italic; vertical-align: middle; word-break: break-word;">
                                                 </td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     Total (BDT):
                                                 </td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     {{ number_format($page['subtotal'], 2) }}
                                                 </td>
                                             </tr>
                                             @if($page['discount'] > 0)
                                                 <tr>
-                                                    <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; vertical-align: middle; white-space: nowrap;">
-                                                        Discount:
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
+                                                        {{ $page['discountLabel'] ?? 'Discount:' }}
                                                     </td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                         -{{ number_format($page['discount'], 2) }}
                                                     </td>
                                                 </tr>
                                             @endif
                                             @if($page['tax'] > 0)
                                                 <tr>
-                                                    <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                                    <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #1e293b; vertical-align: middle; white-space: nowrap;">
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #1e293b; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                         VAT/Tax:
                                                     </td>
                                                     <td
-                                                        style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 600; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                        style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                         +{{ number_format($page['tax'], 2) }}
                                                     </td>
                                                 </tr>
                                             @endif
                                             <tr>
-                                                <td colspan="4" style="border: 1px solid #cbd5e1;"></td>
+                                                <td colspan="5" style="border: 1px solid #cbd5e1;"></td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     Grand Total:
                                                 </td>
                                                 <td
-                                                    style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; vertical-align: middle; white-space: nowrap;">
+                                                    style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #0f172a; font-size: 10px; vertical-align: middle; white-space: nowrap;">
                                                     {{ number_format($page['total'], 2) }}
                                                 </td>
                                             </tr>

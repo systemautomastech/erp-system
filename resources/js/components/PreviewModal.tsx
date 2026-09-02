@@ -180,11 +180,11 @@ export const PROPOSAL_CONTENT_CLASSES = `
     [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
     [&_li]:my-0.5
     [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2
-    [&_table]:w-full [&_table]:table-auto [&_table]:border-collapse [&_table]:my-4 [&_table]:border [&_table]:border-slate-300
-    [&_thead]:bg-[var(--template-color,#E9591C)] [&_thead]:text-white
-    [&_thead_tr]:bg-[var(--template-color,#E9591C)] [&_thead_tr]:text-white
-    [&_th]:border [&_th]:border-slate-300 [&_th]:bg-[var(--template-color,#E9591C)] [&_th]:text-white [&_th]:font-bold [&_th]:p-2.5 [&_th]:text-left
-    [&_td]:border [&_td]:border-slate-300 [&_td]:p-2.5 [&_td]:text-slate-800
+    [&_table:not(.charges-table)]:w-full [&_table:not(.charges-table)]:table-auto [&_table:not(.charges-table)]:border-collapse [&_table:not(.charges-table)]:my-4 [&_table:not(.charges-table)]:border [&_table:not(.charges-table)]:border-slate-300
+    [&_thead:not(.charges-thead)]:bg-[var(--template-color,#E9591C)] [&_thead:not(.charges-thead)]:text-white
+    [&_thead_tr:not(.charges-thead_tr)]:bg-[var(--template-color,#E9591C)] [&_thead_tr:not(.charges-thead_tr)]:text-white
+    [&_table:not(.charges-table)_th]:border [&_table:not(.charges-table)_th]:border-slate-300 [&_table:not(.charges-table)_th]:bg-[var(--template-color,#E9591C)] [&_table:not(.charges-table)_th]:text-white [&_table:not(.charges-table)_th]:font-bold [&_table:not(.charges-table)_th]:p-2.5 [&_table:not(.charges-table)_th]:text-left
+    [&_table:not(.charges-table)_td]:border [&_table:not(.charges-table)_td]:border-slate-300 [&_table:not(.charges-table)_td]:p-2.5 [&_table:not(.charges-table)_td]:text-slate-800
     [&_img]:inline-block [&_img]:align-middle [&_[style*="text-align:_center"]_img]:mx-auto [&_[style*="text-align:center"]_img]:mx-auto [&_.text-center_img]:mx-auto
     [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800
 `;
@@ -229,7 +229,7 @@ const PRINT_STYLES = `
 // DOM PAGINATOR UTILITY
 // =============================================================================
 
-export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = 980): string[] {
+export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = 880): string[] {
     const hasExplicitBreak = container.querySelector('.page-break, [style*="page-break"], [style*="break-after"], [style*="break-before"]');
 
     // Extract any <style> tags so they apply across pages
@@ -274,6 +274,80 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
         const margin = (parseFloat(computedStyle.marginTop) || 0) + (parseFloat(computedStyle.marginBottom) || 0);
         const totalElHeight = elHeight + margin;
 
+        // Check if element is a Table or a Block containing a Table
+        const tableInside = tag === 'table' ? el : el.querySelector('table');
+        if (tableInside) {
+            const tableEl = tableInside as HTMLElement;
+            const thead = tableEl.querySelector('thead');
+            const theadHtml = thead ? thead.outerHTML : '';
+            const theadHeight = thead ? ((thead as HTMLElement).offsetHeight || 32) : 0;
+
+            const tfoot = tableEl.querySelector('tfoot');
+            const tfootHtml = tfoot ? tfoot.outerHTML : '';
+            const tfootHeight = tfoot ? ((tfoot as HTMLElement).offsetHeight || 80) : 0;
+
+            const bodyRows = Array.from(tableEl.querySelectorAll('tbody > tr'));
+            const tableClasses = tableEl.getAttribute('class') || '';
+            const tableStyle = tableEl.getAttribute('style') || '';
+
+            // If whole element (section block with title + table + tfoot) fits on current page
+            if (currentPageAccumulatedHeight + totalElHeight <= maxPageHeight) {
+                currentPageHtml.push(el.outerHTML);
+                currentPageAccumulatedHeight += totalElHeight;
+                return;
+            }
+
+            // If whole element doesn't fit on current page BUT fits on a fresh new page -> SHIFT TO NEW PAGE!
+            if (totalElHeight <= maxPageHeight && currentPageHtml.length > 0) {
+                startNewPage();
+                currentPageHtml.push(el.outerHTML);
+                currentPageAccumulatedHeight += totalElHeight;
+                return;
+            }
+
+            // Otherwise, table is too large for a single page and MUST be split row-by-row
+            const titleEl = tag !== 'table' ? el.querySelector('.font-bold, h1, h2, h3, h4, h5, h6') : null;
+            const titleHtml = titleEl ? titleEl.outerHTML : '';
+
+            if (bodyRows.length > 0) {
+                let currentTableRows: string[] = [];
+                let currentTableChunkHeight = theadHeight;
+                let isFirstTableChunk = true;
+
+                for (let rIdx = 0; rIdx < bodyRows.length; rIdx++) {
+                    const row = bodyRows[rIdx] as HTMLElement;
+                    const rowHeight = row.offsetHeight || 30;
+                    const isLastRow = (rIdx === bodyRows.length - 1);
+                    const neededRowHeight = rowHeight + (isLastRow ? tfootHeight : 0);
+
+                    if (currentPageAccumulatedHeight + currentTableChunkHeight + neededRowHeight > maxPageHeight && currentTableRows.length > 0) {
+                        const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`;
+                        if (isFirstTableChunk && titleHtml) {
+                            currentPageHtml.push(titleHtml);
+                        }
+                        currentPageHtml.push(tableHtml);
+                        startNewPage();
+                        isFirstTableChunk = false;
+                        currentTableRows = [row.outerHTML];
+                        currentTableChunkHeight = theadHeight + rowHeight;
+                    } else {
+                        currentTableRows.push(row.outerHTML);
+                        currentTableChunkHeight += rowHeight;
+                    }
+                }
+
+                if (currentTableRows.length > 0) {
+                    const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody>${tfootHtml}</table>`;
+                    if (isFirstTableChunk && titleHtml) {
+                        currentPageHtml.push(titleHtml);
+                    }
+                    currentPageHtml.push(tableHtml);
+                    currentPageAccumulatedHeight += currentTableChunkHeight + tfootHeight;
+                }
+                return;
+            }
+        }
+
         if ((tag === 'div' || tag === 'section' || tag === 'article' || tag === 'main') && el.children.length > 0) {
             if (currentPageAccumulatedHeight + totalElHeight <= maxPageHeight) {
                 currentPageHtml.push(el.outerHTML);
@@ -288,45 +362,6 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
             }
             Array.from(el.children).forEach((child) => processElement(child as HTMLElement));
             return;
-        }
-
-        // Table splitting row-by-row
-        if (tag === 'table') {
-            if (currentPageAccumulatedHeight + totalElHeight > maxPageHeight) {
-                const thead = el.querySelector('thead');
-                const theadHtml = thead ? thead.outerHTML : '';
-                const rows = Array.from(el.querySelectorAll('tbody > tr, tr'));
-                const tableClasses = el.getAttribute('class') || '';
-                const tableStyle = el.getAttribute('style') || '';
-
-                if (rows.length > 1) {
-                    let currentTableRows: string[] = [];
-                    let currentTableChunkHeight = thead ? (thead as HTMLElement).offsetHeight : 0;
-
-                    for (const row of rows) {
-                        if (row.parentElement?.tagName.toLowerCase() === 'thead') continue;
-
-                        const rowHeight = (row as HTMLElement).offsetHeight || 30;
-                        if (currentPageAccumulatedHeight + currentTableChunkHeight + rowHeight > maxPageHeight && currentTableRows.length > 0) {
-                            const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`;
-                            currentPageHtml.push(tableHtml);
-                            startNewPage();
-                            currentTableRows = [row.outerHTML];
-                            currentTableChunkHeight = (thead ? (thead as HTMLElement).offsetHeight : 0) + rowHeight;
-                        } else {
-                            currentTableRows.push(row.outerHTML);
-                            currentTableChunkHeight += rowHeight;
-                        }
-                    }
-
-                    if (currentTableRows.length > 0) {
-                        const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`;
-                        currentPageHtml.push(tableHtml);
-                        currentPageAccumulatedHeight += currentTableChunkHeight;
-                    }
-                    return;
-                }
-            }
         }
 
         if (currentPageAccumulatedHeight + totalElHeight > maxPageHeight && currentPageHtml.length > 0) {
@@ -535,7 +570,6 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                 ) : content ? (
                     <div
                         className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
-                        style={{ marginTop: '2rem' }}
                         dangerouslySetInnerHTML={{ __html: content }}
                     />
                 ) : null}
@@ -1159,11 +1193,12 @@ export default function PreviewModal({
         (formData as any)?.customer_address,
     ]);
 
-    // Build Renderable Pages for Full Proposal Mode
-    const renderablePages = useMemo(() => {
-        if (isSinglePageMode || !formData) return [];
+    const [paginatedFullProposalPages, setPaginatedFullProposalPages] = useState<string[]>([]);
 
-        const pages: RenderablePage[] = [];
+    // Assemble unified HTML for continuous flowing proposal
+    const fullProposalHtml = useMemo(() => {
+        if (isSinglePageMode || !formData) return '';
+
         const items = formData.items || [];
         const otcItems = items.filter(
             (i) => (i.section === 'otc' || i.section === 'general' || !i.section) &&
@@ -1174,133 +1209,252 @@ export default function PreviewModal({
                 (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
         );
 
-        const otcWeight = otcItems.reduce((acc, item) => acc + estimateItemWeight(item, getItemDesc), 0);
-        const mrcWeight = mrcItems.reduce((acc, item) => acc + estimateItemWeight(item, getItemDesc), 0);
-        const COMBINED_CAPACITY = 24;
-        const canCombineCharges = otcItems.length > 0 && mrcItems.length > 0 && (otcWeight + mrcWeight) <= COMBINED_CAPACITY;
-        let chargesCombinedRendered = false;
-
         const secSubtotalOtc = otcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-        const secDiscountOtc = otcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+        let secDiscountOtc = otcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+        if (secDiscountOtc === 0 && (formData as any).otc_discount_value > 0) {
+            const discVal = Number((formData as any).otc_discount_value) || 0;
+            if ((formData as any).otc_discount_type === 'percentage') {
+                secDiscountOtc = (secSubtotalOtc * Math.min(Math.max(discVal, 0), 100)) / 100;
+            } else {
+                secDiscountOtc = Math.min(Math.max(discVal, 0), secSubtotalOtc);
+            }
+        }
         const secTaxOtc = otcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
-        const secTotalOtc = secSubtotalOtc - secDiscountOtc + secTaxOtc;
+        const secTotalOtc = Math.max(0, secSubtotalOtc - secDiscountOtc + secTaxOtc);
 
         const secSubtotalMrc = mrcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-        const secDiscountMrc = mrcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+        let secDiscountMrc = mrcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+        if (secDiscountMrc === 0 && (formData as any).mrc_discount_value > 0) {
+            const discVal = Number((formData as any).mrc_discount_value) || 0;
+            if ((formData as any).mrc_discount_type === 'percentage') {
+                secDiscountMrc = (secSubtotalMrc * Math.min(Math.max(discVal, 0), 100)) / 100;
+            } else {
+                secDiscountMrc = Math.min(Math.max(discVal, 0), secSubtotalMrc);
+            }
+        }
         const secTaxMrc = mrcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
-        const secTotalMrc = secSubtotalMrc - secDiscountMrc + secTaxMrc;
+        const secTotalMrc = Math.max(0, secSubtotalMrc - secDiscountMrc + secTaxMrc);
 
-        sections.forEach((sec, sIdx) => {
+        const htmlParts: string[] = [];
+
+        sections.forEach((sec) => {
             const rawContent = (sec.content || '').trim();
             const pageType = (sec.page_type || '').toLowerCase();
             const isOtc = pageType === 'otc' || rawContent === '[OTC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('one-time charges'));
             const isMrc = pageType === 'mrc' || rawContent === '[MRC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('monthly recurring charges'));
             const isOther = pageType === 'other-details' || rawContent === '[OTHER_DETAILS_CONTENT]' || (sec.title && sec.title.toLowerCase().includes('other details'));
 
-            if (isOtc || isMrc) {
-                if (canCombineCharges) {
-                    if (!chargesCombinedRendered) {
-                        pages.push({
-                            key: `combined-charges-${sec.id || sIdx}`,
-                            type: 'combined-charges',
-                            otcTitle: t('ONE-TIME CHARGES (OTC)'),
-                            mrcTitle: t('MONTHLY RECURRING CHARGES (MRC)'),
-                            background_image: sec.background_image,
-                            otcItems,
-                            mrcItems,
-                            otcSubtotal: secSubtotalOtc,
-                            otcDiscount: secDiscountOtc,
-                            otcTax: secTaxOtc,
-                            otcTotal: secTotalOtc,
-                            mrcSubtotal: secSubtotalMrc,
-                            mrcDiscount: secDiscountMrc,
-                            mrcTax: secTaxMrc,
-                            mrcTotal: secTotalMrc,
-                        });
-                        chargesCombinedRendered = true;
-                    }
-                    return;
-                }
-            }
-
             if (isOtc) {
                 if (otcItems.length === 0) return;
-
-                const itemChunks = chunkItemsByWeight(otcItems, getItemDesc, 30);
-                const totalChunks = itemChunks.length;
                 const title = sec.title || t('ONE-TIME CHARGES (OTC)');
+                let rowsHtml = '';
+                otcItems.forEach((item, idx) => {
+                    const qty = Number(item.quantity) || 1;
+                    const unit = getItemUnit(item);
+                    const price = Number(item.unit_price) || 0;
+                    const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
+                    const desc = getItemDesc(item);
 
-                itemChunks.forEach((chk, cIdx) => {
-                    pages.push({
-                        key: `otc-chunk-${cIdx}-${sec.id || sIdx}`,
-                        type: 'otc',
-                        title,
-                        background_image: sec.background_image,
-                        chunkItems: chk.items,
-                        chunkIndex: cIdx,
-                        totalChunks,
-                        startIndex: chk.startIndex,
-                        isLastChunk: cIdx === totalChunks - 1,
-                        secSubtotal: secSubtotalOtc,
-                        secDiscount: secDiscountOtc,
-                        secTax: secTaxOtc,
-                        secTotal: secTotalOtc,
-                    });
+                    rowsHtml += `
+                        <tr class="border-b border-slate-200 hover:bg-slate-50/50">
+                            <td class="text-center font-medium border border-slate-200" style="font-size: 10px; padding: 6.5px 4px !important;">${idx + 1}</td>
+                            <td class="font-semibold text-slate-900 border border-slate-200 align-top" style="font-size: 11px; padding: 6.5px 8px !important; line-height: 1.35;">${getItemName(item)}</td>
+                            <td class="text-slate-600 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">
+                                <div class="leading-normal break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
+                                    ${desc || '-'}
+                                </div>
+                            </td>
+                            <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}${unit ? ` ${unit}` : ''}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
+                            <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
+                        </tr>
+                    `;
                 });
+
+                htmlParts.push(`
+                    <div class="proposal-section-block otc-charges-block" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
+                        <div class="font-bold mb-2 text-[#293240] text-sm">${title}</div>
+                        <table class="charges-table w-full text-xs mb-2 border-collapse border border-slate-300" style="font-size: 11px; width: 100%; table-layout: fixed;">
+                            <thead>
+                                <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t('S/N')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 22%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 36%; padding: 7.5px 8px !important;">${t('Description')}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 9%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Subtotal')}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
+                                </tr>
+                                ${(secDiscountOtc > 0) ? `
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Discount')}:</td>
+                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountOtc)}</td>
+                                </tr>` : ''}
+                                ${(secTaxOtc > 0) ? `
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Tax / VAT')}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxOtc)}</td>
+                                </tr>` : ''}
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t('Total')}:</td>
+                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalOtc)} BDT</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                `);
                 return;
             }
 
             if (isMrc) {
                 if (mrcItems.length === 0) return;
-
-                const itemChunks = chunkItemsByWeight(mrcItems, getItemDesc, 30);
-                const totalChunks = itemChunks.length;
                 const title = sec.title || t('MONTHLY RECURRING CHARGES (MRC)');
+                let rowsHtml = '';
+                mrcItems.forEach((item, idx) => {
+                    const qty = Number(item.quantity) || 1;
+                    const unit = getItemUnit(item);
+                    const price = Number(item.unit_price) || 0;
+                    const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
+                    const desc = getItemDesc(item);
 
-                itemChunks.forEach((chk, cIdx) => {
-                    pages.push({
-                        key: `mrc-chunk-${cIdx}-${sec.id || sIdx}`,
-                        type: 'mrc',
-                        title,
-                        background_image: sec.background_image,
-                        chunkItems: chk.items,
-                        chunkIndex: cIdx,
-                        totalChunks,
-                        startIndex: chk.startIndex,
-                        isLastChunk: cIdx === totalChunks - 1,
-                        secSubtotal: secSubtotalMrc,
-                        secDiscount: secDiscountMrc,
-                        secTax: secTaxMrc,
-                        secTotal: secTotalMrc,
-                    });
+                    rowsHtml += `
+                        <tr class="border-b border-slate-200 hover:bg-slate-50/50">
+                            <td class="text-center font-medium border border-slate-200" style="font-size: 10px; padding: 6.5px 4px !important;">${idx + 1}</td>
+                            <td class="font-semibold text-slate-900 border border-slate-200 align-top" style="font-size: 11px; padding: 6.5px 8px !important; line-height: 1.35;">${getItemName(item)}</td>
+                            <td class="text-slate-600 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">
+                                <div class="leading-normal break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
+                                    ${desc || '-'}
+                                </div>
+                            </td>
+                            <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}${unit ? ` ${unit}` : ''}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
+                            <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
+                        </tr>
+                    `;
                 });
+
+                htmlParts.push(`
+                    <div class="proposal-section-block mrc-charges-block" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
+                        <div class="font-bold mb-2 text-[#293240] text-sm">${title}</div>
+                        <table class="charges-table w-full text-xs mb-2 border-collapse border border-slate-300" style="font-size: 11px; width: 100%; table-layout: fixed;">
+                            <thead>
+                                <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t('S/N')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 22%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 36%; padding: 7.5px 8px !important;">${t('Description')}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 9%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Subtotal')}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
+                                </tr>
+                                ${(secDiscountMrc > 0) ? `
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Discount')}:</td>
+                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountMrc)}</td>
+                                </tr>` : ''}
+                                ${(secTaxMrc > 0) ? `
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Tax / VAT')}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxMrc)}</td>
+                                </tr>` : ''}
+                                <tr>
+                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t('Total')}:</td>
+                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalMrc)} BDT</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                `);
                 return;
             }
 
             if (isOther) {
-                if (formData.other_details || other_details) {
-                    pages.push({
-                        key: `other-details-${sec.id || sIdx}`,
-                        type: 'other-details',
-                        title: sec.title || t('OTHER DETAILS'),
-                        content: formData.other_details || other_details || '',
-                        background_image: sec.background_image,
-                    });
-                }
+                const otherVal = formData.other_details || other_details;
+                if (!otherVal || otherVal.trim() === '' || otherVal === '<p></p>') return;
+                const processed = replaceProposalShortcodes(otherVal, {
+                    formData,
+                    customer,
+                    totals,
+                    proposalSetting: activeSettings,
+                    isDefaultPageSetup,
+                });
+                htmlParts.push(`
+                    <div class="proposal-section-block other-details-block mb-6">
+                        ${sec.title ? `<div class="font-bold mb-2 text-[#293240] text-sm">${sec.title}</div>` : ''}
+                        <div>${processed}</div>
+                    </div>
+                `);
                 return;
             }
 
-            pages.push({
-                key: `content-${sec.id || sIdx}`,
-                type: 'content',
-                title: sec.title,
-                content: sec.content || '',
-                background_image: sec.background_image,
-            });
+            if (sec.content && sec.content.trim() !== '') {
+                const processed = replaceProposalShortcodes(sec.content, {
+                    formData,
+                    customer,
+                    totals,
+                    proposalSetting: activeSettings,
+                    isDefaultPageSetup,
+                });
+                htmlParts.push(`
+                    <div class="proposal-section-block content-block mb-6">
+                        ${processed}
+                    </div>
+                `);
+            }
         });
 
-        return pages;
-    }, [isSinglePageMode, formData, sections, other_details, t, getItemDesc]);
+        return htmlParts.join('\n');
+    }, [isSinglePageMode, formData, sections, other_details, activeSettings, isDefaultPageSetup, customer, totals, templateColor, getItemDesc, getItemName, getItemUnit, t]);
+
+    // Paginate Full Proposal HTML continuously
+    useEffect(() => {
+        if (isSinglePageMode) return;
+        if (!fullProposalHtml) {
+            setPaginatedFullProposalPages([]);
+            return;
+        }
+
+        const runPagination = () => {
+            if (measureContainerRef.current) {
+                const scrollH = measureContainerRef.current.scrollHeight;
+                if (scrollH <= 880) {
+                    setPaginatedFullProposalPages([fullProposalHtml]);
+                } else {
+                    const chunks = paginateDomContainer(measureContainerRef.current, 880);
+                    setPaginatedFullProposalPages(chunks);
+                }
+            } else {
+                setPaginatedFullProposalPages([fullProposalHtml]);
+            }
+        };
+
+        const timer = setTimeout(runPagination, 80);
+        return () => clearTimeout(timer);
+    }, [isSinglePageMode, fullProposalHtml]);
 
     // Print Action
     const handlePrint = useCallback(() => {
@@ -1343,34 +1497,6 @@ export default function PreviewModal({
             className="space-y-8 flex flex-col items-center w-full print:space-y-0 print:gap-0"
             style={{ '--template-color': templateColor } as React.CSSProperties}
         >
-            <style>{`
-                .proposal-preview-sheet table,
-                .proposal-cover__sheet table,
-                .html-preview-container table {
-                    table-layout: fixed !important;
-                    word-wrap: break-word !important;
-                    overflow-wrap: anywhere !important;
-                    word-break: break-word !important;
-                }
-                .proposal-preview-sheet th,
-                .proposal-preview-sheet td,
-                .proposal-cover__sheet th,
-                .proposal-cover__sheet td,
-                .html-preview-container th,
-                .html-preview-container td {
-                    word-wrap: break-word !important;
-                    overflow-wrap: anywhere !important;
-                    word-break: break-word !important;
-                    box-sizing: border-box !important;
-                }
-                .proposal-preview-sheet td *,
-                .proposal-cover__sheet td *,
-                .html-preview-container td * {
-                    word-wrap: break-word !important;
-                    overflow-wrap: anywhere !important;
-                    word-break: break-word !important;
-                }
-            `}</style>
             {/* Mode A: Single Page / Default Page Mode */}
             {isSinglePageMode ? (
                 paginatedSinglePages.length > 0 ? (
@@ -1399,60 +1525,20 @@ export default function PreviewModal({
                     />
                 )
             ) : (
-                /* Mode B: Full Proposal Mode */
-                renderablePages.length > 0 ? (
-                    renderablePages.map((page) => {
-                        if (page.type === 'combined-charges') {
-                            return (
-                                <CombinedChargesPage
-                                    key={page.key}
-                                    page={page}
-                                    templateColor={templateColor}
-                                    defaultBg={defaultBgImage}
-                                    headerLogo={headerLogo}
-                                    headerLogoAlign={headerLogoAlign}
-                                    getItemName={getItemName}
-                                    getItemDesc={getItemDesc}
-                                    getItemUnit={getItemUnit}
-                                    t={t}
-                                />
-                            );
-                        }
-
-                        if (page.type === 'otc' || page.type === 'mrc') {
-                            return (
-                                <ChargesPage
-                                    key={page.key}
-                                    page={page}
-                                    templateColor={templateColor}
-                                    defaultBg={defaultBgImage}
-                                    headerLogo={headerLogo}
-                                    headerLogoAlign={headerLogoAlign}
-                                    getItemName={getItemName}
-                                    getItemDesc={getItemDesc}
-                                    getItemUnit={getItemUnit}
-                                    t={t}
-                                />
-                            );
-                        }
-
-                        return (
-                            <ContentPage
-                                key={page.key}
-                                page={page}
-                                templateColor={templateColor}
-                                defaultBg={defaultBgImage}
-                                headerLogo={headerLogo}
-                                headerLogoAlign={headerLogoAlign}
-                                formData={formData}
-                                customer={customer}
-                                totals={totals}
-                                proposalSetting={activeSettings}
-                                isDefaultPageSetup={isDefaultPageSetup}
-                                t={t}
-                            />
-                        );
-                    })
+                /* Mode B: Full Continuous Flow Proposal Mode */
+                paginatedFullProposalPages.length > 0 ? (
+                    paginatedFullProposalPages.map((pageHtml, pIdx) => (
+                        <ProposalPreviewSheet
+                            key={`proposal-page-${pIdx}`}
+                            pageKey={`proposal-page-${pIdx}`}
+                            backgroundImage={sections[pIdx]?.background_image || defaultBgImage}
+                            defaultBg={defaultBgImage}
+                            templateColor={templateColor}
+                            headerLogo={headerLogo}
+                            headerLogoAlign={headerLogoAlign}
+                            content={pageHtml}
+                        />
+                    ))
                 ) : (
                     <div className="p-8 text-center text-slate-500">
                         {t('No pages configured in Page Order.')}
@@ -1462,85 +1548,83 @@ export default function PreviewModal({
         </div>
     );
 
-    if (inline) {
-        return (
-            <div className="min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:p-0 print:bg-white flex flex-col items-center">
-                {/* Print Action Bar (Hidden when printed) */}
-                <div className="w-full max-w-[210mm] mb-6 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 print:hidden">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                            <FileText className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <h1 className="font-bold text-slate-900 dark:text-slate-100 text-base">
-                                {formData?.proposal_number || modalTitleText}
-                            </h1>
-                            {formData?.subject && (
-                                <p className="text-xs text-slate-500">{formData.subject}</p>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2">
-                            <Printer className="h-4 w-4" />
-                            {t('Print / Save PDF')}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Printable Canvas */}
-                <div className="w-full flex justify-center">
-                    {renderSheetsContent()}
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <Dialog open={isModalOpen} onOpenChange={(openVal) => !openVal && handleClose()}>
+        <>
             {/* Hidden Offscreen Container for Accurate HTML Height Pagination Measurement */}
-            {isSinglePageMode && (
-                <div
-                    ref={measureContainerRef}
-                    className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
-                    style={{
-                        position: 'fixed',
-                        left: '-9999px',
-                        top: 0,
-                        width: '180mm',
-                        visibility: 'hidden',
-                        pointerEvents: 'none',
-                        zIndex: -1,
-                    }}
-                    dangerouslySetInnerHTML={{ __html: singleProcessedContent }}
-                />
-            )}
+            <div
+                ref={measureContainerRef}
+                className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
+                style={{
+                    position: 'fixed',
+                    left: '-9999px',
+                    top: 0,
+                    width: '180mm',
+                    visibility: 'hidden',
+                    pointerEvents: 'none',
+                    zIndex: -1,
+                }}
+                dangerouslySetInnerHTML={{ __html: isSinglePageMode ? singleProcessedContent : fullProposalHtml }}
+            />
 
-            <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-900/40 backdrop-blur-md border-slate-700">
-                {/* Modal Header */}
-                <DialogHeader className="p-4 sm:px-6 bg-background border-b border-border flex flex-row items-center justify-between space-y-0 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                            <FileText className="h-5 w-5" />
+            {inline ? (
+                <div className="min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:p-0 print:bg-white flex flex-col items-center">
+                    {/* Print Action Bar (Hidden when printed) */}
+                    <div className="w-full max-w-[210mm] mb-6 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 print:hidden">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                <FileText className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h1 className="font-bold text-slate-900 dark:text-slate-100 text-base">
+                                    {formData?.proposal_number || modalTitleText}
+                                </h1>
+                                {formData?.subject && (
+                                    <p className="text-xs text-slate-500">{formData.subject}</p>
+                                )}
+                            </div>
                         </div>
-                        <DialogTitle className="text-base font-semibold">{modalTitleText}</DialogTitle>
+
+                        <div className="flex items-center gap-2">
+                            <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2">
+                                <Printer className="h-4 w-4" />
+                                {t('Print / Save PDF')}
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pr-6">
-                        <Button variant="default" size="sm" onClick={handlePrint} className="gap-2 text-xs h-8">
-                            <Printer className="h-3.5 w-3.5" />
-                            {t('Print')}
-                        </Button>
+                    {/* Printable Canvas */}
+                    <div className="w-full flex justify-center">
+                        {renderSheetsContent()}
                     </div>
-                </DialogHeader>
-
-                {/* Modal Body / Scrollable Canvas */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
-                    {renderSheetsContent()}
                 </div>
-            </DialogContent>
-        </Dialog>
+            ) : (
+                <Dialog open={isModalOpen} onOpenChange={(openVal) => !openVal && handleClose()}>
+                    <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-900/40 backdrop-blur-md border-slate-700">
+                        {/* Modal Header */}
+                        <DialogHeader className="p-4 sm:px-6 bg-background border-b border-border flex flex-row items-center justify-between space-y-0 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                    <FileText className="h-5 w-5" />
+                                </div>
+                                <DialogTitle className="text-base font-semibold">{modalTitleText}</DialogTitle>
+                            </div>
+
+                            <div className="flex items-center gap-2 pr-6">
+                                <Button variant="default" size="sm" onClick={handlePrint} className="gap-2 text-xs h-8">
+                                    <Printer className="h-3.5 w-3.5" />
+                                    {t('Print')}
+                                </Button>
+                            </div>
+                        </DialogHeader>
+
+                        {/* Modal Body / Scrollable Canvas */}
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
+                            {renderSheetsContent()}
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+        </>
     );
 }
 

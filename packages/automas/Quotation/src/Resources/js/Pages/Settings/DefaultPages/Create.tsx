@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
-import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
+import { replaceQuotationShortcodes } from '../../Quotations/utils/quotationShortcodes';
 import { getImagePath } from '@/utils/helpers';
 import MediaPicker from '@/components/MediaPicker';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -150,6 +150,7 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         title: '',
         content: '',
+        page_type: 'general',
         background_image: '',
         sort_order: nextSortOrder,
         is_active: true,
@@ -160,10 +161,11 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
         : true;
     const rawLogo = settings?.logo_image || settings?.company_logo || '';
     const logoUrl = (isLogoEnabled && rawLogo) ? getImagePath(rawLogo) : '';
+    const headerLogoAlign = settings?.header_logo_align || 'right';
 
     const processedContent = useMemo(() => {
         if (!data.content) return '';
-        return replaceProposalShortcodes(data.content, { settings, isDefaultPageSetup: true });
+        return replaceQuotationShortcodes(data.content, { settings, isDefaultPageSetup: true });
     }, [data.content, settings]);
 
     const measureContainerRef = useRef<HTMLDivElement>(null);
@@ -192,10 +194,10 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
 
             if (measureContainerRef.current) {
                 const scrollH = measureContainerRef.current.scrollHeight;
-                if (!hasExplicitBreak && scrollH <= 980) {
+                if (!hasExplicitBreak && scrollH <= 880) {
                     setPaginatedPreviewPages([processedContent]);
                 } else {
-                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
+                    const chunks = paginateDomContainer(measureContainerRef.current, 880);
                     setPaginatedPreviewPages(chunks);
                 }
             } else {

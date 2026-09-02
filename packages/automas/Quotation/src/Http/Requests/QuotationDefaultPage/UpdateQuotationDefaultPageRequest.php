@@ -23,19 +23,12 @@ class UpdateQuotationDefaultPageRequest extends FormRequest
 
     public function rules(): array
     {
-        $creatorId = auth()->check() ? creatorId() : null;
-        $pageId = $this->route('default_page') ? ($this->route('default_page')->id ?? $this->route('default_page')) : $this->id;
+        $pageId = $this->route('defaultPage')?->id ?? ($this->route('default_page')?->id ?? $this->route('default_page'));
 
         return [
-            'title' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('quotation_default_pages', 'title')
-                    ->where(fn($query) => $query->where('created_by', $creatorId))
-                    ->ignore($pageId),
-            ],
+            'title' => 'sometimes|required|string|max:255',
             'content' => 'nullable|string',
+            'page_type' => 'sometimes|string',
             'background_image' => 'nullable|string',
             'is_active' => 'sometimes|boolean',
             'sort_order' => [
@@ -43,7 +36,7 @@ class UpdateQuotationDefaultPageRequest extends FormRequest
                 'integer',
                 'min:1',
                 Rule::unique('quotation_default_pages', 'sort_order')
-                    ->where(fn($query) => $query->where('created_by', $creatorId))
+                    ->where(fn($query) => $query->where('created_by', creatorId()))
                     ->ignore($pageId),
             ],
             'created_by' => 'nullable|exists:users,id',
