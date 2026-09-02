@@ -62,6 +62,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
     Route::post('crm/leads/save-default-pipeline', [LeadController::class, 'saveDefaultPipeline'])->name('lead.leads.save-default-pipeline');
 
     Route::get('leads/import', [LeadImportController::class, 'index'])->name('lead.leads.import.index');
+    Route::get('leads/import/sample', [LeadImportController::class, 'downloadSample'])->name('lead.leads.import.sample');
     Route::post('leads/import/upload', [LeadImportController::class, 'upload'])->name('lead.leads.import.upload');
     Route::get('leads/import/{leadImport:uuid}/preview', [LeadImportController::class, 'preview'])->name('lead.leads.import.preview');
     Route::post('leads/import/{leadImport:uuid}/mapping', [LeadImportController::class, 'storeMapping'])->name('lead.leads.import.mapping.store');

@@ -398,9 +398,11 @@ export default function Index({ downloadLink = '' }: ImportPageProps) {
                                 <span>
                                     {t('Download sample CSV file:')}
                                 </span>
-                                <a href={downloadLink}
-                                    download
-                                    className="inline-flex items-center rounded-md border bg-muted/30 px-3 py-1.5 font-medium text-foreground transition-colors hover:bg-muted/50">
+                                <a
+                                    href={downloadLink || route('lead.leads.import.sample')}
+                                    download="sample_lead_import.csv"
+                                    className="inline-flex items-center rounded-md border bg-muted/30 px-3 py-1.5 font-medium text-foreground transition-colors hover:bg-muted/50"
+                                >
                                     {t('Download')}
                                 </a>
                             </div>

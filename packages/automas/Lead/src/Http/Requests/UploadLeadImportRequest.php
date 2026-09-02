@@ -17,10 +17,10 @@ class UploadLeadImportRequest extends FormRequest
         return [
             'file' => [
                 'required',
-                File::types(['csv', 'txt'])
-                    ->min('1kb')
-                    ->max('100mb'),
+                'file',
                 'extensions:csv,txt',
+                File::types(['csv', 'txt', 'text/plain', 'text/csv', 'application/vnd.ms-excel', 'application/csv', 'text/x-csv'])
+                    ->max('100mb'),
             ],
 
             'mode' => [
