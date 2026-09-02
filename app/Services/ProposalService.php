@@ -194,8 +194,8 @@ class ProposalService
                     ->orWhereNull('type')
                     ->orWhereDoesntHave('warehouseStocks');
             })->with([
-                'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
-            ]);
+                        'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
+                    ]);
         }
 
         $allTaxes = ProductServiceTax::select('id', 'tax_name', 'rate')
@@ -259,11 +259,14 @@ class ProposalService
         return false;
     }
 
-    public function calculateProposalTotals(?array $items, bool $isTaxEnabled = true): array
+    public function calculateProposalTotals(?array $items, bool $isTaxEnabled = true, array $options = []): array
     {
         $subtotal = 0.0;
         $tax = 0.0;
-        $discount = 0.0;
+        $itemDiscountTotal = 0.0;
+
+        $otcSubtotal = 0.0;
+        $mrcSubtotal = 0.0;
 
         if (!empty($items)) {
             foreach ($items as $item) {
@@ -289,16 +292,45 @@ class ProposalService
                 $taxAmount = ($netTotal * $taxRate) / 100;
 
                 $subtotal += $lineTotal;
-                $discount += $discAmount;
+                $itemDiscountTotal += $discAmount;
                 $tax += $taxAmount;
+
+                $section = strtolower($item['section'] ?? 'otc');
+                if ($section === 'mrc') {
+                    $mrcSubtotal += $lineTotal;
+                } else {
+                    $otcSubtotal += $lineTotal;
+                }
             }
         }
+
+        // Section level discount calculations if provided
+        $otcDiscount = 0.0;
+        $otcDiscType = $options['otc_discount_type'] ?? 'percentage';
+        $otcDiscVal = max(0, (float) ($options['otc_discount_value'] ?? 0));
+        if ($otcDiscVal > 0) {
+            $otcDiscount = $otcDiscType === 'percentage'
+                ? ($otcSubtotal * min(100, $otcDiscVal)) / 100
+                : min($otcSubtotal, $otcDiscVal);
+        }
+
+        $mrcDiscount = 0.0;
+        $mrcDiscType = $options['mrc_discount_type'] ?? 'percentage';
+        $mrcDiscVal = max(0, (float) ($options['mrc_discount_value'] ?? 0));
+        if ($mrcDiscVal > 0) {
+            $mrcDiscount = $mrcDiscType === 'percentage'
+                ? ($mrcSubtotal * min(100, $mrcDiscVal)) / 100
+                : min($mrcSubtotal, $mrcDiscVal);
+        }
+
+        $sectionDiscountTotal = $otcDiscount + $mrcDiscount;
+        $finalDiscount = $sectionDiscountTotal > 0 ? $sectionDiscountTotal : $itemDiscountTotal;
 
         return [
             'subtotal' => round($subtotal, 2),
             'tax_amount' => round($tax, 2),
-            'discount_amount' => round($discount, 2),
-            'total_amount' => round($subtotal + $tax - $discount, 2)
+            'discount_amount' => round($finalDiscount, 2),
+            'total_amount' => round(max(0, $subtotal + $tax - $finalDiscount), 2)
         ];
     }
 
@@ -306,7 +338,7 @@ class ProposalService
     {
         return DB::transaction(function () use ($request) {
             $isTaxEnabled = filter_var($request->input('is_tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
-            $totals = $this->calculateProposalTotals($request->items, $isTaxEnabled);
+            $totals = $this->calculateProposalTotals($request->items, $isTaxEnabled, $request->all());
 
             $hasRecurring = $this->hasRecurringBillingItems($request->items);
             $isRecurring = $hasRecurring ? 1 : 0;
@@ -362,7 +394,7 @@ class ProposalService
     {
         return DB::transaction(function () use ($salesProposal, $request) {
             $isTaxEnabled = filter_var($request->input('is_tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
-            $totals = $this->calculateProposalTotals($request->items, $isTaxEnabled);
+            $totals = $this->calculateProposalTotals($request->items, $isTaxEnabled, $request->all());
 
             $hasRecurring = $this->hasRecurringBillingItems($request->items);
             $isRecurring = $hasRecurring ? 1 : 0;
