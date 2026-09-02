@@ -1441,10 +1441,10 @@ export default function PreviewModal({
         const runPagination = () => {
             if (measureContainerRef.current) {
                 const scrollH = measureContainerRef.current.scrollHeight;
-                if (scrollH <= 880) {
+                if (scrollH <= 980) {
                     setPaginatedFullProposalPages([fullProposalHtml]);
                 } else {
-                    const chunks = paginateDomContainer(measureContainerRef.current, 880);
+                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
                     setPaginatedFullProposalPages(chunks);
                 }
             } else {

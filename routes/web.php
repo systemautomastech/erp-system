@@ -1,7 +1,5 @@
 <?php
 
-
-
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\ProfileController;
@@ -14,7 +12,6 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\BankTransferPaymentController;
 use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\CouponController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EmailTemplateController;
 use App\Http\Controllers\NotificationTemplateController;
@@ -35,8 +32,6 @@ use App\Http\Controllers\AIAgentChatPageController;
 use App\Http\Controllers\AIAgentChatController;
 use App\Http\Controllers\ProposalSetupController;
 use App\Http\Controllers\ProposalDefaultPageController;
-use Inertia\Inertia;
-
 
 Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Route::get('/dashboard', function () {
@@ -79,7 +74,6 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::post('sales-invoices/{salesInvoice}/post', [SalesInvoiceController::class, 'post'])->name('sales-invoices.post');
     Route::get('sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'print'])->name('sales-invoices.print');
     Route::get('sales-invoices/{salesInvoice}/download-pdf', [SalesInvoiceController::class, 'downloadPdf'])->name('sales-invoices.download-pdf');
-    Route::get('invoice/view/{token}', [SalesInvoiceController::class, 'clientInvoice'])->name('sales-invoice.client.view');
     Route::get('sales-invoices/warehouse/products', [SalesInvoiceController::class, 'getWarehouseProducts'])->name('sales-invoices.warehouse.products');
     Route::get('sales-invoices/services/list', [SalesInvoiceController::class, 'getServices'])->name('sales-invoices.services');
 
@@ -244,6 +238,9 @@ Route::get('/storage-link', function () {
 
 Route::get('/translations/{locale}', [TranslationController::class, 'getTranslations'])->name('languages.translations');
 Route::post('/cookie-consent-log', [SettingController::class, 'logCookieConsent'])->name('cookie.consent.log');
+
+// Public Invoice
+Route::get('invoice/view/{token}', [SalesInvoiceController::class, 'clientInvoice'])->name('sales-invoice.client.view');
 
 //for Instagramchat & Facebookchat
 Route::any('/meta/callback', [MetaController::class, 'handleWebhook'])->name('meta.callback');
