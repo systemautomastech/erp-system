@@ -506,20 +506,24 @@
                                     @if(!empty($companySettings['company_email']))
                                         <p>{{ __('Email') }}: {{ $companySettings['company_email'] }}</p>
                                     @endif
-                                    @if(!empty($companySettings['registration_number']))
-                                        <p>{{ __('Registration') }}: {{ $companySettings['registration_number'] }}</p>
-                                    @endif
                                 </div>
                             </div>
 
                             <!-- Right Column: Invoice Details on Left of QR, and QR Code on Far Right -->
                             <div class="w-1/2 flex items-start justify-end gap-4 text-right">
+                                 @if(!empty($qrCodeSvg))
+                                    <div class="shrink-0 p-1.5 bg-white border border-slate-300 rounded shadow-sm inline-block self-center">
+                                        <div class="w-24 h-24 [&>svg]:w-full [&>svg]:h-full">
+                                            {!! $qrCodeSvg !!}
+                                        </div>
+                                    </div>
+                                @endif
                                 <div>
                                     <div class="flex items-center justify-end gap-2.5 mb-1">
                                         <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">{{ __('INVOICE') }}</h2>
-                                        <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase border {{ $badgeClasses }}">
+                                        {{-- <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase border {{ $badgeClasses }}">
                                             {{ $badgeLabel }}
-                                        </span>
+                                        </span> --}}
                                     </div>
                                     <p class="text-sm font-semibold text-gray-800">#{{ $invoice->invoice_number }}</p>
                                     <div class="text-xs mt-2 space-y-0.5 text-gray-600">
@@ -527,13 +531,7 @@
                                         <p><span class="font-medium text-gray-700">{{ __('Due') }}:</span> {{ $formatDate($invoice->due_date) }}</p>
                                     </div>
                                 </div>
-                                @if(!empty($qrCodeSvg))
-                                    <div class="shrink-0 p-1.5 bg-white border border-slate-300 rounded shadow-sm inline-block self-center">
-                                        <div class="w-24 h-24 [&>svg]:w-full [&>svg]:h-full">
-                                            {!! $qrCodeSvg !!}
-                                        </div>
-                                    </div>
-                                @endif
+                               
                             </div>
                         </div>
 
@@ -623,7 +621,7 @@
                                                 <span style="color: #94a3b8;">-</span>
                                             @endif
                                         </td>
-                                        <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500; white-space: nowrap;">
+                                        <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500;">
                                             {{ $item->quantity }}@if(!empty($unitName)) <span style="font-size: 9px; color: #475569; font-weight: 400;">{{ $unitName }}</span>@endif
                                         </td>
                                         <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">{{ $formatCurrency($item->unit_price) }}</td>

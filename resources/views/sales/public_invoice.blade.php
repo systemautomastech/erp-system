@@ -767,7 +767,7 @@
                                                     @endif
                                                 </td>
                                                 <td
-                                                    style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500; white-space: nowrap;">
+                                                    style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500;">
                                                     {{ $item->quantity }}@if(!empty($unitName)) <span
                                                     style="font-size: 9px; color: #475569; font-weight: 400;">{{ $unitName }}</span>@endif
                                                 </td>

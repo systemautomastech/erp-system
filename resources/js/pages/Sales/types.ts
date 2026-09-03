@@ -21,6 +21,7 @@ export interface SalesInvoice {
     display_status: 'draft' | 'posted' | 'partial' | 'paid' | 'overdue';
     payment_terms?: string;
     notes?: string;
+    public_url?: string;
     creator_id: number;
     created_by: number;
     created_at: string;

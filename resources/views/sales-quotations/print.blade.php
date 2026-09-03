@@ -348,7 +348,7 @@
             color: #293240;
         }
 
-        .quotation-page__body > :first-child .quotation-section-title,
+        .quotation-page__body> :first-child .quotation-section-title,
         .quotation-charges-wrapper:first-child .quotation-section-title {
             margin-top: 0;
         }
@@ -1114,7 +1114,7 @@
                     </div>
                 </div>
 
-            {{-- 2. MRC CHARGES SECTION --}}
+                {{-- 2. MRC CHARGES SECTION --}}
             @elseif($page['type'] === 'mrc')
                 <div class="quotation-preview-sheet mrc-paginated-page" id="{{ $page['id'] }}" data-page-type="mrc">
                     @if(!empty($sheetBgUrl))
@@ -1218,7 +1218,7 @@
                     </div>
                 </div>
 
-            {{-- 3. OTHER DETAILS SECTION --}}
+                {{-- 3. OTHER DETAILS SECTION --}}
             @elseif($page['type'] === 'other-details')
                 <div class="quotation-preview-sheet quotation-cover__sheet other-details-page" id="{{ $page['id'] }}">
                     @if(!empty($sheetBgUrl))
@@ -1241,7 +1241,7 @@
                     </div>
                 </div>
 
-            {{-- 4. CONTENT / DEFAULT PAGES --}}
+                {{-- 4. CONTENT / DEFAULT PAGES --}}
             @else
                 <div class="quotation-preview-sheet quotation-cover__sheet content-page" id="{{ $page['id'] }}">
                     @if(!empty($sheetBgUrl))
