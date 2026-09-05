@@ -93,32 +93,6 @@ interface ExtensionOption {
     user_name?: string | null;
 }
 
-interface Summary {
-    totalCalls: number;
-
-    incoming: number;
-
-    outgoing: number;
-
-    totalDuration: number;
-
-    totalTalkTime: number;
-
-    answered: number;
-
-    noAnswer: number;
-
-    rejected: number;
-
-    otherStatuses: number;
-
-    avgDuration?: number;
-
-    avgTalkTime?: number;
-
-    answerRate?: number;
-}
-
 interface CallFilters {
     search: string;
 
@@ -128,8 +102,22 @@ interface CallFilters {
 
     status: string;
 
+    period?: string;
+
+    from?: string;
+
+    to?: string;
+
     date_range: string;
 }
+
+const PERIOD_OPTIONS = [
+    { value: 'today', label: 'Today' },
+    { value: 'this_week', label: 'This Week' },
+    { value: 'this_month', label: 'This Month' },
+    { value: 'previous_month', label: 'Previous Month' },
+    { value: 'all_time', label: 'All Time' },
+] as const;
 
 interface CallPaginator {
     data: CallLog[];
@@ -188,8 +176,6 @@ interface Props {
     calls: CallPaginator;
 
     extensions: ExtensionOption[];
-
-    summary: Summary;
 
     filters: CallFilters;
 
@@ -301,7 +287,6 @@ const getStatusVariant = (
 export default function Index({
     calls,
     extensions,
-    summary,
     filters: serverFilters,
     callReportPermissions,
 }: Props) {
@@ -349,6 +334,21 @@ export default function Index({
                 ? urlParams.get('status')!
                 : (serverFilters.status && serverFilters.status !== 'all' ? serverFilters.status : ''),
 
+        period:
+            urlParams.get('period')
+            ?? serverFilters.period
+            ?? 'today',
+
+        from:
+            urlParams.get('from')
+            ?? serverFilters.from
+            ?? '',
+
+        to:
+            urlParams.get('to')
+            ?? serverFilters.to
+            ?? '',
+
         date_range:
             urlParams.get('date_range')
             ?? serverFilters.date_range
@@ -361,9 +361,21 @@ export default function Index({
             extension: (serverFilters?.extension && serverFilters.extension !== 'all') ? serverFilters.extension : '',
             call_direction: (serverFilters?.call_direction && serverFilters.call_direction !== 'all') ? serverFilters.call_direction : '',
             status: (serverFilters?.status && serverFilters.status !== 'all') ? serverFilters.status : '',
+            period: serverFilters?.period || 'today',
+            from: serverFilters?.from || '',
+            to: serverFilters?.to || '',
             date_range: serverFilters?.date_range || '',
         });
-    }, [serverFilters?.search, serverFilters?.extension, serverFilters?.call_direction, serverFilters?.status, serverFilters?.date_range]);
+    }, [
+        serverFilters?.search,
+        serverFilters?.extension,
+        serverFilters?.call_direction,
+        serverFilters?.status,
+        serverFilters?.period,
+        serverFilters?.from,
+        serverFilters?.to,
+        serverFilters?.date_range,
+    ]);
 
     /*
     |--------------------------------------------------------------------------
@@ -518,6 +530,7 @@ export default function Index({
             filters.extension,
             filters.call_direction,
             filters.status,
+            (filters.period && filters.period !== 'today') ? filters.period : '',
             filters.date_range,
         ].filter(
             (value) =>
@@ -533,34 +546,61 @@ export default function Index({
     |--------------------------------------------------------------------------
     */
 
-    const buildRequestFilters =
-        () => ({
-            search:
-                filters.search
-                || undefined,
+    const buildRequestFilters = () => {
+        const req: Record<string, any> = {
+            search: filters.search || undefined,
+            extension: (filters.extension && filters.extension !== 'all') ? filters.extension : undefined,
+            call_direction: (filters.call_direction && filters.call_direction !== 'all') ? filters.call_direction : undefined,
+            status: (filters.status && filters.status !== 'all') ? filters.status : undefined,
+            period: filters.period || 'today',
+            per_page: perPage,
+        };
 
-            extension:
-                (filters.extension && filters.extension !== 'all')
-                    ? filters.extension
-                    : undefined,
+        if (filters.period === 'custom') {
+            if (filters.date_range) req.date_range = filters.date_range;
+            if (filters.from) req.from = filters.from;
+            if (filters.to) req.to = filters.to;
+        }
 
-            call_direction:
-                (filters.call_direction && filters.call_direction !== 'all')
-                    ? filters.call_direction
-                    : undefined,
+        return req;
+    };
 
-            status:
-                (filters.status && filters.status !== 'all')
-                    ? filters.status
-                    : undefined,
+    /*
+    |--------------------------------------------------------------------------
+    | Quick Period Switch
+    |--------------------------------------------------------------------------
+    */
 
-            date_range:
-                filters.date_range
-                || undefined,
+    const handlePeriodChange = (newPeriod: string) => {
+        setFilters((prev) => ({
+            ...prev,
+            period: newPeriod,
+            date_range: '',
+            from: '',
+            to: '',
+        }));
 
-            per_page:
-                perPage,
-        });
+        const reqFilters: Record<string, any> = {
+            search: filters.search || undefined,
+            extension: (filters.extension && filters.extension !== 'all') ? filters.extension : undefined,
+            call_direction: (filters.call_direction && filters.call_direction !== 'all') ? filters.call_direction : undefined,
+            status: (filters.status && filters.status !== 'all') ? filters.status : undefined,
+            period: newPeriod,
+            per_page: perPage,
+        };
+
+        router.get(
+            route('pbx.call-reports.index'),
+            reqFilters,
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onStart: () => setLoading(true),
+                onFinish: () => setLoading(false),
+            }
+        );
+    };
 
     /*
     |--------------------------------------------------------------------------
@@ -603,48 +643,32 @@ export default function Index({
     */
 
     const clearFilters = () => {
-        const emptyFilters: CallFilters =
-        {
+        const emptyFilters: CallFilters = {
             search: '',
             extension: '',
             call_direction: '',
             status: '',
+            period: 'today',
             date_range: '',
+            from: '',
+            to: '',
         };
 
-        setFilters(
-            emptyFilters,
-        );
+        setFilters(emptyFilters);
 
         router.get(
-            route(
-                'pbx.call-reports.index',
-            ),
-
+            route('pbx.call-reports.index'),
             {
-                per_page:
-                    perPage,
+                period: 'today',
+                per_page: perPage,
             },
-
             {
-                preserveState:
-                    false,
-
-                preserveScroll:
-                    true,
-
+                preserveState: false,
+                preserveScroll: true,
                 replace: true,
-
-                onStart: () =>
-                    setLoading(
-                        true,
-                    ),
-
-                onFinish: () =>
-                    setLoading(
-                        false,
-                    ),
-            },
+                onStart: () => setLoading(true),
+                onFinish: () => setLoading(false),
+            }
         );
     };
 
@@ -1000,36 +1024,34 @@ export default function Index({
 
                     {/* Toolbar */}
 
-                    <CardContent className="border-b bg-gray-50/50 p-6">
-
-                        <div className="flex items-center justify-between gap-4">
+                    <CardContent className="border-b bg-gray-50/50 p-6 space-y-4">
+                        <div className="flex items-end justify-between gap-4">
 
                             <div className="max-w-md flex-1">
-
-                                <SearchInput
-                                    value={
-                                        filters.search
-                                    }
-                                    onChange={(
-                                        value,
-                                    ) =>
-                                        setFilters(
-                                            {
-                                                ...filters,
-
-                                                search:
-                                                    value,
-                                            },
-                                        )
-                                    }
-                                    onSearch={
-                                        handleFilter
-                                    }
-                                    placeholder={t(
-                                        'Search number or extension...',
-                                    )}
-                                />
-
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        {t('Period')}:
+                                    </label>
+                                    <div className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200/60 bg-slate-100 p-1 dark:border-slate-800 dark:bg-slate-800/60">
+                                        {PERIOD_OPTIONS.map((opt) => (
+                                            <Button
+                                                key={opt.value}
+                                                type="button"
+                                                size="sm"
+                                                variant={filters.period === opt.value ? 'default' : 'ghost'}
+                                                onClick={() => handlePeriodChange(opt.value)}
+                                                disabled={loading}
+                                                className={
+                                                    filters.period === opt.value
+                                                        ? 'h-7 bg-blue-600 px-3 text-xs text-white shadow-xs hover:bg-blue-700'
+                                                        : 'h-7 px-3 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-300'
+                                                }
+                                            >
+                                                {t(opt.label)}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="flex items-center gap-3">
@@ -1079,7 +1101,68 @@ export default function Index({
 
                         <CardContent className="border-b bg-blue-50/30 p-6">
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+
+                                {/* Period */}
+
+                                <div>
+
+                                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                                        {t('Period')}
+                                    </label>
+
+                                    <Select
+                                        value={
+                                            filters.period
+                                            || 'today'
+                                        }
+                                        onValueChange={(
+                                            value,
+                                        ) => {
+                                            if (value === 'custom') {
+                                                setFilters({
+                                                    ...filters,
+                                                    period: 'custom',
+                                                });
+                                            } else {
+                                                setFilters({
+                                                    ...filters,
+                                                    period: value,
+                                                    date_range: '',
+                                                    from: '',
+                                                    to: '',
+                                                });
+                                            }
+                                        }}
+                                    >
+
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={t(
+                                                    'Today',
+                                                )}
+                                            />
+                                        </SelectTrigger>
+
+                                        <SelectContent>
+
+                                            {PERIOD_OPTIONS.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {t(opt.label)}
+                                                </SelectItem>
+                                            ))}
+
+                                            {filters.period === 'custom' && (
+                                                <SelectItem value="custom">
+                                                    {t('Custom')}
+                                                </SelectItem>
+                                            )}
+
+                                        </SelectContent>
+
+                                    </Select>
+
+                                </div>
 
                                 {/* Extension */}
 
@@ -1327,7 +1410,7 @@ export default function Index({
                                             setFilters(
                                                 {
                                                     ...filters,
-
+                                                    period: 'custom',
                                                     date_range:
                                                         value,
                                                 },

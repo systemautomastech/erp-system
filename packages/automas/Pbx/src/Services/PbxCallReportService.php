@@ -113,7 +113,7 @@ class PbxCallReportService
             ]);
 
             throw new RuntimeException(
-                'Issabel call summary API failed with HTTP ' . $response->status() . ': ' . $response->body()
+                'Issabel call summary API failed with HTTP ' . $response->status()
             );
         }
 
@@ -137,8 +137,7 @@ class PbxCallReportService
     public function getCallLogs(
         object $setting,
         array $extensions,
-        array $filters = [],
-        bool $includeSummary = false
+        array $filters = []
     ): array {
         if (empty($setting->call_report_api_url)) {
             throw new RuntimeException('Call report API URL is not configured.');
@@ -231,7 +230,6 @@ class PbxCallReportService
                 'total' => max((int) ($pagination['total'] ?? 0), 0),
                 'last_page' => max((int) ($pagination['last_page'] ?? 1), 1),
             ],
-            'summary' => $this->emptySummary(),
         ];
     }
 
@@ -266,7 +264,7 @@ class PbxCallReportService
             ]);
 
             throw new RuntimeException(
-                'Issabel call report API failed with HTTP ' . $response->status() . ': ' . $response->body()
+                'Issabel call report API failed with HTTP ' . $response->status()
             );
         }
 
@@ -294,27 +292,13 @@ class PbxCallReportService
                 'total' => 0,
                 'last_page' => 1,
             ],
-            'summary' => $this->emptySummary(),
         ];
     }
 
     public function emptySummary(): array
     {
         return [
-            'totalCalls' => 0,
-            'incoming' => 0,
-            'outgoing' => 0,
-            'totalDuration' => 0,
-            'totalTalkTime' => 0,
-            'answered' => 0,
-            'noAnswer' => 0,
-            'rejected' => 0,
-            'otherStatuses' => 0,
-            'avgDuration' => 0,
-            'avgTalkTime' => 0,
-            'answerRate' => 0.0,
-
-            // Snake case parameters for new UI:
+            // Canonical snake_case parameters matching remote call-summary.php API:
             'total_calls' => 0,
             'inbound_calls' => 0,
             'outbound_calls' => 0,
@@ -330,11 +314,28 @@ class PbxCallReportService
             'outbound_unanswered' => 0,
             'total_duration' => 0,
             'total_talk_time' => 0,
+            'total_ring_time' => 0,
             'average_duration' => 0,
             'average_talk_time' => 0,
             'answer_rate' => 0.0,
             'miss_rate' => 0.0,
             'recording_count' => 0,
+
+            // Legacy camelCase parameters for backwards compatibility:
+            'totalCalls' => 0,
+            'incoming' => 0,
+            'outgoing' => 0,
+            'totalDuration' => 0,
+            'totalTalkTime' => 0,
+            'totalRingTime' => 0,
+            'answered' => 0,
+            'noAnswer' => 0,
+            'rejected' => 0,
+            'otherStatuses' => 0,
+            'avgDuration' => 0,
+            'avgTalkTime' => 0,
+            'avgRingTime' => 0,
+            'answerRate' => 0.0,
         ];
     }
 
@@ -404,7 +405,6 @@ class PbxCallReportService
 
         $topExtensionsList = [];
         $extensionPerformanceList = [];
-        $onlineCount = 0;
 
         foreach ($allExtNums as $extNum) {
             $extInfo = $extDataMap[$extNum] ?? [
@@ -452,10 +452,8 @@ class PbxCallReportService
                 'missedPercent' => $missedPct,
                 'failed' => $failed,
                 'failedPercent' => $failedPct,
-                'status' => 'online',
+                'status' => 'unknown',
             ];
-
-            $onlineCount++;
         }
 
         usort($topExtensionsList, fn($a, $b) => $b['total'] <=> $a['total']);
@@ -608,20 +606,20 @@ class PbxCallReportService
 
         $hourlyTrendData = array_values($hourlyMap);
 
-        // 6. Live Status Aggregations
+        // 6. Live Status Aggregations (Summary does not fabricate live status; live status is polled via Asterisk AMI)
         $totalExtCount = max(count($allExtNums), 1);
         $liveStatus = [
-            'online' => $onlineCount,
-            'onlinePercent' => 100.0,
+            'online' => 0,
+            'onlinePercent' => 0.0,
             'onCall' => 0,
             'onCallPercent' => 0.0,
             'ringing' => 0,
             'ringingPercent' => 0.0,
             'offline' => 0,
             'offlinePercent' => 0.0,
-            'activeExtensions' => $onlineCount,
+            'activeExtensions' => 0,
             'totalExtensions' => $totalExtCount,
-            'utilizationPercent' => 100.0,
+            'utilizationPercent' => 0.0,
         ];
 
         return [
@@ -645,4 +643,114 @@ class PbxCallReportService
             ],
         ];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Centralized Report Period Resolver
+    |--------------------------------------------------------------------------
+    |
+    | Resolves report period and enforces application timezone consistency.
+    | Default period is strictly 'today'.
+    | 'all_time' returns null dates and is NEVER a default or fallback.
+    |
+    */
+
+    public function resolveReportPeriod(
+        ?string $period = null,
+        ?string $customFrom = null,
+        ?string $customTo = null,
+        ?string $dateRange = null
+    ): array {
+        $tz = config('app.timezone') ?: 'UTC';
+        $today = Carbon::today($tz)->format('Y-m-d');
+        $now = Carbon::now($tz);
+
+        $period = strtolower(trim((string) $period));
+
+        // 1. If date_range is provided and not 'all time', extract custom from and to
+        if (!empty($dateRange) && strcasecmp(trim($dateRange), 'all time') !== 0) {
+            $parts = preg_split('/(?:\s+-\s+|\s+to\s+)/i', trim($dateRange));
+            if (is_array($parts) && count($parts) === 2) {
+                $parsedFrom = trim($parts[0]);
+                $parsedTo = trim($parts[1]);
+                if (!empty($parsedFrom) && !empty($parsedTo)) {
+                    $customFrom = $parsedFrom;
+                    $customTo = $parsedTo;
+                }
+            }
+        }
+
+        // 2. If explicit custom dates exist (or period is 'custom') and period is not 'all_time'
+        if (($period === 'custom' || (!empty($customFrom) && !empty($customTo))) && $period !== 'all_time') {
+            try {
+                $fromDate = Carbon::parse($customFrom, $tz)->startOfDay();
+                $toDate = Carbon::parse($customTo, $tz)->startOfDay();
+
+                if ($fromDate->lte($toDate)) {
+                    $formattedFrom = $fromDate->format('Y-m-d');
+                    $formattedTo = $toDate->format('Y-m-d');
+
+                    return [
+                        'period' => 'custom',
+                        'from' => $formattedFrom,
+                        'to' => $formattedTo,
+                        'date_range' => "{$formattedFrom} - {$formattedTo}",
+                    ];
+                }
+            } catch (\Throwable $e) {
+                // Invalid dates, fallback to standard period resolution below
+            }
+        }
+
+        // 3. Resolve predefined periods
+        switch ($period) {
+            case 'this_week':
+                $startOfWeek = $now->copy()->startOfWeek()->format('Y-m-d');
+                return [
+                    'period' => 'this_week',
+                    'from' => $startOfWeek,
+                    'to' => $today,
+                    'date_range' => "{$startOfWeek} - {$today}",
+                ];
+
+            case 'this_month':
+                $startOfMonth = $now->copy()->startOfMonth()->format('Y-m-d');
+                return [
+                    'period' => 'this_month',
+                    'from' => $startOfMonth,
+                    'to' => $today,
+                    'date_range' => "{$startOfMonth} - {$today}",
+                ];
+
+            case 'previous_month':
+                $prevMonth = $now->copy()->startOfMonth()->subMonth();
+                $startOfPrevMonth = $prevMonth->copy()->startOfMonth()->format('Y-m-d');
+                $endOfPrevMonth = $prevMonth->copy()->endOfMonth()->format('Y-m-d');
+                return [
+                    'period' => 'previous_month',
+                    'from' => $startOfPrevMonth,
+                    'to' => $endOfPrevMonth,
+                    'date_range' => "{$startOfPrevMonth} - {$endOfPrevMonth}",
+                ];
+
+            case 'all_time':
+                return [
+                    'period' => 'all_time',
+                    'from' => null,
+                    'to' => null,
+                    'date_range' => 'All Time',
+                ];
+
+            case 'today':
+            default:
+                // Default is strictly 'today', NEVER All Time
+                return [
+                    'period' => 'today',
+                    'from' => $today,
+                    'to' => $today,
+                    'date_range' => "{$today} - {$today}",
+                ];
+        }
+    }
 }
+

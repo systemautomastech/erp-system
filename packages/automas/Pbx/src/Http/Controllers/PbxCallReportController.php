@@ -113,41 +113,26 @@ class PbxCallReportController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Date Range
+        | Date Period Resolution (Authoritative Centralized Backend Resolver)
         |--------------------------------------------------------------------------
-        |
-        | Supports:
-        |
-        | ?date_range=2026-08-01 - 2026-08-12
-        |
-        | Also supports old parameters:
-        |
-        | ?from=...
-        | ?to=...
-        |
         */
 
+        $period = $request->input('period');
         $from = $request->input('from');
         $to = $request->input('to');
+        $dateRange = $request->input('date_range');
 
-        $dateRange = trim(
-            (string) $request->input('date_range', '')
+        $resolvedPeriod = $this->callReportService->resolveReportPeriod(
+            $period,
+            $from,
+            $to,
+            $dateRange
         );
 
-        if ($dateRange !== '') {
-            $parts = preg_split(
-                '/\s+-\s+/',
-                $dateRange
-            );
-
-            if (
-                is_array($parts)
-                && count($parts) === 2
-            ) {
-                $from = trim($parts[0]);
-                $to = trim($parts[1]);
-            }
-        }
+        $from = $resolvedPeriod['from'];
+        $to = $resolvedPeriod['to'];
+        $period = $resolvedPeriod['period'];
+        $dateRange = $resolvedPeriod['date_range'];
 
         /*
         |--------------------------------------------------------------------------
@@ -237,8 +222,7 @@ class PbxCallReportController extends Controller
 
                     'page' => $page,
                     'per_page' => $perPage,
-                ],
-                false
+                ]
             );
 
         /*
@@ -276,15 +260,6 @@ class PbxCallReportController extends Controller
                             $extensionNumber
                         );
 
-                    $linkedId =
-                        $call['linkedid']
-                        ?? null;
-
-                    $hasRecording =
-                        (bool) (
-                            $call['has_recording'] ?? false
-                        );
-
                     return [
                         ...$call,
 
@@ -308,40 +283,7 @@ class PbxCallReportController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Fallback In-Memory Filtering (Safeguard for remote API endpoints)
-        |--------------------------------------------------------------------------
-        */
-
-        if ($direction !== '') {
-            $callRows = array_values(array_filter($callRows, function ($call) use ($direction) {
-                return strtolower($call['direction'] ?? '') === strtolower($direction);
-            }));
-        }
-
-        if ($status !== '') {
-            $callRows = array_values(array_filter($callRows, function ($call) use ($status) {
-                $rowStatus = strtoupper(trim($call['status'] ?? ''));
-                $targetStatus = strtoupper(trim($status));
-                if ($targetStatus === 'NO ANSWER' || $targetStatus === 'NOANSWER' || $targetStatus === 'MISSED') {
-                    return in_array($rowStatus, ['NO ANSWER', 'NOANSWER', 'MISSED'], true);
-                }
-                return $rowStatus === $targetStatus;
-            }));
-        }
-
-        if ($search !== '') {
-            $callRows = array_values(array_filter($callRows, function ($call) use ($search) {
-                $needle = strtolower($search);
-                return str_contains(strtolower((string)($call['number'] ?? '')), $needle)
-                    || str_contains(strtolower((string)($call['extension'] ?? '')), $needle)
-                    || str_contains(strtolower((string)($call['did'] ?? '')), $needle)
-                    || str_contains(strtolower((string)($call['user_name'] ?? '')), $needle);
-            }));
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Pagination Information From PBX
+        | Pagination Information From PBX (Authoritative Server-side Pagination)
         |--------------------------------------------------------------------------
         */
 
@@ -390,13 +332,41 @@ class PbxCallReportController extends Controller
         |
         */
 
+        $activeParams = [
+            'period' => $period,
+            'per_page' => $perPage,
+        ];
+
+        if ($period === 'custom') {
+            $activeParams['from'] = $from;
+            $activeParams['to'] = $to;
+            $activeParams['date_range'] = $dateRange;
+        } elseif ($period !== 'all_time') {
+            $activeParams['from'] = $from;
+            $activeParams['to'] = $to;
+        }
+
+        if ($search !== '') {
+            $activeParams['search'] = $search;
+        }
+        if ($selectedExtension !== '') {
+            $activeParams['extension'] = $selectedExtension;
+        }
+        if ($direction !== '') {
+            $activeParams['call_direction'] = $direction;
+        }
+        if ($status !== '') {
+            $activeParams['status'] = $status;
+        }
+
         $calls = $this->buildPaginatorPayload(
             $callRows,
             $currentPage,
             $currentPerPage,
             $total,
             $lastPage,
-            $request
+            $request,
+            $activeParams
         );
 
         /*
@@ -409,10 +379,6 @@ class PbxCallReportController extends Controller
             'Pbx/CallReports/Index',
             [
                 'calls' => $calls,
-
-                'summary' =>
-                $result['summary']
-                    ?? $this->emptySummary(),
 
                 'extensions' =>
                 $extensions
@@ -449,10 +415,17 @@ class PbxCallReportController extends Controller
                     'status' =>
                     $status,
 
+                    'period' =>
+                    $period,
+
+                    'from' =>
+                    $from,
+
+                    'to' =>
+                    $to,
+
                     'date_range' =>
-                    $from && $to
-                        ? "{$from} - {$to}"
-                        : '',
+                    $dateRange,
                 ],
 
                 'callReportPermissions' => [
@@ -508,39 +481,22 @@ class PbxCallReportController extends Controller
             ->get();
 
         $selectedExtension = trim((string) $request->input('extension', ''));
-        $dateRange = trim((string) $request->input('date_range', ''));
+        $dateRange = $request->input('date_range');
         $from = $request->input('from');
         $to = $request->input('to');
-        $period = trim((string) $request->input('period', ''));
+        $period = $request->input('period');
 
-        if ($dateRange !== '') {
-            $parts = preg_split('/(?:\s+-\s+|\s+to\s+)/i', $dateRange);
-            if (is_array($parts) && count($parts) === 2) {
-                $from = trim($parts[0]);
-                $to = trim($parts[1]);
-                $period = 'custom';
-            }
-        } elseif ($from || $to) {
-            $period = 'custom';
-            $dateRange = "{$from} - {$to}";
-        } elseif ($period === 'this_week') {
-            $from = \Illuminate\Support\Carbon::now()->startOfWeek()->format('Y-m-d');
-            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
-            $dateRange = "{$from} - {$to}";
-        } elseif ($period === 'this_month') {
-            $from = \Illuminate\Support\Carbon::now()->startOfMonth()->format('Y-m-d');
-            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
-            $dateRange = "{$from} - {$to}";
-        } elseif ($period === 'all_time') {
-            $from = '2000-01-01';
-            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
-            $dateRange = 'All Time';
-        } else {
-            $period = 'today';
-            $from = \Illuminate\Support\Carbon::today()->format('Y-m-d');
-            $to = \Illuminate\Support\Carbon::today()->format('Y-m-d');
-            $dateRange = "{$from} - {$to}";
-        }
+        $resolvedPeriod = $this->callReportService->resolveReportPeriod(
+            $period,
+            $from,
+            $to,
+            $dateRange
+        );
+
+        $from = $resolvedPeriod['from'];
+        $to = $resolvedPeriod['to'];
+        $period = $resolvedPeriod['period'];
+        $dateRange = $resolvedPeriod['date_range'];
 
         if ($selectedExtension !== '') {
             $extensionAllowed = $extensions->contains(
@@ -594,7 +550,9 @@ class PbxCallReportController extends Controller
                 'filters' => [
                     'extension' => $selectedExtension,
                     'period' => $period,
-                    'date_range' => $from && $to ? "{$from} - {$to}" : '',
+                    'from' => $from,
+                    'to' => $to,
+                    'date_range' => $dateRange,
                 ],
                 'callReportPermissions' => [
                     'view_all' => $canViewAll,
@@ -795,7 +753,8 @@ class PbxCallReportController extends Controller
         int $perPage,
         int $total,
         int $lastPage,
-        Request $request
+        Request $request,
+        array $activeFilters = []
     ): array {
         $from = $total > 0
             ? (($page - 1) * $perPage) + 1
@@ -815,7 +774,8 @@ class PbxCallReportController extends Controller
             $page > 1
                 ? $this->pageUrl(
                     $request,
-                    $page - 1
+                    $page - 1,
+                    $activeFilters
                 )
                 : null,
 
@@ -843,7 +803,8 @@ class PbxCallReportController extends Controller
                 'url' =>
                 $this->pageUrl(
                     $request,
-                    1
+                    1,
+                    $activeFilters
                 ),
 
                 'label' => '1',
@@ -870,7 +831,8 @@ class PbxCallReportController extends Controller
                 'url' =>
                 $this->pageUrl(
                     $request,
-                    $number
+                    $number,
+                    $activeFilters
                 ),
 
                 'label' =>
@@ -897,7 +859,8 @@ class PbxCallReportController extends Controller
                 'url' =>
                 $this->pageUrl(
                     $request,
-                    $lastPage
+                    $lastPage,
+                    $activeFilters
                 ),
 
                 'label' =>
@@ -913,7 +876,8 @@ class PbxCallReportController extends Controller
             $page < $lastPage
                 ? $this->pageUrl(
                     $request,
-                    $page + 1
+                    $page + 1,
+                    $activeFilters
                 )
                 : null,
 
@@ -931,7 +895,8 @@ class PbxCallReportController extends Controller
             'first_page_url' =>
             $this->pageUrl(
                 $request,
-                1
+                1,
+                $activeFilters
             ),
 
             'from' => $from,
@@ -942,7 +907,8 @@ class PbxCallReportController extends Controller
             'last_page_url' =>
             $this->pageUrl(
                 $request,
-                $lastPage
+                $lastPage,
+                $activeFilters
             ),
 
             'links' => $links,
@@ -951,7 +917,8 @@ class PbxCallReportController extends Controller
             $page < $lastPage
                 ? $this->pageUrl(
                     $request,
-                    $page + 1
+                    $page + 1,
+                    $activeFilters
                 )
                 : null,
 
@@ -965,7 +932,8 @@ class PbxCallReportController extends Controller
             $page > 1
                 ? $this->pageUrl(
                     $request,
-                    $page - 1
+                    $page - 1,
+                    $activeFilters
                 )
                 : null,
 
@@ -1013,38 +981,18 @@ class PbxCallReportController extends Controller
 
     private function pageUrl(
         Request $request,
-        int $page
+        int $page,
+        array $activeFilters = []
     ): string {
-        $query = $request->query();
+        $query = array_merge($activeFilters, $request->query());
 
         $query['page'] = $page;
 
+        $cleanQuery = array_filter($query, fn($v) => $v !== null && $v !== '');
+
         return $request->url()
             . '?'
-            . http_build_query($query);
+            . http_build_query($cleanQuery);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Empty Summary
-    |--------------------------------------------------------------------------
-    */
-
-    private function emptySummary(): array
-    {
-        return [
-            'totalCalls' => 0,
-            'incoming' => 0,
-            'outgoing' => 0,
-            'totalDuration' => 0,
-            'totalTalkTime' => 0,
-            'answered' => 0,
-            'noAnswer' => 0,
-            'rejected' => 0,
-            'otherStatuses' => 0,
-            'avgDuration' => 0,
-            'avgTalkTime' => 0,
-            'answerRate' => 0.0,
-        ];
-    }
 }
