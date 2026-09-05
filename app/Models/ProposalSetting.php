@@ -10,7 +10,18 @@ class ProposalSetting extends Model
         'option',
         'value',
         'creator_id',
+        'created_by',
     ];
+
+    public function company()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'creator_id');
+    }
 
     public static function getSettings($creatorId = null)
     {
@@ -56,6 +67,7 @@ class ProposalSetting extends Model
                 ],
                 [
                     'value' => is_array($value) ? json_encode($value) : (string) ($value ?? ''),
+                    'created_by' => creatorId(),
                 ]
             );
         }

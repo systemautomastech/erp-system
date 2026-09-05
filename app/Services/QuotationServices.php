@@ -302,6 +302,35 @@ class QuotationServices
             return;
         }
 
+        $quotation = \Automas\Quotation\Models\SalesQuotation::find($quotationId);
+        $authorUserId = $quotation?->creator_id ?? Auth::id();
+        $authorUser = $authorUserId ? User::with('employee.designation')->find($authorUserId) : null;
+        $employee = $authorUser?->employee;
+
+        $userShortcodes = [
+            'user_name' => $authorUser?->name ?? '',
+            'creator_name' => $authorUser?->name ?? '',
+            'user_email' => $authorUser?->email ?? '',
+            'creator_email' => $authorUser?->email ?? '',
+            'user_phone' => $employee?->emergency_contact_number ?? $authorUser?->mobile_no ?? $authorUser?->phone ?? '',
+            'creator_phone' => $employee?->emergency_contact_number ?? $authorUser?->mobile_no ?? $authorUser?->phone ?? '',
+            'user_id' => $employee?->employee_id ?? ($authorUser?->id ? (string) $authorUser->id : ''),
+            'creator_designation' => $employee?->designation?->name ?? $authorUser?->designation ?? '',
+            'user_designation' => $employee?->designation?->name ?? $authorUser?->designation ?? '',
+        ];
+
+        $replaceUserCodes = function ($text) use ($userShortcodes) {
+            if (empty($text) || !is_string($text)) {
+                return $text;
+            }
+            foreach ($userShortcodes as $k => $v) {
+                if ($v !== '') {
+                    $text = preg_replace('/\{\s*' . preg_quote($k, '/') . '\s*\}/i', $v, $text);
+                }
+            }
+            return $text;
+        };
+
         $index = 1;
         foreach ($items as $item) {
             if (is_array($item)) {
@@ -316,6 +345,13 @@ class QuotationServices
                 $bg = null;
             }
 
+            if ($title !== null) {
+                $title = $replaceUserCodes($title);
+            }
+            if ($html !== null) {
+                $html = $replaceUserCodes($html);
+            }
+
             SalesQuotationContent::create([
                 'quotation_id' => $quotationId,
                 'title' => $title,
@@ -323,6 +359,7 @@ class QuotationServices
                 'background_image' => $bg,
                 'sort_order' => $order,
                 'creator_id' => Auth::id(),
+                'created_by' => creatorId(),
             ]);
             $index++;
         }

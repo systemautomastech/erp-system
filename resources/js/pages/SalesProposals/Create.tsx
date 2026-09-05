@@ -20,6 +20,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
 import ItemsTable from './components/ItemsTable';
 import PageOrder from './components/PageOrder';
+import { replaceUserShortcodes } from './utils/proposalShortcodes';
 
 interface ProposalDefaultPage {
     id: number;
@@ -40,7 +41,9 @@ interface CreateProps {
 
 export default function Create() {
     const { t } = useTranslation();
-    const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = usePage<CreateProps>().props;
+    const pageProps = usePage<CreateProps>().props;
+    const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = pageProps;
+    const authUser = (pageProps as any)?.auth?.user;
     const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -71,7 +74,7 @@ export default function Create() {
             id: `sec-${p.page_type || 'page'}-${p.id || idx}`,
             default_page_id: p.id,
             title: p.title || (p.page_type === 'otc' ? 'One-Time Charges (OTC)' : p.page_type === 'mrc' ? 'Monthly Recurring Charges (MRC)' : p.page_type === 'other-details' ? 'Other Details' : `Page ${idx + 1}`),
-            content: p.page_type === 'otc' ? '[OTC_CHARGES_TABLE]' : (p.page_type === 'mrc' ? '[MRC_CHARGES_TABLE]' : (p.page_type === 'other-details' ? '[OTHER_DETAILS_CONTENT]' : (p.content || ''))),
+            content: p.page_type === 'otc' ? '[OTC_CHARGES_TABLE]' : (p.page_type === 'mrc' ? '[MRC_CHARGES_TABLE]' : (p.page_type === 'other-details' ? '[OTHER_DETAILS_CONTENT]' : (replaceUserShortcodes(p.content, authUser) || ''))),
             page_type: p.page_type || 'general',
             background_image: p.background_image || '',
             order: idx + 1,
@@ -296,8 +299,11 @@ export default function Create() {
         transform((formData) => ({
             ...formData,
             proposal_content: sections.map((item, index) => ({
-                title: item.title,
-                content: item.page_type === 'other-details' ? (data.other_details || item.content || '') : item.content,
+                title: replaceUserShortcodes(item.title, authUser),
+                content: replaceUserShortcodes(
+                    item.page_type === 'other-details' ? (data.other_details || item.content || '') : item.content,
+                    authUser
+                ),
                 page_type: item.page_type || 'content',
                 background_image: item.background_image || '',
                 order: index + 1,
@@ -365,7 +371,8 @@ export default function Create() {
                 type: data.customer_type,
             };
         }
-        return customers?.find((c: any) => c.id.toString() === data.customer_id) || null;
+        if (!data.customer_id || !Array.isArray(customers)) return null;
+        return customers.find((c: any) => c && c.id !== undefined && c.id !== null && String(c.id) === String(data.customer_id)) || null;
     }, [data.customer_mode, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.customer_type, data.customer_address, customers]);
 
     return (
@@ -448,11 +455,11 @@ export default function Create() {
                                                     <SelectValue placeholder={t('Select Customer')} />
                                                 </SelectTrigger>
                                                 <SelectContent searchable>
-                                                    {customers?.map((customer) => (
-                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                            {customer.name} - {customer.email}
-                                                        </SelectItem>
-                                                    ))}
+                                                     {Array.isArray(customers) && customers.map((customer: any) => customer && customer.id !== undefined && customer.id !== null ? (
+                                                         <SelectItem key={customer.id} value={String(customer.id)}>
+                                                             {customer.name || customer.company_name || 'Customer'} - {customer.email || '-'}
+                                                         </SelectItem>
+                                                     ) : null)}
                                                 </SelectContent>
                                             </Select>
                                             <InputError message={errors.customer_id} />

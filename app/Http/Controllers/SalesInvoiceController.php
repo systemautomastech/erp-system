@@ -687,9 +687,7 @@ class SalesInvoiceController extends Controller
 
             $creatorId = $salesInvoice->created_by ?? creatorId();
             $salesInvoiceSetting = SalesInvoiceSetup::getSettings($creatorId);
-            $companyName = $salesInvoiceSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
-
-            $filename = "{$companyName}_Invoice_#{$salesInvoice->invoice_number}.pdf";
+            $filename = "Invoice_{$salesInvoice->invoice_number}.pdf";
 
             return Pdf::view('sales.print', [
                 'invoice' => $salesInvoice,

@@ -44,7 +44,7 @@ class SalesInvoice extends Model
         'balance_amount' => 'decimal:2'
     ];
 
-    protected $appends = ['display_status'];
+    protected $appends = ['display_status', 'public_url'];
 
     public function items(): HasMany
     {
@@ -87,6 +87,21 @@ class SalesInvoice extends Model
             return 'overdue';
         }
         return $this->status;
+    }
+
+    public function getPublicUrlAttribute(): string
+    {
+        if (!empty($this->attributes['public_url'])) {
+            return (string) $this->attributes['public_url'];
+        }
+
+        try {
+            return route('sales-invoice.client.view', [
+                'token' => \Illuminate\Support\Facades\Crypt::encryptString((string) $this->id),
+            ]);
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     protected static function boot()

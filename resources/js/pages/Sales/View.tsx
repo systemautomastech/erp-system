@@ -9,7 +9,8 @@ import { getStatusBadgeClasses } from './utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FileText, Download, ArrowLeft, Receipt, CreditCard, Layers, Printer, Edit } from 'lucide-react';
+import { FileText, Download, ArrowLeft, Receipt, CreditCard, Layers, Printer, Edit, Copy, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePageButtons } from '@/hooks/usePageButtons';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -54,6 +55,52 @@ export default function View() {
         return `${formattedDate} ${strTime}`;
     };
 
+    const [isCopied, setIsCopied] = React.useState(false);
+
+    const handleCopyLink = () => {
+        const url = invoice.public_url;
+        if (!url) {
+            toast.error(t('Invoice link not available'));
+            return;
+        }
+
+        const copySuccess = () => {
+            setIsCopied(true);
+            toast.success(t('Invoice link copied to clipboard'));
+            setTimeout(() => setIsCopied(false), 2000);
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(url)
+                .then(copySuccess)
+                .catch(() => fallbackCopy(url));
+        } else {
+            fallbackCopy(url);
+        }
+
+        function fallbackCopy(text: string) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                if (successful) {
+                    copySuccess();
+                } else {
+                    toast.error(t('Failed to copy link'));
+                }
+            } catch (err) {
+                toast.error(t('Failed to copy link'));
+            }
+        }
+    };
+
     return (
         <AuthenticatedLayout
             breadcrumbs={[
@@ -62,14 +109,27 @@ export default function View() {
             ]}
             pageTitle={`${t('Invoice')} #${invoice.invoice_number}`}
             pageActions={
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.visit(route('sales-invoices.index'))}
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                    {t('Back')}
-                </Button>
+                <div className="flex items-center gap-2">
+                    {invoice.public_url && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCopyLink}
+                            className="gap-1.5"
+                        >
+                            {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                            {isCopied ? t('Copied!') : t('Copy Link')}
+                        </Button>
+                    )}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.visit(route('sales-invoices.index'))}
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        {t('Back')}
+                    </Button>
+                </div>
             }
         >
             <Head title={`${t('Invoice')} #${invoice.invoice_number}`} />

@@ -113,12 +113,24 @@
     if ($statusText === 'paid' || ($totalAmt > 0 && $paidAmt >= $totalAmt)) {
         $badgeLabel = __('Paid');
         $badgeClasses = 'bg-emerald-100/90 text-emerald-800 border-emerald-300 shadow-sm';
+        $stampText = 'PAID';
+        $stampColor = '#16a34a'; // Green
+        $stampBorder = '8px solid #16a34a';
+        $stampFontSize = '68px';
     } elseif ($statusText === 'partial' || ($paidAmt > 0 && $paidAmt < $totalAmt)) {
         $badgeLabel = __('Partial Payment');
         $badgeClasses = 'bg-amber-100/90 text-amber-800 border-amber-300 shadow-sm';
+        $stampText = 'PARTIALLY PAID';
+        $stampColor = '#ca8a04'; // Yellow / Amber
+        $stampBorder = '8px solid #ca8a04';
+        $stampFontSize = '46px';
     } else {
         $badgeLabel = __('Due');
         $badgeClasses = 'bg-rose-100/90 text-rose-800 border-rose-300 shadow-sm';
+        $stampText = 'DUE';
+        $stampColor = '#dc2626'; // Red
+        $stampBorder = '8px solid #dc2626';
+        $stampFontSize = '72px';
     }
 
     // Generate QR Code SVG Helper (Always Encrypted Client URL)
@@ -767,7 +779,7 @@
                                                     @endif
                                                 </td>
                                                 <td
-                                                    style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500; white-space: nowrap;">
+                                                    style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500;">
                                                     {{ $item->quantity }}@if(!empty($unitName)) <span
                                                     style="font-size: 9px; color: #475569; font-weight: 400;">{{ $unitName }}</span>@endif
                                                 </td>
@@ -962,13 +974,16 @@
                             </div>
                         @endif
                     </div>
+                    <div style="font-size: {{ $stampFontSize }}; color: {{ $stampColor }}; position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%) rotate(-25deg); opacity: 0.22; text-transform: uppercase; border: {{ $stampBorder }}; padding: 0px 24px; font-weight: 800; letter-spacing: 3px; pointer-events: none; z-index: 10; white-space: nowrap; user-select: none; font-family: 'Open Sans', sans-serif;">
+                        {{ $stampText }}
+                    </div>
                 </div>
             @endforeach
         </div>
 
         <!-- Dedicated Mobile Clean Single-Sheet Invoice View (Screen Only) -->
         <div class="mobile-invoice-view">
-            <div class="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-6">
+            <div class="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-6 relative overflow-hidden">
                 <!-- Mobile Header: Company Info Left, Invoice Details & QR Right -->
                 <div class="flex items-start justify-between gap-4 pb-5 border-b border-slate-200">
                     <!-- Left: Company Info / Name & Logo -->
@@ -1170,6 +1185,10 @@
 
                 <div class="pt-3 border-t border-slate-100 text-center text-xs text-slate-400">
                     <span>{{ __('Thank you for your business!') }}</span>
+                </div>
+
+                <div style="font-size: 38px; color: {{ $stampColor }}; position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%) rotate(-25deg); opacity: 0.16; text-transform: uppercase; border: {{ $stampBorder }}; padding: 0px 16px; font-weight: 800; letter-spacing: 2px; pointer-events: none; z-index: 10; white-space: nowrap; user-select: none; font-family: 'Open Sans', sans-serif;">
+                    {{ $stampText }}
                 </div>
             </div>
         </div>

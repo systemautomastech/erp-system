@@ -125,6 +125,7 @@ export interface PreviewModalProps {
     backgroundImage?: string;
     settings?: ProposalSettingsConfig | null;
     isDefaultPageSetup?: boolean;
+    showPrintButton?: boolean;
 
     // Direct Page / Inline Render Mode (e.g. SalesProposals/Print.tsx)
     inline?: boolean;
@@ -166,28 +167,7 @@ export interface RenderablePage {
 
 export const DEFAULT_TEMPLATE_COLOR = '#E9591C';
 export const FALLBACK_LOGO = 'uploads/logo/logo_dark.png';
-
-export const PROPOSAL_CONTENT_CLASSES = `
-    text-slate-800 text-sm leading-normal
-    [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2 [&_h1]:text-slate-900
-    [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h2]:text-slate-900
-    [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-1 [&_h3]:text-slate-900
-    [&_h4]:text-base [&_h4]:font-semibold [&_h4]:my-1 [&_h4]:text-slate-900
-    [&_p]:my-1 [&>p:first-child]:mt-0 [&>p:last-child]:mb-0
-    [&_p:empty]:min-h-[1.15em] [&_p:empty]:my-0 [&_p:empty]:before:content-['\\00a0']
-    [&_p:has(>br:only-child)]:min-h-[1.15em] [&_p:has(>br:only-child)]:my-0
-    [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2
-    [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
-    [&_li]:my-0.5
-    [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2
-    [&_table:not(.charges-table)]:w-full [&_table:not(.charges-table)]:table-auto [&_table:not(.charges-table)]:border-collapse [&_table:not(.charges-table)]:my-4 [&_table:not(.charges-table)]:border [&_table:not(.charges-table)]:border-slate-300
-    [&_thead:not(.charges-thead)]:bg-[var(--template-color,#E9591C)] [&_thead:not(.charges-thead)]:text-white
-    [&_thead_tr:not(.charges-thead_tr)]:bg-[var(--template-color,#E9591C)] [&_thead_tr:not(.charges-thead_tr)]:text-white
-    [&_table:not(.charges-table)_th]:border [&_table:not(.charges-table)_th]:border-slate-300 [&_table:not(.charges-table)_th]:bg-[var(--template-color,#E9591C)] [&_table:not(.charges-table)_th]:text-white [&_table:not(.charges-table)_th]:font-bold [&_table:not(.charges-table)_th]:p-2.5 [&_table:not(.charges-table)_th]:text-left
-    [&_table:not(.charges-table)_td]:border [&_table:not(.charges-table)_td]:border-slate-300 [&_table:not(.charges-table)_td]:p-2.5 [&_table:not(.charges-table)_td]:text-slate-800
-    [&_img]:inline-block [&_img]:align-middle [&_[style*="text-align:_center"]_img]:mx-auto [&_[style*="text-align:center"]_img]:mx-auto [&_.text-center_img]:mx-auto
-    [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800
-`;
+export const PROPOSAL_CONTENT_CLASSES = 'html-preview-container';
 
 const PRINT_STYLES = `
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
@@ -196,6 +176,7 @@ const PRINT_STYLES = `
         html, body {
             width: 210mm !important; margin: 0 !important; padding: 0 !important;
             background: white !important;
+            font-family: "Open Sans", sans-serif !important;
         }
         .print-wrapper {
             width: 210mm !important; margin: 0 !important; padding: 0 !important;
@@ -209,6 +190,7 @@ const PRINT_STYLES = `
             page-break-after: always !important; break-after: page !important;
             page-break-inside: avoid !important; break-inside: avoid-page !important;
             overflow: hidden !important;
+            font-family: "Open Sans", sans-serif !important;
         }
         .proposal-page__body {
             position: relative !important; z-index: 1 !important;
@@ -1045,6 +1027,7 @@ export default function PreviewModal({
     backgroundImage,
     settings,
     isDefaultPageSetup,
+    showPrintButton = true,
     // Direct Page / Inline Render Mode
     inline = false,
     autoPrint = false,
@@ -1609,12 +1592,14 @@ export default function PreviewModal({
                                 <DialogTitle className="text-base font-semibold">{modalTitleText}</DialogTitle>
                             </div>
 
-                            <div className="flex items-center gap-2 pr-6">
-                                <Button variant="default" size="sm" onClick={handlePrint} className="gap-2 text-xs h-8">
-                                    <Printer className="h-3.5 w-3.5" />
-                                    {t('Print')}
-                                </Button>
-                            </div>
+                            {showPrintButton && (
+                                <div className="flex items-center gap-2 pr-6">
+                                    <Button variant="default" size="sm" onClick={handlePrint} className="gap-2 text-xs h-8">
+                                        <Printer className="h-3.5 w-3.5" />
+                                        {t('Print')}
+                                    </Button>
+                                </div>
+                            )}
                         </DialogHeader>
 
                         {/* Modal Body / Scrollable Canvas */}

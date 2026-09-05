@@ -109,7 +109,7 @@ class ProposalService
 
     public function getProposalsQuery($user)
     {
-        return SalesProposal::with(['customer', 'items'])
+        return SalesProposal::with(['customer', 'author', 'items'])
             ->where(function ($query) use ($user) {
                 if ($user->type === 'superadmin' || $user->type === 'company' || $user->can('manage-any-sales-proposals')) {
                     $query->where('created_by', creatorId());
@@ -361,11 +361,10 @@ class ProposalService
                 $proposal->customer_address = $request->customer_address;
             } else {
                 $proposal->customer_id = $request->customer_id;
-                $customer = $request->customer_id ? User::find($request->customer_id) : null;
-                $proposal->customer_name = $customer?->name;
-                $proposal->customer_email = $customer?->email;
-                $proposal->customer_phone = $customer?->phone ?? $customer?->mobile_no;
-                $proposal->customer_address = $customer?->address;
+                $proposal->customer_name = null;
+                $proposal->customer_email = null;
+                $proposal->customer_phone = null;
+                $proposal->customer_address = null;
             }
 
             $proposal->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
@@ -414,11 +413,10 @@ class ProposalService
                 $salesProposal->customer_address = $request->customer_address;
             } else {
                 $salesProposal->customer_id = $request->customer_id;
-                $customer = $request->customer_id ? User::find($request->customer_id) : null;
-                $salesProposal->customer_name = $customer?->name;
-                $salesProposal->customer_email = $customer?->email;
-                $salesProposal->customer_phone = $customer?->phone ?? $customer?->mobile_no;
-                $salesProposal->customer_address = $customer?->address;
+                $salesProposal->customer_name = null;
+                $salesProposal->customer_email = null;
+                $salesProposal->customer_phone = null;
+                $salesProposal->customer_address = null;
             }
 
             $salesProposal->warehouse_id = $salesProposal->type === 'product' ? $request->warehouse_id : null;
@@ -653,6 +651,35 @@ class ProposalService
             return;
         }
 
+        $proposal = SalesProposal::find($proposalId);
+        $authorUserId = $proposal?->creator_id ?? Auth::id();
+        $authorUser = $authorUserId ? User::with('employee.designation')->find($authorUserId) : null;
+        $employee = $authorUser?->employee;
+
+        $userShortcodes = [
+            'user_name' => $authorUser?->name ?? '',
+            'creator_name' => $authorUser?->name ?? '',
+            'user_email' => $authorUser?->email ?? '',
+            'creator_email' => $authorUser?->email ?? '',
+            'user_phone' => $employee?->emergency_contact_number ?? $authorUser?->mobile_no ?? $authorUser?->phone ?? '',
+            'creator_phone' => $employee?->emergency_contact_number ?? $authorUser?->mobile_no ?? $authorUser?->phone ?? '',
+            'user_id' => $employee?->employee_id ?? ($authorUser?->id ? (string) $authorUser->id : ''),
+            'creator_designation' => $employee?->designation?->name ?? $authorUser?->designation ?? '',
+            'user_designation' => $employee?->designation?->name ?? $authorUser?->designation ?? '',
+        ];
+
+        $replaceUserCodes = function ($text) use ($userShortcodes) {
+            if (empty($text) || !is_string($text)) {
+                return $text;
+            }
+            foreach ($userShortcodes as $k => $v) {
+                if ($v !== '') {
+                    $text = preg_replace('/\{\s*' . preg_quote($k, '/') . '\s*\}/i', $v, $text);
+                }
+            }
+            return $text;
+        };
+
         $index = 1;
         foreach ($items as $item) {
             if (is_array($item)) {
@@ -671,14 +698,22 @@ class ProposalService
                 $serialized = (string) $item;
             }
 
+            if ($title !== null) {
+                $title = $replaceUserCodes($title);
+            }
+            if ($html !== null) {
+                $html = $replaceUserCodes($html);
+            }
+
             SalesProposalContent::create([
                 'proposal_id' => $proposalId,
                 'title' => $title,
-                'content' => null,
+                'content' => $html ?? $serialized,
                 'page_type' => $pageType,
                 'background_image' => $bg,
-                'proposal_content' => $html ?? $serialized,
                 'order' => $order,
+                'creator_id' => Auth::id(),
+                'created_by' => creatorId(),
             ]);
             $index++;
         }

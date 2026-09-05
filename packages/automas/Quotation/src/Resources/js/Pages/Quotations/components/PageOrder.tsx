@@ -39,7 +39,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getImagePath } from '@/utils/helpers';
-import { replaceQuotationShortcodes } from '../utils/quotationShortcodes';
+import { replaceQuotationShortcodes, replaceUserShortcodes } from '../utils/quotationShortcodes';
 import {
     ProposalPreviewSheet,
     paginateDomContainer,
@@ -188,12 +188,13 @@ export default function PageOrder({ sections, setSections, defaultPages = [], qu
         setModalMode('add');
         setEditorMode('rich');
         const customDefaultPages = defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc');
+        const authUser = pageProps?.auth?.user;
         if (customDefaultPages && customDefaultPages.length > 0) {
             setAddTab('existing');
             const firstPage = customDefaultPages[0];
             setSelectedDefaultPage(firstPage);
             setModalTitle(firstPage.title || '');
-            setModalContent(firstPage.content || '');
+            setModalContent(replaceUserShortcodes(firstPage.content, authUser) || '');
             setModalBackground(firstPage.background_image || '');
             setModalBgType(Boolean(firstPage.background_image && String(firstPage.background_image).trim() !== '') ? 'custom' : 'default');
             setModalPageType(firstPage.page_type || 'content');
@@ -211,9 +212,10 @@ export default function PageOrder({ sections, setSections, defaultPages = [], qu
 
     // Select existing default page in Add Modal
     const handleSelectDefaultPage = (page: QuotationDefaultPage) => {
+        const authUser = pageProps?.auth?.user;
         setSelectedDefaultPage(page);
         setModalTitle(page.title);
-        setModalContent(page.content || '');
+        setModalContent(replaceUserShortcodes(page.content, authUser) || '');
         setModalBackground(page.background_image || '');
         setModalBgType(Boolean(page.background_image && String(page.background_image).trim() !== '') ? 'custom' : 'default');
         setModalPageType(page.page_type || 'general');

@@ -173,6 +173,10 @@
 .proposal-page__body table thead tr,
 .proposal-page__body table thead th,
 .proposal-page__body table th,
+.quotation-page__body table thead,
+.quotation-page__body table thead tr,
+.quotation-page__body table thead th,
+.quotation-page__body table th,
 .html-preview-container table thead,
 .html-preview-container table thead tr,
 .html-preview-container table thead th,
@@ -189,12 +193,243 @@
 .proposal-preview-sheet table th,
 .proposal-page__body table thead th,
 .proposal-page__body table th,
+.quotation-page__body table thead th,
+.quotation-page__body table th,
 .html-preview-container table thead th,
 .html-preview-container table th,
 .prose table thead th,
 .prose table th {
     color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* Proposal & Quotation Custom HTML Content Typography */
+.html-preview-container {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1e293b;
+    width: 100%;
+    font-family: "Open Sans", sans-serif;
+}
+
+.html-preview-container h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 8px 0;
+    color: #0f172a;
+}
+
+.html-preview-container h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 8px 0;
+    color: #0f172a;
+}
+
+.html-preview-container h3 {
+    font-size: 18px;
     font-weight: 600;
+    margin: 6px 0;
+    color: #0f172a;
+}
+
+.html-preview-container h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 4px 0;
+    color: #0f172a;
+}
+
+.html-preview-container p {
+    margin: 4px 0;
+}
+
+.html-preview-container > p:first-child {
+    margin-top: 0;
+}
+
+.html-preview-container > p:last-child {
+    margin-bottom: 0;
+}
+
+.html-preview-container p:empty {
+    min-height: 1.15em;
+    margin: 0;
+}
+
+.html-preview-container p:empty::before {
+    content: "\00a0";
+}
+
+.html-preview-container p:has(> br:only-child) {
+    min-height: 1.15em;
+    margin: 0;
+}
+
+.html-preview-container ul {
+    list-style-type: disc;
+    margin-left: 24px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.html-preview-container ol {
+    list-style-type: decimal;
+    margin-left: 24px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.html-preview-container li {
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.html-preview-container blockquote {
+    border-left: 4px solid #cbd5e1;
+    padding-left: 16px;
+    font-style: italic;
+    margin: 8px 0;
+}
+
+.html-preview-container img {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.html-preview-container a {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+.html-preview-container a:hover {
+    color: #1d4ed8;
+}
+
+/* Text Editor & Custom Content Table Styling - Matching OTC / MRC Table Padding, Font, Size & Height Exactly */
+.proposal-preview-sheet table:not(.charges-table),
+.proposal-page__body table:not(.proposal-table),
+.quotation-page__body table:not(.quotation-table),
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table),
+.prose table,
+.ProseMirror table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 10px !important;
+    font-family: "Open Sans", sans-serif !important;
+    line-height: 1.35 !important;
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+    color: #293240 !important;
+}
+
+.proposal-preview-sheet table:not(.charges-table) thead tr,
+.proposal-page__body table:not(.proposal-table) thead tr,
+.quotation-page__body table:not(.quotation-table) thead tr,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) thead tr,
+.prose table thead tr,
+.ProseMirror table thead tr {
+    background-color: var(--template-color, #E9591C) !important;
+    color: #ffffff !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+}
+
+.proposal-preview-sheet table:not(.charges-table) thead th,
+.proposal-preview-sheet table:not(.charges-table) th,
+.proposal-page__body table:not(.proposal-table) thead th,
+.proposal-page__body table:not(.proposal-table) th,
+.quotation-page__body table:not(.quotation-table) thead th,
+.quotation-page__body table:not(.quotation-table) th,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) thead th,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) th,
+.prose table thead th,
+.prose table th,
+.ProseMirror table thead th,
+.ProseMirror table th {
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    font-family: "Open Sans", sans-serif !important;
+    line-height: 1.35 !important;
+    border: 1px solid #cbd5e1 !important;
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    background-color: var(--template-color, #E9591C) !important;
+    color: #ffffff !important;
+    text-align: left !important;
+}
+
+.proposal-preview-sheet table:not(.charges-table) th *,
+.proposal-page__body table:not(.proposal-table) th *,
+.quotation-page__body table:not(.quotation-table) th *,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) th *,
+.prose table th *,
+.ProseMirror table th * {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    font-family: "Open Sans", sans-serif !important;
+    line-height: 1.35 !important;
+    color: #ffffff !important;
+}
+
+.proposal-preview-sheet table:not(.charges-table) tbody td,
+.proposal-preview-sheet table:not(.charges-table) td,
+.proposal-page__body table:not(.proposal-table) tbody td,
+.proposal-page__body table:not(.proposal-table) td,
+.quotation-page__body table:not(.quotation-table) tbody td,
+.quotation-page__body table:not(.quotation-table) td,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) tbody td,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td,
+.prose table tbody td,
+.prose table td,
+.ProseMirror table tbody td,
+.ProseMirror table td {
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    font-family: "Open Sans", sans-serif !important;
+    line-height: 1.35 !important;
+    border: 1px solid #cbd5e1 !important;
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    color: #293240 !important;
+    word-break: break-word !important;
+}
+
+.proposal-preview-sheet table:not(.charges-table) td *,
+.proposal-page__body table:not(.proposal-table) td *,
+.quotation-page__body table:not(.quotation-table) td *,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td *,
+.prose table td *,
+.ProseMirror table td * {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10px !important;
+    font-family: "Open Sans", sans-serif !important;
+    line-height: 1.35 !important;
+    color: inherit !important;
+}
+
+.proposal-preview-sheet table:not(.charges-table) td p + p,
+.proposal-page__body table:not(.proposal-table) td p + p,
+.quotation-page__body table:not(.quotation-table) td p + p,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td p + p,
+.prose table td p + p,
+.ProseMirror table td p + p {
+    margin-top: 3px !important;
+}
+
+.proposal-preview-sheet table:not(.charges-table) tr,
+.proposal-page__body table:not(.proposal-table) tr,
+.quotation-page__body table:not(.quotation-table) tr,
+.html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) tr,
+.prose table tr,
+.ProseMirror table tr {
+    min-height: auto !important;
+    border-bottom: 1px solid #cbd5e1 !important;
 }
 
 /* Ensure images and logos respect parent text alignment (center/left/right) */

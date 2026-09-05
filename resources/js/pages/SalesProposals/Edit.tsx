@@ -55,16 +55,17 @@ export default function Edit() {
         if (Array.isArray(contentsRel) && contentsRel.length > 0) {
             parsed = contentsRel.map((c: any) => {
                 let dec: any = null;
-                if (c.proposal_content) {
+                const rawVal = c.content || c.proposal_content;
+                if (rawVal) {
                     try {
-                        dec = typeof c.proposal_content === 'string' ? JSON.parse(c.proposal_content) : c.proposal_content;
+                        dec = typeof rawVal === 'string' ? JSON.parse(rawVal) : rawVal;
                     } catch (e) { }
                 }
 
                 if (dec && typeof dec === 'object' && !Array.isArray(dec)) {
                     return {
                         title: dec.title || c.title || '',
-                        content: dec.content || c.proposal_content || '',
+                        content: dec.content || rawVal || '',
                         page_type: dec.page_type || c.page_type || 'general',
                         background_image: dec.background_image || c.background_image || '',
                         order: typeof c.order !== 'undefined' ? Number(c.order) : (typeof dec.order !== 'undefined' ? Number(dec.order) : 1),
@@ -74,7 +75,7 @@ export default function Edit() {
 
                 return {
                     title: c.title || '',
-                    content: c.proposal_content || '',
+                    content: rawVal || '',
                     page_type: c.page_type || 'general',
                     background_image: c.background_image || '',
                     order: typeof c.order !== 'undefined' ? Number(c.order) : 1,
@@ -436,11 +437,11 @@ export default function Edit() {
                                                     <SelectValue placeholder={t('Select Customer')} />
                                                 </SelectTrigger>
                                                 <SelectContent searchable>
-                                                    {customers?.map((customer) => (
-                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                            {customer.name} - {customer.email}
+                                                    {Array.isArray(customers) && customers.map((customer: any) => customer && customer.id !== undefined && customer.id !== null ? (
+                                                        <SelectItem key={customer.id} value={String(customer.id)}>
+                                                            {customer.name || customer.company_name || 'Customer'} - {customer.email || '-'}
                                                         </SelectItem>
-                                                    ))}
+                                                    ) : null)}
                                                 </SelectContent>
                                             </Select>
                                             <InputError message={errors.customer_id} />

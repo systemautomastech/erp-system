@@ -15,8 +15,9 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
     Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
-    Wallet, AlertTriangle, TrendingUp, FileClock, Users, X
+    Wallet, AlertTriangle, TrendingUp, FileClock, Users, X, Copy, Check
 } from "lucide-react";
+import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -250,6 +251,52 @@ export default function Index() {
         navigate({ ...filters, customer_id: '', per_page: perPage });
     };
 
+    const [copiedId, setCopiedId] = useState<number | null>(null);
+
+    const handleCopyLink = (invoice: SalesInvoice) => {
+        const url = invoice.public_url;
+        if (!url) {
+            toast.error(t('Invoice link not available'));
+            return;
+        }
+
+        const copySuccess = () => {
+            setCopiedId(invoice.id);
+            toast.success(t('Invoice link copied to clipboard'));
+            setTimeout(() => setCopiedId(null), 2000);
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(url)
+                .then(copySuccess)
+                .catch(() => fallbackCopy(url));
+        } else {
+            fallbackCopy(url);
+        }
+
+        function fallbackCopy(text: string) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                if (successful) {
+                    copySuccess();
+                } else {
+                    toast.error(t('Failed to copy link'));
+                }
+            } catch (err) {
+                toast.error(t('Failed to copy link'));
+            }
+        }
+    };
+
     const canSeeActions = auth.user?.permissions?.some((p: string) => ['view-sales-invoices', 'edit-sales-invoices', 'delete-sales-invoices', 'post-sales-invoices', 'print-sales-invoices'].includes(p));
 
     const renderActions = (invoice: SalesInvoice) => (
@@ -268,6 +315,25 @@ export default function Index() {
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent><p>{t('Print/Download')}</p></TooltipContent>
+                </Tooltip>
+            )}
+            {invoice.public_url && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyLink(invoice)}
+                            className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700"
+                        >
+                            {copiedId === invoice.id ? (
+                                <Check className="h-4 w-4 text-green-600" />
+                            ) : (
+                                <Copy className="h-4 w-4" />
+                            )}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{copiedId === invoice.id ? t('Copied!') : t('Copy Link')}</p></TooltipContent>
                 </Tooltip>
             )}
             <InvoiceActionButtons invoice={invoice} />
