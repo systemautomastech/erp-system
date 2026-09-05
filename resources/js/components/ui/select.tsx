@@ -426,26 +426,6 @@ const SelectContent = React.forwardRef<
           )}
 
           /* -------------------------------------------------------------- */
-          /* Search gets focus when dropdown opens                           */
-          /* -------------------------------------------------------------- */
-
-          onOpenAutoFocus={(
-            event
-          ) => {
-            if (!searchable) {
-              return
-            }
-
-            event.preventDefault()
-
-            requestAnimationFrame(
-              () => {
-                inputRef.current?.focus()
-              }
-            )
-          }}
-
-          /* -------------------------------------------------------------- */
           /* Clear old search when select closes                             */
           /* -------------------------------------------------------------- */
 
@@ -504,6 +484,7 @@ const SelectContent = React.forwardRef<
               <Input
                 ref={inputRef}
                 type="text"
+                autoFocus
                 value={search}
                 placeholder={
                   searchPlaceholder

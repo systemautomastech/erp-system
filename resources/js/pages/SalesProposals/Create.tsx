@@ -12,10 +12,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarDays, Plus, Trash2, GripVertical, FileText, User, Users, UserPlus, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CalendarDays, Plus, Trash2, GripVertical, FileText, User, Users, UserPlus, X, Tag, Loader2, Save } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { cn } from '@/lib/utils';
+import axios from 'axios';
+import { toast } from 'sonner';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
 import ItemsTable from './components/ItemsTable';
@@ -36,16 +39,58 @@ interface CreateProps {
     warehouses: Array<{ id: number; name: string; address: string }>;
     defaultPages?: ProposalDefaultPage[];
     defaultTerms?: string | null;
+    subjects?: Array<{ id: number; name: string }>;
     [key: string]: any;
 }
 
 export default function Create() {
     const { t } = useTranslation();
     const pageProps = usePage<CreateProps>().props;
-    const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting } = pageProps;
+    const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting, subjects = [] } = pageProps;
     const authUser = (pageProps as any)?.auth?.user;
     const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [subjectList, setSubjectList] = useState<Array<{ id: number; name: string }>>(subjects);
+
+    useEffect(() => {
+        if (subjects) {
+            setSubjectList(subjects);
+        }
+    }, [subjects]);
+
+    const [isQuickSubjectModalOpen, setIsQuickSubjectModalOpen] = useState(false);
+    const [quickSubjectName, setQuickSubjectName] = useState('');
+    const [isQuickSubjectSaving, setIsQuickSubjectSaving] = useState(false);
+    const [quickSubjectError, setQuickSubjectError] = useState('');
+
+    const handleCreateQuickSubject = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!quickSubjectName.trim()) {
+            setQuickSubjectError(t('Subject name is required.'));
+            return;
+        }
+        setIsQuickSubjectSaving(true);
+        try {
+            const response = await axios.post(route('proposal-setup.subjects.store'), {
+                name: quickSubjectName.trim()
+            }, {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (response.data?.subject) {
+                const newSub = response.data.subject;
+                setSubjectList((prev) => [newSub, ...prev]);
+                setData('subject', newSub.name);
+                toast.success(t('Subject created and selected.'));
+                setIsQuickSubjectModalOpen(false);
+                setQuickSubjectName('');
+                setQuickSubjectError('');
+            }
+        } catch (err: any) {
+            setQuickSubjectError(err.response?.data?.errors?.name?.[0] || err.response?.data?.message || t('Failed to create subject.'));
+        } finally {
+            setIsQuickSubjectSaving(false);
+        }
+    };
 
     // Helper to build active sections strictly following defaultPages order rule
     const buildSectionsFromDefaultPages = (itemsList: ProposalItem[], otherDetailsContent: string) => {
@@ -408,13 +453,39 @@ export default function Create() {
                                 </div>
 
                                 <div className="w-full flex-1">
-                                    <Label htmlFor="subject">{t('Subject')}</Label>
-                                    <Input
-                                        id="subject"
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <Label htmlFor="subject" required className="mb-0">
+                                            {t('Subject')}
+                                        </Label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setQuickSubjectName('');
+                                                setQuickSubjectError('');
+                                                setIsQuickSubjectModalOpen(true);
+                                            }}
+                                            className="text-[11px] font-semibold text-primary flex items-center gap-1 cursor-pointer hover:underline transition-colors"
+                                        >
+                                            <Plus className="h-3 w-3" />
+                                            {t('New Subject')}
+                                        </button>
+                                    </div>
+
+                                    <Select
                                         value={data.subject}
-                                        onChange={(e) => setData('subject', e.target.value)}
-                                        placeholder={t('e.g., Quotation for IP PABX Service')}
-                                    />
+                                        onValueChange={(value) => setData('subject', value)}
+                                    >
+                                        <SelectTrigger id="subject" className="w-full">
+                                            <SelectValue placeholder={t('Select Proposal Subject')} />
+                                        </SelectTrigger>
+                                        <SelectContent searchable>
+                                            {subjectList.map((subj) => (
+                                                <SelectItem key={subj.id} value={subj.name}>
+                                                    {subj.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <InputError message={errors.subject} />
                                 </div>
                             </div>
@@ -837,6 +908,62 @@ export default function Create() {
                     </div>
                 </form>
             </div>
+            {/* Quick Create Subject Dialog */}
+            <Dialog open={isQuickSubjectModalOpen} onOpenChange={setIsQuickSubjectModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <form onSubmit={handleCreateQuickSubject}>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Tag className="h-5 w-5 text-primary" />
+                                {t('New Proposal Subject')}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {t('Create a new subject and automatically select it for this proposal.')}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="quick-subject-name" required>
+                                    {t('Subject Name')}
+                                </Label>
+                                <Input
+                                    id="quick-subject-name"
+                                    placeholder={t('e.g., Quotation for Cloud PBX Service')}
+                                    value={quickSubjectName}
+                                    onChange={(e) => {
+                                        setQuickSubjectName(e.target.value);
+                                        if (quickSubjectError) setQuickSubjectError('');
+                                    }}
+                                    autoFocus
+                                />
+                                {quickSubjectError && (
+                                    <p className="text-xs text-destructive mt-1">{quickSubjectError}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsQuickSubjectModalOpen(false)}
+                                disabled={isQuickSubjectSaving}
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button type="submit" disabled={isQuickSubjectSaving} className="gap-1.5">
+                                {isQuickSubjectSaving ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Save className="h-4 w-4" />
+                                )}
+                                {t('Save & Select')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AuthenticatedLayout>
     );
 }

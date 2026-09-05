@@ -67,6 +67,7 @@ class UpdateSalesProposalRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'subject.required' => __('Please select a subject.'),
             'due_date.required' => __('Please select a due date.'),
             'due_date.after_or_equal' => __('Due date must be equal to or after the proposal date.'),
             'customer_id.exists' => __('Selected customer does not exist.'),

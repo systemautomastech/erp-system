@@ -7,13 +7,15 @@ import SetupSidebar from './Sidebar';
 import GeneralSettings from './GeneralSettings/Index';
 import LogoTemplates from './LogoTemplates/Index';
 import DefaultPages from './DefaultPages/Index';
+import Subjects, { ProposalSubjectItem } from './Subjects/Index';
 
 interface Props {
     settings?: Record<string, any> | null;
     defaultPages?: any[];
+    subjects?: ProposalSubjectItem[];
 }
 
-export default function Index({ settings, defaultPages = [] }: Props) {
+export default function Index({ settings, defaultPages = [], subjects = [] }: Props) {
     const { t } = useTranslation();
     const [activeSection, setActiveSection] = useState('general-settings');
 
@@ -40,11 +42,11 @@ export default function Index({ settings, defaultPages = [] }: Props) {
             // If user scrolled close to the bottom of the page, activate the last section
             const isBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100;
             if (isBottom) {
-                setActiveSection('default-pages');
+                setActiveSection('subjects');
                 return;
             }
 
-            const sections = ['general-settings', 'logo-template', 'default-pages'];
+            const sections = ['general-settings', 'logo-template', 'default-pages', 'subjects'];
             for (const sectionId of sections) {
                 const element = document.getElementById(sectionId);
                 if (element) {
@@ -98,6 +100,15 @@ export default function Index({ settings, defaultPages = [] }: Props) {
                         <Card className="shadow-sm">
                             <CardContent className="p-6">
                                 <DefaultPages defaultPages={defaultPages} settings={settings || {}} />
+                            </CardContent>
+                        </Card>
+                    </section>
+
+                    {/* 4. Subjects Section */}
+                    <section id="subjects" className="scroll-mt-6">
+                        <Card className="shadow-sm">
+                            <CardContent className="p-6">
+                                <Subjects subjects={subjects} />
                             </CardContent>
                         </Card>
                     </section>
