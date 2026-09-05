@@ -57,6 +57,7 @@ export const defaultQuotationVariableGroups: VariableGroup[] = [
     {
         title: 'Quotation',
         items: [
+            { label: 'Quotation Subject', key: 'quotation_subject' },
             { label: 'Quotation Number', key: 'quotation_number' },
             { label: 'Quotation Date', key: 'quotation_date' },
             { label: 'Quotation Due Date', key: 'due_date' },

@@ -28,6 +28,7 @@ class QuotationDefaultPageController extends Controller
             'User Name' => 'user_name',
             'User Email' => 'user_email',
             'User Phone' => 'user_phone',
+            'Quotation Subject' => 'quotation_subject',
             'Quotation Number' => 'quotation_number',
             'Quotation Date' => 'quotation_date',
             'Due Date' => 'due_date',
