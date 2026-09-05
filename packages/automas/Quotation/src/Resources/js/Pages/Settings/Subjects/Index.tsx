@@ -146,7 +146,7 @@ export default function Subjects({ subjects = [] }: QuotationSubjectsProps) {
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h3 className="text-lg font-semibold tracking-tight">{t('Quotation Subjects')}</h3>
+                        <h3 className="text-lg font-semibold tracking-tight">{t('Subjects')}</h3>
                         <p className="text-xs text-muted-foreground mt-0.5">
                             {t('Manage predefined quotation subjects that users can select when creating a sales quotation.')}
                         </p>

@@ -42,7 +42,7 @@ export default function Sidebar({ activeSection, onNavClick }: SetupSidebarProps
         },
         {
             id: 'subjects',
-            label: t('Quotation Subjects'),
+            label: t('Subjects'),
             icon: FileText,
         },
     ];
