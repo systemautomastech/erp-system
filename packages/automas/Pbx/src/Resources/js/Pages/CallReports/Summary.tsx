@@ -75,15 +75,39 @@ interface Extension {
 }
 
 interface Summary {
-    totalCalls: number;
-    incoming: number;
-    outgoing: number;
-    totalDuration: number;
-    totalTalkTime: number;
-    answered: number;
-    noAnswer: number;
-    rejected: number;
-    otherStatuses: number;
+    total_calls?: number;
+    inbound_calls?: number;
+    outbound_calls?: number;
+    answered_calls?: number;
+    missed_calls?: number;
+    no_answer_calls?: number;
+    busy_calls?: number;
+    failed_calls?: number;
+    congestion_calls?: number;
+    inbound_answered?: number;
+    inbound_missed?: number;
+    outbound_answered?: number;
+    outbound_unanswered?: number;
+    total_duration?: number;
+    total_talk_time?: number;
+    total_ring_time?: number;
+    average_duration?: number;
+    average_talk_time?: number;
+    answer_rate?: number;
+    miss_rate?: number;
+    recording_count?: number;
+
+    // Legacy camelCase properties:
+    totalCalls?: number;
+    incoming?: number;
+    outgoing?: number;
+    totalDuration?: number;
+    totalTalkTime?: number;
+    totalRingTime?: number;
+    answered?: number;
+    noAnswer?: number;
+    rejected?: number;
+    otherStatuses?: number;
     avgDuration?: number;
     avgTalkTime?: number;
     avgRingTime?: number;
@@ -194,6 +218,8 @@ interface SummaryProps {
     filters: {
         extension?: string;
         period?: string;
+        from?: string;
+        to?: string;
         date_range?: string;
     };
     callReportPermissions: CallReportPermissions;
@@ -252,9 +278,10 @@ export default function SummaryIndex({
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
     const formatDuration = (seconds: number | undefined): string => {
-        if (!seconds || seconds <= 0) return '0s';
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
+        const val = Math.max(0, Math.round(Number(seconds || 0)));
+        if (val === 0) return '0s';
+        const mins = Math.floor(val / 60);
+        const secs = val % 60;
         if (mins === 0) return `${secs}s`;
         const hours = Math.floor(mins / 60);
         const remMins = mins % 60;
@@ -262,8 +289,15 @@ export default function SummaryIndex({
         return `${hours}h ${remMins}m ${secs}s`;
     };
 
+    useEffect(() => {
+        setSelectedPeriod(filters?.period || 'today');
+        setSelectedExtension(filters?.extension || '');
+        setDateRange(filters?.date_range || '');
+    }, [filters?.period, filters?.extension, filters?.date_range]);
+
     const handlePeriodChange = (newPeriod: string) => {
         setSelectedPeriod(newPeriod);
+        setDateRange('');
         setIsRefreshing(true);
         router.get(
             route('pbx.call-reports.summary'),
@@ -554,10 +588,11 @@ export default function SummaryIndex({
     // KPI Values directly from real summary metrics
     const displayTotalCalls = summary?.total_calls ?? summary?.totalCalls ?? 0;
     const displayAnswered = summary?.answered_calls ?? summary?.answered ?? 0;
-    const displayNoAnswer = summary?.no_answer_calls ?? summary?.noAnswer ?? 0;
+    const displayNoAnswer = summary?.no_answer_calls ?? summary?.missed_calls ?? summary?.noAnswer ?? 0;
     const displayFailed = ((summary?.busy_calls ?? 0) + (summary?.failed_calls ?? 0) + (summary?.congestion_calls ?? 0)) || (summary?.rejected ?? 0);
-    const displayTotalTalkTime = summary?.total_talk_time ?? summary?.totalTalkTime ?? 0;
     const displayTotalDuration = summary?.total_duration ?? summary?.totalDuration ?? 0;
+    const displayTotalTalkTime = summary?.total_talk_time ?? summary?.totalTalkTime ?? 0;
+    const displayTotalRingTime = summary?.total_ring_time ?? summary?.totalRingTime ?? (displayTotalCalls > 0 ? Math.max(0, displayTotalDuration - displayTotalTalkTime) : 0);
 
     const dispositionData: ChartItem[] = useMemo(() => {
         if (charts?.status && charts.status.length > 0) {
@@ -580,8 +615,9 @@ export default function SummaryIndex({
         return data.filter((item) => item.value > 0);
     }, [charts?.status, displayAnswered, displayNoAnswer, displayFailed, t]);
 
+    const displayAvgDuration = summary?.average_duration ?? (summary as any)?.avg_duration ?? summary?.avgDuration ?? (displayTotalCalls > 0 ? Math.round(displayTotalDuration / displayTotalCalls) : 0);
     const displayAvgTalkTime = summary?.average_talk_time ?? (summary as any)?.avg_talk_time ?? summary?.avgTalkTime ?? (displayAnswered > 0 ? Math.round(displayTotalTalkTime / displayAnswered) : 0);
-    const displayAvgRingTime = (summary as any)?.average_ring_time ?? (summary as any)?.avg_ring_time ?? summary?.avgRingTime ?? (displayTotalCalls > 0 ? Math.round(Math.max(0, displayTotalDuration - displayTotalTalkTime) / displayTotalCalls) : 0);
+    const displayAvgRingTime = (summary as any)?.average_ring_time ?? (summary as any)?.avg_ring_time ?? summary?.avgRingTime ?? (displayTotalCalls > 0 ? Math.round(displayTotalRingTime / displayTotalCalls) : 0);
 
     const answerRateVal = summary?.answer_rate ?? summary?.answerRate ?? (displayTotalCalls > 0 ? Number(((displayAnswered / displayTotalCalls) * 100).toFixed(1)) : 0);
     const noAnswerRateVal = summary?.miss_rate ?? (displayTotalCalls > 0 ? Number(((displayNoAnswer / displayTotalCalls) * 100).toFixed(1)) : 0);
@@ -726,6 +762,16 @@ export default function SummaryIndex({
                                     <Button
                                         type="button"
                                         size="sm"
+                                        variant={selectedPeriod === 'previous_month' ? 'default' : 'ghost'}
+                                        onClick={() => handlePeriodChange('previous_month')}
+                                        disabled={isRefreshing}
+                                        className={selectedPeriod === 'previous_month' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs text-xs h-7 px-3' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 text-xs h-7 px-3'}
+                                    >
+                                        {t('Previous Month')}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
                                         variant={selectedPeriod === 'all_time' ? 'default' : 'ghost'}
                                         onClick={() => handlePeriodChange('all_time')}
                                         disabled={isRefreshing}
@@ -825,8 +871,8 @@ export default function SummaryIndex({
                     </CardContent>
                 </Card>
 
-                {/* 6 Metric KPI Cards */}
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+                {/* Call Volumes & Outcomes (4 Cards) */}
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
                     {/* 1. Total Calls */}
                     <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
                         <CardContent className="p-4">
@@ -838,9 +884,8 @@ export default function SummaryIndex({
                                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                                         {displayTotalCalls}
                                     </p>
-                                    <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                                        <ArrowUpRight className="h-3 w-3" />
-                                        <span>+12.4% vs previous</span>
+                                    <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                                        <span>{answerRateVal}% {t('Answered')}</span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
@@ -865,7 +910,7 @@ export default function SummaryIndex({
                                         {displayAnswered}
                                     </p>
                                     <div className="mt-1 text-[11px] font-semibold text-emerald-600">
-                                        <span>{answerRateVal}% Answer Rate</span>
+                                        <span>{answerRateVal}% {t('Answer Rate')}</span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
@@ -890,7 +935,7 @@ export default function SummaryIndex({
                                         {displayNoAnswer}
                                     </p>
                                     <div className="mt-1 text-[11px] font-semibold text-amber-600">
-                                        <span>{noAnswerRateVal}% Missed</span>
+                                        <span>{noAnswerRateVal}% {t('Missed')}</span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
@@ -915,7 +960,7 @@ export default function SummaryIndex({
                                         {displayFailed}
                                     </p>
                                     <div className="mt-1 text-[11px] font-semibold text-rose-600">
-                                        <span>{failedRateVal}% Failed</span>
+                                        <span>{failedRateVal}% {t('Failed')}</span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400">
@@ -927,47 +972,73 @@ export default function SummaryIndex({
                             </div>
                         </CardContent>
                     </Card>
+                </div>
 
-                    {/* 5. Avg Talk Time */}
+                {/* 3 Distinct Call Duration Metrics: Total Duration, Total Talk Time, Total Ring Time */}
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                    {/* Total Duration */}
                     <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
                         <CardContent className="p-4">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {t('Avg Talk Time')}
+                                        {t('Total Duration')}
                                     </p>
                                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                                        {displayAvgTalkTime}s
+                                        {formatDuration(displayTotalDuration)}
                                     </p>
-                                    <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                                        <ArrowUpRight className="h-3 w-3" />
-                                        <span>+4s vs previous</span>
+                                    <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                        <span>{t('Avg Duration')}: {formatDuration(displayAvgDuration)}</span>
                                     </div>
                                 </div>
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
                                     <Clock className="h-4.5 w-4.5" />
                                 </div>
                             </div>
                             <div className="mt-3">
-                                <Sparkline color="#3b82f6" id="5" />
+                                <Sparkline color="#6366f1" id="dur" />
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* 6. Avg Ring Time */}
+                    {/* Total Talk Time */}
                     <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
                         <CardContent className="p-4">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {t('Avg Ring Time')}
+                                        {t('Total Talk Time')}
                                     </p>
                                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                                        {displayAvgRingTime}s
+                                        {formatDuration(displayTotalTalkTime)}
                                     </p>
-                                    <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                                        <ArrowDownRight className="h-3 w-3" />
-                                        <span>-2s vs previous</span>
+                                    <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                        <span>{t('Avg Talk Time')}: {formatDuration(displayAvgTalkTime)}</span>
+                                    </div>
+                                </div>
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                    <PhoneCall className="h-4.5 w-4.5" />
+                                </div>
+                            </div>
+                            <div className="mt-3">
+                                <Sparkline color="#10b981" id="talk" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Total Ring Time */}
+                    <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        {t('Total Ring Time')}
+                                    </p>
+                                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                                        {formatDuration(displayTotalRingTime)}
+                                    </p>
+                                    <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                        <span>{t('Avg Ring Time')}: {formatDuration(displayAvgRingTime)}</span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400">
@@ -975,7 +1046,7 @@ export default function SummaryIndex({
                                 </div>
                             </div>
                             <div className="mt-3">
-                                <Sparkline color="#8b5cf6" id="6" />
+                                <Sparkline color="#8b5cf6" id="ring" />
                             </div>
                         </CardContent>
                     </Card>
