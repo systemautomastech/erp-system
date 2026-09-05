@@ -12,6 +12,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Quotation'])->gro
     Route::post('sales-quotation/settings/update', [QuotationSettingController::class, 'update'])->name('quotation-setup.update');
 
     // Quotation Default Pages
+    Route::post('sales-quotation/default-pages/reorder', [QuotationDefaultPageController::class, 'reorder'])->name('quotation-setup.default-pages.reorder');
     Route::resource('sales-quotation/default-pages', QuotationDefaultPageController::class)
         ->names([
             'create' => 'quotation-setup.default-pages.create',

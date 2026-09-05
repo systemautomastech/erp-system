@@ -100,6 +100,37 @@
             return (string) $date;
         }
     };
+
+    // Determine Payment Status Badge
+    $paidAmt = (float) ($invoice->paid_amount ?? 0);
+    $totalAmt = (float) ($invoice->total_amount ?? 0);
+    $statusText = strtolower($invoice->status ?? '');
+
+    if ($statusText === 'paid' || ($totalAmt > 0 && $paidAmt >= $totalAmt)) {
+        $badgeLabel = __('Paid');
+        $badgeClasses = 'bg-emerald-100/90 text-emerald-800 border-emerald-300 shadow-sm';
+    } elseif ($statusText === 'partial' || ($paidAmt > 0 && $paidAmt < $totalAmt)) {
+        $badgeLabel = __('Partial Payment');
+        $badgeClasses = 'bg-amber-100/90 text-amber-800 border-amber-300 shadow-sm';
+    } else {
+        $badgeLabel = __('Due');
+        $badgeClasses = 'bg-rose-100/90 text-rose-800 border-rose-300 shadow-sm';
+    }
+
+    // Generate QR Code SVG Helper (Always Encrypted Client URL)
+    $qrCodeSvg = '';
+    try {
+        $encryptedToken = \Illuminate\Support\Facades\Crypt::encryptString($invoice->id);
+        $qrUrl = route('sales-invoice.client.view', $encryptedToken);
+        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+            new \BaconQrCode\Renderer\RendererStyle\RendererStyle(70, 0),
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+        );
+        $writer = new \BaconQrCode\Writer($renderer);
+        $qrCodeSvg = $writer->writeString($qrUrl);
+    } catch (\Exception $e) {
+        $qrCodeSvg = '';
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -445,12 +476,16 @@
                 <div>
                     <!-- Header (Only Full on First Page, Minimal Header on Subsequent Pages) -->
                     @if($isFirstPage)
-                        <div class="flex justify-between items-start mb-5">
-                            <div class="w-1/2">
+                        <div class="header-flex-container flex justify-between items-start mb-5">
+                            <!-- Left Column: Company Logo, Name & Information -->
+                            <div class="w-1/2 relative">
                                 @if($showLogo && $logoUrl)
-                                    <img src="{{ $logoUrl }}" alt="Logo" class="max-h-14 max-w-[200px] object-contain mb-3">
-                                @else
-                                    <h1 class="text-2xl font-bold mb-2 text-gray-900"></h1>
+                                    <div class="mb-2" style="position: absolute; top: -75px; left: 0;">
+                                        <img src="{{ $logoUrl }}" alt="Logo" class="max-h-14 max-w-[200px] object-contain">
+                                    </div>
+                                @endif
+                                @if(!empty($salesInvoiceSetting['company_name']) || !empty($companySettings['company_name']))
+                                    <h1 class="text-xl sm:text-2xl font-bold mb-1.5 text-gray-900 leading-tight">{{ $salesInvoiceSetting['company_name'] ?? $companySettings['company_name'] }}</h1>
                                 @endif
                                 <div class="text-xs space-y-0.5 text-gray-600">
                                     @if(!empty($companySettings['company_address']))
@@ -476,13 +511,29 @@
                                     @endif
                                 </div>
                             </div>
-                            <div class="text-right w-1/2">
-                                <h2 class="text-2xl font-bold mb-1 text-gray-900">{{ __('INVOICE') }}</h2>
-                                <p class="text-base font-semibold text-gray-800">#{{ $invoice->invoice_number }}</p>
-                                <div class="text-xs mt-2 space-y-0.5 text-gray-600">
-                                    <p>{{ __('Date') }}: {{ $formatDate($invoice->invoice_date) }}</p>
-                                    <p>{{ __('Due') }}: {{ $formatDate($invoice->due_date) }}</p>
+
+                            <!-- Right Column: Invoice Details on Left of QR, and QR Code on Far Right -->
+                            <div class="w-1/2 flex items-start justify-end gap-4 text-right">
+                                <div>
+                                    <div class="flex items-center justify-end gap-2.5 mb-1">
+                                        <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">{{ __('INVOICE') }}</h2>
+                                        <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase border {{ $badgeClasses }}">
+                                            {{ $badgeLabel }}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm font-semibold text-gray-800">#{{ $invoice->invoice_number }}</p>
+                                    <div class="text-xs mt-2 space-y-0.5 text-gray-600">
+                                        <p><span class="font-medium text-gray-700">{{ __('Date') }}:</span> {{ $formatDate($invoice->invoice_date) }}</p>
+                                        <p><span class="font-medium text-gray-700">{{ __('Due') }}:</span> {{ $formatDate($invoice->due_date) }}</p>
+                                    </div>
                                 </div>
+                                @if(!empty($qrCodeSvg))
+                                    <div class="shrink-0 p-1.5 bg-white border border-slate-300 rounded shadow-sm inline-block self-center">
+                                        <div class="w-24 h-24 [&>svg]:w-full [&>svg]:h-full">
+                                            {!! $qrCodeSvg !!}
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
 

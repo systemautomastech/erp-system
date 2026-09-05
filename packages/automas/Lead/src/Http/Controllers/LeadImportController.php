@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class LeadImportController extends Controller
@@ -29,8 +30,61 @@ class LeadImportController extends Controller
             auth()->user()?->can('create-leads'),
             403
         );
-        $downloadLink = getFilePath('samples/lead_import.csv');
+        $downloadLink = route('lead.leads.import.sample');
         return Inertia::render('Lead/Leads/Import/Index', compact('downloadLink'));
+    }
+
+    public function downloadSample(): StreamedResponse
+    {
+        abort_unless(
+            auth()->user()?->can('create-leads'),
+            403
+        );
+
+        $filename = 'sample_lead_import.csv';
+
+        return response()->streamDownload(function () {
+            $handle = fopen('php://output', 'w');
+
+            // UTF-8 BOM so spreadsheet applications open properly
+            fputs($handle, "\xEF\xBB\xBF");
+
+            // CSV Header Row
+            fputcsv($handle, ['Name', 'Subject', 'Phone', 'Email', 'Notes', 'Follow Up Date']);
+
+            // Sample Data Rows with valid phone formats (BD/standard)
+            fputcsv($handle, [
+                'John Doe',
+                'Interested in ERP Solution',
+                '01712345678',
+                'john.doe@example.com',
+                'Requested pricing and module details',
+                date('Y-m-d', strtotime('+3 days')),
+            ]);
+
+            fputcsv($handle, [
+                'Sarah Jenkins',
+                'Software Demo Request',
+                '01812345678',
+                'sarah.j@example.com',
+                'Needs multi-company management support',
+                date('Y-m-d', strtotime('+5 days')),
+            ]);
+
+            fputcsv($handle, [
+                'Alex Johnson',
+                'API Integration Inquiry',
+                '01912345678',
+                'alex.johnson@example.com',
+                'Looking for CRM and Accounting integration',
+                '',
+            ]);
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 
     public function upload(UploadLeadImportRequest $request, LeadImportCsvService $csvService): RedirectResponse

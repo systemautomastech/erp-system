@@ -13,15 +13,20 @@ declare global {
 const getCompanySetting = (key: string, pageProps?: any) => {
   try {
     // If pageProps is provided, use it; otherwise get from usePage
-    let companySettings;
-    if (pageProps?.companyAllSetting) {
-      companySettings = pageProps.companyAllSetting;
+    let companySettings: Record<string, any> = {};
+    let adminSettings: Record<string, any> = {};
+    if (pageProps?.companyAllSetting || pageProps?.adminAllSetting) {
+      companySettings = pageProps.companyAllSetting || {};
+      adminSettings = pageProps.adminAllSetting || {};
     } else {
       const { props } = usePage();
       companySettings = (props as any).companyAllSetting || {};
+      adminSettings = (props as any).adminAllSetting || {};
     }
 
-    return companySettings[key];
+    return companySettings[key] !== undefined && companySettings[key] !== null
+      ? companySettings[key]
+      : adminSettings[key] ?? null;
   } catch {
     return null;
   }
@@ -48,7 +53,32 @@ const getAdminSetting = (key: string, pageProps?: any) => {
 };
 
 /**
- * Format date to readable format
+ * Safely parse date inputs into Date objects
+ */
+const parseDateInput = (date: string | Date): Date | null => {
+  if (!date) return null;
+  if (date instanceof Date) {
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    if (!trimmed) return null;
+    // YYYY-MM-DD date-only string: avoid UTC timezone day-shift
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+    // Handle space-separated datetime e.g. "2026-09-02 15:30:00"
+    const cleaned = trimmed.includes(' ') && !trimmed.includes('T') ? trimmed.replace(' ', 'T') : trimmed;
+    const d = new Date(cleaned);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(date);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+/**
+ * Format date to readable format according to company date format settings
  */
 const formatDate = (
   date: string | Date,
@@ -56,14 +86,11 @@ const formatDate = (
 ): string => {
   if (!date) return '';
 
+  const d = parseDateInput(date);
+  if (!d) return '';
+
   const format =
     getCompanySetting('dateFormat', pageProps) || 'Y-m-d';
-
-  const d = new Date(date);
-
-  if (Number.isNaN(d.getTime())) {
-    return '';
-  }
 
   const year = d.getFullYear();
   const monthIndex = d.getMonth();
@@ -118,58 +145,44 @@ const formatDate = (
 };
 
 /**
- * Format time to readable format
+ * Format time to readable format according to company time format settings
  */
 const formatTime = (time: string, pageProps?: any): string => {
   if (!time) return '';
   const timeFormat = getCompanySetting('timeFormat', pageProps) || 'H:i';
-  const [hours, minutes] = time.split(':');
-  const h = parseInt(hours);
-  const m = String(parseInt(minutes)).padStart(2, '0');
+  const parts = time.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = String(parseInt(parts[1], 10) || 0).padStart(2, '0');
 
-  if (timeFormat === 'g:i A') {
-    const period = h >= 12 ? 'PM' : 'AM';
-    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  if (Number.isNaN(h)) return '';
+
+  if (timeFormat === 'g:i A' || timeFormat === 'h:i A' || timeFormat === 'g:i a' || timeFormat === 'h:i a') {
+    const isLower = timeFormat.includes('a');
+    const period = h >= 12 ? (isLower ? 'pm' : 'PM') : (isLower ? 'am' : 'AM');
+    const hourVal = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const displayHour = timeFormat.startsWith('h') ? String(hourVal).padStart(2, '0') : String(hourVal);
     return `${displayHour}:${m} ${period}`;
   }
 
   return timeFormat
     .replace('H', String(h).padStart(2, '0'))
+    .replace('G', String(h))
     .replace('i', m);
 };
 
 /**
- * Format date and time to readable format
+ * Format date and time to readable format according to company date and time format settings
  */
 const formatDateTime = (date: string | Date, pageProps?: any): string => {
   if (!date) return '';
-  const dateFormat = getCompanySetting('dateFormat', pageProps) || 'Y-m-d';
-  const timeFormat = getCompanySetting('timeFormat', pageProps) || 'H:i';
 
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = d.getHours();
-  const m = String(d.getMinutes()).padStart(2, '0');
+  const d = parseDateInput(date);
+  if (!d) return '';
 
-  const formattedDate = dateFormat
-    .replace('Y', String(year))
-    .replace('m', month)
-    .replace('d', day);
+  const formattedDate = formatDate(d, pageProps);
+  const formattedTime = formatTimeFromDate(d, pageProps);
 
-  let formattedTime;
-  if (timeFormat === 'g:i A') {
-    const period = h >= 12 ? 'PM' : 'AM';
-    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    formattedTime = `${displayHour}:${m} ${period}`;
-  } else {
-    formattedTime = timeFormat
-      .replace('H', String(h).padStart(2, '0'))
-      .replace('i', m);
-  }
-
-  return `${formattedDate} ${formattedTime}`;
+  return `${formattedDate} ${formattedTime}`.trim();
 };
 
 /**
@@ -178,8 +191,8 @@ const formatDateTime = (date: string | Date, pageProps?: any): string => {
 const formatTimeFromDate = (date: string | Date, pageProps?: any): string => {
   if (!date) return '';
 
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '';
+  const d = parseDateInput(date);
+  if (!d) return '';
 
   const hours = String(d.getHours()).padStart(2, '0');
   const minutes = String(d.getMinutes()).padStart(2, '0');

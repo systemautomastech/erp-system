@@ -12,6 +12,7 @@ use App\Http\Requests\UpdateSalesInvoiceRequest;
 use Automas\ProductService\Models\ProductServiceItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Events\CreateSalesInvoice;
@@ -138,6 +139,17 @@ class SalesInvoiceController extends Controller
 
             $perPage = $request->get('per_page', 10);
             $invoices = $query->paginate($perPage);
+
+            // Encrypt invoice id for public url
+            $invoices->getCollection()->transform(function ($invoice) {
+                return $invoice->setAttribute(
+                    'public_url',
+                    route('sales-invoice.client.view', [
+                        'token' => Crypt::encryptString((string) $invoice->id),
+                    ])
+                );
+            });
+
             $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name')->where('created_by', creatorId())->get();
 
@@ -169,7 +181,6 @@ class SalesInvoiceController extends Controller
 
                 $customerSummaries = $customerSummaries->map(function ($row) use ($customerModels) {
                     $customer = $customerModels->get($row->customer_id);
-
                     return [
                         'customer' => $customer ? [
                             'id' => $customer->id,
@@ -451,11 +462,33 @@ class SalesInvoiceController extends Controller
         }
     }
 
-    public function clientInvoice($id)
+    public function clientInvoice($token)
     {
-        $invoice = SalesInvoice::with(['customer', 'items', 'items.taxes'])->find($id);
-        return Inertia::render('Account/SalesInvoices/ClientView', [
-            'invoice' => $invoice,
+        try {
+            $invoiceId = Crypt::decryptString($token);
+        } catch (\Exception $e) {
+            $invoiceId = $token;
+        }
+
+        $salesInvoice = SalesInvoice::with([
+            'customer',
+            'customerDetails',
+            'items.product.unitRelation',
+            'items.taxes',
+            'warehouse',
+            'paymentAllocations.payment.bankAccount',
+        ])->find($invoiceId);
+
+        if (!$salesInvoice) {
+            abort(404, __('Invoice not found'));
+        }
+
+        $creatorId = $salesInvoice->created_by ?? creatorId();
+        $salesInvoiceSetting = SalesInvoiceSetup::getSettings($creatorId);
+
+        return view('sales.public_invoice', [
+            'invoice' => $salesInvoice,
+            'salesInvoiceSetting' => $salesInvoiceSetting,
         ]);
     }
 

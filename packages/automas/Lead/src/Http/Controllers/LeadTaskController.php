@@ -95,13 +95,13 @@ class LeadTaskController extends Controller
             $usr = Auth::user();
             $validated = $request->validated();
 
-            $leadTask             = new LeadTask();
-            $leadTask->lead_id    = $validated['lead_id'];
-            $leadTask->name       = $validated['name'];
-            $leadTask->date       = $validated['date'];
-            $leadTask->time       = $validated['time'];
-            $leadTask->priority   = $validated['priority'];
-            $leadTask->status     = $validated['status'];
+            $leadTask = new LeadTask();
+            $leadTask->lead_id = $validated['lead_id'];
+            $leadTask->name = $validated['name'];
+            $leadTask->date = $validated['date'];
+            $leadTask->time = $validated['time'];
+            $leadTask->priority = $validated['priority'];
+            $leadTask->status = $validated['status'];
             $leadTask->created_by = creatorId();
             $leadTask->creator_id = Auth::id();
             $leadTask->save();
@@ -127,11 +127,11 @@ class LeadTaskController extends Controller
 
             $validated = $request->validated();
 
-            $task->name     = $validated['name'];
-            $task->date     = $validated['date'];
-            $task->time     = $validated['time'];
+            $task->name = $validated['name'];
+            $task->date = $validated['date'];
+            $task->time = $validated['time'];
             $task->priority = $validated['priority'];
-            $task->status   = $validated['status'];
+            $task->status = $validated['status'];
             $task->save();
 
             UpdateLeadTask::dispatch($request, $task);

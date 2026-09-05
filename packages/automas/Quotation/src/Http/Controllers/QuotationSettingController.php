@@ -20,6 +20,8 @@ class QuotationSettingController extends Controller
         }
 
         $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $this->syncFixedPages($creatorId);
+
         $settings = QuotationSetting::getSettings($creatorId);
 
         $defaultPages = QuotationDefaultPage::with('author:id,name,email')
@@ -35,6 +37,48 @@ class QuotationSettingController extends Controller
             'settings' => $settings,
             'defaultPages' => $defaultPages,
         ]);
+    }
+
+    private function syncFixedPages(int $creatorId): void
+    {
+        if (!$creatorId)
+            return;
+
+        // 1. OTC Page
+        $otc = QuotationDefaultPage::where('created_by', $creatorId)
+            ->where('page_type', 'otc')
+            ->first();
+
+        if (!$otc) {
+            $maxOrder = QuotationDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
+            QuotationDefaultPage::create([
+                'title' => 'One-Time Charges (OTC)',
+                'content' => '',
+                'page_type' => 'otc',
+                'sort_order' => $maxOrder + 1,
+                'is_active' => true,
+                'created_by' => $creatorId,
+                'creator_id' => $creatorId,
+            ]);
+        }
+
+        // 2. MRC Page
+        $mrc = QuotationDefaultPage::where('created_by', $creatorId)
+            ->where('page_type', 'mrc')
+            ->first();
+
+        if (!$mrc) {
+            $maxOrder = QuotationDefaultPage::where('created_by', $creatorId)->max('sort_order') ?? 0;
+            QuotationDefaultPage::create([
+                'title' => 'Monthly Recurring Charges (MRC)',
+                'content' => '',
+                'page_type' => 'mrc',
+                'sort_order' => $maxOrder + 1,
+                'is_active' => true,
+                'created_by' => $creatorId,
+                'creator_id' => $creatorId,
+            ]);
+        }
     }
 
     public function store(StoreQuotationSettingRequest $request)

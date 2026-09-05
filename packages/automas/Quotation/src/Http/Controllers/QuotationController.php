@@ -40,72 +40,70 @@ class QuotationController extends Controller
             return back()->with('error', __('Permission denied'));
         }
 
-        $quotation = SalesQuotation::with(['customer', 'items'])
-            ->where(function ($query) use ($user) {
+        $query = SalesQuotation::with(['customer', 'items'])
+            ->where(function ($q) use ($user) {
                 if ($user->type === 'superadmin' || $user->type === 'company' || $user->can('manage-any-quotations')) {
-                    $query->where('created_by', creatorId());
+                    $q->where('created_by', creatorId());
                 } elseif ($user->can('manage-own-quotations')) {
-                    $query->where('created_by', creatorId())
-                        ->where(function ($q) use ($user) {
-                            $q->where('creator_id', $user->id)
+                    $q->where('created_by', creatorId())
+                        ->where(function ($sub) use ($user) {
+                            $sub->where('creator_id', $user->id)
                                 ->orWhere('customer_id', $user->id);
                         });
                     if ($user->type === 'client') {
-                        $query->where('status', '!=', 'draft');
+                        $q->where('status', '!=', 'draft');
                     }
                 } else {
-                    $query->whereRaw('1 = 0');
+                    $q->whereRaw('1 = 0');
                 }
             });
 
         if ($request->filled('customer_id')) {
-            $quotation->where('customer_id', $request->customer_id);
+            $query->where('customer_id', $request->customer_id);
         }
 
         if ($request->filled('search')) {
-            $searchKeyword = $request->search;
-            $quotation->where(function ($query) use ($searchKeyword) {
-                $query->where('quotation_number', 'like', "%{$searchKeyword}%")
-                    ->orWhere('customer_name', 'like', "%{$searchKeyword}%");
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('quotation_number', 'like', "%{$search}%")
+                    ->orWhere('customer_name', 'like', "%{$search}%");
             });
         }
 
         if ($request->filled('date_range')) {
             $dates = explode(' - ', $request->date_range);
             if (count($dates) === 2) {
-                $quotation->whereBetween('quotation_date', [$dates[0], $dates[1]]);
+                $query->whereBetween('quotation_date', [$dates[0], $dates[1]]);
             }
         }
 
-        // statistics
-        $stats = $this->quotationServices->getQuotationStatistics($quotation);
+        $stats = $this->quotationServices->getQuotationStatistics($query);
 
-        $filteredQuotations = clone $quotation;
+        $filtered = clone $query;
         if ($request->filled('status')) {
             if ($request->status === 'expired') {
-                $filteredQuotations->where('due_date', '<', now())->whereNotIn('status', ['accepted', 'rejected']);
+                $filtered->where('due_date', '<', now())->whereNotIn('status', ['accepted', 'rejected']);
             } else {
-                $filteredQuotations->where('status', $request->status);
+                $filtered->where('status', $request->status);
             }
         }
 
-        $allowedSortFields = ['quotation_number', 'quotation_date', 'due_date', 'subtotal', 'tax_amount', 'total_amount', 'status', 'created_at'];
-        $sortField = in_array($request->input('sort'), $allowedSortFields) ? $request->input('sort') : 'created_at';
-        $sortDirection = $request->input('direction', 'desc');
+        $sortFields = ['quotation_number', 'quotation_date', 'due_date', 'subtotal', 'tax_amount', 'total_amount', 'status', 'created_at'];
+        $sort = in_array($request->input('sort'), $sortFields) ? $request->input('sort') : 'created_at';
+        $direction = $request->input('direction', 'desc');
 
-        $quotations = $filteredQuotations->orderBy($sortField, $sortDirection)->paginate($request->input('per_page', 10));
-
+        $quotations = $filtered->orderBy($sort, $direction)->paginate($request->input('per_page', 10));
         $customers = $this->customerService->getCompactCustomers();
 
         $boardData = null;
         if ($request->input('view', 'board') !== 'list') {
             $boardData = [];
-            foreach (['draft', 'sent', 'accepted', 'rejected'] as $boardStatus) {
-                $boardStatusQuery = (clone $quotation)->where('status', $boardStatus);
-                if ($boardStatus === 'accepted') {
-                    $boardStatusQuery->where('converted_to_invoice', false);
+            foreach (['draft', 'sent', 'accepted', 'rejected'] as $status) {
+                $statusQuery = (clone $query)->where('status', $status);
+                if ($status === 'accepted') {
+                    $statusQuery->where('converted_to_invoice', false);
                 }
-                $boardData[$boardStatus] = $boardStatusQuery->orderBy('created_at', 'desc')->limit(8)->get();
+                $boardData[$status] = $statusQuery->orderBy('created_at', 'desc')->limit(8)->get();
             }
         }
 
@@ -127,14 +125,14 @@ class QuotationController extends Controller
         $customers = $this->customerService->getCustomers();
         $warehouses = $this->warehouseService->getActiveWarehouses();
         $defaultPages = $this->quotationServices->getActiveDefaultPages(Auth::id());
-        $quotationSetting = $this->quotationServices->getQuotationSetting();
+        $settings = $this->quotationServices->getQuotationSetting();
 
         return Inertia::render('Quotation/Quotations/Create', [
             'customers' => $customers,
             'warehouses' => $warehouses,
             'defaultPages' => $defaultPages,
-            'defaultTerms' => $quotationSetting['default_terms'] ?? null,
-            'quotationSetting' => $quotationSetting,
+            'defaultTerms' => $settings['default_terms'] ?? null,
+            'quotationSetting' => $settings,
         ]);
     }
 
@@ -145,8 +143,8 @@ class QuotationController extends Controller
         }
 
         try {
-            $validatedData = $request->validated();
-            $quotation = $this->quotationServices->createQuotation($validatedData);
+            $data = $request->validated();
+            $quotation = $this->quotationServices->createQuotation($data);
             CreateQuotation::dispatch($request, $quotation);
 
             return redirect()->route('quotations.index')
@@ -187,7 +185,7 @@ class QuotationController extends Controller
 
         $customers = $this->customerService->getCustomers();
         $warehouses = $this->warehouseService->getActiveWarehouses();
-        $quotationSetting = $this->quotationServices->getQuotationSetting();
+        $settings = $this->quotationServices->getQuotationSetting();
         $defaultPages = $this->quotationServices->getActiveDefaultPages(Auth::id());
 
         return Inertia::render('Quotation/Quotations/Edit', [
@@ -195,7 +193,7 @@ class QuotationController extends Controller
             'customers' => $customers,
             'warehouses' => $warehouses,
             'defaultPages' => $defaultPages,
-            'quotationSetting' => $quotationSetting,
+            'quotationSetting' => $settings,
         ]);
     }
 
@@ -318,14 +316,14 @@ class QuotationController extends Controller
         }
 
         $quotation->load($this->quotationServices->getQuotationRelations());
-        $quotationAuthorId = $quotation->creator_id ?? Auth::id();
-        $defaultPages = $this->quotationServices->getActiveDefaultPages($quotationAuthorId);
-        $quotationSetting = $this->quotationServices->getQuotationSetting();
+        $authorId = $quotation->creator_id ?? Auth::id();
+        $pages = $this->quotationServices->getActiveDefaultPages($authorId);
+        $settings = $this->quotationServices->getQuotationSetting();
 
         return view('sales-quotations.print', [
             'quotation' => $quotation,
-            'defaultPages' => $defaultPages,
-            'quotationSetting' => $quotationSetting,
+            'defaultPages' => $pages,
+            'quotationSetting' => $settings,
         ]);
     }
 
@@ -336,18 +334,18 @@ class QuotationController extends Controller
         }
 
         $quotation->load($this->quotationServices->getQuotationRelations());
-        $quotationAuthorId = $quotation->creator_id ?? Auth::id();
-        $defaultPages = $this->quotationServices->getActiveDefaultPages($quotationAuthorId);
-        $quotationSetting = $this->quotationServices->getQuotationSetting();
+        $authorId = $quotation->creator_id ?? Auth::id();
+        $pages = $this->quotationServices->getActiveDefaultPages($authorId);
+        $settings = $this->quotationServices->getQuotationSetting();
 
-        $companyName = $quotationSetting['company_name'] ?? company_setting('company_name', creatorId()) ?? '';
-        $quotationNumber = $quotation->quotation_number;
-        $filename = "{$companyName}_Sales Quotation_#{$quotationNumber}.pdf";
+        $company = $settings['company_name'] ?? company_setting('company_name', creatorId()) ?? '';
+        $num = $quotation->quotation_number;
+        $filename = "{$company}_Sales Quotation_#{$num}.pdf";
 
         return Pdf::view('sales-quotations.print', [
             'quotation' => $quotation,
-            'defaultPages' => $defaultPages,
-            'quotationSetting' => $quotationSetting,
+            'defaultPages' => $pages,
+            'quotationSetting' => $settings,
             'isServerPdf' => true,
         ])
             ->format('a4')

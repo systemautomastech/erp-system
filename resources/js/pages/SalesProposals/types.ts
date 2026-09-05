@@ -40,3 +40,38 @@ export interface ProposalWarehouse {
     name: string;
     address?: string;
 }
+
+export interface SalesProposal {
+    id: number;
+    proposal_number: string;
+    reference?: string;
+    subject: string;
+    proposal_date: string;
+    due_date: string;
+    customer_id?: number | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
+    warehouse_id?: number;
+    type?: string;
+    is_recurring?: boolean | number;
+    is_prepaid?: boolean | number;
+    is_tax_enabled?: boolean | number;
+    otc_discount_type?: 'percentage' | 'fixed';
+    otc_discount_value?: number;
+    mrc_discount_type?: 'percentage' | 'fixed';
+    mrc_discount_value?: number;
+    subtotal: number;
+    tax_amount: number;
+    discount_amount: number;
+    total_amount: number;
+    status: string;
+    display_status?: string;
+    payment_terms?: string | null;
+    notes?: string;
+    created_at?: string;
+    updated_at?: string;
+    items?: ProposalItem[];
+    [key: string]: any;
+}

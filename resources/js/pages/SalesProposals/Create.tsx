@@ -5,9 +5,6 @@ import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
 import { ProposalItem } from '@/pages/SalesProposals/types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
-import ProposalItemsTable from '@/pages/SalesProposals/components/ProposalItemsTable';
-import { useTaxCalculator } from '@/pages/Sales/components/TaxCalculator';
-import { formatCurrency } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,17 +12,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight, Check, Eye, User, Users, UserPlus, X } from 'lucide-react';
-import RichTextEditor from '@/components/ui/rich-text-editor';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
+import { CalendarDays, Plus, Trash2, GripVertical, FileText, User, Users, UserPlus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import RichTextEditor from '@/components/ui/rich-text-editor';
+import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import PreviewModal from '@/components/PreviewModal';
-import ChargeItemsTable from './components/ChargeItemsTable';
-import PageOrderSection from './components/PageOrderSection';
+import ItemsTable from './components/ItemsTable';
+import PageOrder from './components/PageOrder';
 
 interface ProposalDefaultPage {
     id: number;
@@ -50,20 +44,60 @@ export default function Create() {
     const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-    // Initialize proposal sections from default pages
-    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean }>>(() => {
-        if (defaultPages && defaultPages.length > 0) {
-            return defaultPages.map((p, idx) => ({
-                id: `sec-${p.id || idx}-${Date.now()}`,
-                title: p.title,
-                content: p.content || '',
-                page_type: p.page_type || 'content',
-                background_image: p.background_image || '',
-                order: p.sort_order || idx + 1,
+    // Helper to build active sections strictly following defaultPages order rule
+    const buildSectionsFromDefaultPages = (itemsList: ProposalItem[], otherDetailsContent: string) => {
+        const hasOtc = itemsList.some(
+            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== ''))
+        );
+        const hasMrc = itemsList.some(
+            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== ''))
+        );
+        const hasOther = Boolean(otherDetailsContent && otherDetailsContent.trim() !== '' && otherDetailsContent !== '<p></p>');
+
+        if (!defaultPages || defaultPages.length === 0) return [];
+
+        // Filter default pages: include general/cover/content always, include otc only if hasOtc, include mrc only if hasMrc
+        const activePages = defaultPages.filter((p) => {
+            if (p.page_type === 'otc') return hasOtc;
+            if (p.page_type === 'mrc') return hasMrc;
+            if (p.page_type === 'other-details') return hasOther;
+            return true;
+        });
+
+        // Sort active default pages strictly by their configured sort_order
+        activePages.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+
+        let res = activePages.map((p, idx) => ({
+            id: `sec-${p.page_type || 'page'}-${p.id || idx}`,
+            default_page_id: p.id,
+            title: p.title || (p.page_type === 'otc' ? 'One-Time Charges (OTC)' : p.page_type === 'mrc' ? 'Monthly Recurring Charges (MRC)' : p.page_type === 'other-details' ? 'Other Details' : `Page ${idx + 1}`),
+            content: p.page_type === 'otc' ? '[OTC_CHARGES_TABLE]' : (p.page_type === 'mrc' ? '[MRC_CHARGES_TABLE]' : (p.page_type === 'other-details' ? '[OTHER_DETAILS_CONTENT]' : (p.content || ''))),
+            page_type: p.page_type || 'general',
+            background_image: p.background_image || '',
+            order: idx + 1,
+            isExpanded: false,
+        }));
+
+        // If other-details is present in form but not in defaultPages, append it
+        if (hasOther && !res.some((s) => s.page_type === 'other-details')) {
+            res.push({
+                id: `sec-other-details-custom`,
+                default_page_id: undefined as any,
+                title: 'Other Details',
+                content: '[OTHER_DETAILS_CONTENT]',
+                page_type: 'other-details',
+                background_image: '',
+                order: res.length + 1,
                 isExpanded: false,
-            }));
+            });
         }
-        return [];
+
+        return res;
+    };
+
+    // Initialize proposal sections from default pages
+    const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean; default_page_id?: number }>>(() => {
+        return buildSectionsFromDefaultPages([], '');
     });
 
     useFlashMessages();
@@ -84,90 +118,113 @@ export default function Create() {
         type: 'product',
         is_tax_enabled: true,
         is_prepaid: false,
+        otc_discount_type: 'percentage' as 'percentage' | 'fixed',
+        otc_discount_value: 0,
+        mrc_discount_type: 'percentage' as 'percentage' | 'fixed',
+        mrc_discount_value: 0,
         payment_terms: defaultTerms || '',
         notes: '',
-        items: [{
-            product_id: 0,
-            section: 'general',
-            product_type: 'product',
-            description: '',
-            product_description: '',
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }] as ProposalItem[],
+        items: [] as ProposalItem[],
         proposal_content: [],
         other_details: '',
     });
 
     const customFields = useFormFields('getCustomFields', { ...data, module: 'General', sub_module: 'Proposal' }, setData, errors, 'create', t);
 
-    // Auto-sync OTC and MRC section cards into Page Order list when products exist in those tables
+    // Auto-sync OTC and MRC section cards into Page Order list strictly following defaultPages order rules
     useEffect(() => {
-        const hasOtcItems = data.items.some(
-            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
-        );
-        const hasMrcItems = data.items.some(
-            (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
-        );
-
-        const hasOtherDetails = Boolean(data.other_details && data.other_details.trim() !== '' && data.other_details !== '<p></p>');
-
         setSections((prev) => {
-            let updated = [...prev];
+            const hasOtc = data.items.some(
+                (i) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== ''))
+            );
+            const hasMrc = data.items.some(
+                (i) => i.section === 'mrc' && (Number(i.product_id) > 0 || (typeof i.product_description === 'string' && i.product_description.trim() !== '') || (typeof i.description === 'string' && i.description.trim() !== ''))
+            );
+            const hasOther = Boolean(data.other_details && data.other_details.trim() !== '' && data.other_details !== '<p></p>');
 
-            // OTC Card
-            const otcIdx = updated.findIndex((s) => s.page_type === 'otc');
-            if (hasOtcItems && otcIdx === -1) {
-                updated.push({
-                    id: `sec-otc-${Date.now()}`,
-                    title: 'One-Time Charges (OTC)',
+            const currentHasOtc = prev.some((s) => s.page_type === 'otc');
+            const currentHasMrc = prev.some((s) => s.page_type === 'mrc');
+            const currentHasOther = prev.some((s) => s.page_type === 'other-details');
+
+            // If visibility states did not change, keep current state (to preserve user manual edits/drag-drop if any)
+            if (hasOtc === currentHasOtc && hasMrc === currentHasMrc && hasOther === currentHasOther) {
+                return prev;
+            }
+
+            // Otherwise, rebuild cleanly according to defaultPages sort_order while preserving any user-custom added pages or content
+            const defaultOtc = defaultPages?.find((p) => p.page_type === 'otc');
+            const defaultMrc = defaultPages?.find((p) => p.page_type === 'mrc');
+            const defaultOther = defaultPages?.find((p) => p.page_type === 'other-details');
+
+            let nextSections = [...prev];
+
+            // 1. Remove sections if items no longer exist
+            if (!hasOtc && currentHasOtc) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'otc');
+            }
+            if (!hasMrc && currentHasMrc) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'mrc');
+            }
+            if (!hasOther && currentHasOther) {
+                nextSections = nextSections.filter((s) => s.page_type !== 'other-details');
+            }
+
+            // 2. Add OTC if items exist and not present
+            if (hasOtc && !currentHasOtc) {
+                nextSections.push({
+                    id: `sec-otc-${defaultOtc?.id || 'dynamic'}`,
+                    default_page_id: defaultOtc?.id,
+                    title: defaultOtc?.title || 'One-Time Charges (OTC)',
                     content: '[OTC_CHARGES_TABLE]',
                     page_type: 'otc',
-                    order: updated.length + 1,
+                    background_image: defaultOtc?.background_image || '',
+                    order: defaultOtc?.sort_order !== undefined ? Number(defaultOtc.sort_order) : 99,
                     isExpanded: false,
                 });
-            } else if (!hasOtcItems && otcIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'otc');
             }
 
-            // MRC Card
-            const mrcIdx = updated.findIndex((s) => s.page_type === 'mrc');
-            if (hasMrcItems && mrcIdx === -1) {
-                updated.push({
-                    id: `sec-mrc-${Date.now()}`,
-                    title: 'Monthly Recurring Charges (MRC)',
+            // 3. Add MRC if items exist and not present
+            if (hasMrc && !currentHasMrc) {
+                nextSections.push({
+                    id: `sec-mrc-${defaultMrc?.id || 'dynamic'}`,
+                    default_page_id: defaultMrc?.id,
+                    title: defaultMrc?.title || 'Monthly Recurring Charges (MRC)',
                     content: '[MRC_CHARGES_TABLE]',
                     page_type: 'mrc',
-                    order: updated.length + 1,
+                    background_image: defaultMrc?.background_image || '',
+                    order: defaultMrc?.sort_order !== undefined ? Number(defaultMrc.sort_order) : 100,
                     isExpanded: false,
                 });
-            } else if (!hasMrcItems && mrcIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'mrc');
             }
 
-            // Other Details Card
-            const otherIdx = updated.findIndex((s) => s.page_type === 'other-details');
-            if (hasOtherDetails && otherIdx === -1) {
-                updated.push({
-                    id: `sec-other-details-${Date.now()}`,
-                    title: 'Other Details',
+            // 4. Add Other Details if present
+            if (hasOther && !currentHasOther) {
+                nextSections.push({
+                    id: `sec-other-details-${defaultOther?.id || 'dynamic'}`,
+                    default_page_id: defaultOther?.id,
+                    title: defaultOther?.title || 'Other Details',
                     content: '[OTHER_DETAILS_CONTENT]',
                     page_type: 'other-details',
-                    order: updated.length + 1,
+                    background_image: defaultOther?.background_image || '',
+                    order: defaultOther?.sort_order !== undefined ? Number(defaultOther.sort_order) : 101,
                     isExpanded: false,
                 });
-            } else if (!hasOtherDetails && otherIdx !== -1) {
-                updated = updated.filter((s) => s.page_type !== 'other-details');
             }
 
-            return updated;
+            // 5. Strictly sort all sections based on their defaultPages sort_order
+            const getDefOrder = (sec: any) => {
+                const def = defaultPages?.find((dp) => 
+                    (sec.default_page_id && dp.id === sec.default_page_id) ||
+                    (sec.page_type && ['otc', 'mrc', 'other-details'].includes(sec.page_type) && dp.page_type === sec.page_type) ||
+                    (dp.title && sec.title && dp.title.trim().toLowerCase() === sec.title.trim().toLowerCase())
+                );
+                return def?.sort_order !== undefined ? Number(def.sort_order) : 1000 + (Number(sec.order) || 0);
+            };
+
+            nextSections.sort((a, b) => getDefOrder(a) - getDefOrder(b));
+            return nextSections.map((s, idx) => ({ ...s, order: idx + 1 }));
         });
-    }, [data.items, data.other_details]);
+    }, [data.items, data.other_details, defaultPages]);
 
     // Fetch warehouse products
     const [isRefreshingProducts, setIsRefreshingProducts] = useState(false);
@@ -240,7 +297,7 @@ export default function Create() {
             ...formData,
             proposal_content: sections.map((item, index) => ({
                 title: item.title,
-                content: item.content,
+                content: item.page_type === 'other-details' ? (data.other_details || item.content || '') : item.content,
                 page_type: item.page_type || 'content',
                 background_image: item.background_image || '',
                 order: index + 1,
@@ -250,7 +307,50 @@ export default function Create() {
         post(route('sales-proposals.store'));
     };
 
-    const totals = useTaxCalculator(data.items);
+    const totals = useMemo(() => {
+        const otcItems = data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section);
+        const mrcItems = data.items.filter(i => i.section === 'mrc');
+
+        const otcSubtotal = otcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+        const mrcSubtotal = mrcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+
+        let otcDiscount = 0;
+        if (data.otc_discount_type === 'percentage') {
+            otcDiscount = (otcSubtotal * Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            otcDiscount = Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), otcSubtotal);
+        }
+
+        let mrcDiscount = 0;
+        if (data.mrc_discount_type === 'percentage') {
+            mrcDiscount = (mrcSubtotal * Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), 100)) / 100;
+        } else {
+            mrcDiscount = Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), mrcSubtotal);
+        }
+
+        const otcTax = otcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+        const mrcTax = mrcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+
+        const subtotal = otcSubtotal + mrcSubtotal;
+        const discountAmount = otcDiscount + mrcDiscount;
+        const taxAmount = otcTax + mrcTax;
+        const total = Math.max(0, subtotal - discountAmount + taxAmount);
+
+        return {
+            subtotal,
+            discountAmount,
+            taxAmount,
+            total,
+            otcSubtotal,
+            otcDiscount,
+            otcTax,
+            otcTotal: Math.max(0, otcSubtotal - otcDiscount + otcTax),
+            mrcSubtotal,
+            mrcDiscount,
+            mrcTax,
+            mrcTotal: Math.max(0, mrcSubtotal - mrcDiscount + mrcTax),
+        };
+    }, [data.items, data.otc_discount_type, data.otc_discount_value, data.mrc_discount_type, data.mrc_discount_value]);
 
     const selectedCustomer = useMemo(() => {
         if (data.customer_mode === 'new') {
@@ -593,10 +693,11 @@ export default function Create() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <ProposalItemsTable
+                            <ItemsTable
                                 items={data.items.filter(i => i.section === 'otc' || i.section === 'general' || !i.section)}
                                 products={availableProducts}
-                                onChange={(updatedOtcItems) => {
+                                warehouseId={data.warehouse_id}
+                                onChange={(updatedOtcItems: ProposalItem[]) => {
                                     const formattedOtc = updatedOtcItems.map(i => ({ ...i, section: 'otc' }));
                                     const mrcItems = data.items.filter(i => i.section === 'mrc');
                                     setData('items', [...formattedOtc, ...mrcItems]);
@@ -607,6 +708,10 @@ export default function Create() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="otc"
+                                discountType={data.otc_discount_type}
+                                discountValue={data.otc_discount_value}
+                                onDiscountTypeChange={(val: 'percentage' | 'fixed') => setData('otc_discount_type', val)}
+                                onDiscountValueChange={(val: number) => setData('otc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>
@@ -631,10 +736,11 @@ export default function Create() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <ProposalItemsTable
+                            <ItemsTable
                                 items={data.items.filter(i => i.section === 'mrc')}
                                 products={availableProducts}
-                                onChange={(updatedMrcItems) => {
+                                warehouseId={data.warehouse_id}
+                                onChange={(updatedMrcItems: ProposalItem[]) => {
                                     const formattedMrc = updatedMrcItems.map(i => ({ ...i, section: 'mrc' }));
                                     const otcItems = data.items.filter(i => i.section !== 'mrc');
                                     setData('items', [...otcItems, ...formattedMrc]);
@@ -645,6 +751,10 @@ export default function Create() {
                                 isRefreshing={isRefreshingProducts}
                                 isTaxEnabled={data.is_tax_enabled}
                                 defaultSection="mrc"
+                                discountType={data.mrc_discount_type}
+                                discountValue={data.mrc_discount_value}
+                                onDiscountTypeChange={(val: 'percentage' | 'fixed') => setData('mrc_discount_type', val)}
+                                onDiscountValueChange={(val: number) => setData('mrc_discount_value', val)}
                             />
                         </CardContent>
                     </Card>
@@ -667,7 +777,7 @@ export default function Create() {
                     </Card>
 
                     {/* Page Order Section */}
-                    <PageOrderSection
+                    <PageOrder
                         sections={sections as any}
                         setSections={setSections as any}
                         defaultPages={defaultPages}
@@ -714,33 +824,11 @@ export default function Create() {
                         >
                             {t('Cancel')}
                         </Button>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setIsPreviewOpen(true)}
-                            className="gap-2"
-                        >
-                            <Eye className="h-4 w-4" />
-                            {t('Preview')}
-                        </Button>
                         <Button type="submit" disabled={processing}>
-                            {t('Create')}
+                            {t('Create Proposal')}
                         </Button>
                     </div>
                 </form>
-
-                <PreviewModal
-                    isOpen={isPreviewOpen}
-                    onClose={() => setIsPreviewOpen(false)}
-                    formData={data}
-                    sections={sections}
-                    customers={customers}
-                    warehouses={warehouses}
-                    availableProducts={availableProducts}
-                    totals={totals}
-                    proposalSetting={proposalSetting}
-                    other_details={data.other_details}
-                />
             </div>
         </AuthenticatedLayout>
     );

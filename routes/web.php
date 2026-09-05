@@ -1,7 +1,5 @@
 <?php
 
-
-
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\ProfileController;
@@ -14,7 +12,6 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\BankTransferPaymentController;
 use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\CouponController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EmailTemplateController;
 use App\Http\Controllers\NotificationTemplateController;
@@ -34,8 +31,7 @@ use App\Http\Controllers\MetaController;
 use App\Http\Controllers\AIAgentChatPageController;
 use App\Http\Controllers\AIAgentChatController;
 use App\Http\Controllers\ProposalSetupController;
-use Inertia\Inertia;
-
+use App\Http\Controllers\ProposalDefaultPageController;
 
 Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Route::get('/dashboard', function () {
@@ -78,7 +74,6 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::post('sales-invoices/{salesInvoice}/post', [SalesInvoiceController::class, 'post'])->name('sales-invoices.post');
     Route::get('sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'print'])->name('sales-invoices.print');
     Route::get('sales-invoices/{salesInvoice}/download-pdf', [SalesInvoiceController::class, 'downloadPdf'])->name('sales-invoices.download-pdf');
-    Route::get('sales-invoice/view/{id}', [SalesInvoiceController::class, 'clientInvoice'])->name('sales-invoice.client.view');
     Route::get('sales-invoices/warehouse/products', [SalesInvoiceController::class, 'getWarehouseProducts'])->name('sales-invoices.warehouse.products');
     Route::get('sales-invoices/services/list', [SalesInvoiceController::class, 'getServices'])->name('sales-invoices.services');
 
@@ -188,14 +183,15 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('sales-proposals/warehouse/products', [SalesProposalController::class, 'getWarehouseProducts'])->name('sales-proposals.warehouse.products');
     Route::get('sales-proposals/services/list', [SalesProposalController::class, 'getServices'])->name('sales-proposals.services');
 
-    // Proposal Setup
+    // Proposal Setup & Default Pages
     Route::get('sales-proposal/settings', [ProposalSetupController::class, 'index'])->name('proposal-setup.index');
     Route::post('sales-proposal/settings', [ProposalSetupController::class, 'updateSettings'])->name('proposal-setup.update');
-    Route::get('sales-proposal/default-pages/create', [ProposalSetupController::class, 'createDefaultPage'])->name('proposal-setup.default-pages.create');
-    Route::post('sales-proposal/default-pages', [ProposalSetupController::class, 'storeDefaultPage'])->name('proposal-setup.default-pages.store');
-    Route::get('sales-proposal/default-pages/{defaultPage}/edit', [ProposalSetupController::class, 'editDefaultPage'])->name('proposal-setup.default-pages.edit');
-    Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'updateDefaultPage'])->name('proposal-setup.default-pages.update');
-    Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalSetupController::class, 'destroyDefaultPage'])->name('proposal-setup.default-pages.destroy');
+    Route::post('sales-proposal/default-pages/reorder', [ProposalDefaultPageController::class, 'reorder'])->name('proposal-setup.default-pages.reorder');
+    Route::get('sales-proposal/default-pages/create', [ProposalDefaultPageController::class, 'create'])->name('proposal-setup.default-pages.create');
+    Route::post('sales-proposal/default-pages', [ProposalDefaultPageController::class, 'store'])->name('proposal-setup.default-pages.store');
+    Route::get('sales-proposal/default-pages/{defaultPage}/edit', [ProposalDefaultPageController::class, 'edit'])->name('proposal-setup.default-pages.edit');
+    Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'update'])->name('proposal-setup.default-pages.update');
+    Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'destroy'])->name('proposal-setup.default-pages.destroy');
 
     // Messenger routes
     Route::get('messenger', [MessengerController::class, 'index'])->name('messenger.index');
@@ -242,6 +238,9 @@ Route::get('/storage-link', function () {
 
 Route::get('/translations/{locale}', [TranslationController::class, 'getTranslations'])->name('languages.translations');
 Route::post('/cookie-consent-log', [SettingController::class, 'logCookieConsent'])->name('cookie.consent.log');
+
+// Public Invoice
+Route::get('invoice/view/{token}', [SalesInvoiceController::class, 'clientInvoice'])->name('sales-invoice.client.view');
 
 //for Instagramchat & Facebookchat
 Route::any('/meta/callback', [MetaController::class, 'handleWebhook'])->name('meta.callback');

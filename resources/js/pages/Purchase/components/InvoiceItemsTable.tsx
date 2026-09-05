@@ -99,7 +99,7 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
             tax_rate: tax.rate
         })) || [];
 
-        const defaultDesc = product?.description || product?.long_description || '';
+        const defaultDesc = product?.long_description || product?.description || '';
 
         newItems[index] = {
             ...newItems[index],
