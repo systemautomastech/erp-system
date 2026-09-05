@@ -109,12 +109,24 @@
     if ($statusText === 'paid' || ($totalAmt > 0 && $paidAmt >= $totalAmt)) {
         $badgeLabel = __('Paid');
         $badgeClasses = 'bg-emerald-100/90 text-emerald-800 border-emerald-300 shadow-sm';
+        $stampText = 'PAID';
+        $stampColor = '#16a34a'; // Green
+        $stampBorder = '8px solid #16a34a';
+        $stampFontSize = '68px';
     } elseif ($statusText === 'partial' || ($paidAmt > 0 && $paidAmt < $totalAmt)) {
         $badgeLabel = __('Partial Payment');
         $badgeClasses = 'bg-amber-100/90 text-amber-800 border-amber-300 shadow-sm';
+        $stampText = 'PARTIALLY PAID';
+        $stampColor = '#ca8a04'; // Yellow / Amber (Pantone-like yellow, clearly readable)
+        $stampBorder = '8px solid #ca8a04';
+        $stampFontSize = '46px';
     } else {
         $badgeLabel = __('Due');
         $badgeClasses = 'bg-rose-100/90 text-rose-800 border-rose-300 shadow-sm';
+        $stampText = 'DUE';
+        $stampColor = '#dc2626'; // Red
+        $stampBorder = '8px solid #dc2626';
+        $stampFontSize = '72px';
     }
 
     // Generate QR Code SVG Helper (Always Encrypted Client URL)
@@ -138,7 +150,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ __('Invoice') }} - #{{ $invoice->invoice_number }}</title>
+    <title>Invoice_{{ $invoice->invoice_number }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
@@ -759,6 +771,10 @@
                         </div>
                     </div>
                 @endif
+            </div>
+
+            <div style="font-size: {{ $stampFontSize }}; color: {{ $stampColor }}; position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%) rotate(-25deg); opacity: 0.22; text-transform: uppercase; border: {{ $stampBorder }}; padding: 0px 24px; font-weight: 800; letter-spacing: 3px; pointer-events: none; z-index: 10; white-space: nowrap; user-select: none; font-family: 'Open Sans', sans-serif;">
+                {{ $stampText }}
             </div>
         </div>
     @endforeach

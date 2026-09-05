@@ -37,6 +37,8 @@ interface SalesQuotation {
     customer_email?: string | null;
     customer_phone?: string | null;
     customer_address?: string | null;
+    author?: { id: number; name: string; email: string } | null;
+    creator_id?: number | null;
     subtotal: number;
     tax_amount: number;
     discount_amount: number;
@@ -324,7 +326,7 @@ export default function Index() {
         },
         {
             key: 'quotation_number',
-            header: t('quotation Number'),
+            header: t('Quotation Number'),
             sortable: true,
             className: 'whitespace-nowrap',
             render: (value: string, quotation: SalesQuotation) =>
@@ -394,8 +396,22 @@ export default function Index() {
             key: 'total_amount',
             header: t('Total Amount'),
             sortable: true,
-            className: 'whitespace-nowrap font-medium',
-            render: (value: number) => formatCurrency(value)
+            className: 'whitespace-nowrap',
+            render: (value: number) => (
+                <span className="text-slate-800 dark:text-slate-200 font-medium">
+                    {formatCurrency(value)}
+                </span>
+            )
+        },
+        {
+            key: 'created_by',
+            header: t('Created By'),
+            className: 'min-w-[150px]',
+            render: (_: any, quotation: SalesQuotation) => (
+                <span className="text-slate-800 dark:text-slate-200" title={quotation.author?.name || '-'}>
+                    {quotation.author?.name || '-'}
+                </span>
+            )
         },
         {
             key: 'status',

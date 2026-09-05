@@ -184,8 +184,24 @@ export const replaceProposalShortcodes = (
     result = result.replace(/\{\s*proposal_logo\s*\}/gi, '');
   }
 
+  const userKeys = [
+    'user_id',
+    'user_name',
+    'user_email',
+    'user_phone',
+    'creator_name',
+    'creator_email',
+    'creator_phone',
+    'creator_designation',
+    'user_designation',
+  ];
+
   // Replace shortcodes (if value exists, replace with value; if not in default page setup, blank it out)
   for (const [key, val] of Object.entries(values)) {
+    // In default page setup, preserve user shortcodes as-is ({user_name}, etc.) so template is never corrupted
+    if (isDefaultPageSetup && userKeys.includes(key)) {
+      continue;
+    }
     const regex = new RegExp(`\\{\\s*${key}\\s*\\}`, 'gi');
     if (val !== undefined && val !== null && String(val).trim() !== '') {
       result = result.replace(regex, String(val));
@@ -194,5 +210,41 @@ export const replaceProposalShortcodes = (
     }
   }
 
+  return result;
+};
+
+export const replaceUserShortcodes = (content: string | undefined | null, authUser: any): string => {
+  if (!content) return '';
+  const employeeRecord = authUser?.employee || null;
+  const userName = authUser?.name || '';
+  const userEmail = authUser?.email || '';
+  const userPhone =
+    employeeRecord?.emergency_contact_number ||
+    authUser?.mobile_no ||
+    authUser?.phone ||
+    authUser?.mobile ||
+    authUser?.telephone ||
+    '';
+  const userId = employeeRecord?.employee_id || (authUser?.id ? String(authUser.id) : '');
+  const userDesignation = employeeRecord?.designation?.name || authUser?.designation || '';
+
+  const userMap: Record<string, string> = {
+    user_name: userName,
+    creator_name: userName,
+    user_email: userEmail,
+    creator_email: userEmail,
+    user_phone: userPhone,
+    creator_phone: userPhone,
+    user_id: userId,
+    creator_designation: userDesignation,
+    user_designation: userDesignation,
+  };
+
+  let result = content;
+  for (const [key, val] of Object.entries(userMap)) {
+    if (val) {
+      result = result.replace(new RegExp(`\\{\\s*${key}\\s*\\}`, 'gi'), val);
+    }
+  }
   return result;
 };

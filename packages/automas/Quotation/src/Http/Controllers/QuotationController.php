@@ -40,7 +40,7 @@ class QuotationController extends Controller
             return back()->with('error', __('Permission denied'));
         }
 
-        $query = SalesQuotation::with(['customer', 'items'])
+        $query = SalesQuotation::with(['customer', 'author', 'items'])
             ->where(function ($q) use ($user) {
                 if ($user->type === 'superadmin' || $user->type === 'company' || $user->can('manage-any-quotations')) {
                     $q->where('created_by', creatorId());
@@ -93,7 +93,7 @@ class QuotationController extends Controller
         $direction = $request->input('direction', 'desc');
 
         $quotations = $filtered->orderBy($sort, $direction)->paginate($request->input('per_page', 10));
-        $customers = $this->customerService->getCompactCustomers();
+        $customers = $this->customerService->getCustomers(['id', 'name', 'email']);
 
         $boardData = null;
         if ($request->input('view', 'board') !== 'list') {
@@ -338,9 +338,7 @@ class QuotationController extends Controller
         $pages = $this->quotationServices->getActiveDefaultPages($authorId);
         $settings = $this->quotationServices->getQuotationSetting();
 
-        $company = $settings['company_name'] ?? company_setting('company_name', creatorId()) ?? '';
-        $num = $quotation->quotation_number;
-        $filename = "{$company}_Sales Quotation_#{$num}.pdf";
+        $filename = "Quotation_{$quotation->subject}_({$quotation->quotation_number}).pdf";
 
         return Pdf::view('sales-quotations.print', [
             'quotation' => $quotation,

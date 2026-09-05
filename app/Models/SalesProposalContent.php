@@ -15,8 +15,9 @@ class SalesProposalContent extends Model
         'content',
         'page_type',
         'background_image',
-        'proposal_content',
         'order',
+        'creator_id',
+        'created_by',
     ];
 
     protected $casts = [
@@ -27,5 +28,15 @@ class SalesProposalContent extends Model
     public function proposal(): BelongsTo
     {
         return $this->belongsTo(SalesProposal::class, 'proposal_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'creator_id');
     }
 }

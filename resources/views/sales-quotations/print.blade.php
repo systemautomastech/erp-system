@@ -83,7 +83,7 @@
 
     $companyName = $quotationSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
     $quotationNumber = $quotation->quotation_number;
-    $pdfFilename = "{$companyName}_Sales Quotation_#{$quotationNumber}.pdf";
+    $pdfFilename = "Quotation_{$quotation->subject}_({$quotation->quotation_number}).pdf";
 
     $replaceQuotationShortcodes = function ($content) use ($quotation, $quotationSetting, $getImagePath, $logoImage, $templateColor, $creatorId) {
         if (empty($content))
@@ -103,7 +103,8 @@
         $rawQuotationLogo = $quotationSetting['logo_image'] ?? $rawCompanyLogo;
         $quotationLogoUrl = $getImagePath($rawQuotationLogo) ?: $logoImage;
 
-        $authorUser = \App\Models\User::with('employee')->find($creatorId);
+        $authorUserId = $quotation->creator_id ?? $quotation->created_by ?? $creatorId;
+        $authorUser = \App\Models\User::with('employee.designation')->find($authorUserId);
         $employeeRecord = $authorUser?->employee;
         $compPhone = $quotationSetting['company_telephone']
             ?? $quotationSetting['company_phone']
@@ -215,7 +216,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Quotation #{{ $quotation->quotation_number }}</title>
+    <title>Quotation_{{ $quotation->subject }}_({{ $quotation->quotation_number }})</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
@@ -619,27 +620,71 @@
         }
 
         .html-preview-container table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 12px 0;
-            border: 1px solid #cbd5e1;
+            width: 100% !important;
+            border-collapse: collapse !important;
+            margin: 8px 0 !important;
+            border: 1px solid #cbd5e1 !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
         }
 
-        .html-preview-container th {
-            border: 1px solid #cbd5e1;
-            padding: 8px 10px;
-            font-weight: 600;
-            text-align: left;
+        .html-preview-container table thead tr {
             background-color:
                 {{ $templateColor }}
                 !important;
             color: #ffffff !important;
         }
 
+        .html-preview-container th {
+            border: 1px solid #cbd5e1 !important;
+            padding: 6px 8px !important;
+            font-weight: 600 !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            text-align: left !important;
+            background-color:
+                {{ $templateColor }}
+                !important;
+            color: #ffffff !important;
+            vertical-align: middle !important;
+            box-sizing: border-box !important;
+        }
+
+        .html-preview-container th * {
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            color: #ffffff !important;
+        }
+
         .html-preview-container table td {
-            border: 1px solid #cbd5e1;
-            padding: 8px 10px;
-            color: #1e293b;
+            border: 1px solid #cbd5e1 !important;
+            padding: 6px 8px !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            color: #293240 !important;
+            vertical-align: middle !important;
+            box-sizing: border-box !important;
+            word-break: break-word !important;
+        }
+
+        .html-preview-container table td * {
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            color: inherit !important;
+        }
+
+        .html-preview-container table td p + p {
+            margin-top: 3px !important;
         }
 
         /* Accent & Badge Dynamic Coloring */
