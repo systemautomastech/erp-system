@@ -7,6 +7,7 @@ use Automas\Quotation\Http\Requests\QuotationSetting\StoreQuotationSettingReques
 use Automas\Quotation\Http\Requests\QuotationSetting\UpdateQuotationSettingRequest;
 use Automas\Quotation\Models\QuotationDefaultPage;
 use Automas\Quotation\Models\QuotationSetting;
+use Automas\Quotation\Models\QuotationSubject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -33,9 +34,14 @@ class QuotationSettingController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $subjects = QuotationSubject::where('created_by', $creatorId)
+            ->latest()
+            ->get();
+
         return Inertia::render('Quotation/Settings/Index', [
             'settings' => $settings,
             'defaultPages' => $defaultPages,
+            'subjects' => $subjects,
         ]);
     }
 

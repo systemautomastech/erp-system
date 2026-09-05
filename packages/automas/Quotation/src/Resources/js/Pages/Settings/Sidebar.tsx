@@ -40,6 +40,11 @@ export default function Sidebar({ activeSection, onNavClick }: SetupSidebarProps
             label: t('Default Pages'),
             icon: Layers,
         },
+        {
+            id: 'subjects',
+            label: t('Subjects'),
+            icon: FileText,
+        },
     ];
 
     return (
