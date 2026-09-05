@@ -15,6 +15,7 @@ class SalesQuotationContent extends Model
         'background_image',
         'sort_order',
         'creator_id',
+        'created_by',
     ];
 
     protected $casts = [
@@ -24,6 +25,11 @@ class SalesQuotationContent extends Model
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(SalesQuotation::class, 'quotation_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function creator(): BelongsTo

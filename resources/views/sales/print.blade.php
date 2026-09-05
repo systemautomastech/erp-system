@@ -109,12 +109,24 @@
     if ($statusText === 'paid' || ($totalAmt > 0 && $paidAmt >= $totalAmt)) {
         $badgeLabel = __('Paid');
         $badgeClasses = 'bg-emerald-100/90 text-emerald-800 border-emerald-300 shadow-sm';
+        $stampText = 'PAID';
+        $stampColor = '#16a34a'; // Green
+        $stampBorder = '8px solid #16a34a';
+        $stampFontSize = '68px';
     } elseif ($statusText === 'partial' || ($paidAmt > 0 && $paidAmt < $totalAmt)) {
         $badgeLabel = __('Partial Payment');
         $badgeClasses = 'bg-amber-100/90 text-amber-800 border-amber-300 shadow-sm';
+        $stampText = 'PARTIALLY PAID';
+        $stampColor = '#ca8a04'; // Yellow / Amber (Pantone-like yellow, clearly readable)
+        $stampBorder = '8px solid #ca8a04';
+        $stampFontSize = '46px';
     } else {
         $badgeLabel = __('Due');
         $badgeClasses = 'bg-rose-100/90 text-rose-800 border-rose-300 shadow-sm';
+        $stampText = 'DUE';
+        $stampColor = '#dc2626'; // Red
+        $stampBorder = '8px solid #dc2626';
+        $stampFontSize = '72px';
     }
 
     // Generate QR Code SVG Helper (Always Encrypted Client URL)
@@ -138,7 +150,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ __('Invoice') }} - #{{ $invoice->invoice_number }}</title>
+    <title>Invoice_{{ $invoice->invoice_number }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
@@ -506,20 +518,24 @@
                                     @if(!empty($companySettings['company_email']))
                                         <p>{{ __('Email') }}: {{ $companySettings['company_email'] }}</p>
                                     @endif
-                                    @if(!empty($companySettings['registration_number']))
-                                        <p>{{ __('Registration') }}: {{ $companySettings['registration_number'] }}</p>
-                                    @endif
                                 </div>
                             </div>
 
                             <!-- Right Column: Invoice Details on Left of QR, and QR Code on Far Right -->
                             <div class="w-1/2 flex items-start justify-end gap-4 text-right">
+                                 @if(!empty($qrCodeSvg))
+                                    <div class="shrink-0 p-1.5 bg-white border border-slate-300 rounded shadow-sm inline-block self-center">
+                                        <div class="w-24 h-24 [&>svg]:w-full [&>svg]:h-full">
+                                            {!! $qrCodeSvg !!}
+                                        </div>
+                                    </div>
+                                @endif
                                 <div>
                                     <div class="flex items-center justify-end gap-2.5 mb-1">
                                         <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">{{ __('INVOICE') }}</h2>
-                                        <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase border {{ $badgeClasses }}">
+                                        {{-- <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase border {{ $badgeClasses }}">
                                             {{ $badgeLabel }}
-                                        </span>
+                                        </span> --}}
                                     </div>
                                     <p class="text-sm font-semibold text-gray-800">#{{ $invoice->invoice_number }}</p>
                                     <div class="text-xs mt-2 space-y-0.5 text-gray-600">
@@ -527,13 +543,7 @@
                                         <p><span class="font-medium text-gray-700">{{ __('Due') }}:</span> {{ $formatDate($invoice->due_date) }}</p>
                                     </div>
                                 </div>
-                                @if(!empty($qrCodeSvg))
-                                    <div class="shrink-0 p-1.5 bg-white border border-slate-300 rounded shadow-sm inline-block self-center">
-                                        <div class="w-24 h-24 [&>svg]:w-full [&>svg]:h-full">
-                                            {!! $qrCodeSvg !!}
-                                        </div>
-                                    </div>
-                                @endif
+                               
                             </div>
                         </div>
 
@@ -623,7 +633,7 @@
                                                 <span style="color: #94a3b8;">-</span>
                                             @endif
                                         </td>
-                                        <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500; white-space: nowrap;">
+                                        <td style="padding: 6px 4px; border: 1px solid #94a3b8; text-align: center; vertical-align: top; color: #1e293b; font-weight: 500;">
                                             {{ $item->quantity }}@if(!empty($unitName)) <span style="font-size: 9px; color: #475569; font-weight: 400;">{{ $unitName }}</span>@endif
                                         </td>
                                         <td style="padding: 6px 8px; border: 1px solid #94a3b8; text-align: right; vertical-align: top; color: #1e293b;">{{ $formatCurrency($item->unit_price) }}</td>
@@ -761,6 +771,10 @@
                         </div>
                     </div>
                 @endif
+            </div>
+
+            <div style="font-size: {{ $stampFontSize }}; color: {{ $stampColor }}; position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%) rotate(-25deg); opacity: 0.22; text-transform: uppercase; border: {{ $stampBorder }}; padding: 0px 24px; font-weight: 800; letter-spacing: 3px; pointer-events: none; z-index: 10; white-space: nowrap; user-select: none; font-family: 'Open Sans', sans-serif;">
+                {{ $stampText }}
             </div>
         </div>
     @endforeach

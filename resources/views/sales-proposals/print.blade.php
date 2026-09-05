@@ -83,7 +83,7 @@
 
     $companyName = $proposalSetting['company_name'] ?? company_setting('company_name', $creatorId) ?? '';
     $proposalNumber = $proposal->proposal_number;
-    $pdfFilename = "{$companyName}_Sales Proposal_#{$proposalNumber}.pdf";
+    $pdfFilename = "Proposal For_{$proposal->subject}_({$proposal->proposal_number}).pdf";
 
     $replaceProposalShortcodes = function ($content) use ($proposal, $proposalSetting, $getImagePath, $logoImage, $templateColor, $creatorId) {
         if (empty($content))
@@ -103,7 +103,8 @@
         $rawProposalLogo = $proposalSetting['logo_image'] ?? $rawCompanyLogo;
         $proposalLogoUrl = $getImagePath($rawProposalLogo) ?: $logoImage;
 
-        $authorUser = \App\Models\User::with('employee')->find($creatorId);
+        $authorUserId = $proposal->creator_id ?? $proposal->created_by ?? $creatorId;
+        $authorUser = \App\Models\User::with('employee.designation')->find($authorUserId);
         $employeeRecord = $authorUser?->employee;
         $compPhone = $proposalSetting['company_telephone']
             ?? $proposalSetting['company_phone']
@@ -207,7 +208,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Proposal #{{ $proposal->proposal_number }}</title>
+    <title>Proposal For_{{ $proposal->subject }}_({{ $proposal->proposal_number }})</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
@@ -340,7 +341,7 @@
             color: #293240;
         }
 
-        .proposal-page__body > :first-child .proposal-section-title,
+        .proposal-page__body> :first-child .proposal-section-title,
         .proposal-charges-wrapper:first-child .proposal-section-title {
             margin-top: 0;
         }
@@ -611,27 +612,71 @@
         }
 
         .html-preview-container table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 12px 0;
-            border: 1px solid #cbd5e1;
+            width: 100% !important;
+            border-collapse: collapse !important;
+            margin: 8px 0 !important;
+            border: 1px solid #cbd5e1 !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
         }
 
-        .html-preview-container th {
-            border: 1px solid #cbd5e1;
-            padding: 8px 10px;
-            font-weight: 600;
-            text-align: left;
+        .html-preview-container table thead tr {
             background-color:
                 {{ $templateColor }}
                 !important;
             color: #ffffff !important;
         }
 
+        .html-preview-container th {
+            border: 1px solid #cbd5e1 !important;
+            padding: 6px 8px !important;
+            font-weight: 600 !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            text-align: left !important;
+            background-color:
+                {{ $templateColor }}
+                !important;
+            color: #ffffff !important;
+            vertical-align: middle !important;
+            box-sizing: border-box !important;
+        }
+
+        .html-preview-container th * {
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            color: #ffffff !important;
+        }
+
         .html-preview-container table td {
-            border: 1px solid #cbd5e1;
-            padding: 8px 10px;
-            color: #1e293b;
+            border: 1px solid #cbd5e1 !important;
+            padding: 6px 8px !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            color: #293240 !important;
+            vertical-align: middle !important;
+            box-sizing: border-box !important;
+            word-break: break-word !important;
+        }
+
+        .html-preview-container table td * {
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
+            color: inherit !important;
+        }
+
+        .html-preview-container table td p+p {
+            margin-top: 3px !important;
         }
 
         /* Accent & Badge Dynamic Coloring */
@@ -791,11 +836,12 @@
         $customContentPages = [];
         if (isset($proposal->contents) && count($proposal->contents) > 0) {
             $customContentPages = $proposal->contents->map(function ($c) {
-                $decoded = is_string($c->proposal_content) ? json_decode($c->proposal_content, true) : null;
+                $rawVal = $c->content ?? $c->proposal_content ?? '';
+                $decoded = is_string($rawVal) ? json_decode($rawVal, true) : null;
                 if (is_array($decoded)) {
                     return [
                         'title' => $decoded['title'] ?? $c->title ?? '',
-                        'content' => $decoded['content'] ?? $c->proposal_content ?? '',
+                        'content' => $decoded['content'] ?? $rawVal,
                         'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
                         'background_image' => $decoded['background_image'] ?? $c->background_image ?? null,
                         'order' => $c->order ?? 1,
@@ -803,7 +849,7 @@
                 }
                 return [
                     'title' => $c->title ?? '',
-                    'content' => $c->proposal_content ?? '',
+                    'content' => $rawVal,
                     'page_type' => $c->page_type ?? 'content',
                     'background_image' => $c->background_image ?? null,
                     'order' => $c->order ?? 1,
@@ -813,11 +859,12 @@
             $dbContents = \App\Models\SalesProposalContent::where('proposal_id', $proposal->id)->orderBy('order')->get();
             if ($dbContents && $dbContents->count() > 0) {
                 $customContentPages = $dbContents->map(function ($c) {
-                    $decoded = is_string($c->proposal_content) ? json_decode($c->proposal_content, true) : null;
+                    $rawVal = $c->content ?? $c->proposal_content ?? '';
+                    $decoded = is_string($rawVal) ? json_decode($rawVal, true) : null;
                     if (is_array($decoded)) {
                         return [
                             'title' => $decoded['title'] ?? $c->title ?? '',
-                            'content' => $decoded['content'] ?? $c->proposal_content ?? '',
+                            'content' => $decoded['content'] ?? $rawVal,
                             'page_type' => $decoded['page_type'] ?? $c->page_type ?? 'content',
                             'background_image' => $decoded['background_image'] ?? $c->background_image ?? null,
                             'order' => $c->order ?? 1,
@@ -825,7 +872,7 @@
                     }
                     return [
                         'title' => $c->title ?? '',
-                        'content' => $c->proposal_content ?? '',
+                        'content' => $rawVal,
                         'page_type' => $c->page_type ?? 'content',
                         'background_image' => $c->background_image ?? null,
                         'order' => $c->order ?? 1,
@@ -1105,7 +1152,7 @@
                     </div>
                 </div>
 
-            {{-- 2. MRC CHARGES SECTION --}}
+                {{-- 2. MRC CHARGES SECTION --}}
             @elseif($page['type'] === 'mrc')
                 <div class="proposal-preview-sheet mrc-paginated-page" id="{{ $page['id'] }}" data-page-type="mrc">
                     @if(!empty($sheetBgUrl))
@@ -1209,7 +1256,7 @@
                     </div>
                 </div>
 
-            {{-- 3. OTHER DETAILS SECTION --}}
+                {{-- 3. OTHER DETAILS SECTION --}}
             @elseif($page['type'] === 'other-details')
                 <div class="proposal-preview-sheet proposal-cover__sheet other-details-page" id="{{ $page['id'] }}">
                     @if(!empty($sheetBgUrl))
@@ -1232,7 +1279,7 @@
                     </div>
                 </div>
 
-            {{-- 4. CONTENT / DEFAULT PAGES --}}
+                {{-- 4. CONTENT / DEFAULT PAGES --}}
             @else
                 <div class="proposal-preview-sheet proposal-cover__sheet content-page" id="{{ $page['id'] }}">
                     @if(!empty($sheetBgUrl))

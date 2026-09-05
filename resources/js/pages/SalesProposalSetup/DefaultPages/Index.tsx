@@ -473,6 +473,7 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                     content={viewingPage?.content}
                     backgroundImage={viewingPage?.background_image}
                     settings={settings}
+                    showPrintButton={false}
                 />
 
                 {/* Standard Delete Confirmation Modal */}

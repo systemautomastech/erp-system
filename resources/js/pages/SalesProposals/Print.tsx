@@ -29,35 +29,16 @@ export default function Print() {
         let loadedSections: ProposalPreviewSection[] = [];
 
         // 1. Check if proposal has saved contents
-        if (proposal?.contents && Array.isArray(proposal.contents) && proposal.contents.length > 0) {
-            loadedSections = proposal.contents.map((c: any) => {
-                let parsed: any = null;
-                if (typeof c.proposal_content === 'string') {
-                    try {
-                        parsed = JSON.parse(c.proposal_content);
-                    } catch (e) {
-                        parsed = null;
-                    }
-                }
-                if (parsed && typeof parsed === 'object') {
-                    return {
-                        id: String(c.id || Math.random()),
-                        title: parsed.title || c.title || '',
-                        content: parsed.content || c.content || '',
-                        page_type: parsed.page_type || c.page_type || 'content',
-                        background_image: parsed.background_image || c.background_image || undefined,
-                        order: c.order ?? 1,
-                    };
-                }
-                return {
-                    id: String(c.id || Math.random()),
-                    title: c.title || '',
-                    content: c.proposal_content || '',
-                    page_type: c.page_type || 'content',
-                    background_image: c.background_image || undefined,
-                    order: c.order ?? 1,
-                };
-            });
+        const proposalContents = proposal?.contents;
+        if (Array.isArray(proposalContents) && proposalContents.length > 0) {
+            loadedSections = proposalContents.map((c: any) => ({
+                id: String(c.id || Math.random()),
+                title: c.title || '',
+                content: c.content || c.proposal_content || '',
+                page_type: c.page_type || 'content',
+                background_image: c.background_image || undefined,
+                order: c.order ?? 1,
+            }));
         } else if (proposal?.proposal_content) {
             try {
                 const parsed = typeof proposal.proposal_content === 'string'

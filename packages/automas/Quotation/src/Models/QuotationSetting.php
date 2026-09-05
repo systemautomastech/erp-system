@@ -12,11 +12,17 @@ class QuotationSetting extends Model
         'option',
         'value',
         'creator_id',
+        'created_by',
     ];
 
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public static function getSettings($creatorId = null): array
@@ -63,6 +69,7 @@ class QuotationSetting extends Model
                 ],
                 [
                     'value' => is_array($value) ? json_encode($value) : (string) ($value ?? ''),
+                    'created_by' => creatorId(),
                 ]
             );
         }

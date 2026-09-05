@@ -39,7 +39,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getImagePath } from '@/utils/helpers';
-import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
+import { replaceProposalShortcodes, replaceUserShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
 import {
     ProposalPreviewSheet,
     paginateDomContainer,
@@ -148,17 +148,6 @@ export default function PageOrder({ sections, setSections, defaultPages = [], pr
         return replaceProposalShortcodes(modalContent, { settings, pageProps });
     }, [modalContent, settings, pageProps]);
 
-    // Detect if modal content has raw/custom HTML code
-    const hasRawHtml = useMemo(() => {
-        if (!modalContent) return false;
-        return /<(?:div|style|section|article|main|iframe|script|table|thead|tbody|tfoot|tr|th|td)\b|style=["'][^"']*["']/i.test(modalContent);
-    }, [modalContent]);
-
-    useEffect(() => {
-        if (hasRawHtml && editorMode === 'rich') {
-            setEditorMode('code');
-        }
-    }, [hasRawHtml, editorMode]);
 
     useEffect(() => {
         if (!processedContent) {
@@ -188,10 +177,6 @@ export default function PageOrder({ sections, setSections, defaultPages = [], pr
     }, [processedContent, editorMode, isModalOpen]);
 
     const handleSwitchMode = (mode: 'rich' | 'code' | 'preview') => {
-        if (mode === 'rich' && hasRawHtml) {
-            toast.error(t('Text Editor is disabled because this page contains custom HTML & CSS code. Please use HTML Code or Preview editor.'));
-            return;
-        }
         if (mode === 'rich') {
             setEditorKey((prev) => prev + 1);
         }
@@ -209,12 +194,13 @@ export default function PageOrder({ sections, setSections, defaultPages = [], pr
         setModalMode('add');
         setEditorMode('rich');
         const customDefaultPages = defaultPages.filter((p) => p.page_type !== 'otc' && p.page_type !== 'mrc');
+        const authUser = pageProps?.auth?.user;
         if (customDefaultPages && customDefaultPages.length > 0) {
             setAddTab('existing');
             const firstPage = customDefaultPages[0];
             setSelectedDefaultPage(firstPage);
             setModalTitle(firstPage.title || '');
-            setModalContent(firstPage.content || '');
+            setModalContent(replaceUserShortcodes(firstPage.content, authUser) || '');
             setModalBackground(firstPage.background_image || '');
             setModalBgType(Boolean(firstPage.background_image && String(firstPage.background_image).trim() !== '') ? 'custom' : 'default');
             setModalPageType(firstPage.page_type || 'content');
@@ -232,9 +218,10 @@ export default function PageOrder({ sections, setSections, defaultPages = [], pr
 
     // Select existing default page in Add Modal
     const handleSelectDefaultPage = (page: ProposalDefaultPage) => {
+        const authUser = pageProps?.auth?.user;
         setSelectedDefaultPage(page);
         setModalTitle(page.title);
-        setModalContent(page.content || '');
+        setModalContent(replaceUserShortcodes(page.content, authUser) || '');
         setModalBackground(page.background_image || '');
         setModalBgType(Boolean(page.background_image && String(page.background_image).trim() !== '') ? 'custom' : 'default');
         setModalPageType(page.page_type || 'general');
@@ -778,14 +765,12 @@ export default function PageOrder({ sections, setSections, defaultPages = [], pr
                                                         type="button"
                                                         variant={editorMode === 'rich' ? 'secondary' : 'ghost'}
                                                         size="sm"
-                                                        disabled={hasRawHtml}
                                                         className={cn(
                                                             "h-7 px-2.5 text-xs gap-1.5 font-medium transition-all shadow-none",
-                                                            editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold",
-                                                            hasRawHtml && "opacity-50 cursor-not-allowed"
+                                                            editorMode === 'rich' && "bg-background shadow-xs text-foreground font-semibold"
                                                         )}
                                                         onClick={() => handleSwitchMode('rich')}
-                                                        title={hasRawHtml ? t('Text Editor disabled for raw HTML') : t('Use WYSIWYG text toolbar')}
+                                                        title={t('Use WYSIWYG text toolbar')}
                                                     >
                                                         <PenTool className="h-3.5 w-3.5 text-blue-500" />
                                                         <span>{t('Text Editor')}</span>

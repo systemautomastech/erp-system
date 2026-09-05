@@ -79,7 +79,7 @@ class SalesProposalController extends Controller
         $direction = $request->input('direction', 'desc');
 
         $proposals = $listQuery->orderBy($sort, $direction)->paginate($request->input('per_page', 10));
-        $customers = $this->customerService->getCompactCustomers();
+        $customers = $this->customerService->getCustomers();
 
         $boardData = null;
         if ($request->input('view', 'board') !== 'list') {
@@ -108,6 +108,8 @@ class SalesProposalController extends Controller
         $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
         $defaultPages = $this->proposalService->getActiveDefaultPages(Auth::id());
         $proposalSetting = ProposalSetting::getSettings(creatorId());
+
+        // dd($customers);
 
         return Inertia::render('SalesProposals/Create', [
             'customers' => $customers,
@@ -396,9 +398,7 @@ class SalesProposalController extends Controller
         $defaultPages = $this->proposalService->getActiveDefaultPages($authorId);
         $proposalSetting = ProposalSetting::getSettings(creatorId());
 
-        $companyName = $proposalSetting['company_name'] ?? company_setting('company_name', creatorId()) ?? '';
-        $proposalNumber = $salesProposal->proposal_number;
-        $fileName = "{$companyName}_Sales Proposal_#{$proposalNumber}.pdf";
+        $fileName = "Proposal For_{$salesProposal->subject}_({$salesProposal->proposal_number}).pdf";
 
         return Pdf::view('sales-proposals.print', [
             'proposal' => $salesProposal,
