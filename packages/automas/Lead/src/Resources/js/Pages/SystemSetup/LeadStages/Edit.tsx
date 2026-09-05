@@ -11,10 +11,15 @@ import { EditLeadStageProps, LeadStageFormData } from './types';
 
 export default function Edit({ leadstage, onSuccess, pipelines }: EditLeadStageProps) {
     const { t } = useTranslation();
+    const initialFinalType: 'none' | 'accepted' | 'rejected' = leadstage.is_final_accepted
+        ? 'accepted'
+        : (leadstage.is_final_rejected ? 'rejected' : 'none');
+
     const { data, setData, put, processing, errors } = useForm<LeadStageFormData>({
         name: leadstage.name ?? '',
         order: leadstage.order ?? '',
         pipeline_id: leadstage.pipeline_id?.toString() || '',
+        final_type: initialFinalType,
     });
 
     const submit = (e: React.FormEvent) => {
@@ -60,6 +65,27 @@ export default function Edit({ leadstage, onSuccess, pipelines }: EditLeadStageP
                         </SelectContent>
                     </Select>
                     <InputError message={errors.pipeline_id} />
+                </div>
+
+                <div>
+                    <Label htmlFor="final_type">{t('Stage Finalization')}</Label>
+                    <Select
+                        value={data.final_type}
+                        onValueChange={(value: 'none' | 'accepted' | 'rejected') => setData('final_type', value)}
+                    >
+                        <SelectTrigger id="final_type">
+                            <SelectValue placeholder={t('Select finalization status')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">{t('Standard Stage')}</SelectItem>
+                            <SelectItem value="accepted">{t('Final Accepted Stage')}</SelectItem>
+                            <SelectItem value="rejected">{t('Final Rejected Stage')}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {t('Each pipeline can have at most one final accepted and one final rejected stage.')}
+                    </p>
+                    <InputError message={errors.final_type} />
                 </div>
 
                 <div className="flex justify-end gap-2">

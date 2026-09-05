@@ -25,6 +25,8 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Lead'])->group(fu
         Route::get('/', [LeadStageController::class, 'index'])->name('index');
         Route::post('/', [LeadStageController::class, 'store'])->name('store');
         Route::post('/update-order', [LeadStageController::class, 'updateOrder'])->name('update-order');
+        Route::post('/{leadstage}/set-final-accepted', [LeadStageController::class, 'setFinalAccepted'])->name('set-final-accepted');
+        Route::post('/{leadstage}/set-final-rejected', [LeadStageController::class, 'setFinalRejected'])->name('set-final-rejected');
         Route::put('/{leadstage}', [LeadStageController::class, 'update'])->name('update');
         Route::delete('/{leadstage}', [LeadStageController::class, 'destroy'])->name('destroy');
     });

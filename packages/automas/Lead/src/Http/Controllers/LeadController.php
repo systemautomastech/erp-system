@@ -127,7 +127,7 @@ class LeadController extends Controller
             $stages = LeadStage::where('created_by', creatorId())
                 ->when($activePipelineId, fn($q) => $q->where('pipeline_id', $activePipelineId))
                 ->orderBy('order', 'asc')
-                ->select('id', 'name', 'pipeline_id', 'order')
+                ->select('id', 'name', 'pipeline_id', 'order', 'is_final_accepted', 'is_final_rejected')
                 ->get();
             $labels = Label::with('pipeline')->where('created_by', creatorId())->select('id', 'name', 'color', 'pipeline_id')->get();
             $sources = Source::where('created_by', creatorId())->get(['id', 'name']);
@@ -425,7 +425,7 @@ class LeadController extends Controller
         $stages = LeadStage::where('pipeline_id', $pipelineId)
             ->where('created_by', creatorId())
             ->orderBy('order', 'asc')
-            ->select('id', 'name')
+            ->select('id', 'name', 'pipeline_id', 'order', 'is_final_accepted', 'is_final_rejected')
             ->get();
 
         return response()->json($stages);

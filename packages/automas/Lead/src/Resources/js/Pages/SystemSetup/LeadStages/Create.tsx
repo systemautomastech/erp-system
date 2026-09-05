@@ -15,6 +15,7 @@ export default function Create({ onSuccess, pipelines, defaultPipelineId }: Crea
         name: '',
         order: '',
         pipeline_id: defaultPipelineId?.toString() || '',
+        final_type: 'none',
     });
 
     const submit = (e: React.FormEvent) => {
@@ -60,6 +61,27 @@ export default function Create({ onSuccess, pipelines, defaultPipelineId }: Crea
                         </SelectContent>
                     </Select>
                     <InputError message={errors.pipeline_id} />
+                </div>
+
+                <div>
+                    <Label htmlFor="final_type">{t('Stage Finalization')}</Label>
+                    <Select
+                        value={data.final_type}
+                        onValueChange={(value: 'none' | 'accepted' | 'rejected') => setData('final_type', value)}
+                    >
+                        <SelectTrigger id="final_type">
+                            <SelectValue placeholder={t('Select finalization status')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">{t('Standard Stage')}</SelectItem>
+                            <SelectItem value="accepted">{t('Final Accepted Stage')}</SelectItem>
+                            <SelectItem value="rejected">{t('Final Rejected Stage')}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {t('Each pipeline can have at most one final accepted and one final rejected stage.')}
+                    </p>
+                    <InputError message={errors.final_type} />
                 </div>               
 
                 <div className="flex justify-end gap-2">

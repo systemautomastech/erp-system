@@ -5,6 +5,8 @@ export interface LeadStage {
     name: string;
     order: number;
     pipeline_id?: number;
+    is_final_accepted?: boolean;
+    is_final_rejected?: boolean;
     pipeline?: Pipeline;
     created_at: string;
 }
@@ -13,6 +15,7 @@ export interface LeadStageFormData {
     name: string;
     order: string;
     pipeline_id: string;
+    final_type: 'none' | 'accepted' | 'rejected';
 }
 
 export interface CreateLeadStageProps extends CreateProps {

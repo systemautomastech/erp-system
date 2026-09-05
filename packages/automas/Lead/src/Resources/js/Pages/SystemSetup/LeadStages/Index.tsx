@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit, Trash2, Layers, GripVertical } from "lucide-react";
+import { Plus, Edit, Trash2, Layers, GripVertical, CheckCircle2, XCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
@@ -68,14 +68,74 @@ export default function Index() {
         {
             key: 'name',
             header: t('Name'),
-            sortable: true
+            sortable: true,
+            render: (_: any, stage: LeadStage) => (
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{stage.name}</span>
+                    {!!stage.is_final_accepted && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 flex items-center gap-1 font-normal text-xs">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                            {t('Final Accepted')}
+                        </Badge>
+                    )}
+                    {!!stage.is_final_rejected && (
+                        <Badge variant="secondary" className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 flex items-center gap-1 font-normal text-xs">
+                            <XCircle className="h-3 w-3 text-rose-600" />
+                            {t('Final Rejected')}
+                        </Badge>
+                    )}
+                </div>
+            )
         },               
         ...(auth.user?.permissions?.some((p: string) => ['edit-lead-stages', 'delete-lead-stages'].includes(p)) ? [{
             key: 'actions',
             header: t('Action'),
             render: (_: any, leadstage: LeadStage) => (
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
                     <TooltipProvider>
+                        {auth.user?.permissions?.includes('edit-lead-stages') && (
+                            <>
+                                <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => router.post(route('lead.lead-stages.set-final-accepted', leadstage.id), {}, { preserveScroll: true })}
+                                            className={`h-8 w-8 p-0 ${
+                                                leadstage.is_final_accepted
+                                                    ? 'text-emerald-700 bg-emerald-100 hover:bg-emerald-200 hover:text-emerald-800'
+                                                    : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
+                                            }`}
+                                        >
+                                            <CheckCircle2 className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{leadstage.is_final_accepted ? t('Unset as Final Accepted') : t('Set as Final Accepted')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => router.post(route('lead.lead-stages.set-final-rejected', leadstage.id), {}, { preserveScroll: true })}
+                                            className={`h-8 w-8 p-0 ${
+                                                leadstage.is_final_rejected
+                                                    ? 'text-rose-700 bg-rose-100 hover:bg-rose-200 hover:text-rose-800'
+                                                    : 'text-gray-400 hover:text-rose-600 hover:bg-rose-50'
+                                            }`}
+                                        >
+                                            <XCircle className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{leadstage.is_final_rejected ? t('Unset as Final Rejected') : t('Set as Final Rejected')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </>
+                        )}
                         {auth.user?.permissions?.includes('edit-lead-stages') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
@@ -206,12 +266,67 @@ export default function Index() {
                                                             <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
                                                                 {stage.order}
                                                             </span>
-                                                            <div>
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 <h4 className="font-medium text-gray-900">{stage.name}</h4>
+                                                                {!!stage.is_final_accepted && (
+                                                                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 flex items-center gap-1 font-normal text-xs">
+                                                                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                                                        {t('Final Accepted')}
+                                                                    </Badge>
+                                                                )}
+                                                                {!!stage.is_final_rejected && (
+                                                                    <Badge variant="secondary" className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 flex items-center gap-1 font-normal text-xs">
+                                                                        <XCircle className="h-3 w-3 text-rose-600" />
+                                                                        {t('Final Rejected')}
+                                                                    </Badge>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                        <div className="flex gap-1">
+                                                        <div className="flex gap-1 items-center">
                                                             <TooltipProvider>
+                                                                {auth.user?.permissions?.includes('edit-lead-stages') && (
+                                                                    <>
+                                                                        <Tooltip delayDuration={0}>
+                                                                            <TooltipTrigger asChild>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => router.post(route('lead.lead-stages.set-final-accepted', stage.id), {}, { preserveScroll: true })}
+                                                                                    className={`h-8 w-8 p-0 ${
+                                                                                        stage.is_final_accepted
+                                                                                            ? 'text-emerald-700 bg-emerald-100 hover:bg-emerald-200 hover:text-emerald-800'
+                                                                                            : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
+                                                                                    }`}
+                                                                                >
+                                                                                    <CheckCircle2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent>
+                                                                                <p>{stage.is_final_accepted ? t('Unset as Final Accepted') : t('Set as Final Accepted')}</p>
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+
+                                                                        <Tooltip delayDuration={0}>
+                                                                            <TooltipTrigger asChild>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => router.post(route('lead.lead-stages.set-final-rejected', stage.id), {}, { preserveScroll: true })}
+                                                                                    className={`h-8 w-8 p-0 ${
+                                                                                        stage.is_final_rejected
+                                                                                            ? 'text-rose-700 bg-rose-100 hover:bg-rose-200 hover:text-rose-800'
+                                                                                            : 'text-gray-400 hover:text-rose-600 hover:bg-rose-50'
+                                                                                    }`}
+                                                                                >
+                                                                                    <XCircle className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent>
+                                                                                <p>{stage.is_final_rejected ? t('Unset as Final Rejected') : t('Set as Final Rejected')}</p>
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </>
+                                                                )}
                                                                 {auth.user?.permissions?.includes('edit-lead-stages') && (
                                                                     <Tooltip delayDuration={0}>
                                                                         <TooltipTrigger asChild>
