@@ -7,6 +7,7 @@ use App\Services\QuotationServices;
 use App\Services\CustomerService;
 use App\Services\WarehouseService;
 use App\Services\PermissionService;
+use Automas\Quotation\Models\QuotationSubject;
 use Automas\Quotation\Models\SalesQuotation;
 use Automas\Quotation\Http\Requests\SalesQuotation\StoreSalesQuotationRequest;
 use Automas\Quotation\Http\Requests\SalesQuotation\UpdateSalesQuotationRequest;
@@ -126,11 +127,14 @@ class QuotationController extends Controller
         $warehouses = $this->warehouseService->getActiveWarehouses();
         $defaultPages = $this->quotationServices->getActiveDefaultPages(Auth::id());
         $settings = $this->quotationServices->getQuotationSetting();
+        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $subjects = QuotationSubject::where('created_by', $creatorId)->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('Quotation/Quotations/Create', [
             'customers' => $customers,
             'warehouses' => $warehouses,
             'defaultPages' => $defaultPages,
+            'subjects' => $subjects,
             'defaultTerms' => $settings['default_terms'] ?? null,
             'quotationSetting' => $settings,
         ]);
@@ -187,12 +191,15 @@ class QuotationController extends Controller
         $warehouses = $this->warehouseService->getActiveWarehouses();
         $settings = $this->quotationServices->getQuotationSetting();
         $defaultPages = $this->quotationServices->getActiveDefaultPages(Auth::id());
+        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $subjects = \Automas\Quotation\Models\QuotationSubject::where('created_by', $creatorId)->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('Quotation/Quotations/Edit', [
             'quotation' => $quotation,
             'customers' => $customers,
             'warehouses' => $warehouses,
             'defaultPages' => $defaultPages,
+            'subjects' => $subjects,
             'quotationSetting' => $settings,
         ]);
     }
