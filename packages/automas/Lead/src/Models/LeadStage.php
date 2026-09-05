@@ -14,8 +14,17 @@ class LeadStage extends Model
         'name',
         'order',
         'pipeline_id',
+        'is_final_accepted',
+        'is_final_rejected',
         'creator_id',
         'created_by',
+    ];
+
+    protected $casts = [
+        'is_final_accepted' => 'boolean',
+        'is_final_rejected' => 'boolean',
+        'order' => 'integer',
+        'pipeline_id' => 'integer',
     ];
 
     public function pipeline()

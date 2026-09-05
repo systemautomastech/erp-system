@@ -32,6 +32,7 @@ use App\Http\Controllers\AIAgentChatPageController;
 use App\Http\Controllers\AIAgentChatController;
 use App\Http\Controllers\ProposalSetupController;
 use App\Http\Controllers\ProposalDefaultPageController;
+use App\Http\Controllers\ProposalSubjectController;
 
 Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Route::get('/dashboard', function () {
@@ -192,6 +193,13 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('sales-proposal/default-pages/{defaultPage}/edit', [ProposalDefaultPageController::class, 'edit'])->name('proposal-setup.default-pages.edit');
     Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'update'])->name('proposal-setup.default-pages.update');
     Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'destroy'])->name('proposal-setup.default-pages.destroy');
+    Route::resource('sales-proposal/subjects', ProposalSubjectController::class)->names([
+        'index' => 'proposal-setup.subjects.index',
+        'store' => 'proposal-setup.subjects.store',
+        'update' => 'proposal-setup.subjects.update',
+        'destroy' => 'proposal-setup.subjects.destroy',
+    ]);
+    Route::get('sales-proposal/subjects-list', [ProposalSubjectController::class, 'index'])->name('proposal.subjects.index');
 
     // Messenger routes
     Route::get('messenger', [MessengerController::class, 'index'])->name('messenger.index');

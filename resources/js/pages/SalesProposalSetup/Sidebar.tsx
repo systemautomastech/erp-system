@@ -6,6 +6,7 @@ import {
     Settings,
     Image as ImageIcon,
     Layers,
+    Tag,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -38,6 +39,11 @@ export default function SetupSidebar({ activeSection, onNavClick }: SetupSidebar
             id: 'default-pages',
             label: t('Default Pages'),
             icon: Layers,
+        },
+        {
+            id: 'subjects',
+            label: t('Subjects'),
+            icon: Tag,
         },
     ];
 

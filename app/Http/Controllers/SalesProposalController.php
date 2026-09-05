@@ -11,6 +11,7 @@ use App\Events\UpdateSalesProposal;
 use App\Http\Requests\StoreSalesProposalRequest;
 use App\Http\Requests\UpdateSalesProposalRequest;
 use App\Models\ProposalSetting;
+use App\Models\ProposalSubject;
 use App\Models\SalesProposal;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -108,6 +109,7 @@ class SalesProposalController extends Controller
         $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
         $defaultPages = $this->proposalService->getActiveDefaultPages(Auth::id());
         $proposalSetting = ProposalSetting::getSettings(creatorId());
+        $subjects = ProposalSubject::where('created_by', creatorId())->orderBy('name')->get(['id', 'name']);
 
         // dd($customers);
 
@@ -117,6 +119,7 @@ class SalesProposalController extends Controller
             'defaultPages' => $defaultPages,
             'defaultTerms' => $proposalSetting['default_terms'] ?? null,
             'proposalSetting' => $proposalSetting,
+            'subjects' => $subjects,
         ]);
     }
 
@@ -180,6 +183,7 @@ class SalesProposalController extends Controller
         $proposalSetting = ProposalSetting::getSettings(creatorId());
         $defaultPages = $this->proposalService->getActiveDefaultPages(Auth::id());
         $products = $this->proposalService->getFormattedWarehouseProducts($salesProposal->warehouse_id);
+        $subjects = ProposalSubject::where('created_by', creatorId())->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('SalesProposals/Edit', [
             'proposal' => $salesProposal,
@@ -189,6 +193,7 @@ class SalesProposalController extends Controller
             'defaultPages' => $defaultPages,
             'defaultTerms' => $proposalSetting['default_terms'] ?? null,
             'proposalSetting' => $proposalSetting,
+            'subjects' => $subjects,
         ]);
     }
 

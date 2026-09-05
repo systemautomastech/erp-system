@@ -12,9 +12,17 @@ import {
 import { Input } from "./input"
 import { cn } from "@/lib/utils"
 
+/* -------------------------------------------------------------------------- */
+/*                                    Root                                    */
+/* -------------------------------------------------------------------------- */
+
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
+
+/* -------------------------------------------------------------------------- */
+/*                                  Trigger                                   */
+/* -------------------------------------------------------------------------- */
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
@@ -40,8 +48,11 @@ const SelectTrigger = React.forwardRef<
   </SelectPrimitive.Trigger>
 ))
 
-SelectTrigger.displayName =
-  SelectPrimitive.Trigger.displayName
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
+
+/* -------------------------------------------------------------------------- */
+/*                              Scroll Buttons                                */
+/* -------------------------------------------------------------------------- */
 
 const SelectScrollUpButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
@@ -85,6 +96,28 @@ const SelectScrollDownButton = React.forwardRef<
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName
 
+/* -------------------------------------------------------------------------- */
+/*                             Search Text Helper                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Recursively extracts text from React children.
+ *
+ * Supports:
+ *
+ * <SelectItem value="105">
+ *   Mesbah Uddin
+ * </SelectItem>
+ *
+ * and:
+ *
+ * <SelectItem value="105">
+ *   <div>
+ *     <span>Mesbah Uddin</span>
+ *     <span>Extension 105</span>
+ *   </div>
+ * </SelectItem>
+ */
 const getSearchableText = (
   node: React.ReactNode
 ): string => {
@@ -109,26 +142,36 @@ const getSearchableText = (
       .join(" ")
   }
 
-  if (
-    React.isValidElement(node) &&
-    (node.props as any)?.children
-  ) {
+  if (React.isValidElement(node)) {
+    const props = node.props as {
+      children?: React.ReactNode
+    }
+
     return getSearchableText(
-      (node.props as any).children
+      props.children
     )
   }
 
   return ""
 }
 
-const SelectContent = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Content>,
+/* -------------------------------------------------------------------------- */
+/*                                  Content                                   */
+/* -------------------------------------------------------------------------- */
+
+type SelectContentProps =
   React.ComponentPropsWithoutRef<
     typeof SelectPrimitive.Content
   > & {
     searchable?: boolean
     maxResults?: number
+    searchPlaceholder?: string
+    emptyText?: string
   }
+
+const SelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  SelectContentProps
 >(
   (
     {
@@ -137,6 +180,8 @@ const SelectContent = React.forwardRef<
       position = "popper",
       searchable = false,
       maxResults = 50,
+      searchPlaceholder = "Search...",
+      emptyText = "No results found",
       ...props
     },
     forwardedRef
@@ -147,31 +192,50 @@ const SelectContent = React.forwardRef<
     const inputRef =
       React.useRef<HTMLInputElement>(null)
 
-    const contentRef = React.useRef<HTMLDivElement | null>(null)
+    const contentRef =
+      React.useRef<HTMLDivElement | null>(null)
 
-    const setRefs = React.useCallback(
-      (
-        node: HTMLDivElement | null
-      ) => {
-        contentRef.current = node
+    /* ---------------------------------------------------------------------- */
+    /*                             Merge refs                                 */
+    /* ---------------------------------------------------------------------- */
 
-        if (
-          typeof forwardedRef === "function"
-        ) {
-          forwardedRef(node)
-        } else if (forwardedRef) {
-          (forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = node
-        }
-      },
-      [forwardedRef]
-    )
+    const setContentRef =
+      React.useCallback(
+        (
+          node: HTMLDivElement | null
+        ) => {
+          contentRef.current = node
+
+          if (
+            typeof forwardedRef ===
+            "function"
+          ) {
+            forwardedRef(node)
+          } else if (forwardedRef) {
+            (
+              forwardedRef as React.MutableRefObject<HTMLDivElement | null>
+            ).current = node
+          }
+        },
+        [forwardedRef]
+      )
+
+    /* ---------------------------------------------------------------------- */
+    /*                       Convert children to array                        */
+    /* ---------------------------------------------------------------------- */
 
     const childrenArray =
       React.useMemo(
         () =>
-          React.Children.toArray(children),
+          React.Children.toArray(
+            children
+          ),
         [children]
       )
+
+    /* ---------------------------------------------------------------------- */
+    /*                              Filtering                                */
+    /* ---------------------------------------------------------------------- */
 
     const filteredChildren =
       React.useMemo(() => {
@@ -179,41 +243,52 @@ const SelectContent = React.forwardRef<
           return childrenArray
         }
 
-        const normalizedSearch =
-          search.trim().toLowerCase()
+        const query = search
+          .trim()
+          .toLowerCase()
 
-        const filtered =
-          normalizedSearch === ""
-            ? childrenArray
-            : childrenArray.filter(
-              (child) => {
-                if (
-                  !React.isValidElement(
-                    child
-                  )
-                ) {
-                  return true
-                }
+        /**
+         * IMPORTANT:
+         *
+         * Do NOT slice the normal item list here.
+         *
+         * Radix needs the selected item to remain
+         * registered in its collection so that
+         * SelectValue can display its ItemText.
+         *
+         * This fixes cases where values such as
+         * 202 were selected internally but the
+         * trigger became blank.
+         */
+        if (!query) {
+          return childrenArray
+        }
 
-                const text =
-                  getSearchableText(
-                    (
-                      child.props as any
-                    ).children
-                  )
+        return childrenArray
+          .filter((child) => {
+            if (
+              !React.isValidElement(
+                child
+              )
+            ) {
+              return true
+            }
 
-                return text
-                  .toLowerCase()
-                  .includes(
-                    normalizedSearch
-                  )
+            const childProps =
+              child.props as {
+                children?: React.ReactNode
               }
-            )
 
-        return filtered.slice(
-          0,
-          maxResults
-        )
+            const text =
+              getSearchableText(
+                childProps.children
+              )
+
+            return text
+              .toLowerCase()
+              .includes(query)
+          })
+          .slice(0, maxResults)
       }, [
         childrenArray,
         search,
@@ -221,49 +296,108 @@ const SelectContent = React.forwardRef<
         maxResults,
       ])
 
-    const focusSearchInput =
-      React.useCallback(() => {
-        if (!searchable) {
-          return
-        }
+    /* ---------------------------------------------------------------------- */
+    /*                           First result                                 */
+    /* ---------------------------------------------------------------------- */
 
+    const getFirstEnabledItem =
+      React.useCallback(() => {
+        return contentRef.current?.querySelector<HTMLElement>(
+          '[role="option"]:not([data-disabled])'
+        )
+      }, [])
+
+    /* ---------------------------------------------------------------------- */
+    /*                     Keep search input focused                         */
+    /* ---------------------------------------------------------------------- */
+
+    React.useEffect(() => {
+      if (!searchable) {
+        return
+      }
+
+      /**
+       * Filtering causes Radix's item collection
+       * to update. In some cases Radix may attempt
+       * to move focus from the search field.
+       *
+       * Restore focus after the filtered results
+       * have rendered.
+       */
+      const frame =
         requestAnimationFrame(() => {
-          inputRef.current?.focus()
+          const content =
+            contentRef.current
+
+          if (
+            content?.dataset.state !==
+            "open"
+          ) {
+            return
+          }
+
+          if (
+            document.activeElement !==
+            inputRef.current
+          ) {
+            inputRef.current?.focus()
+          }
         })
-      }, [searchable])
 
-    const selectFirstResult =
-      React.useCallback(() => {
-        const firstItem =
-          contentRef.current?.querySelector<HTMLElement>(
-            '[role="option"]:not([data-disabled])'
-          )
+      return () =>
+        cancelAnimationFrame(frame)
+    }, [search, searchable])
 
-        firstItem?.click()
-      }, [])
+    /* ---------------------------------------------------------------------- */
+    /*                          Search keyboard                               */
+    /* ---------------------------------------------------------------------- */
 
-    const focusFirstResult =
-      React.useCallback(() => {
-        const firstItem =
-          contentRef.current?.querySelector<HTMLElement>(
-            '[role="option"]:not([data-disabled])'
-          )
+    const handleSearchKeyDown = (
+      event: React.KeyboardEvent<HTMLInputElement>
+    ) => {
+      /**
+       * Radix Select has its own typeahead system.
+       * Don't allow search-input keystrokes to
+       * reach Radix.
+       */
+      event.stopPropagation()
 
-        firstItem?.focus()
-      }, [])
+      if (event.key === "Enter") {
+        event.preventDefault()
+
+        getFirstEnabledItem()?.click()
+
+        return
+      }
+
+      if (
+        event.key === "ArrowDown"
+      ) {
+        event.preventDefault()
+
+        getFirstEnabledItem()?.focus()
+
+        return
+      }
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /*                                Render                                  */
+    /* ---------------------------------------------------------------------- */
 
     return (
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          ref={setRefs}
+          ref={setContentRef}
           position={position}
           className={cn(
-            "relative z-50",
+            "relative z-50 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+
             "max-h-[var(--radix-select-content-available-height)]",
+
             "min-w-[var(--radix-select-trigger-width)]",
+
             "w-max max-w-[min(600px,calc(100vw-2rem))]",
-            "overflow-hidden rounded-md border",
-            "bg-popover text-popover-foreground shadow-md",
 
             "data-[state=open]:animate-in",
             "data-[state=closed]:animate-out",
@@ -281,8 +415,7 @@ const SelectContent = React.forwardRef<
 
             "origin-[--radix-select-content-transform-origin]",
 
-            position === "popper" &&
-            [
+            position === "popper" && [
               "data-[side=bottom]:translate-y-1",
               "data-[side=left]:-translate-x-1",
               "data-[side=right]:translate-x-1",
@@ -291,28 +424,22 @@ const SelectContent = React.forwardRef<
 
             className
           )}
-          {...({
-            onOpenAutoFocus: (event: Event) => {
-              if (!searchable) {
-                return
-              }
 
-              event.preventDefault()
-              focusSearchInput()
-            }
-          } as any)}
+          /* -------------------------------------------------------------- */
+          /* Clear old search when select closes                             */
+          /* -------------------------------------------------------------- */
+
           onCloseAutoFocus={() => {
             setSearch("")
           }}
-          onKeyDownCapture={(event) => {
-            /*
-             * Radix Select has its own keyboard
-             * typeahead feature.
-             *
-             * If the user is typing inside our
-             * search input, prevent Radix from
-             * stealing focus.
-             */
+
+          /* -------------------------------------------------------------- */
+          /* Prevent Radix typeahead from stealing search keys                */
+          /* -------------------------------------------------------------- */
+
+          onKeyDownCapture={(
+            event
+          ) => {
             if (
               searchable &&
               event.target instanceof
@@ -321,9 +448,14 @@ const SelectContent = React.forwardRef<
               event.stopPropagation()
             }
           }}
+
           {...props}
         >
           <SelectScrollUpButton />
+
+          {/* -------------------------------------------------------------- */}
+          {/* Search                                                         */}
+          {/* -------------------------------------------------------------- */}
 
           {searchable && (
             <div
@@ -333,20 +465,18 @@ const SelectContent = React.forwardRef<
                 "border-b bg-popover",
                 "px-3 py-2"
               )}
+              /**
+               * Radix reacts to pointer-down
+               * events inside Select.Content.
+               *
+               * Stop search interactions from
+               * being interpreted as option
+               * interactions.
+               */
               onPointerDown={(
                 event
               ) => {
-                /*
-                 * Prevent Radix from moving
-                 * focus to an option when
-                 * clicking search area.
-                 */
                 event.stopPropagation()
-              }}
-              onClick={(event) => {
-                event.stopPropagation()
-
-                inputRef.current?.focus()
               }}
             >
               <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
@@ -354,80 +484,24 @@ const SelectContent = React.forwardRef<
               <Input
                 ref={inputRef}
                 type="text"
-                placeholder="Search..."
+                autoFocus
                 value={search}
+                placeholder={
+                  searchPlaceholder
+                }
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
-                onChange={(event) => {
+                onChange={(
+                  event
+                ) => {
                   setSearch(
                     event.target.value
                   )
                 }}
-                onPointerDown={(
-                  event
-                ) => {
-                  event.stopPropagation()
-                }}
-                onMouseDown={(event) => {
-                  event.stopPropagation()
-                }}
-                onClick={(event) => {
-                  event.stopPropagation()
-                }}
-                onKeyDown={(event) => {
-                  /*
-                   * Very important:
-                   *
-                   * Prevent Radix Select from
-                   * processing the typed key.
-                   */
-                  event.stopPropagation()
-
-                  event.nativeEvent.stopImmediatePropagation()
-
-                  if (
-                    event.key === "Enter"
-                  ) {
-                    event.preventDefault()
-
-                    selectFirstResult()
-
-                    return
-                  }
-
-                  /*
-                   * Arrow Down:
-                   * move directly to first
-                   * search result.
-                   */
-                  if (
-                    event.key ===
-                    "ArrowDown"
-                  ) {
-                    event.preventDefault()
-
-                    focusFirstResult()
-
-                    return
-                  }
-
-                  /*
-                   * Prevent Escape etc.
-                   * from affecting the text
-                   * input unexpectedly.
-                   *
-                   * Escape still closes Select
-                   * through Radix normally if
-                   * desired, so we don't
-                   * preventDefault here.
-                   */
-                }}
-                onKeyUp={(event) => {
-                  event.stopPropagation()
-
-                  event.nativeEvent.stopImmediatePropagation()
-                }}
+                onKeyDown={
+                  handleSearchKeyDown
+                }
                 className={cn(
                   "h-8 min-w-0 flex-1",
                   "border-0 bg-transparent",
@@ -438,6 +512,10 @@ const SelectContent = React.forwardRef<
               />
             </div>
           )}
+
+          {/* -------------------------------------------------------------- */}
+          {/* Options                                                        */}
+          {/* -------------------------------------------------------------- */}
 
           <SelectPrimitive.Viewport
             className={cn(
@@ -452,7 +530,7 @@ const SelectContent = React.forwardRef<
               filteredChildren.length ===
               0 && (
                 <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                  No results found
+                  {emptyText}
                 </div>
               )}
           </SelectPrimitive.Viewport>
@@ -467,11 +545,13 @@ const SelectContent = React.forwardRef<
 SelectContent.displayName =
   SelectPrimitive.Content.displayName
 
+/* -------------------------------------------------------------------------- */
+/*                                   Label                                    */
+/* -------------------------------------------------------------------------- */
+
 const SelectLabel = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Label>,
-  React.ComponentPropsWithoutRef<
-    typeof SelectPrimitive.Label
-  >
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
@@ -486,62 +566,49 @@ const SelectLabel = React.forwardRef<
 SelectLabel.displayName =
   SelectPrimitive.Label.displayName
 
+/* -------------------------------------------------------------------------- */
+/*                                    Item                                    */
+/* -------------------------------------------------------------------------- */
+
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<
-    typeof SelectPrimitive.Item
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, value, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    value={String(value)}
+    className={cn(
+      "relative flex w-full min-w-0 cursor-default select-none items-center rounded-sm",
+      "py-1.5 pl-8 pr-2",
+      "text-left text-sm outline-none",
+      "focus:bg-accent focus:text-accent-foreground",
+      "data-[disabled]:pointer-events-none",
+      "data-[disabled]:opacity-50",
+      className
+    )}
+    {...props}
   >
->(
-  (
-    {
-      className,
-      children,
-      ...props
-    },
-    ref
-  ) => (
-    <SelectPrimitive.Item
-      ref={ref}
-      className={cn(
-        "relative flex w-full min-w-0 cursor-default select-none items-center rounded-sm",
-        "py-1.5 pl-8 pr-2",
-        "text-left text-sm outline-none",
+    <span className="absolute left-2 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+      <SelectPrimitive.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </SelectPrimitive.ItemIndicator>
+    </span>
 
-        "focus:bg-accent",
-        "focus:text-accent-foreground",
+    <SelectPrimitive.ItemText>
+      {children}
+    </SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
+))
 
-        "data-[disabled]:pointer-events-none",
-        "data-[disabled]:opacity-50",
+SelectItem.displayName = SelectPrimitive.Item.displayName
 
-        className
-      )}
-      {...props}
-    >
-      <span className="absolute left-2 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
-        </SelectPrimitive.ItemIndicator>
-      </span>
-
-      <SelectPrimitive.ItemText>
-        <span className="block min-w-0 truncate text-left">
-          {children}
-        </span>
-      </SelectPrimitive.ItemText>
-    </SelectPrimitive.Item>
-  )
-)
-
-SelectItem.displayName =
-  SelectPrimitive.Item.displayName
+/* -------------------------------------------------------------------------- */
+/*                                 Separator                                  */
+/* -------------------------------------------------------------------------- */
 
 const SelectSeparator = React.forwardRef<
-  React.ElementRef<
-    typeof SelectPrimitive.Separator
-  >,
-  React.ComponentPropsWithoutRef<
-    typeof SelectPrimitive.Separator
-  >
+  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Separator
     ref={ref}
@@ -555,6 +622,10 @@ const SelectSeparator = React.forwardRef<
 
 SelectSeparator.displayName =
   SelectPrimitive.Separator.displayName
+
+/* -------------------------------------------------------------------------- */
+/*                                   Export                                   */
+/* -------------------------------------------------------------------------- */
 
 export {
   Select,

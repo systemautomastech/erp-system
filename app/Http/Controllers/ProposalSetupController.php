@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ProposalDefaultPage;
 use App\Models\ProposalSetting;
+use App\Models\ProposalSubject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -30,9 +31,14 @@ class ProposalSetupController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $subjects = ProposalSubject::where('created_by', $creatorId)
+            ->latest()
+            ->get();
+
         return Inertia::render('SalesProposalSetup/Index', [
             'settings' => $settings,
             'defaultPages' => $defaultPages,
+            'subjects' => $subjects,
         ]);
     }
 

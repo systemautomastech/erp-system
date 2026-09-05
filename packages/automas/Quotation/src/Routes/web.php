@@ -1,5 +1,6 @@
 <?php
 
+use Automas\Quotation\Http\Controllers\QuotationSubjectController;
 use Illuminate\Support\Facades\Route;
 use Automas\Quotation\Http\Controllers\QuotationController;
 use Automas\Quotation\Http\Controllers\QuotationSettingController;
@@ -22,6 +23,17 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Quotation'])->gro
             'destroy' => 'quotation-setup.default-pages.destroy',
         ])
         ->except(['index', 'show']);
+
+    // Quotation Subjects
+    Route::resource('sales-quotation/subjects', QuotationSubjectController::class)
+        ->names([
+            'index' => 'quotation-setup.subjects.index',
+            'store' => 'quotation-setup.subjects.store',
+            'update' => 'quotation-setup.subjects.update',
+            'destroy' => 'quotation-setup.subjects.destroy',
+        ])
+        ->only(['index', 'store', 'update', 'destroy']);
+    Route::get('sales-quotation/subjects-list', [QuotationSubjectController::class, 'index'])->name('quotation.subjects.index');
 
     Route::resource('quotations', QuotationController::class);
     Route::get('quotations/{quotation}/print', [QuotationController::class, 'print'])->name('quotations.print');
