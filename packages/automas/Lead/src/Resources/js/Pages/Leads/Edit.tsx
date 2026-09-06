@@ -14,8 +14,9 @@ import { EditLeadProps, LeadFormData } from './types';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { formatDate } from '@/utils/helpers';
+import { Tag, CheckCircle2, XCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useFormFields } from '@/hooks/useFormFields';
-import { Tag } from "lucide-react";
 
 export default function EditLead({ lead, sources: propSources, subjects: propSubjects, products: propProducts, onSuccess }: EditLeadProps & { sources?: any, subjects?: any, products?: any }) {
     const { users, pipelines, products, labels: labelOptions, subjects: pageSubjects } = usePage<any>().props;
@@ -61,6 +62,12 @@ export default function EditLead({ lead, sources: propSources, subjects: propSub
                 .catch(() => setStages([]));
         }
     }, [data.pipeline_id]);
+
+    const selectedStage: any = (stages as any[])?.find(
+        (s: any) => s.id?.toString() === data.stage_id?.toString()
+    );
+    const isFinalAccepted = !!selectedStage?.is_final_accepted;
+    const isFinalRejected = !!selectedStage?.is_final_rejected;
 
     const isSubjectInList = (val: string, list: any) => {
         if (!val || !list) return false;
@@ -228,12 +235,33 @@ export default function EditLead({ lead, sources: propSources, subjects: propSub
                     </div>
 
                     <div>
-                        <Label>{t('Follow Up Date')}</Label>
+                        <div className="flex items-center justify-between mb-1">
+                            <Label className={isFinalAccepted ? 'text-emerald-700 dark:text-emerald-400 font-medium' : (isFinalRejected ? 'text-muted-foreground' : '')}>
+                                {t('Follow Up Date')}
+                            </Label>
+                            {isFinalAccepted && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                    {t('Final Accepted')}
+                                </span>
+                            )}
+                            {isFinalRejected && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 bg-rose-50 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
+                                    <XCircle className="h-3 w-3 text-rose-600" />
+                                    {t('Disabled for Rejected')}
+                                </span>
+                            )}
+                        </div>
                         <DateTimeRangePicker
                             value={data.date}
                             onChange={(date) => setData('date', date)}
-                            placeholder={t('Select Follow Up Date & Time')}
+                            placeholder={isFinalRejected ? t('Disabled for rejected stage') : t('Select Follow Up Date & Time')}
                             mode="single"
+                            disabled={isFinalRejected}
+                            triggerClassName={cn(
+                                isFinalAccepted && "border-emerald-500 bg-emerald-50/50 text-emerald-900 focus:border-emerald-600 dark:border-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-200 ring-1 ring-emerald-500/20",
+                                isFinalRejected && "opacity-60 cursor-not-allowed bg-muted border-dashed text-muted-foreground"
+                            )}
                         />
                         <InputError message={errors.date} />
                     </div>
@@ -259,14 +287,36 @@ export default function EditLead({ lead, sources: propSources, subjects: propSub
 
                     <div>
                         <Label htmlFor="stage_id">{t('Stage')}</Label>
-                        <Select value={data.stage_id?.toString() || ''} onValueChange={(value) => setData('stage_id', value)}>
+                        <Select
+                            value={data.stage_id?.toString() || ''}
+                            onValueChange={(value) => {
+                                const stageObj: any = (stages as any[])?.find((s: any) => s.id?.toString() === value?.toString());
+                                if (stageObj?.is_final_rejected) {
+                                    setData(prev => ({ ...prev, stage_id: value, date: '' }));
+                                } else {
+                                    setData('stage_id', value);
+                                }
+                            }}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Stage')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {stages?.map((item: any) => (
                                     <SelectItem key={item.id} value={item.id.toString()}>
-                                        {item.name}
+                                        <div className="flex items-center justify-between w-full gap-2">
+                                            <span>{item.name}</span>
+                                            {!!item.is_final_accepted && (
+                                                <span className="text-[10px] text-emerald-700 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.5 rounded font-normal">
+                                                    {t('Accepted')}
+                                                </span>
+                                            )}
+                                            {!!item.is_final_rejected && (
+                                                <span className="text-[10px] text-rose-700 bg-rose-100 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.5 rounded font-normal">
+                                                    {t('Rejected')}
+                                                </span>
+                                            )}
+                                        </div>
                                     </SelectItem>
                                 ))}
                             </SelectContent>

@@ -61,11 +61,13 @@ class PipelineController extends Controller
             $defaultLeadStages = ['Draft', 'Sent', 'Open', 'Revised', 'Declined', 'Accepted'];
             foreach ($defaultLeadStages as $index => $stageName) {
                 LeadStage::create([
-                    'name'       => $stageName,
-                    'pipeline_id'=> $pipeline->id,
-                    'order'      => $index + 1,
-                    'creator_id' => Auth::id(),
-                    'created_by' => creatorId(),
+                    'name'              => $stageName,
+                    'pipeline_id'       => $pipeline->id,
+                    'order'             => $index + 1,
+                    'is_final_accepted' => $stageName === 'Accepted',
+                    'is_final_rejected' => $stageName === 'Declined',
+                    'creator_id'        => Auth::id(),
+                    'created_by'        => creatorId(),
                 ]);
             }
 

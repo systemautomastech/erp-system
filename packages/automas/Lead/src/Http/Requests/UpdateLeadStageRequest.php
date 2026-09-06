@@ -15,7 +15,10 @@ class UpdateLeadStageRequest extends FormRequest
     {
         return [
             'name' => 'required|max:100',
-            'pipeline_id' => 'nullable|exists:pipelines,id'
+            'pipeline_id' => 'nullable|exists:pipelines,id',
+            'final_type' => 'nullable|string|in:none,accepted,rejected',
+            'is_final_accepted' => 'nullable|boolean',
+            'is_final_rejected' => 'nullable|boolean',
         ];
     }
 }

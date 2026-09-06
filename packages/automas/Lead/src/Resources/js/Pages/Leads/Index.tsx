@@ -537,7 +537,37 @@ export default function Index() {
             key: 'date',
             header: t('Follow Up'),
             sortable: true,
-            render: (value: string) => {
+            render: (value: string, row: any) => {
+                const stage = row.stage || stages?.find((item: any) => item.id?.toString() === row.stage_id?.toString());
+                const isFinalAccepted = !!stage?.is_final_accepted;
+                const isFinalRejected = !!stage?.is_final_rejected;
+
+                if (isFinalRejected) {
+                    return (
+                        <span
+                            className="inline-flex min-w-[95px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-800 dark:text-gray-500 opacity-60"
+                            title={t('Rejected Stage - Follow up disabled')}
+                        >
+                            {value ? (
+                                <span className="line-through">{formatDate(value)}</span>
+                            ) : (
+                                <span>-</span>
+                            )}
+                        </span>
+                    );
+                }
+
+                if (isFinalAccepted) {
+                    return (
+                        <span
+                            className="inline-flex min-w-[95px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            title={formatDateTime(value) || (value ? formatDate(value) : t('Accepted'))}
+                        >
+                            {value ? formatDate(value) : t('Accepted')}
+                        </span>
+                    );
+                }
+
                 const followUp = getFollowUpStatus(value);
 
                 if (!value) {

@@ -19,8 +19,10 @@ interface DateTimeRangePickerProps {
   onChange: (value: string) => void
   placeholder?: string
   className?: string
+  triggerClassName?: string
   id?: string
   required?: boolean
+  disabled?: boolean
   timeFormat?: string
   dateFormat?: string
   mode?: 'single' | 'range'
@@ -31,8 +33,10 @@ export function DateTimeRangePicker({
   onChange,
   placeholder,
   className,
+  triggerClassName,
   id,
   required,
+  disabled = false,
   timeFormat = "HH:mm",
   dateFormat = "MMM d, yyyy h:mm aa",
   mode = "range"
@@ -140,13 +144,17 @@ export function DateTimeRangePicker({
         e.stopPropagation();
       }
     }}>
-      <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen} modal={false}>
         <PopoverTrigger asChild>
           <Button
+            type="button"
             variant="outline"
+            disabled={disabled}
             className={cn(
               'w-full justify-start text-left font-normal h-10',
-              !value && 'text-muted-foreground'
+              !value && 'text-muted-foreground',
+              disabled && 'opacity-60 cursor-not-allowed bg-muted pointer-events-none',
+              triggerClassName
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
