@@ -36,6 +36,14 @@ class ProposalSubjectController extends Controller
 
     public function store(StoreProposalSubjectRequest $request)
     {
+        $userType = Auth::user()->type ?? '';
+        if (!in_array($userType, ['company', 'superadmin'])) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => __('Permission denied. Only company can create subjects.')], 403);
+            }
+            return back()->with('error', __('Permission denied. Only company can create subjects.'));
+        }
+
         if (!Auth::user()->can('manage-proposal-system-setup') && !Auth::user()->can('create-subjects')) {
             if ($request->wantsJson()) {
                 return response()->json(['error' => __('Permission denied')], 403);
@@ -70,6 +78,14 @@ class ProposalSubjectController extends Controller
 
     public function update(UpdateProposalSubjectRequest $request, ProposalSubject $subject)
     {
+        $userType = Auth::user()->type ?? '';
+        if (!in_array($userType, ['company', 'superadmin'])) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => __('Permission denied. Only company can update subjects.')], 403);
+            }
+            return back()->with('error', __('Permission denied. Only company can update subjects.'));
+        }
+
         if (!Auth::user()->can('manage-proposal-system-setup') && !Auth::user()->can('edit-subjects')) {
             if ($request->wantsJson()) {
                 return response()->json(['error' => __('Permission denied')], 403);
@@ -108,6 +124,14 @@ class ProposalSubjectController extends Controller
 
     public function destroy(ProposalSubject $subject)
     {
+        $userType = Auth::user()->type ?? '';
+        if (!in_array($userType, ['company', 'superadmin'])) {
+            if (request()->wantsJson()) {
+                return response()->json(['error' => __('Permission denied. Only company can delete subjects.')], 403);
+            }
+            return back()->with('error', __('Permission denied. Only company can delete subjects.'));
+        }
+
         if (!Auth::user()->can('manage-proposal-system-setup') && !Auth::user()->can('delete-subjects')) {
             if (request()->wantsJson()) {
                 return response()->json(['error' => __('Permission denied')], 403);

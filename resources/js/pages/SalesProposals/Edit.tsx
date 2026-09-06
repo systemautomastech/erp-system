@@ -69,39 +69,7 @@ export default function Edit() {
         }
     }, [subjects, proposal.subject]);
 
-    const [isQuickSubjectModalOpen, setIsQuickSubjectModalOpen] = useState(false);
-    const [quickSubjectName, setQuickSubjectName] = useState('');
-    const [isQuickSubjectSaving, setIsQuickSubjectSaving] = useState(false);
-    const [quickSubjectError, setQuickSubjectError] = useState('');
-
-    const handleCreateQuickSubject = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!quickSubjectName.trim()) {
-            setQuickSubjectError(t('Subject name is required.'));
-            return;
-        }
-        setIsQuickSubjectSaving(true);
-        try {
-            const response = await axios.post(route('proposal-setup.subjects.store'), {
-                name: quickSubjectName.trim()
-            }, {
-                headers: { 'Accept': 'application/json' }
-            });
-            if (response.data?.subject) {
-                const newSub = response.data.subject;
-                setSubjectList((prev) => [newSub, ...prev]);
-                setData('subject', newSub.name);
-                toast.success(t('Subject created and selected.'));
-                setIsQuickSubjectModalOpen(false);
-                setQuickSubjectName('');
-                setQuickSubjectError('');
-            }
-        } catch (err: any) {
-            setQuickSubjectError(err.response?.data?.errors?.name?.[0] || err.response?.data?.message || t('Failed to create subject.'));
-        } finally {
-            setIsQuickSubjectSaving(false);
-        }
-    };
+    // Initialize proposal sections with existing contents or fallback to defaultPages
 
     // Initialize proposal sections with existing proposal_content or fallback to defaultPages
     const [sections, setSections] = useState<Array<{ id: string; title: string; content: string; page_type?: string; background_image?: string; order: number; isExpanded: boolean; default_page_id?: number }>>(() => {
@@ -445,23 +413,9 @@ export default function Edit() {
                                 </div>
 
                                 <div className="w-full flex-1">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <Label htmlFor="subject" required className="mb-0">
-                                            {t('Subject')}
-                                        </Label>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setQuickSubjectName('');
-                                                setQuickSubjectError('');
-                                                setIsQuickSubjectModalOpen(true);
-                                            }}
-                                            className="text-[11px] font-semibold text-primary flex items-center gap-1 cursor-pointer hover:underline transition-colors"
-                                        >
-                                            <Plus className="h-3 w-3" />
-                                            {t('New Subject')}
-                                        </button>
-                                    </div>
+                                    <Label htmlFor="subject" required className="mb-1.5">
+                                        {t('Subject')}
+                                    </Label>
 
                                     <Select
                                         value={data.subject}
@@ -914,47 +868,6 @@ export default function Edit() {
                     </div>
                 </form>
             </div>
-            {/* Quick Create Subject Dialog */}
-            <Dialog open={isQuickSubjectModalOpen} onOpenChange={setIsQuickSubjectModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{t('Create Subject')}</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleCreateQuickSubject} className="space-y-4">
-                        <div>
-                            <Label htmlFor="quick-subject-name">{t('Name')}</Label>
-                            <Input
-                                id="quick-subject-name"
-                                type="text"
-                                value={quickSubjectName}
-                                onChange={(e) => {
-                                    setQuickSubjectName(e.target.value);
-                                    if (quickSubjectError) setQuickSubjectError('');
-                                }}
-                                placeholder={t('Enter Name')}
-                                required
-                            />
-                            {quickSubjectError && (
-                                <p className="text-xs text-destructive mt-1">{quickSubjectError}</p>
-                            )}
-                        </div>
-
-                        <div className="flex justify-end gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsQuickSubjectModalOpen(false)}
-                                disabled={isQuickSubjectSaving}
-                            >
-                                {t('Cancel')}
-                            </Button>
-                            <Button type="submit" disabled={isQuickSubjectSaving}>
-                                {isQuickSubjectSaving ? t('Creating...') : t('Create')}
-                            </Button>
-                        </div>
-                    </form>
-                </DialogContent>
-            </Dialog>
         </AuthenticatedLayout>
     );
 }

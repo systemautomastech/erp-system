@@ -32,6 +32,14 @@ class QuotationSubjectController extends Controller
 
     public function store(Request $request)
     {
+        $userType = Auth::user()->type ?? '';
+        if (!in_array($userType, ['company', 'superadmin'])) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => __('Permission denied. Only company can create subjects.')], 403);
+            }
+            return back()->with('error', __('Permission denied. Only company can create subjects.'));
+        }
+
         if (!Auth::user()->can('manage-quotation-system-setup')) {
             if ($request->wantsJson()) {
                 return response()->json(['error' => __('Permission denied')], 403);
@@ -64,6 +72,14 @@ class QuotationSubjectController extends Controller
 
     public function update(Request $request, QuotationSubject $subject)
     {
+        $userType = Auth::user()->type ?? '';
+        if (!in_array($userType, ['company', 'superadmin'])) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => __('Permission denied. Only company can update subjects.')], 403);
+            }
+            return back()->with('error', __('Permission denied. Only company can update subjects.'));
+        }
+
         if (!Auth::user()->can('manage-quotation-system-setup')) {
             if ($request->wantsJson()) {
                 return response()->json(['error' => __('Permission denied')], 403);
@@ -99,6 +115,14 @@ class QuotationSubjectController extends Controller
 
     public function destroy(QuotationSubject $subject)
     {
+        $userType = Auth::user()->type ?? '';
+        if (!in_array($userType, ['company', 'superadmin'])) {
+            if (request()->wantsJson()) {
+                return response()->json(['error' => __('Permission denied. Only company can delete subjects.')], 403);
+            }
+            return back()->with('error', __('Permission denied. Only company can delete subjects.'));
+        }
+
         if (!Auth::user()->can('manage-quotation-system-setup')) {
             if (request()->wantsJson()) {
                 return response()->json(['error' => __('Permission denied')], 403);
