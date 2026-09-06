@@ -543,27 +543,30 @@
             font-size: 24px;
             font-weight: 700;
             margin: 8px 0;
-            color: #0f172a;
         }
 
         .html-preview-container h2 {
             font-size: 20px;
             font-weight: 700;
             margin: 8px 0;
-            color: #0f172a;
         }
 
         .html-preview-container h3 {
             font-size: 18px;
             font-weight: 600;
             margin: 6px 0;
-            color: #0f172a;
         }
 
         .html-preview-container h4 {
             font-size: 16px;
             font-weight: 600;
             margin: 4px 0;
+        }
+
+        .html-preview-container h1:not([style*="color"]),
+        .html-preview-container h2:not([style*="color"]),
+        .html-preview-container h3:not([style*="color"]),
+        .html-preview-container h4:not([style*="color"]) {
             color: #0f172a;
         }
 
@@ -589,22 +592,31 @@
         }
 
         .html-preview-container ul {
-            list-style-type: disc;
-            margin-left: 24px;
-            margin-top: 8px;
-            margin-bottom: 8px;
+            list-style-type: disc !important;
+            padding-left: 24px !important;
+            margin-left: 0 !important;
+            margin-top: 8px !important;
+            margin-bottom: 8px !important;
         }
 
         .html-preview-container ol {
-            list-style-type: decimal;
-            margin-left: 24px;
-            margin-top: 8px;
-            margin-bottom: 8px;
+            list-style-type: decimal !important;
+            padding-left: 24px !important;
+            margin-left: 0 !important;
+            margin-top: 8px !important;
+            margin-bottom: 8px !important;
         }
 
         .html-preview-container li {
-            margin-top: 2px;
-            margin-bottom: 2px;
+            display: list-item !important;
+            list-style-type: inherit !important;
+            margin-top: 3px !important;
+            margin-bottom: 3px !important;
+        }
+
+        .html-preview-container li p {
+            display: inline !important;
+            margin: 0 !important;
         }
 
         .html-preview-container blockquote {
@@ -674,7 +686,7 @@
             word-break: break-word !important;
         }
 
-        .html-preview-container table td * {
+        .html-preview-container table td *:not([style*="color"]) {
             margin: 0 !important;
             padding: 0 !important;
             font-size: 10px !important;

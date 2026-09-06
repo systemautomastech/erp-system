@@ -12,6 +12,7 @@ use App\Models\Warehouse;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Automas\Account\Models\Customer;
+use Illuminate\Support\Facades\DB;
 
 class SalesQuotation extends Model
 {
@@ -130,7 +131,7 @@ class SalesQuotation extends Model
         $creatorId = creatorId();
         $dateFormatted = $date ? date('Y-m-d', strtotime($date)) : date('Y-m-d');
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($creatorId, $dateFormatted) {
+        return DB::transaction(function () use ($creatorId, $dateFormatted) {
             $settings = QuotationSetting::getSettings($creatorId);
 
             $prefix = $settings['quotation_prefix'] ?? 'QT-';

@@ -26,12 +26,14 @@ interface CreateProps {
     products: Array<{ id: number; name: string; sku: string; purchase_price: number; unit: string; type: string; taxes: Array<{ id: number; tax_name: string; rate: number }> }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
     default_payment_terms?: string;
+    invoice_settings?: any;
+    invoice_number?: string;
     [key: string]: any;
 }
 
 export default function Create() {
     const { t } = useTranslation();
-    const { vendors, products, warehouses, default_payment_terms } = usePage<CreateProps>().props;
+    const { vendors, products, warehouses, default_payment_terms, invoice_number } = usePage<CreateProps>().props;
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleRefresh = () => {
@@ -44,6 +46,7 @@ export default function Create() {
 
     useFlashMessages();
     const { data, setData, post, processing, errors } = useForm({
+        invoice_number: invoice_number || '',
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
         vendor_mode: 'existing' as 'existing' | 'new',
@@ -203,6 +206,19 @@ export default function Create() {
                                             </Badge>
                                         </div>
                                     )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="invoice_number">
+                                        {t('Invoice Number')}
+                                    </Label>
+                                    <Input
+                                        id="invoice_number"
+                                        value={data.invoice_number}
+                                        onChange={(e) => setData('invoice_number', e.target.value)}
+                                        placeholder={invoice_number || t('e.g. PI-1-2026-09-06')}
+                                    />
+                                    <InputError message={errors.invoice_number} />
                                 </div>
 
                                 <div>

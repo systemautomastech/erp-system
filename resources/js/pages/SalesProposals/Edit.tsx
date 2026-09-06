@@ -50,7 +50,6 @@ export default function Edit() {
     const { t } = useTranslation();
     const { proposal, customers, warehouses, products = [], defaultPages = [], defaultTerms, proposalSetting, subjects = [] } = usePage<EditProps>().props;
     const [availableProducts, setAvailableProducts] = useState<any[]>(Array.isArray(products) ? products : []);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     const [subjectList, setSubjectList] = useState<Array<{ id: number; name: string }>>(() => {
         const initialList = [...subjects];

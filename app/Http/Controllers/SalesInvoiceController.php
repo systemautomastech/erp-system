@@ -248,6 +248,8 @@ class SalesInvoiceController extends Controller
                 'products' => $products,
                 'warehouses' => $warehouses,
                 'default_payment_terms' => $setupSettings['sales_invoice_default_payment_terms'] ?? '',
+                'invoice_settings' => $setupSettings,
+                'invoice_number' => SalesInvoice::generateInvoiceNumber(),
             ]);
         } else {
             return back()->with('error', __('Permission denied'));
@@ -260,6 +262,9 @@ class SalesInvoiceController extends Controller
             $totals = $this->calculateTotals($request->items);
 
             $invoice = new SalesInvoice();
+            if (!empty($request->invoice_number)) {
+                $invoice->invoice_number = $request->invoice_number;
+            }
             $invoice->invoice_date = $request->invoice_date;
             $invoice->due_date = $request->due_date;
             if ($request->customer_mode === 'new') {

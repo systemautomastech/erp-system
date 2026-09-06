@@ -49,7 +49,6 @@ export default function Create() {
     const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting, subjects = [] } = pageProps;
     const authUser = (pageProps as any)?.auth?.user;
     const [availableProducts, setAvailableProducts] = useState<any[]>([]);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [subjectList, setSubjectList] = useState<Array<{ id: number; name: string }>>(subjects);
 
     useEffect(() => {

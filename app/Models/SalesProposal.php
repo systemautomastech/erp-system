@@ -7,6 +7,7 @@ use Automas\Quotation\Models\SalesQuotation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class SalesProposal extends Model
 {
@@ -136,7 +137,7 @@ class SalesProposal extends Model
         $creatorId = creatorId();
         $dateFormatted = $date ? date('Y-m-d', strtotime($date)) : date('Y-m-d');
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($creatorId, $dateFormatted) {
+        return DB::transaction(function () use ($creatorId, $dateFormatted) {
             $settings = ProposalSetting::getSettings($creatorId);
 
             $prefix = $settings['proposal_prefix'] ?? 'PRO';

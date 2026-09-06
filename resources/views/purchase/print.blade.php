@@ -680,7 +680,7 @@
                             if (loader) loader.classList.add('hidden');
                         }, 2000);
                     }, 800);
-                } else if (urlParams.get('print') === '1' || urlParams.has('print')) {
+                } else {
                     setTimeout(() => window.print(), 400);
                 }
             });

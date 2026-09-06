@@ -12,7 +12,7 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
 import { getImagePath } from '@/utils/helpers';
 import MediaPicker from '@/components/MediaPicker';
-import {
+import PreviewModal, {
     ProposalPreviewSheet,
     paginateDomContainer,
     PROPOSAL_CONTENT_CLASSES,
@@ -135,7 +135,6 @@ const LiveA4Editor: React.FC<LiveA4EditorProps> = ({
             onInput={handleInput}
             onBlur={handleBlur}
             className={cn("outline-none w-full min-h-[400px] cursor-text", className)}
-            style={{ marginTop: '2rem' }}
         />
     );
 };
@@ -233,6 +232,8 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
         });
     };
 
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
     return (
         <AuthenticatedLayout
             breadcrumbs={[
@@ -242,17 +243,41 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
             ]}
             pageTitle={t('Create Default Page')}
             pageActions={
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.visit(route('proposal-setup.index'))}
-                >
-                    <ArrowLeft className="h-4 w-4 mr-1.5" />
-                    {t('Back')}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setIsPreviewModalOpen(true)}
+                        className="gap-1.5"
+                    >
+                        <Eye className="h-4 w-4" />
+                        {t('Preview Modal')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.visit(route('proposal-setup.index'))}
+                    >
+                        <ArrowLeft className="h-4 w-4 mr-1.5" />
+                        {t('Back')}
+                    </Button>
+                </div>
             }
         >
             <Head title={t('Create Default Page')} />
+
+            {/* Reusable Proposal Preview Modal */}
+            <PreviewModal
+                open={isPreviewModalOpen}
+                onOpenChange={setIsPreviewModalOpen}
+                title={data.title || t('Create Default Page')}
+                pageTitle={data.title || t('Create Default Page')}
+                content={data.content}
+                backgroundImage={data.background_image}
+                settings={settings}
+                isDefaultPageSetup={true}
+                showPrintButton={true}
+            />
 
             {/* Hidden live measuring container in exact A4 styling to measure real browser heights */}
             <div
