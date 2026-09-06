@@ -875,40 +875,32 @@ export default function Create() {
                 </form>
             </div>
 
-            {/* QUICK SUBJECT MODAL */}
+            {/* Quick Create Subject Dialog */}
             <Dialog open={isQuickSubjectModalOpen} onOpenChange={setIsQuickSubjectModalOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Tag className="h-5 w-5 text-primary" />
-                            {t('Add New Quotation Subject')}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {t('Create a new subject name to instantly select for this quotation.')}
-                        </DialogDescription>
+                        <DialogTitle>{t('Create Subject')}</DialogTitle>
                     </DialogHeader>
-
-                    <form onSubmit={handleCreateQuickSubject} className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="quick-subject-name" required>
-                                {t('Subject Name')}
-                            </Label>
+                    <form onSubmit={handleCreateQuickSubject} className="space-y-4">
+                        <div>
+                            <Label htmlFor="quick-subject-name">{t('Name')}</Label>
                             <Input
                                 id="quick-subject-name"
+                                type="text"
                                 value={quickSubjectName}
                                 onChange={(e) => {
                                     setQuickSubjectName(e.target.value);
                                     if (quickSubjectError) setQuickSubjectError('');
                                 }}
-                                placeholder={t('e.g., Quotation for Web Development Service')}
-                                autoFocus
+                                placeholder={t('Enter Name')}
+                                required
                             />
                             {quickSubjectError && (
-                                <p className="text-xs font-medium text-destructive">{quickSubjectError}</p>
+                                <p className="text-xs text-destructive mt-1">{quickSubjectError}</p>
                             )}
                         </div>
 
-                        <DialogFooter className="pt-2">
+                        <div className="flex justify-end gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -917,15 +909,10 @@ export default function Create() {
                             >
                                 {t('Cancel')}
                             </Button>
-                            <Button type="submit" disabled={isQuickSubjectSaving} className="gap-2">
-                                {isQuickSubjectSaving ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Save className="h-4 w-4" />
-                                )}
-                                {t('Save & Select')}
+                            <Button type="submit" disabled={isQuickSubjectSaving}>
+                                {isQuickSubjectSaving ? t('Creating...') : t('Create')}
                             </Button>
-                        </DialogFooter>
+                        </div>
                     </form>
                 </DialogContent>
             </Dialog>

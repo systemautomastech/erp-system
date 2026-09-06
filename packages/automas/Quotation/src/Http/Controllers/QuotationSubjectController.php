@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Automas\Quotation\Models\QuotationSubject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class QuotationSubjectController extends Controller
 {
@@ -24,7 +25,9 @@ class QuotationSubjectController extends Controller
             return response()->json(['subjects' => $subjects]);
         }
 
-        return redirect()->route('quotation-setup.index');
+        return Inertia::render('Quotation/Settings/Subjects/Index', [
+            'subjects' => $subjects,
+        ]);
     }
 
     public function store(Request $request)
