@@ -7,8 +7,9 @@ import PurchaseSetupSidebar from "./PurchaseSetupSidebar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Save, FileText, Image as ImageIcon, Building, CreditCard } from 'lucide-react';
+import { Save, FileText, Image as ImageIcon, Building, CreditCard, Hash } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { getImagePath } from '@/utils/helpers';
@@ -20,6 +21,8 @@ interface PurchaseInvoiceSettingsProps {
         purchase_invoice_bg_letterhead?: string;
         purchase_invoice_enable_letterhead?: string;
         purchase_invoice_default_payment_terms?: string;
+        purchase_invoice_prefix?: string;
+        purchase_invoice_starting_number?: string;
         [key: string]: any;
     };
     [key: string]: any;
@@ -36,6 +39,8 @@ export default function Index() {
         purchase_invoice_bg_letterhead: settings?.purchase_invoice_bg_letterhead || '',
         purchase_invoice_enable_letterhead: settings?.purchase_invoice_enable_letterhead === 'on',
         purchase_invoice_default_payment_terms: settings?.purchase_invoice_default_payment_terms ?? '<p>Payment due within 30 days of invoice date.</p>',
+        purchase_invoice_prefix: settings?.purchase_invoice_prefix || 'PI',
+        purchase_invoice_starting_number: settings?.purchase_invoice_starting_number || '1',
     });
 
     useFlashMessages();
@@ -100,62 +105,106 @@ export default function Index() {
                             </CardHeader>
 
                             <CardContent className="space-y-6 pt-6">
-                                {/* SECTION 1: PURCHASE INVOICE LOGO OPTION WITH TOGGLE */}
-                                <div className="space-y-4 border border-slate-200 rounded-lg p-5 bg-slate-50/50">
-                                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                                        <div className="flex items-center gap-3">
+                                {/* SECTION 0 & 1: NUMBERING & LOGO (IN SAME ROW) */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {/* PURCHASE INVOICE NUMBERING SETUP */}
+                                    <div className="space-y-4 border border-slate-200 rounded-lg p-5 bg-slate-50/50 flex flex-col justify-between">
+                                        <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
                                             <div className="p-2 bg-slate-200 text-slate-700 rounded-md">
-                                                <Building className="h-4 w-4" />
+                                                <Hash className="h-4 w-4" />
                                             </div>
                                             <div>
-                                                <h3 className="text-sm font-semibold text-slate-900">{t('Purchase Invoice Custom Logo')}</h3>
+                                                <h3 className="text-sm font-semibold text-slate-900">{t('Purchase Invoice Numbering')}</h3>
                                                 <p className="text-xs text-slate-500">
-                                                    {t('Upload a custom logo or toggle off if your letterhead paper already contains a printed logo.')}
+                                                    {t('Set default prefix and starting sequence number.')}
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Label htmlFor="show-logo" className="cursor-pointer text-xs font-medium text-slate-700">
-                                                {formData.purchase_invoice_show_logo ? t('Logo: ON') : t('Logo: OFF')}
-                                            </Label>
-                                            <Switch
-                                                id="show-logo"
-                                                checked={formData.purchase_invoice_show_logo}
-                                                onCheckedChange={(checked) => handleChange('purchase_invoice_show_logo', checked)}
-                                            />
-                                        </div>
-                                    </div>
 
-                                    {formData.purchase_invoice_show_logo && (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
-                                            <div className="space-y-2">
-                                                <Label className="text-xs">{t('Select / Upload Purchase Invoice Logo')}</Label>
-                                                <MediaPicker
-                                                    value={formData.purchase_invoice_logo}
-                                                    onChange={(url) => handleChange('purchase_invoice_logo', Array.isArray(url) ? url[0] : url)}
-                                                    placeholder={t('Choose purchase invoice logo image...')}
-                                                    showPreview={false}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="purchase_invoice_prefix" className="text-xs font-medium">{t('Invoice Prefix')}</Label>
+                                                <Input
+                                                    id="purchase_invoice_prefix"
+                                                    value={formData.purchase_invoice_prefix}
+                                                    onChange={(e) => handleChange('purchase_invoice_prefix', e.target.value)}
+                                                    placeholder="e.g. PI"
+                                                    className="h-9 text-xs bg-white"
                                                 />
                                             </div>
 
-                                            <div className="space-y-1">
-                                                <Label className="text-xs">{t('Logo Preview')}</Label>
-                                                <div className="border border-slate-200 rounded-md p-3 h-16 bg-white flex items-center justify-center">
-                                                    {formData.purchase_invoice_logo ? (
-                                                        <img
-                                                            src={getImagePath(formData.purchase_invoice_logo)}
-                                                            alt="Purchase Invoice Logo"
-                                                            className="max-h-12 max-w-full object-contain"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-xs text-slate-400 italic">
-                                                            {t('Using default company logo')}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="purchase_invoice_starting_number" className="text-xs font-medium">{t('Starting Number')}</Label>
+                                                <Input
+                                                    id="purchase_invoice_starting_number"
+                                                    type="number"
+                                                    min="1"
+                                                    value={formData.purchase_invoice_starting_number}
+                                                    onChange={(e) => handleChange('purchase_invoice_starting_number', e.target.value)}
+                                                    placeholder="e.g. 1"
+                                                    className="h-9 text-xs bg-white"
+                                                />
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+
+                                    {/* PURCHASE INVOICE LOGO OPTION WITH TOGGLE */}
+                                    <div className="space-y-4 border border-slate-200 rounded-lg p-5 bg-slate-50/50">
+                                        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-slate-200 text-slate-700 rounded-md">
+                                                    <Building className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-semibold text-slate-900">{t('Purchase Invoice Custom Logo')}</h3>
+                                                    <p className="text-xs text-slate-500">
+                                                        {t('Upload custom logo or toggle off.')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Label htmlFor="show-logo" className="cursor-pointer text-xs font-medium text-slate-700">
+                                                    {formData.purchase_invoice_show_logo ? t('ON') : t('OFF')}
+                                                </Label>
+                                                <Switch
+                                                    id="show-logo"
+                                                    checked={formData.purchase_invoice_show_logo}
+                                                    onCheckedChange={(checked) => handleChange('purchase_invoice_show_logo', checked)}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {formData.purchase_invoice_show_logo && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs font-medium">{t('Select Logo')}</Label>
+                                                    <MediaPicker
+                                                        value={formData.purchase_invoice_logo}
+                                                        onChange={(url) => handleChange('purchase_invoice_logo', Array.isArray(url) ? url[0] : url)}
+                                                        placeholder={t('Choose logo image...')}
+                                                        showPreview={false}
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs font-medium">{t('Preview')}</Label>
+                                                    <div className="border border-slate-200 rounded-md p-2 h-9 bg-white flex items-center justify-center">
+                                                        {formData.purchase_invoice_logo ? (
+                                                            <img
+                                                                src={getImagePath(formData.purchase_invoice_logo)}
+                                                                alt="Purchase Invoice Logo"
+                                                                className="max-h-7 max-w-full object-contain"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-[11px] text-slate-400 italic">
+                                                                {t('Default company logo')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* SECTION 2: BACKGROUND LETTERHEAD */}
@@ -231,6 +280,7 @@ export default function Index() {
                                             content={formData.purchase_invoice_default_payment_terms}
                                             onChange={(val) => handleChange('purchase_invoice_default_payment_terms', val)}
                                             placeholder={t('Enter default payment terms...')}
+                                            minimal={true}
                                         />
                                     </div>
                                 </div>

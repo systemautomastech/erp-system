@@ -26,12 +26,14 @@ interface CreateProps {
     products: Array<{ id: number; name: string; sku: string; sale_price: number; unit: string; unit_name?: string; type: string; taxes: Array<{ id: number; tax_name: string; rate: number }> }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
     default_payment_terms?: string;
+    invoice_settings?: any;
+    invoice_number?: string;
     [key: string]: any;
 }
 
 export default function Create() {
     const { t } = useTranslation();
-    const { customers, products, warehouses, default_payment_terms } = usePage<CreateProps>().props;
+    const { customers, products, warehouses, default_payment_terms, invoice_number } = usePage<CreateProps>().props;
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleRefresh = () => {
@@ -44,6 +46,7 @@ export default function Create() {
 
     useFlashMessages();
     const { data, setData, post, processing, errors } = useForm({
+        invoice_number: invoice_number || '',
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
         customer_mode: 'existing' as 'existing' | 'new',
@@ -166,11 +169,11 @@ export default function Create() {
                                                     <SelectValue placeholder={t('Select Customer')} />
                                                 </SelectTrigger>
                                                 <SelectContent searchable>
-                                                    {customers.map((customer) => (
-                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                            {customer.name} - {customer.email}
+                                                    {Array.isArray(customers) && customers.map((customer: any) => customer && customer.id !== undefined && customer.id !== null ? (
+                                                        <SelectItem key={customer.id} value={String(customer.id)}>
+                                                            {customer.name || customer.billing_name || 'Customer'} - {customer.email || customer.billing_email || '-'}
                                                         </SelectItem>
-                                                    ))}
+                                                    ) : null)}
                                                 </SelectContent>
                                             </Select>
                                             <InputError message={errors.customer_id} />
@@ -217,6 +220,19 @@ export default function Create() {
                                             </Badge>
                                         </div>
                                     )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="invoice_number">
+                                        {t('Invoice Number')}
+                                    </Label>
+                                    <Input
+                                        id="invoice_number"
+                                        value={data.invoice_number}
+                                        onChange={(e) => setData('invoice_number', e.target.value)}
+                                        placeholder={invoice_number || t('e.g. SI-01-2026-09-06')}
+                                    />
+                                    <InputError message={errors.invoice_number} />
                                 </div>
 
                                 <div>

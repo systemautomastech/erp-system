@@ -132,35 +132,6 @@ export interface PreviewModalProps {
     autoPrint?: boolean;
 }
 
-export interface RenderablePage {
-    key: string;
-    type: 'otc' | 'mrc' | 'combined-charges' | 'other-details' | 'content';
-    title?: string;
-    otcTitle?: string;
-    mrcTitle?: string;
-    content?: string;
-    background_image?: string;
-    chunkItems?: ProposalItem[];
-    otcItems?: ProposalItem[];
-    mrcItems?: ProposalItem[];
-    chunkIndex?: number;
-    totalChunks?: number;
-    startIndex?: number;
-    isLastChunk?: boolean;
-    secSubtotal?: number;
-    secDiscount?: number;
-    secTax?: number;
-    secTotal?: number;
-    otcSubtotal?: number;
-    otcDiscount?: number;
-    otcTax?: number;
-    otcTotal?: number;
-    mrcSubtotal?: number;
-    mrcDiscount?: number;
-    mrcTax?: number;
-    mrcTotal?: number;
-}
-
 // =============================================================================
 // CONSTANTS & STYLES
 // =============================================================================
@@ -169,8 +140,108 @@ export const DEFAULT_TEMPLATE_COLOR = '#E9591C';
 export const FALLBACK_LOGO = 'uploads/logo/logo_dark.png';
 export const PROPOSAL_CONTENT_CLASSES = 'html-preview-container';
 
-const PRINT_STYLES = `
+export const PRINT_STYLES = `
+    @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
+
+    .proposal-cover {
+        margin: 0 auto; width: 210mm; min-height: 297mm; position: relative; font-family: "Open Sans", sans-serif !important;
+    }
+    .proposal-cover__sheet, .proposal-preview-sheet {
+        width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; position: relative !important; overflow: hidden !important; box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08); page-break-after: always; font-family: "Open Sans", sans-serif !important;
+    }
+    .proposal-cover__topbar {
+        position: absolute !important; top: 0; left: 0; right: 0; height: 10px; background: linear-gradient(90deg, #E9591C, #fffb00); z-index: 1;
+    }
+    .proposal-cover__body {
+        padding: 10mm 20mm; position: relative !important; z-index: 2; min-height: calc(297mm - 10px); display: flex; flex-direction: column;
+    }
+    .proposal-page__body {
+        position: relative !important; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 20mm); box-sizing: border-box;
+    }
+    .logo-container { margin-bottom: 20mm; text-align: right; }
+    .proposal-cover__logo { max-height: 70px; object-fit: contain; }
+    .proposal-cover__label { letter-spacing: .18em; font-size: .8rem; color: #E9591C !important; font-weight: 700; text-transform: uppercase; }
+    .proposal-cover__title { font-size: 2.2rem; line-height: 1.15; max-width: 75%; color: #111827; font-weight: 700; }
+    .proposal-cover__line { width: 90px; height: 4px; border-radius: 999px; background: #E9591C; }
+    .proposal-cover__date { display: inline-block; border: 1px solid #E9591C; padding: .4rem .85rem; font-size: .8rem; font-weight: 600; letter-spacing: .04em; color: #111827; background: #ffffff; border-radius: 0.25rem; }
+    .proposal-cover__box { border: 1px solid #dee2e6; border-radius: .25rem; background: #ffffff00; }
+    .proposal-cover__submitted { position: relative !important; padding: 40px 25px; overflow: hidden !important; border: 1px solid #e5e7eb; background: linear-gradient(135deg, #f9fafb, #eef2f7); border-radius: .25rem; }
+    .proposal-cover__prepared { padding: 1.5rem; }
+    .proposal-cover__watermark, .proposal-cover__shape { position: absolute !important; pointer-events: none !important; z-index: 1; }
+    .proposal-cover__shape--top { position: absolute !important; top: -46px !important; left: -46px !important; width: 240px !important; opacity: 1 !important; }
+    .proposal-cover__shape--bottom { position: absolute !important; right: -30px !important; bottom: -30px !important; width: 240px !important; transform: rotate(180deg) !important; opacity: .5 !important; }
+    .proposal-cover__watermark { position: absolute !important; right: 22mm !important; top: 76mm !important; width: 150px !important; height: 150px !important; opacity: .05 !important; }
+    .proposal-cover__watermark_bottom { position: absolute !important; left: 0.5rem !important; bottom: 7.5rem !important; width: 150px !important; height: 150px !important; opacity: .08 !important; pointer-events: none !important; z-index: 1 !important; }
+    .proposal-cover__footer { margin-top: auto; padding-top: .875rem; border-top: 1px solid #dee2e6; font-size: .875rem; }
+
+    .proposal-preview-sheet table thead, .proposal-preview-sheet table thead tr, .proposal-preview-sheet table thead th, .proposal-preview-sheet table th,
+    .proposal-page__body table thead, .proposal-page__body table thead tr, .proposal-page__body table thead th, .proposal-page__body table th,
+    .quotation-page__body table thead, .quotation-page__body table thead tr, .quotation-page__body table thead th, .quotation-page__body table th,
+    .html-preview-container table thead, .html-preview-container table thead tr, .html-preview-container table thead th, .html-preview-container table th,
+    .prose table thead, .prose table thead tr, .prose table thead th, .prose table th { background-color: var(--template-color, #E9591C) !important; color: #ffffff !important; }
+
+    .proposal-preview-sheet table thead th, .proposal-preview-sheet table th, .proposal-page__body table thead th, .proposal-page__body table th,
+    .quotation-page__body table thead th, .quotation-page__body table th, .html-preview-container table thead th, .html-preview-container table th,
+    .prose table thead th, .prose table th { color: #ffffff !important; font-weight: 600 !important; }
+
+    .html-preview-container { font-size: 14px; line-height: 1.5; color: #1e293b; width: 100%; font-family: "Open Sans", sans-serif; }
+    .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; }
+    .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; }
+    .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; }
+    .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; }
+    .html-preview-container h1:not([style*="color"]), .html-preview-container h2:not([style*="color"]), .html-preview-container h3:not([style*="color"]), .html-preview-container h4:not([style*="color"]) { color: #0f172a; }
+    .html-preview-container p { margin: 4px 0; }
+    .html-preview-container > p:first-child { margin-top: 0; }
+    .html-preview-container > p:last-child { margin-bottom: 0; }
+    .html-preview-container p:empty { min-height: 1.15em; margin: 0; }
+    .html-preview-container p:empty::before { content: "\\00a0"; }
+    .html-preview-container p:has(> br:only-child) { min-height: 1.15em; margin: 0; }
+    .html-preview-container ul, .proposal-preview-sheet ul, .proposal-page__body ul, .prose ul { list-style-type: disc !important; padding-left: 24px !important; margin-left: 0 !important; margin-top: 8px !important; margin-bottom: 8px !important; }
+    .html-preview-container ol, .proposal-preview-sheet ol, .proposal-page__body ol, .prose ol { list-style-type: decimal !important; padding-left: 24px !important; margin-left: 0 !important; margin-top: 8px !important; margin-bottom: 8px !important; }
+    .html-preview-container li, .proposal-preview-sheet li, .proposal-page__body li, .prose li { display: list-item !important; list-style-type: inherit !important; margin-top: 3px !important; margin-bottom: 3px !important; }
+    .html-preview-container li p, .proposal-preview-sheet li p, .proposal-page__body li p, .prose li p { display: inline !important; margin: 0 !important; }
+    .html-preview-container blockquote { border-left: 4px solid #cbd5e1; padding-left: 16px; font-style: italic; margin: 8px 0; }
+    .html-preview-container img { display: inline-block; vertical-align: middle; }
+    .html-preview-container a { color: #2563eb; text-decoration: underline; }
+    .html-preview-container a:hover { color: #1d4ed8; }
+
+    .proposal-preview-sheet table:not(.charges-table), .proposal-page__body table:not(.proposal-table), .quotation-page__body table:not(.quotation-table),
+    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table), .prose table, .ProseMirror table {
+        width: 100% !important; border-collapse: collapse !important; border: 1px solid #cbd5e1 !important; font-size: 10px !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; margin-top: 8px !important; margin-bottom: 8px !important; color: #293240 !important;
+    }
+    .proposal-preview-sheet table:not(.charges-table) thead tr, .proposal-page__body table:not(.proposal-table) thead tr, .quotation-page__body table:not(.quotation-table) thead tr,
+    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) thead tr, .prose table thead tr, .ProseMirror table thead tr {
+        background-color: var(--template-color, #E9591C) !important; color: #ffffff !important; text-align: left !important; font-weight: 600 !important;
+    }
+    .proposal-preview-sheet table:not(.charges-table) thead th, .proposal-preview-sheet table:not(.charges-table) th, .proposal-page__body table:not(.proposal-table) thead th, .proposal-page__body table:not(.proposal-table) th,
+    .quotation-page__body table:not(.quotation-table) thead th, .quotation-page__body table:not(.quotation-table) th, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) thead th, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) th,
+    .prose table thead th, .prose table th, .ProseMirror table thead th, .ProseMirror table th {
+        padding: 6px 8px !important; font-size: 10px !important; font-weight: 600 !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; border: 1px solid #cbd5e1 !important; box-sizing: border-box !important; vertical-align: middle !important; background-color: var(--template-color, #E9591C) !important; color: #ffffff !important; text-align: left !important;
+    }
+    .proposal-preview-sheet table:not(.charges-table) th *, .proposal-page__body table:not(.proposal-table) th *, .quotation-page__body table:not(.quotation-table) th *,
+    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) th *, .prose table th *, .ProseMirror table th * {
+        margin: 0 !important; padding: 0 !important; font-size: 10px !important; font-weight: 600 !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; color: #ffffff !important;
+    }
+    .proposal-preview-sheet table:not(.charges-table) tbody td, .proposal-preview-sheet table:not(.charges-table) td, .proposal-page__body table:not(.proposal-table) tbody td, .proposal-page__body table:not(.proposal-table) td,
+    .quotation-page__body table:not(.quotation-table) tbody td, .quotation-page__body table:not(.quotation-table) td, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) tbody td, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td,
+    .prose table tbody td, .prose table td, .ProseMirror table tbody td, .ProseMirror table td {
+        padding: 6px 8px !important; font-size: 10px !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; border: 1px solid #cbd5e1 !important; box-sizing: border-box !important; vertical-align: middle !important; color: #293240 !important; word-break: break-word !important;
+    }
+    .proposal-preview-sheet table:not(.charges-table) td *:not([style*="color"]), .proposal-page__body table:not(.proposal-table) td *:not([style*="color"]), .quotation-page__body table:not(.quotation-table) td *:not([style*="color"]),
+    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td *:not([style*="color"]), .prose table td *:not([style*="color"]), .ProseMirror table td *:not([style*="color"]) {
+        margin: 0 !important; padding: 0 !important; font-size: 10px !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; color: inherit !important;
+    }
+    .proposal-preview-sheet table:not(.charges-table) td p + p, .proposal-page__body table:not(.proposal-table) td p + p, .quotation-page__body table:not(.quotation-table) td p + p,
+    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td p + p, .prose table td p + p, .ProseMirror table td p + p { margin-top: 3px !important; }
+    .proposal-preview-sheet table:not(.charges-table) tr, .proposal-page__body table:not(.proposal-table) tr, .quotation-page__body table:not(.quotation-table) tr,
+    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) tr, .prose table tr, .ProseMirror table tr { min-height: auto !important; border-bottom: 1px solid #cbd5e1 !important; }
+
+    .proposal-preview-sheet img, .proposal-page__body img, .prose img, img.proposal-logo, .proposal-logo { display: inline-block !important; vertical-align: middle; }
+    .proposal-preview-sheet [style*="text-align: center"] img, .proposal-preview-sheet [style*="text-align:center"] img, .proposal-page__body [style*="text-align: center"] img, .proposal-page__body [style*="text-align:center"] img, .prose [style*="text-align: center"] img, .prose [style*="text-align:center"] img, .text-center img { display: inline-block !important; margin-left: auto !important; margin-right: auto !important; }
+    .proposal-preview-sheet [style*="text-align: right"] img, .proposal-preview-sheet [style*="text-align:right"] img, .proposal-page__body [style*="text-align: right"] img, .proposal-page__body [style*="text-align:right"] img, .prose [style*="text-align: right"] img, .prose [style*="text-align:right"] img, .text-right img { display: inline-block !important; margin-left: auto !important; margin-right: 0 !important; }
+    .proposal-preview-sheet [style*="text-align: left"] img, .proposal-preview-sheet [style*="text-align:left"] img, .proposal-page__body [style*="text-align: left"] img, .proposal-page__body [style*="text-align:left"] img, .prose [style*="text-align: left"] img, .prose [style*="text-align:left"] img, .text-left img { display: inline-block !important; margin-right: auto !important; margin-left: 0 !important; }
+
     @media print {
         @page { size: 210mm 297mm; margin: 0; }
         html, body {
@@ -198,7 +269,7 @@ const PRINT_STYLES = `
             min-height: calc(297mm - 20mm) !important;
             box-sizing: border-box !important;
             display: flex !important; flex-direction: column !important;
-            justify-content: space-between !important;
+            justify-content: flex-start !important;
         }
         .proposal-preview-sheet:last-child,
         .proposal-cover__sheet:last-child {
@@ -372,65 +443,7 @@ const formatAmountOnly = (val: number | string): string => {
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const getPageBgStyle = (
-    customBg?: string,
-    defaultBg?: string
-): React.CSSProperties => {
-    const bg = (customBg && String(customBg).trim() !== '') ? customBg : defaultBg;
-    if (!bg || typeof bg !== 'string' || bg.trim() === '') return {};
-    const imgUrl = getImagePath(bg);
-    if (!imgUrl) return {};
-    return {
-        backgroundImage: `url("${imgUrl}")`,
-        backgroundSize: '100% 100%',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-    };
-};
 
-const estimateItemWeight = (item: ProposalItem, getDesc: (i: ProposalItem) => string): number => {
-    const desc = getDesc(item) || '';
-    const plainText = desc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    const blockTags = (desc.match(/<\/p>|<br\s*\/?>|<\/li>|<\/h[1-6]>/gi) || []).length;
-    const textLines = Math.ceil(plainText.length / 48);
-    const descLines = Math.max(textLines, blockTags, desc ? 1 : 0);
-
-    const pName = (item as any)?.product?.name || (item as any)?.name || (item as any)?.product_name || '';
-    const nameLines = Math.max(1, Math.ceil(pName.length / 28));
-    const effectiveLines = Math.max(descLines, nameLines);
-
-    return 1 + (effectiveLines - 1) * 0.7;
-};
-
-const chunkItemsByWeight = (
-    items: ProposalItem[],
-    getDesc: (i: ProposalItem) => string,
-    maxWeight = 30
-): Array<{ items: ProposalItem[]; startIndex: number }> => {
-    const chunks: Array<{ items: ProposalItem[]; startIndex: number }> = [];
-    let currentChunk: ProposalItem[] = [];
-    let currentWeight = 0;
-    let chunkStartIndex = 0;
-
-    items.forEach((item, index) => {
-        const itemWeight = estimateItemWeight(item, getDesc);
-        if (currentChunk.length > 0 && currentWeight + itemWeight > maxWeight) {
-            chunks.push({ items: currentChunk, startIndex: chunkStartIndex });
-            currentChunk = [item];
-            currentWeight = itemWeight;
-            chunkStartIndex = index;
-        } else {
-            currentChunk.push(item);
-            currentWeight += itemWeight;
-        }
-    });
-
-    if (currentChunk.length > 0) {
-        chunks.push({ items: currentChunk, startIndex: chunkStartIndex });
-    }
-
-    return chunks;
-};
 
 // =============================================================================
 // REUSABLE PAGE COMPONENTS
@@ -544,7 +557,7 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                     boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',
-                    justifyContent: 'space-between',
+                    justifyContent: 'flex-start',
                 }}
             >
                 {children ? (
@@ -560,447 +573,6 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
     );
 });
 ProposalPreviewSheet.displayName = 'ProposalPreviewSheet';
-
-// ---------------------------------------------------------------------------
-// Charges Page Component (OTC / MRC)
-// ---------------------------------------------------------------------------
-interface ChargesPageProps {
-    page: RenderablePage;
-    templateColor: string;
-    defaultBg?: string;
-    headerLogo?: string;
-    headerLogoAlign?: string;
-    getItemName: (item: ProposalItem) => string;
-    getItemDesc: (item: ProposalItem) => string;
-    getItemUnit: (item: ProposalItem) => string;
-    t: (key: string) => string;
-}
-
-const ChargesPage = React.memo<ChargesPageProps>(
-    ({ page, templateColor, defaultBg, headerLogo, headerLogoAlign, getItemName, getItemDesc, getItemUnit, t }) => {
-        const chunkItems = page.chunkItems || [];
-        const startIdx = page.startIndex || 0;
-
-        return (
-            <ProposalPreviewSheet
-                pageKey={page.key}
-                backgroundImage={page.background_image}
-                defaultBg={defaultBg}
-                templateColor={templateColor}
-                headerLogo={headerLogo}
-                headerLogoAlign={headerLogoAlign}
-            >
-                <div style={{ marginTop: '2rem' }}>
-                    <div className="font-bold mb-2 text-[#293240] text-sm">{page.title}</div>
-
-                    <table
-                        className="w-full text-xs mb-3 border-collapse border border-slate-300"
-                        style={{ fontSize: '12px', width: '100%', tableLayout: 'fixed' }}
-                    >
-                        <thead>
-                            <tr
-                                className="text-center font-semibold"
-                                style={{ backgroundColor: templateColor, color: '#ffffff' }}
-                            >
-                                <th className="py-2 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '5%', whiteSpace: 'nowrap' }}>
-                                    {t('S/N')}
-                                </th>
-                                <th className="py-2 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '22%' }}>
-                                    {t('Item / Service')}
-                                </th>
-                                <th className="py-2 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '36%' }}>
-                                    {t('Description')}
-                                </th>
-                                <th className="py-2 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '9%', whiteSpace: 'nowrap' }}>
-                                    {t('Qty.')}
-                                </th>
-                                <th className="py-2 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
-                                    {t('Price (BDT)')}
-                                </th>
-                                <th className="py-2 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
-                                    {t('Total (BDT)')}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {chunkItems.map((item, idx) => {
-                                const qty = Number(item.quantity) || 1;
-                                const unit = getItemUnit(item);
-                                const price = Number(item.unit_price) || 0;
-                                const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
-                                const desc = getItemDesc(item);
-
-                                return (
-                                    <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
-                                        <td className="py-2 px-1 text-center font-medium border border-slate-200" style={{ fontSize: '10px' }}>
-                                            {startIdx + idx + 1}
-                                        </td>
-                                        <td className="py-2 px-2 font-semibold text-slate-900 border border-slate-200 align-top" style={{ fontSize: '11px' }}>
-                                            {getItemName(item)}
-                                        </td>
-                                        <td className="py-2 px-2 text-slate-600 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            <div
-                                                className="leading-relaxed break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-1 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-                                                dangerouslySetInnerHTML={{ __html: desc || '-' }}
-                                            />
-                                        </td>
-                                        <td className="py-2 px-1 text-center border border-slate-200 align-top whitespace-nowrap" style={{ fontSize: '10px' }}>
-                                            {qty}{unit ? ` ${unit}` : ''}
-                                        </td>
-                                        <td className="py-2 px-2 text-right border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            {formatAmountOnly(price)}
-                                        </td>
-                                        <td className="py-2 px-2 text-right font-medium text-slate-900 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            {formatAmountOnly(lineTotal)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-
-                    {/* Totals Box on Last Chunk */}
-                    {page.isLastChunk && (
-                        <div className="flex justify-end mt-2">
-                            <table className="w-64 text-xs border border-slate-300 border-collapse">
-                                <tbody>
-                                    <tr className="border-b border-slate-200">
-                                        <td className="py-1 px-2 font-medium text-slate-700 bg-slate-50 border-r border-slate-200">{t('Subtotal')}:</td>
-                                        <td className="py-1 px-2 text-right text-slate-900 font-semibold">{formatAmountOnly(page.secSubtotal || 0)}</td>
-                                    </tr>
-                                    {(page.secDiscount || 0) > 0 && (
-                                        <tr className="border-b border-slate-200">
-                                            <td className="py-1 px-2 font-medium text-slate-700 bg-slate-50 border-r border-slate-200">{t('Discount')}:</td>
-                                            <td className="py-1 px-2 text-right text-rose-600 font-semibold">-{formatAmountOnly(page.secDiscount || 0)}</td>
-                                        </tr>
-                                    )}
-                                    {(page.secTax || 0) > 0 && (
-                                        <tr className="border-b border-slate-200">
-                                            <td className="py-1 px-2 font-medium text-slate-700 bg-slate-50 border-r border-slate-200">{t('Tax / VAT')}:</td>
-                                            <td className="py-1 px-2 text-right text-slate-900 font-semibold">+{formatAmountOnly(page.secTax || 0)}</td>
-                                        </tr>
-                                    )}
-                                    <tr style={{ backgroundColor: templateColor, color: '#ffffff' }}>
-                                        <td className="py-1.5 px-2 font-bold text-white border-r border-white/20">{t('Total')}:</td>
-                                        <td className="py-1.5 px-2 text-right font-bold text-white">{formatAmountOnly(page.secTotal || 0)} BDT</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            </ProposalPreviewSheet >
-        );
-    }
-);
-ChargesPage.displayName = 'ChargesPage';
-
-// ---------------------------------------------------------------------------
-// Combined Charges Page Component (OTC + MRC on Same Page)
-// ---------------------------------------------------------------------------
-interface CombinedChargesPageProps {
-    page: RenderablePage;
-    templateColor: string;
-    defaultBg?: string;
-    headerLogo?: string;
-    headerLogoAlign?: string;
-    getItemName: (item: ProposalItem) => string;
-    getItemDesc: (item: ProposalItem) => string;
-    getItemUnit: (item: ProposalItem) => string;
-    t: (key: string) => string;
-}
-
-const CombinedChargesPage = React.memo<CombinedChargesPageProps>(
-    ({ page, templateColor, defaultBg, headerLogo, headerLogoAlign, getItemName, getItemDesc, getItemUnit, t }) => {
-        const otcItems = page.otcItems || [];
-        const mrcItems = page.mrcItems || [];
-
-        return (
-            <ProposalPreviewSheet
-                pageKey={page.key}
-                backgroundImage={page.background_image}
-                defaultBg={defaultBg}
-                templateColor={templateColor}
-                headerLogo={headerLogo}
-                headerLogoAlign={headerLogoAlign}
-            >
-                <div style={{ marginTop: '1.5rem' }}>
-                    {/* OTC Table */}
-                    <div className="font-bold mb-1.5 text-[#293240] text-xs">{page.otcTitle || t('ONE-TIME CHARGES (OTC)')}</div>
-                    <table
-                        className="w-full text-xs mb-2 border-collapse border border-slate-300"
-                        style={{ fontSize: '11px', width: '100%', tableLayout: 'fixed' }}
-                    >
-                        <thead>
-                            <tr
-                                className="text-center font-semibold"
-                                style={{ backgroundColor: templateColor, color: '#ffffff' }}
-                            >
-                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '5%', whiteSpace: 'nowrap' }}>
-                                    {t('S/N')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '22%' }}>
-                                    {t('Item / Service')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '38%' }}>
-                                    {t('Description')}
-                                </th>
-                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '7%', whiteSpace: 'nowrap' }}>
-                                    {t('Qty.')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
-                                    {t('Price (BDT)')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
-                                    {t('Total (BDT)')}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {otcItems.map((item, idx) => {
-                                const qty = Number(item.quantity) || 1;
-                                const unit = getItemUnit(item);
-                                const price = Number(item.unit_price) || 0;
-                                const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
-                                const desc = getItemDesc(item);
-
-                                return (
-                                    <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
-                                        <td className="py-1 px-1 text-center font-medium border border-slate-200" style={{ fontSize: '10px' }}>
-                                            {idx + 1}
-                                        </td>
-                                        <td className="py-1 px-2 font-semibold text-slate-900 border border-slate-200 align-top" style={{ fontSize: '11px' }}>
-                                            {getItemName(item)}
-                                        </td>
-                                        <td className="py-1 px-2 text-slate-600 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            <div
-                                                className="leading-relaxed break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-                                                dangerouslySetInnerHTML={{ __html: desc || '-' }}
-                                            />
-                                        </td>
-                                        <td className="py-1 px-1 text-center border border-slate-200 align-top whitespace-nowrap" style={{ fontSize: '10px' }}>
-                                            {qty}{unit ? ` ${unit}` : ''}
-                                        </td>
-                                        <td className="py-1 px-2 text-right border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            {formatAmountOnly(price)}
-                                        </td>
-                                        <td className="py-1 px-2 text-right font-medium text-slate-900 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            {formatAmountOnly(lineTotal)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            <tr className="bg-slate-50/60 font-semibold">
-                                <td colSpan={4} className="border border-slate-200"></td>
-                                <td className="py-1 px-2 text-right border border-slate-200 text-slate-800" style={{ fontSize: '10px' }}>
-                                    {t('Total')}:
-                                </td>
-                                <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                    {formatAmountOnly(page.otcSubtotal || 0)}
-                                </td>
-                            </tr>
-                            {(page.otcDiscount || 0) > 0 && (
-                                <tr className="bg-slate-50/40">
-                                    <td colSpan={4} className="border border-slate-200"></td>
-                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
-                                        {t('Discount')}:
-                                    </td>
-                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-rose-600" style={{ fontSize: '10px' }}>
-                                        -{formatAmountOnly(page.otcDiscount || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                            {(page.otcTax || 0) > 0 && (
-                                <tr className="bg-slate-50/40">
-                                    <td colSpan={4} className="border border-slate-200"></td>
-                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
-                                        {t('VAT/Tax')}:
-                                    </td>
-                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                        +{formatAmountOnly(page.otcTax || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                            {((page.otcDiscount || 0) > 0 || (page.otcTax || 0) > 0) && (
-                                <tr className="bg-slate-100 font-bold">
-                                    <td colSpan={4} className="border border-slate-200"></td>
-                                    <td className="py-1 px-2 text-right border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                        {t('Grand Total')}:
-                                    </td>
-                                    <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                        {formatAmountOnly(page.otcTotal || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-
-                    {/* MRC Table */}
-                    <div className="font-bold mt-7 mb-2 text-[#293240] text-xs">{page.mrcTitle || t('MONTHLY RECURRING CHARGES (MRC)')}</div>
-                    <table
-                        className="w-full text-xs border-collapse border border-slate-300"
-                        style={{ fontSize: '11px', width: '100%', tableLayout: 'fixed' }}
-                    >
-                        <thead>
-                            <tr
-                                className="text-center font-semibold"
-                                style={{ backgroundColor: templateColor, color: '#ffffff' }}
-                            >
-                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '5%', whiteSpace: 'nowrap' }}>
-                                    {t('S/N')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '22%' }}>
-                                    {t('Item / Service')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-left" style={{ fontSize: '10px', width: '38%' }}>
-                                    {t('Description')}
-                                </th>
-                                <th className="py-1.5 px-1 border border-slate-300 text-white text-center" style={{ fontSize: '10px', width: '7%', whiteSpace: 'nowrap' }}>
-                                    {t('Qty.')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
-                                    {t('Price (BDT)')}
-                                </th>
-                                <th className="py-1.5 px-2 border border-slate-300 text-white text-right" style={{ fontSize: '10px', width: '14%', whiteSpace: 'nowrap' }}>
-                                    {t('Total (BDT)')}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {mrcItems.map((item, idx) => {
-                                const qty = Number(item.quantity) || 1;
-                                const unit = getItemUnit(item);
-                                const price = Number(item.unit_price) || 0;
-                                const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
-                                const desc = getItemDesc(item);
-
-                                return (
-                                    <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
-                                        <td className="py-1 px-1 text-center font-medium border border-slate-200" style={{ fontSize: '10px' }}>
-                                            {idx + 1}
-                                        </td>
-                                        <td className="py-1 px-2 font-semibold text-slate-900 border border-slate-200 align-top" style={{ fontSize: '11px' }}>
-                                            {getItemName(item)}
-                                        </td>
-                                        <td className="py-1 px-2 text-slate-600 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            <div
-                                                className="leading-relaxed break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-                                                dangerouslySetInnerHTML={{ __html: desc || '-' }}
-                                            />
-                                        </td>
-                                        <td className="py-1 px-1 text-center border border-slate-200 align-top whitespace-nowrap" style={{ fontSize: '10px' }}>
-                                            {qty}{unit ? ` ${unit}` : ''}
-                                        </td>
-                                        <td className="py-1 px-2 text-right border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            {formatAmountOnly(price)}
-                                        </td>
-                                        <td className="py-1 px-2 text-right font-medium text-slate-900 border border-slate-200 align-top" style={{ fontSize: '10px' }}>
-                                            {formatAmountOnly(lineTotal)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            <tr className="bg-slate-50/60 font-semibold">
-                                <td colSpan={4} className="border border-slate-200"></td>
-                                <td className="py-1 px-2 text-right border border-slate-200 text-slate-800" style={{ fontSize: '10px' }}>
-                                    {t('Total')}:
-                                </td>
-                                <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                    {formatAmountOnly(page.mrcSubtotal || 0)}
-                                </td>
-                            </tr>
-                            {(page.mrcDiscount || 0) > 0 && (
-                                <tr className="bg-slate-50/40">
-                                    <td colSpan={4} className="border border-slate-200"></td>
-                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
-                                        {t('Discount')}:
-                                    </td>
-                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-rose-600" style={{ fontSize: '10px' }}>
-                                        -{formatAmountOnly(page.mrcDiscount || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                            {(page.mrcTax || 0) > 0 && (
-                                <tr className="bg-slate-50/40">
-                                    <td colSpan={4} className="border border-slate-200"></td>
-                                    <td className="py-1 px-2 text-right border border-slate-200 font-semibold text-slate-800" style={{ fontSize: '10px' }}>
-                                        {t('VAT/Tax')}:
-                                    </td>
-                                    <td className="py-1 px-2 text-right font-semibold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                        +{formatAmountOnly(page.mrcTax || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                            {((page.mrcDiscount || 0) > 0 || (page.mrcTax || 0) > 0) && (
-                                <tr className="bg-slate-100 font-bold">
-                                    <td colSpan={4} className="border border-slate-200"></td>
-                                    <td className="py-1 px-2 text-right border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                        {t('Grand Total')}:
-                                    </td>
-                                    <td className="py-1 px-2 text-right font-bold border border-slate-200 text-slate-900" style={{ fontSize: '10px' }}>
-                                        {formatAmountOnly(page.mrcTotal || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </ProposalPreviewSheet>
-        );
-    }
-);
-CombinedChargesPage.displayName = 'CombinedChargesPage';
-
-// ---------------------------------------------------------------------------
-// Content Page Component
-// ---------------------------------------------------------------------------
-interface ContentPageProps {
-    page: RenderablePage;
-    templateColor: string;
-    defaultBg?: string;
-    headerLogo?: string;
-    headerLogoAlign?: string;
-    formData?: ProposalFormData;
-    customer?: any;
-    totals?: ProposalTotals;
-    proposalSetting?: any;
-    isDefaultPageSetup?: boolean;
-    t: (key: string) => string;
-}
-
-const ContentPage = React.memo<ContentPageProps>(
-    ({ page, templateColor, defaultBg, headerLogo, headerLogoAlign, formData, customer, totals, proposalSetting, isDefaultPageSetup, t }) => {
-        const emptyMessage =
-            page.type === 'other-details'
-                ? t('Empty Other Details content...')
-                : t('Empty section content...');
-
-        const processedContent = replaceProposalShortcodes(page.content, {
-            formData,
-            customer,
-            totals,
-            proposalSetting,
-            isDefaultPageSetup,
-        });
-
-        return (
-            <ProposalPreviewSheet
-                pageKey={page.key}
-                backgroundImage={page.background_image}
-                defaultBg={defaultBg}
-                templateColor={templateColor}
-                headerLogo={headerLogo}
-                headerLogoAlign={headerLogoAlign}
-                content={processedContent || undefined}
-            >
-                {!processedContent && (
-                    <p className="text-sm text-slate-400 italic py-8 text-center">{emptyMessage}</p>
-                )}
-            </ProposalPreviewSheet>
-        );
-    }
-);
-ContentPage.displayName = 'ContentPage';
 
 // =============================================================================
 // MAIN UNIFIED PREVIEW MODAL COMPONENT
@@ -1193,8 +765,8 @@ export default function PreviewModal({
         );
 
         const secSubtotalOtc = otcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-        let secDiscountOtc = otcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-        if (secDiscountOtc === 0 && (formData as any).otc_discount_value > 0) {
+        let secDiscountOtc = 0;
+        if ((formData as any).otc_discount_value > 0) {
             const discVal = Number((formData as any).otc_discount_value) || 0;
             if ((formData as any).otc_discount_type === 'percentage') {
                 secDiscountOtc = (secSubtotalOtc * Math.min(Math.max(discVal, 0), 100)) / 100;
@@ -1206,8 +778,8 @@ export default function PreviewModal({
         const secTotalOtc = Math.max(0, secSubtotalOtc - secDiscountOtc + secTaxOtc);
 
         const secSubtotalMrc = mrcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-        let secDiscountMrc = mrcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-        if (secDiscountMrc === 0 && (formData as any).mrc_discount_value > 0) {
+        let secDiscountMrc = 0;
+        if ((formData as any).mrc_discount_value > 0) {
             const discVal = Number((formData as any).mrc_discount_value) || 0;
             if ((formData as any).mrc_discount_type === 'percentage') {
                 secDiscountMrc = (secSubtotalMrc * Math.min(Math.max(discVal, 0), 100)) / 100;
@@ -1577,6 +1149,7 @@ export default function PreviewModal({
 
                     {/* Printable Canvas */}
                     <div className="w-full flex justify-center">
+                        <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
                         {renderSheetsContent()}
                     </div>
                 </div>
@@ -1604,6 +1177,7 @@ export default function PreviewModal({
 
                         {/* Modal Body / Scrollable Canvas */}
                         <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
+                            <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
                             {renderSheetsContent()}
                         </div>
                     </DialogContent>

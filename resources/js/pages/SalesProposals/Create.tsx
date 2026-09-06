@@ -49,7 +49,6 @@ export default function Create() {
     const { customers, warehouses, defaultPages = [], defaultTerms, proposalSetting, subjects = [] } = pageProps;
     const authUser = (pageProps as any)?.auth?.user;
     const [availableProducts, setAvailableProducts] = useState<any[]>([]);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [subjectList, setSubjectList] = useState<Array<{ id: number; name: string }>>(subjects);
 
     useEffect(() => {
@@ -633,7 +632,7 @@ export default function Create() {
 
                             {/* New Customer Form Row when New Mode is Active */}
                             {data.customer_mode === 'new' && (
-                                <div className="p-3 rounded-xl border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200">
+                                <div className="p-3 rounded-md border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200">
                                     <div className="flex items-center justify-between pb-1 border-b border-primary/10">
                                         <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
                                             <UserPlus className="h-3.5 w-3.5" />
@@ -910,40 +909,30 @@ export default function Create() {
             </div>
             {/* Quick Create Subject Dialog */}
             <Dialog open={isQuickSubjectModalOpen} onOpenChange={setIsQuickSubjectModalOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <form onSubmit={handleCreateQuickSubject}>
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <Tag className="h-5 w-5 text-primary" />
-                                {t('New Proposal Subject')}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {t('Create a new subject and automatically select it for this proposal.')}
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="quick-subject-name" required>
-                                    {t('Subject Name')}
-                                </Label>
-                                <Input
-                                    id="quick-subject-name"
-                                    placeholder={t('e.g., Quotation for Cloud PBX Service')}
-                                    value={quickSubjectName}
-                                    onChange={(e) => {
-                                        setQuickSubjectName(e.target.value);
-                                        if (quickSubjectError) setQuickSubjectError('');
-                                    }}
-                                    autoFocus
-                                />
-                                {quickSubjectError && (
-                                    <p className="text-xs text-destructive mt-1">{quickSubjectError}</p>
-                                )}
-                            </div>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{t('Create Subject')}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateQuickSubject} className="space-y-4">
+                        <div>
+                            <Label htmlFor="quick-subject-name">{t('Name')}</Label>
+                            <Input
+                                id="quick-subject-name"
+                                type="text"
+                                value={quickSubjectName}
+                                onChange={(e) => {
+                                    setQuickSubjectName(e.target.value);
+                                    if (quickSubjectError) setQuickSubjectError('');
+                                }}
+                                placeholder={t('Enter Name')}
+                                required
+                            />
+                            {quickSubjectError && (
+                                <p className="text-xs text-destructive mt-1">{quickSubjectError}</p>
+                            )}
                         </div>
 
-                        <DialogFooter className="gap-2 sm:gap-0">
+                        <div className="flex justify-end gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -952,15 +941,10 @@ export default function Create() {
                             >
                                 {t('Cancel')}
                             </Button>
-                            <Button type="submit" disabled={isQuickSubjectSaving} className="gap-1.5">
-                                {isQuickSubjectSaving ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Save className="h-4 w-4" />
-                                )}
-                                {t('Save & Select')}
+                            <Button type="submit" disabled={isQuickSubjectSaving}>
+                                {isQuickSubjectSaving ? t('Creating...') : t('Create')}
                             </Button>
-                        </DialogFooter>
+                        </div>
                     </form>
                 </DialogContent>
             </Dialog>

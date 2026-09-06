@@ -6,6 +6,9 @@ use Automas\Account\Models\CustomerPaymentAllocation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use App\Models\SalesInvoiceSetup;
 
 class SalesInvoice extends Model
 {
@@ -97,7 +100,7 @@ class SalesInvoice extends Model
 
         try {
             return route('sales-invoice.client.view', [
-                'token' => \Illuminate\Support\Facades\Crypt::encryptString((string) $this->id),
+                'token' => Crypt::encryptString((string) $this->id),
             ]);
         } catch (\Throwable $e) {
             return '';
@@ -117,20 +120,35 @@ class SalesInvoice extends Model
 
     public static function generateInvoiceNumber(): string
     {
+        $creatorId = creatorId();
+        $settings = SalesInvoiceSetup::getSettings($creatorId);
+        $prefix = !empty($settings['sales_invoice_prefix']) ? $settings['sales_invoice_prefix'] : 'SI';
+        $startNumberRaw = (string) ($settings['sales_invoice_starting_number'] ?? '1');
+        $startNumber = is_numeric($startNumberRaw) ? (int) $startNumberRaw : 1;
+        $padLength = strlen(trim($startNumberRaw));
+
         $year = date('Y');
         $month = date('m');
-        $lastInvoice = static::where('invoice_number', 'like', "SI-{$year}-{$month}-%")
-            ->where('created_by', creatorId())
-            ->orderBy('invoice_number', 'desc')
-            ->first();
+        $day = date('d');
 
-        if ($lastInvoice) {
-            $lastNumber = (int) substr($lastInvoice->invoice_number, -3);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
+        return DB::transaction(function () use ($creatorId, $prefix, $startNumber, $padLength, $year, $month, $day) {
+            $lastInvoice = static::where('invoice_number', 'like', "{$prefix}-%-{$year}-{$month}%")
+                ->where('created_by', $creatorId)
+                ->orderBy('id', 'desc')
+                ->lockForUpdate()
+                ->first();
 
-        return "SI-{$year}-{$month}-" . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            if ($lastInvoice) {
+                $parts = explode('-', $lastInvoice->invoice_number);
+                $lastNumStr = $parts[1] ?? '0';
+                $lastNumber = is_numeric($lastNumStr) ? (int) $lastNumStr : 0;
+                $nextNumber = max($lastNumber + 1, $startNumber);
+            } else {
+                $nextNumber = $startNumber;
+            }
+
+            $formattedNum = str_pad((string) $nextNumber, $padLength, '0', STR_PAD_LEFT);
+            return "{$prefix}-{$formattedNum}-{$year}-{$month}-{$day}";
+        });
     }
 }

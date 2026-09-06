@@ -421,7 +421,7 @@ export default function PageOrder({ sections, setSections, defaultPages = [], qu
                                             <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-bold bg-muted/50 shrink-0">
                                                 #{index + 1}
                                             </Badge>
-                                            <h4 className="text-xs font-semibold truncate text-slate-800 dark:text-slate-200" title={sec.title}>
+                                            <h4 className="text-xs font-bold truncate text-slate-900 dark:text-slate-100" title={sec.title}>
                                                 {sec.title}
                                             </h4>
                                         </div>

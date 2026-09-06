@@ -157,12 +157,6 @@ export default function View() {
                                         <span className="text-muted-foreground">{t('Warehouse')}</span>
                                         <span>{quotation.warehouse?.name || '-'}</span>
                                     </div>
-                                    {quotation.payment_terms && (
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">{t('Terms')}</span>
-                                            <span>{quotation.payment_terms}</span>
-                                        </div>
-                                    )}
                                 </div>
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">

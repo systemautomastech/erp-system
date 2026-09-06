@@ -12,7 +12,7 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
 import { getImagePath } from '@/utils/helpers';
 import MediaPicker from '@/components/MediaPicker';
-import {
+import PreviewModal, {
     ProposalPreviewSheet,
     paginateDomContainer,
     PROPOSAL_CONTENT_CLASSES,
@@ -135,7 +135,6 @@ const LiveA4Editor: React.FC<LiveA4EditorProps> = ({
             onInput={handleInput}
             onBlur={handleBlur}
             className={cn("outline-none w-full min-h-[400px] cursor-text", className)}
-            style={{ marginTop: '2rem' }}
         />
     );
 };
@@ -152,7 +151,7 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
     const { data, setData, post, processing, errors } = useForm({
-        title: '',
+        title: nextSortOrder ? `Page ${nextSortOrder}` : 'Page 1',
         content: '',
         background_image: '',
         sort_order: nextSortOrder,
@@ -233,6 +232,8 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
         });
     };
 
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
     return (
         <AuthenticatedLayout
             breadcrumbs={[
@@ -242,17 +243,41 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
             ]}
             pageTitle={t('Create Default Page')}
             pageActions={
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.visit(route('proposal-setup.index'))}
-                >
-                    <ArrowLeft className="h-4 w-4 mr-1.5" />
-                    {t('Back')}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setIsPreviewModalOpen(true)}
+                        className="gap-1.5"
+                    >
+                        <Eye className="h-4 w-4" />
+                        {t('Preview Modal')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.visit(route('proposal-setup.index'))}
+                    >
+                        <ArrowLeft className="h-4 w-4 mr-1.5" />
+                        {t('Back')}
+                    </Button>
+                </div>
             }
         >
             <Head title={t('Create Default Page')} />
+
+            {/* Reusable Proposal Preview Modal */}
+            <PreviewModal
+                open={isPreviewModalOpen}
+                onOpenChange={setIsPreviewModalOpen}
+                title={data.title || t('Create Default Page')}
+                pageTitle={data.title || t('Create Default Page')}
+                content={data.content}
+                backgroundImage={data.background_image}
+                settings={settings}
+                isDefaultPageSetup={true}
+                showPrintButton={true}
+            />
 
             {/* Hidden live measuring container in exact A4 styling to measure real browser heights */}
             <div
@@ -323,8 +348,8 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                                 {/* Page Title & Status Row */}
                                 <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
                                     <div className="flex-1 space-y-1.5 min-w-0">
-                                        <Label htmlFor="page-title" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                            {t('Page Title')} <span className="text-red-500">*</span>
+                                        <Label htmlFor="page-title" className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                            {t('Page Title')}
                                         </Label>
                                         <Input
                                             id="page-title"
@@ -431,7 +456,7 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                                 {/* Page Content & Editor */}
                                 <div className="space-y-2 pt-1">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <Label htmlFor="page-content" className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                        <Label htmlFor="page-content" className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                             {t('Page Content')}
                                         </Label>
 
