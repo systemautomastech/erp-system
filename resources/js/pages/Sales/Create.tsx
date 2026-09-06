@@ -169,11 +169,11 @@ export default function Create() {
                                                     <SelectValue placeholder={t('Select Customer')} />
                                                 </SelectTrigger>
                                                 <SelectContent searchable>
-                                                    {customers.map((customer) => (
-                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                            {customer.name} - {customer.email}
+                                                    {Array.isArray(customers) && customers.map((customer: any) => customer && customer.id !== undefined && customer.id !== null ? (
+                                                        <SelectItem key={customer.id} value={String(customer.id)}>
+                                                            {customer.name || customer.billing_name || 'Customer'} - {customer.email || customer.billing_email || '-'}
                                                         </SelectItem>
-                                                    ))}
+                                                    ) : null)}
                                                 </SelectContent>
                                             </Select>
                                             <InputError message={errors.customer_id} />

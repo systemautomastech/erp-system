@@ -15,7 +15,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
     Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
-    Wallet, AlertTriangle, TrendingUp, FileClock, Users, X, Copy, Check
+    Wallet, AlertTriangle, TrendingUp, FileClock, Users, X, Link2, Check
 } from "lucide-react";
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -329,7 +329,7 @@ export default function Index() {
                             {copiedId === invoice.id ? (
                                 <Check className="h-4 w-4 text-green-600" />
                             ) : (
-                                <Copy className="h-4 w-4" />
+                                <Link2 className="h-4 w-4" />
                             )}
                         </Button>
                     </TooltipTrigger>

@@ -765,8 +765,8 @@ export default function PreviewModal({
         );
 
         const secSubtotalOtc = otcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-        let secDiscountOtc = otcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-        if (secDiscountOtc === 0 && (formData as any).otc_discount_value > 0) {
+        let secDiscountOtc = 0;
+        if ((formData as any).otc_discount_value > 0) {
             const discVal = Number((formData as any).otc_discount_value) || 0;
             if ((formData as any).otc_discount_type === 'percentage') {
                 secDiscountOtc = (secSubtotalOtc * Math.min(Math.max(discVal, 0), 100)) / 100;
@@ -778,8 +778,8 @@ export default function PreviewModal({
         const secTotalOtc = Math.max(0, secSubtotalOtc - secDiscountOtc + secTaxOtc);
 
         const secSubtotalMrc = mrcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
-        let secDiscountMrc = mrcItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-        if (secDiscountMrc === 0 && (formData as any).mrc_discount_value > 0) {
+        let secDiscountMrc = 0;
+        if ((formData as any).mrc_discount_value > 0) {
             const discVal = Number((formData as any).mrc_discount_value) || 0;
             if ((formData as any).mrc_discount_type === 'percentage') {
                 secDiscountMrc = (secSubtotalMrc * Math.min(Math.max(discVal, 0), 100)) / 100;

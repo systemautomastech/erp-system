@@ -9,7 +9,7 @@ import { getStatusBadgeClasses } from './utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FileText, Download, ArrowLeft, Receipt, CreditCard, Layers, Printer, Edit, Copy, Check } from 'lucide-react';
+import { FileText, Download, ArrowLeft, Receipt, CreditCard, Layers, Printer, Edit, Link2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePageButtons } from '@/hooks/usePageButtons';
@@ -117,7 +117,7 @@ export default function View() {
                             onClick={handleCopyLink}
                             className="gap-1.5"
                         >
-                            {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                            {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Link2 className="h-4 w-4" />}
                             {isCopied ? t('Copied!') : t('Copy Link')}
                         </Button>
                     )}

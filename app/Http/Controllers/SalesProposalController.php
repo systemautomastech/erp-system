@@ -18,6 +18,7 @@ use App\Models\Warehouse;
 use App\Services\CustomerService;
 use App\Services\ProposalService;
 use Automas\ProductService\Models\ProductServiceItem;
+use Automas\Quotation\Models\QuotationSubject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -87,11 +88,15 @@ class SalesProposalController extends Controller
             $boardData = $this->proposalService->getBoardData($query);
         }
 
+        $creatorId = creatorId();
+        $quotationSubjects = QuotationSubject::where('created_by', $creatorId)->orderBy('name')->get(['id', 'name']);
+
         return Inertia::render('SalesProposals/Index', [
             'proposals' => $proposals,
             'customers' => $customers,
             'stats' => $stats,
             'boardData' => $boardData,
+            'quotationSubjects' => $quotationSubjects,
             'filters' => $request->only(['customer_id', 'status', 'search', 'date_range'])
         ]);
     }
@@ -154,8 +159,12 @@ class SalesProposalController extends Controller
 
         $salesProposal->load($this->proposalService->getProposalRelations());
 
+        $creatorId = creatorId();
+        $quotationSubjects = QuotationSubject::where('created_by', $creatorId)->orderBy('name')->get(['id', 'name']);
+
         return Inertia::render('SalesProposals/View', [
-            'proposal' => $salesProposal
+            'proposal' => $salesProposal,
+            'quotationSubjects' => $quotationSubjects,
         ]);
     }
 
@@ -243,7 +252,7 @@ class SalesProposalController extends Controller
     /**
      * Convert accepted proposal to quotation.
      */
-    public function convertToInvoice(SalesProposal $salesProposal)
+    public function convertToInvoice(Request $request, SalesProposal $salesProposal)
     {
         if (!Auth::user()->can('convert-sales-proposals') || !$this->proposalService->hasProposalAccess($salesProposal)) {
             return back()->with('error', __('Permission denied'));
@@ -257,8 +266,12 @@ class SalesProposalController extends Controller
             return back()->with('error', __('Proposal already converted.'));
         }
 
+        $request->validate([
+            'subject' => 'required|string|max:255',
+        ]);
+
         try {
-            $this->proposalService->convertProposalToQuotation($salesProposal);
+            $this->proposalService->convertProposalToQuotation($salesProposal, $request->input('subject'));
             return back()->with('success', __('Proposal converted to quotation successfully.'));
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());

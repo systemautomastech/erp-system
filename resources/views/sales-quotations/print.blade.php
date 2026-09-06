@@ -808,13 +808,22 @@
         $mrcDiscount = $mrcItems->sum(fn($i) => (float) ($i->discount_amount ?? 0));
         $mrcTax = $mrcItems->sum(fn($i) => (float) ($i->tax_amount ?? 0));
 
-        // If overall quotation has discount_amount but items discount sum is 0
-        if (($otcDiscount + $mrcDiscount) == 0 && (float) ($quotation->discount_amount ?? 0) > 0) {
-            $overallDisc = (float) $quotation->discount_amount;
-            $allSubtotal = $otcSubtotal + $mrcSubtotal;
-            if ($allSubtotal > 0) {
-                $otcDiscount = ($otcSubtotal / $allSubtotal) * $overallDisc;
-                $mrcDiscount = ($mrcSubtotal / $allSubtotal) * $overallDisc;
+        // If items discount sum is 0, use section-level discounts (otc_discount_value / mrc_discount_value)
+        if (($otcDiscount + $mrcDiscount) == 0) {
+            $otcDiscVal = (float) ($quotation->otc_discount_value ?? 0);
+            $otcDiscType = $quotation->otc_discount_type ?? 'percentage';
+            if ($otcDiscVal > 0) {
+                $otcDiscount = $otcDiscType === 'percentage'
+                    ? ($otcSubtotal * min(100, $otcDiscVal)) / 100
+                    : min($otcSubtotal, $otcDiscVal);
+            }
+
+            $mrcDiscVal = (float) ($quotation->mrc_discount_value ?? 0);
+            $mrcDiscType = $quotation->mrc_discount_type ?? 'percentage';
+            if ($mrcDiscVal > 0) {
+                $mrcDiscount = $mrcDiscType === 'percentage'
+                    ? ($mrcSubtotal * min(100, $mrcDiscVal)) / 100
+                    : min($mrcSubtotal, $mrcDiscVal);
             }
         }
 

@@ -187,15 +187,9 @@ class ProposalService
             });
 
         if ($warehouseId) {
-            $query->where(function ($q) use ($warehouseId) {
-                $q->whereHas('warehouseStocks', function ($stockQuery) use ($warehouseId) {
-                    $stockQuery->where('warehouse_id', $warehouseId)->where('quantity', '>', 0);
-                })->orWhere('type', 'service')
-                    ->orWhereNull('type')
-                    ->orWhereDoesntHave('warehouseStocks');
-            })->with([
-                        'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
-                    ]);
+            $query->with([
+                'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
+            ]);
         }
 
         $allTaxes = ProductServiceTax::select('id', 'tax_name', 'rate')
@@ -372,6 +366,10 @@ class ProposalService
             $proposal->is_recurring = $isRecurring;
             $proposal->is_prepaid = $isPrepaid;
             $proposal->is_tax_enabled = $isTaxEnabled ? 1 : 0;
+            $proposal->otc_discount_type = $request->input('otc_discount_type', 'percentage');
+            $proposal->otc_discount_value = (float) $request->input('otc_discount_value', 0);
+            $proposal->mrc_discount_type = $request->input('mrc_discount_type', 'percentage');
+            $proposal->mrc_discount_value = (float) $request->input('mrc_discount_value', 0);
             $proposal->payment_terms = $request->payment_terms;
             $proposal->notes = $request->notes;
             $proposal->subtotal = $totals['subtotal'];
@@ -423,6 +421,10 @@ class ProposalService
             $salesProposal->is_recurring = $isRecurring;
             $salesProposal->is_prepaid = $isPrepaid;
             $salesProposal->is_tax_enabled = $isTaxEnabled ? 1 : 0;
+            $salesProposal->otc_discount_type = $request->input('otc_discount_type', 'percentage');
+            $salesProposal->otc_discount_value = (float) $request->input('otc_discount_value', 0);
+            $salesProposal->mrc_discount_type = $request->input('mrc_discount_type', 'percentage');
+            $salesProposal->mrc_discount_value = (float) $request->input('mrc_discount_value', 0);
             $salesProposal->payment_terms = $request->payment_terms;
             $salesProposal->notes = $request->notes;
             $salesProposal->subtotal = $totals['subtotal'];
@@ -439,15 +441,15 @@ class ProposalService
         });
     }
 
-    public function convertProposalToQuotation(SalesProposal $salesProposal): SalesQuotation
+    public function convertProposalToQuotation(SalesProposal $salesProposal, ?string $customSubject = null): SalesQuotation
     {
-        return DB::transaction(function () use ($salesProposal) {
+        return DB::transaction(function () use ($salesProposal, $customSubject) {
             $isNew = empty($salesProposal->customer_id) && (!empty($salesProposal->customer_name) || !empty($salesProposal->customer_email));
             $customerType = $isNew ? 'new' : 'existing';
 
             $quotation = new SalesQuotation();
             $quotation->parent_quotation_id = $salesProposal->id;
-            $quotation->subject = $salesProposal->subject;
+            $quotation->subject = !empty($customSubject) ? $customSubject : $salesProposal->subject;
             $quotation->customer_type = $customerType;
             $quotation->customer_id = $salesProposal->customer_id;
             $quotation->customer_name = $salesProposal->customer_name;
@@ -460,6 +462,10 @@ class ProposalService
             $quotation->is_recurring = (bool) ($salesProposal->is_recurring ?? false);
             $quotation->is_prepaid = (bool) ($salesProposal->is_prepaid ?? false);
             $quotation->is_tax_enabled = (bool) ($salesProposal->is_tax_enabled ?? true);
+            $quotation->otc_discount_type = $salesProposal->otc_discount_type ?? 'percentage';
+            $quotation->otc_discount_value = (float) ($salesProposal->otc_discount_value ?? 0);
+            $quotation->mrc_discount_type = $salesProposal->mrc_discount_type ?? 'percentage';
+            $quotation->mrc_discount_value = (float) ($salesProposal->mrc_discount_value ?? 0);
             $quotation->payment_terms = $salesProposal->payment_terms;
             $quotation->notes = $salesProposal->notes;
             $quotation->subtotal = $salesProposal->subtotal ?? 0;

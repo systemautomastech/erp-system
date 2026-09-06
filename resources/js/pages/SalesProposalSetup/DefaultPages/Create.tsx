@@ -151,7 +151,7 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
     const { data, setData, post, processing, errors } = useForm({
-        title: '',
+        title: nextSortOrder ? `Page ${nextSortOrder}` : 'Page 1',
         content: '',
         background_image: '',
         sort_order: nextSortOrder,
@@ -348,8 +348,8 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                                 {/* Page Title & Status Row */}
                                 <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
                                     <div className="flex-1 space-y-1.5 min-w-0">
-                                        <Label htmlFor="page-title" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                            {t('Page Title')} <span className="text-red-500">*</span>
+                                        <Label htmlFor="page-title" className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                            {t('Page Title')}
                                         </Label>
                                         <Input
                                             id="page-title"
@@ -456,7 +456,7 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                                 {/* Page Content & Editor */}
                                 <div className="space-y-2 pt-1">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <Label htmlFor="page-content" className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                        <Label htmlFor="page-content" className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                             {t('Page Content')}
                                         </Label>
 

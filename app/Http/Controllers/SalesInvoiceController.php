@@ -22,10 +22,15 @@ use App\Events\PostSalesInvoice;
 use App\Events\EditSalesInvoice;
 use App\Models\SalesInvoiceSetup;
 use App\Models\EmailTemplate;
+use App\Services\CustomerService;
 use Spatie\LaravelPdf\Facades\Pdf;
 
 class SalesInvoiceController extends Controller
 {
+    public function __construct(
+        protected CustomerService $customerService
+    ) {
+    }
     private function checkInvoiceAccess(SalesInvoice $salesInvoice)
     {
         if (Auth::user()->can('manage-any-sales-invoices')) {
@@ -150,7 +155,7 @@ class SalesInvoiceController extends Controller
                 );
             });
 
-            $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+            $customers = $this->customerService->getCustomers();
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name')->where('created_by', creatorId())->get();
 
             // Outstanding balance grouped by customer - a salesperson collects by relationship, not by
@@ -211,7 +216,7 @@ class SalesInvoiceController extends Controller
     public function create()
     {
         if (Auth::user()->can('create-sales-invoices')) {
-            $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+            $customers = $this->customerService->getCustomers();
             $products = ProductServiceItem::with(['unitRelation', 'warehouseStocks'])
                 ->select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
@@ -361,7 +366,7 @@ class SalesInvoiceController extends Controller
 
             EditSalesInvoice::dispatch($salesInvoice);
 
-            $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+            $customers = $this->customerService->getCustomers();
             $products = ProductServiceItem::with(['unitRelation', 'warehouseStocks'])
                 ->select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
