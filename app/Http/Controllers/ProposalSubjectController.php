@@ -29,7 +29,9 @@ class ProposalSubjectController extends Controller
             return response()->json(['subjects' => $subjects]);
         }
 
-        return redirect()->route('proposal-setup.index');
+        return Inertia::render('SalesProposalSetup/Subjects/Index', [
+            'subjects' => $subjects,
+        ]);
     }
 
     public function store(StoreProposalSubjectRequest $request)
