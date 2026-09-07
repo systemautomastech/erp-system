@@ -7,7 +7,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, FileText } from 'lucide-react';
+import { Printer, FileText, Eye } from 'lucide-react';
 import {
     getImagePath,
 } from '@/utils/helpers';
@@ -1042,9 +1042,7 @@ export default function PreviewModal({
         }, 500);
     }, [t]);
 
-    const modalTitleText = isSinglePageMode
-        ? (title || pageTitle || t('Page Preview'))
-        : t('Proposal Preview');
+    const modalTitleText = title || pageTitle || t('Preview');
 
     const renderSheetsContent = () => (
         <div
@@ -1155,14 +1153,14 @@ export default function PreviewModal({
                 </div>
             ) : (
                 <Dialog open={isModalOpen} onOpenChange={(openVal) => !openVal && handleClose()}>
-                    <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-900/40 backdrop-blur-md border-slate-700">
+                    <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-background border-border shadow-xl !rounded-md [&>div]:p-0 [&>div]:max-h-[92vh] [&>div]:flex [&>div]:flex-col [&>button]:top-2.5 [&>button]:right-3">
                         {/* Modal Header */}
-                        <DialogHeader className="p-4 sm:px-6 bg-background border-b border-border flex flex-row items-center justify-between space-y-0 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                                    <FileText className="h-5 w-5" />
+                        <DialogHeader className="!py-3 !px-5 bg-background border-b border-border flex flex-row items-center justify-between space-y-0 shrink-0">
+                            <div className="flex items-center gap-2.5 pr-8">
+                                <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                                    <Eye className="h-4 w-4" />
                                 </div>
-                                <DialogTitle className="text-base font-semibold">{modalTitleText}</DialogTitle>
+                                <DialogTitle className="text-sm font-semibold">{modalTitleText}</DialogTitle>
                             </div>
 
                             {showPrintButton && (
@@ -1176,7 +1174,7 @@ export default function PreviewModal({
                         </DialogHeader>
 
                         {/* Modal Body / Scrollable Canvas */}
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-100/70 dark:bg-slate-900 flex justify-center scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
                             <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
                             {renderSheetsContent()}
                         </div>
