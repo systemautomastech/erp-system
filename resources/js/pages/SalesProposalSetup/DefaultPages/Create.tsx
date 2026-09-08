@@ -12,10 +12,11 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
 import { getImagePath } from '@/utils/helpers';
 import MediaPicker from '@/components/MediaPicker';
-import PreviewModal, {
+import {
     ProposalPreviewSheet,
     paginateDomContainer,
     PROPOSAL_CONTENT_CLASSES,
+    PRINT_STYLES,
 } from '@/components/PreviewModal';
 import {
     Save,
@@ -227,8 +228,6 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
         });
     };
 
-    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-
     return (
         <AuthenticatedLayout
             breadcrumbs={[
@@ -238,41 +237,17 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
             ]}
             pageTitle={t('Create Default Page')}
             pageActions={
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => setIsPreviewModalOpen(true)}
-                        className="gap-1.5"
-                    >
-                        <Eye className="h-4 w-4" />
-                        {t('Preview Modal')}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.visit(route('proposal-setup.index'))}
-                    >
-                        <ArrowLeft className="h-4 w-4 mr-1.5" />
-                        {t('Back')}
-                    </Button>
-                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.visit(route('proposal-setup.index'))}
+                >
+                    <ArrowLeft className="h-4 w-4 mr-1.5" />
+                    {t('Back')}
+                </Button>
             }
         >
             <Head title={t('Create Default Page')} />
-
-            {/* Reusable Proposal Preview Modal */}
-            <PreviewModal
-                open={isPreviewModalOpen}
-                onOpenChange={setIsPreviewModalOpen}
-                title={data.title || t('Create Default Page')}
-                pageTitle={data.title || t('Create Default Page')}
-                content={processedContent}
-                backgroundImage={data.background_image}
-                settings={settings}
-                isDefaultPageSetup={true}
-                showPrintButton={true}
-            />
 
             {/* Hidden live measuring container in exact A4 styling to measure real browser heights */}
             <div
@@ -537,51 +512,38 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                                         </div>
                                     )}
 
-                                    {/* 3. A4 Live Editable Preview */}
+                                    {/* 3. A4 Live Preview */}
                                     {editorMode === 'preview' && (
                                         <div
                                             className="border rounded-lg bg-slate-100 dark:bg-slate-950 overflow-hidden shadow-xs"
                                             style={{ '--template-color': templateColor } as React.CSSProperties}
                                         >
+                                            <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
                                             <div className="p-4 sm:p-8 flex flex-col items-center gap-8 overflow-y-auto max-h-[820px] bg-slate-200/70 dark:bg-slate-900/60 shadow-inner">
                                                 {paginatedPreviewPages.length > 0 ? (
                                                     paginatedPreviewPages.map((pageHtml, pageIdx) => (
                                                         <ProposalPreviewSheet
                                                             key={`create-preview-${pageIdx}`}
                                                             pageKey={`create-preview-${pageIdx}`}
+                                                            content={pageHtml}
                                                             backgroundImage={data.background_image}
                                                             defaultBg={defaultTemplateBg}
                                                             templateColor={templateColor}
                                                             headerLogo={logoUrl}
                                                             headerLogoAlign={headerLogoAlign}
-                                                        >
-                                                            <LiveA4Editor
-                                                                content={pageHtml}
-                                                                onChange={(newHtml) => {
-                                                                    setData('content', newHtml);
-                                                                }}
-                                                                className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
-                                                            />
-                                                        </ProposalPreviewSheet>
+                                                        />
                                                     ))
                                                 ) : (
                                                     <ProposalPreviewSheet
                                                         key="create-preview-0"
                                                         pageKey="create-preview-0"
+                                                        content={processedContent}
                                                         backgroundImage={data.background_image}
                                                         defaultBg={defaultTemplateBg}
                                                         templateColor={templateColor}
                                                         headerLogo={logoUrl}
                                                         headerLogoAlign={headerLogoAlign}
-                                                    >
-                                                        <LiveA4Editor
-                                                            content={processedContent}
-                                                            onChange={(newHtml) => {
-                                                                setData('content', newHtml);
-                                                            }}
-                                                            className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
-                                                        />
-                                                    </ProposalPreviewSheet>
+                                                    />
                                                 )}
                                             </div>
                                         </div>

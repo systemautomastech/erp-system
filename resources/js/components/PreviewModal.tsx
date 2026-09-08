@@ -143,6 +143,9 @@ export const PRINT_STYLES = `
     @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
 
+    .phone-tab{
+        display:none;
+    }
     .proposal-cover__sheet, .proposal-preview-sheet {
         width: 210mm; min-height: 297mm; height: 297mm; max-height: 297mm; margin: 0 auto; background: #fff; position: relative !important; overflow: hidden !important; box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08); page-break-after: always; font-family: "Open Sans", sans-serif !important;
     }
@@ -204,7 +207,7 @@ export const PRINT_STYLES = `
 // DOM PAGINATOR UTILITY
 // =============================================================================
 
-const DEFAULT_A4_CONTENT_HEIGHT_PX = 850;
+const DEFAULT_A4_CONTENT_HEIGHT_PX = 820;
 
 function getA4ContentHeightPx(): number {
     if (typeof document === 'undefined') return DEFAULT_A4_CONTENT_HEIGHT_PX;
@@ -219,7 +222,7 @@ function getA4ContentHeightPx(): number {
 }
 
 export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = DEFAULT_A4_CONTENT_HEIGHT_PX): string[] {
-    const effectiveMaxHeight = maxPageHeight - 20;
+    const effectiveMaxHeight = maxPageHeight - 30;
     const styleTags = Array.from(container.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
 
     const pages: string[] = [];
