@@ -20,6 +20,7 @@ export interface NavItem {
     parent?: string;
     name?: string;
     order?: number;
+    module?: string;
 }
 
 export type PageProps<

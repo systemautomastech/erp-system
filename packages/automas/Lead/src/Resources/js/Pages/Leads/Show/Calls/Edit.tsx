@@ -10,7 +10,8 @@ import { InputError } from '@/components/ui/input-error';
 import { Textarea } from '@/components/ui/textarea';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TimePicker } from '@/components/ui/time-picker';
+import { DurationPicker } from '@/components/ui/duration-picker';
+import { formatDigitalDuration } from '@/utils/helpers';
 import { EditCallProps } from './types';
 
 export default function Edit({ call, userLeads, onSuccess }: EditCallProps) {
@@ -19,7 +20,7 @@ export default function Edit({ call, userLeads, onSuccess }: EditCallProps) {
     const [form, setForm] = useState({
         subject: call.subject || '',
         call_type: call.call_type || 'Outbound',
-        duration: call.duration || '',
+        duration: call.duration ? formatDigitalDuration(call.duration) : '',
         assignee: call.user_id?.toString() || '',
         description: call.description || '',
         call_result: call.call_result || '',
@@ -60,7 +61,7 @@ export default function Edit({ call, userLeads, onSuccess }: EditCallProps) {
                     </div>
                     <div>
                         <Label htmlFor="duration" required>{t('Duration')}</Label>
-                        <TimePicker id="duration" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} placeholder={t('Select Duration')} />
+                        <DurationPicker id="duration" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} placeholder={t('Select Duration')} />
                         <InputError message={errors.duration} />
                     </div>
                 </div>

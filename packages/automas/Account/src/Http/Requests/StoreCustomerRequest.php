@@ -3,6 +3,7 @@
 namespace Automas\Account\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCustomerRequest extends FormRequest
 {
@@ -17,7 +18,16 @@ class StoreCustomerRequest extends FormRequest
             'user_id' => 'nullable|exists:users,id',
             'company_name' => 'required|string|max:255',
             'contact_person_name' => 'required|string|max:255',
-            'contact_person_email' => 'required|email|max:255',
+            'contact_person_email' => [
+                Rule::requiredIf(empty($this->user_id)),
+                'nullable',
+                'email',
+                'max:255',
+                Rule::when(
+                    empty($this->user_id),
+                    Rule::unique('users', 'email')
+                ),
+            ],
             'contact_person_mobile' => 'nullable|string|max:255',
             'tax_number' => 'nullable|string|max:255',
             'payment_terms' => 'nullable|string|max:255',

@@ -55,46 +55,48 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('users/{user}/admin-hub', [UserController::class, 'adminHub'])->name('users.admin-hub');
     Route::patch('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
     Route::post('users/{user}/assign-plan', [UserController::class, 'assignPlan'])->name('users.assign-plan');
-    Route::resource('warehouses', WarehouseController::class);
-    Route::resource('transfers', TransferController::class)->except(['edit', 'update']);
-
     Route::resource('roles', RoleController::class);
 
-    // purchase invoices
-    Route::get('purchase-invoice/settings', [PurchaseInvoiceController::class, 'setup'])->name('purchase-invoice-setup.index');
-    Route::post('purchase-invoice/settings', [PurchaseInvoiceController::class, 'updateSetup'])->name('purchase-invoice-setup.update');
-    Route::resource('purchase-invoices', PurchaseInvoiceController::class);
-    Route::post('purchase-invoices/{purchaseInvoice}/post', [PurchaseInvoiceController::class, 'post'])->name('purchase-invoices.post');
-    Route::get('purchase-invoices/{purchaseInvoice}/print', [PurchaseInvoiceController::class, 'print'])->name('purchase-invoices.print');
-    Route::get('purchase-invoices/{purchaseInvoice}/download-pdf', [PurchaseInvoiceController::class, 'downloadPdf'])->name('purchase-invoices.download-pdf');
+    Route::middleware(['PlanModuleCheck:ProductService'])->group(function () {
+        Route::resource('warehouses', WarehouseController::class);
+        Route::resource('transfers', TransferController::class)->except(['edit', 'update']);
 
-    // sales invoices
-    Route::get('sales-invoice/settings', [SalesInvoiceController::class, 'setup'])->name('sales-invoice-setup.index');
-    Route::post('sales-invoice/settings', [SalesInvoiceController::class, 'updateSetup'])->name('sales-invoice-setup.update');
-    Route::resource('sales-invoices', SalesInvoiceController::class);
-    Route::post('sales-invoices/{salesInvoice}/post', [SalesInvoiceController::class, 'post'])->name('sales-invoices.post');
-    Route::get('sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'print'])->name('sales-invoices.print');
-    Route::get('sales-invoices/{salesInvoice}/download-pdf', [SalesInvoiceController::class, 'downloadPdf'])->name('sales-invoices.download-pdf');
-    Route::get('sales-invoices/warehouse/products', [SalesInvoiceController::class, 'getWarehouseProducts'])->name('sales-invoices.warehouse.products');
-    Route::get('sales-invoices/services/list', [SalesInvoiceController::class, 'getServices'])->name('sales-invoices.services');
+        // purchase invoices
+        Route::get('purchase-invoice/settings', [PurchaseInvoiceController::class, 'setup'])->name('purchase-invoice-setup.index');
+        Route::post('purchase-invoice/settings', [PurchaseInvoiceController::class, 'updateSetup'])->name('purchase-invoice-setup.update');
+        Route::resource('purchase-invoices', PurchaseInvoiceController::class);
+        Route::post('purchase-invoices/{purchaseInvoice}/post', [PurchaseInvoiceController::class, 'post'])->name('purchase-invoices.post');
+        Route::get('purchase-invoices/{purchaseInvoice}/print', [PurchaseInvoiceController::class, 'print'])->name('purchase-invoices.print');
+        Route::get('purchase-invoices/{purchaseInvoice}/download-pdf', [PurchaseInvoiceController::class, 'downloadPdf'])->name('purchase-invoices.download-pdf');
 
-    // purchase returns
-    Route::get('purchase-returns', [PurchaseReturnController::class, 'index'])->name('purchase-returns.index');
-    Route::get('purchase-returns/create', [PurchaseReturnController::class, 'create'])->name('purchase-returns.create');
-    Route::post('purchase-returns', [PurchaseReturnController::class, 'store'])->name('purchase-returns.store');
-    Route::get('purchase-returns/{return}', [PurchaseReturnController::class, 'show'])->name('purchase-returns.show');
-    Route::delete('purchase-returns/{return}', [PurchaseReturnController::class, 'destroy'])->name('purchase-returns.destroy');
-    Route::post('purchase-returns/{return}/approve', [PurchaseReturnController::class, 'approve'])->name('purchase-returns.approve');
-    Route::post('purchase-returns/{return}/complete', [PurchaseReturnController::class, 'complete'])->name('purchase-returns.complete');
+        // sales invoices
+        Route::get('sales-invoice/settings', [SalesInvoiceController::class, 'setup'])->name('sales-invoice-setup.index');
+        Route::post('sales-invoice/settings', [SalesInvoiceController::class, 'updateSetup'])->name('sales-invoice-setup.update');
+        Route::resource('sales-invoices', SalesInvoiceController::class);
+        Route::post('sales-invoices/{salesInvoice}/post', [SalesInvoiceController::class, 'post'])->name('sales-invoices.post');
+        Route::get('sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'print'])->name('sales-invoices.print');
+        Route::get('sales-invoices/{salesInvoice}/download-pdf', [SalesInvoiceController::class, 'downloadPdf'])->name('sales-invoices.download-pdf');
+        Route::get('sales-invoices/warehouse/products', [SalesInvoiceController::class, 'getWarehouseProducts'])->name('sales-invoices.warehouse.products');
+        Route::get('sales-invoices/services/list', [SalesInvoiceController::class, 'getServices'])->name('sales-invoices.services');
 
-    // sales returns
-    Route::get('sales-returns', [SalesReturnController::class, 'index'])->name('sales-returns.index');
-    Route::get('sales-returns/create', [SalesReturnController::class, 'create'])->name('sales-returns.create');
-    Route::post('sales-returns', [SalesReturnController::class, 'store'])->name('sales-returns.store');
-    Route::get('sales-returns/{salesReturn}', [SalesReturnController::class, 'show'])->name('sales-returns.show');
-    Route::delete('sales-returns/{salesReturn}', [SalesReturnController::class, 'destroy'])->name('sales-returns.destroy');
-    Route::post('sales-returns/{salesReturn}/approve', [SalesReturnController::class, 'approve'])->name('sales-returns.approve');
-    Route::post('sales-returns/{salesReturn}/complete', [SalesReturnController::class, 'complete'])->name('sales-returns.complete');
+        // purchase returns
+        Route::get('purchase-returns', [PurchaseReturnController::class, 'index'])->name('purchase-returns.index');
+        Route::get('purchase-returns/create', [PurchaseReturnController::class, 'create'])->name('purchase-returns.create');
+        Route::post('purchase-returns', [PurchaseReturnController::class, 'store'])->name('purchase-returns.store');
+        Route::get('purchase-returns/{return}', [PurchaseReturnController::class, 'show'])->name('purchase-returns.show');
+        Route::delete('purchase-returns/{return}', [PurchaseReturnController::class, 'destroy'])->name('purchase-returns.destroy');
+        Route::post('purchase-returns/{return}/approve', [PurchaseReturnController::class, 'approve'])->name('purchase-returns.approve');
+        Route::post('purchase-returns/{return}/complete', [PurchaseReturnController::class, 'complete'])->name('purchase-returns.complete');
+
+        // sales returns
+        Route::get('sales-returns', [SalesReturnController::class, 'index'])->name('sales-returns.index');
+        Route::get('sales-returns/create', [SalesReturnController::class, 'create'])->name('sales-returns.create');
+        Route::post('sales-returns', [SalesReturnController::class, 'store'])->name('sales-returns.store');
+        Route::get('sales-returns/{salesReturn}', [SalesReturnController::class, 'show'])->name('sales-returns.show');
+        Route::delete('sales-returns/{salesReturn}', [SalesReturnController::class, 'destroy'])->name('sales-returns.destroy');
+        Route::post('sales-returns/{salesReturn}/approve', [SalesReturnController::class, 'approve'])->name('sales-returns.approve');
+        Route::post('sales-returns/{salesReturn}/complete', [SalesReturnController::class, 'complete'])->name('sales-returns.complete');
+    });
 
     // Helpdesk Routes
     Route::resource('helpdesk-categories', HelpdeskCategoryController::class);
@@ -174,32 +176,34 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::put('notification-templates/{notificationTemplate}', [NotificationTemplateController::class, 'update'])->name('notification-templates.update');
 
     // Proposal Routes
-    Route::resource('sales-proposals', SalesProposalController::class);
-    Route::get('sales-proposals/{salesProposal}/print', [SalesProposalController::class, 'print'])->name('sales-proposals.print');
-    Route::get('sales-proposals/{salesProposal}/download-pdf', [SalesProposalController::class, 'downloadPdf'])->name('sales-proposals.download-pdf');
-    Route::post('sales-proposals/{salesProposal}/sent', [SalesProposalController::class, 'sent'])->name('sales-proposals.sent');
-    Route::post('sales-proposals/{salesProposal}/accept', [SalesProposalController::class, 'accept'])->name('sales-proposals.accept');
-    Route::post('sales-proposals/{salesProposal}/reject', [SalesProposalController::class, 'reject'])->name('sales-proposals.reject');
-    Route::post('sales-proposals/{salesProposal}/convert-to-invoice', [SalesProposalController::class, 'convertToInvoice'])->name('sales-proposals.convert-to-invoice');
-    Route::get('sales-proposals/warehouse/products', [SalesProposalController::class, 'getWarehouseProducts'])->name('sales-proposals.warehouse.products');
-    Route::get('sales-proposals/services/list', [SalesProposalController::class, 'getServices'])->name('sales-proposals.services');
+    Route::middleware(['PlanModuleCheck:ProductService'])->group(function () {
+        Route::resource('sales-proposals', SalesProposalController::class);
+        Route::get('sales-proposals/{salesProposal}/print', [SalesProposalController::class, 'print'])->name('sales-proposals.print');
+        Route::get('sales-proposals/{salesProposal}/download-pdf', [SalesProposalController::class, 'downloadPdf'])->name('sales-proposals.download-pdf');
+        Route::post('sales-proposals/{salesProposal}/sent', [SalesProposalController::class, 'sent'])->name('sales-proposals.sent');
+        Route::post('sales-proposals/{salesProposal}/accept', [SalesProposalController::class, 'accept'])->name('sales-proposals.accept');
+        Route::post('sales-proposals/{salesProposal}/reject', [SalesProposalController::class, 'reject'])->name('sales-proposals.reject');
+        Route::post('sales-proposals/{salesProposal}/convert-to-invoice', [SalesProposalController::class, 'convertToInvoice'])->name('sales-proposals.convert-to-invoice');
+        Route::get('sales-proposals/warehouse/products', [SalesProposalController::class, 'getWarehouseProducts'])->name('sales-proposals.warehouse.products');
+        Route::get('sales-proposals/services/list', [SalesProposalController::class, 'getServices'])->name('sales-proposals.services');
 
-    // Proposal Setup & Default Pages
-    Route::get('sales-proposal/settings', [ProposalSetupController::class, 'index'])->name('proposal-setup.index');
-    Route::post('sales-proposal/settings', [ProposalSetupController::class, 'updateSettings'])->name('proposal-setup.update');
-    Route::post('sales-proposal/default-pages/reorder', [ProposalDefaultPageController::class, 'reorder'])->name('proposal-setup.default-pages.reorder');
-    Route::get('sales-proposal/default-pages/create', [ProposalDefaultPageController::class, 'create'])->name('proposal-setup.default-pages.create');
-    Route::post('sales-proposal/default-pages', [ProposalDefaultPageController::class, 'store'])->name('proposal-setup.default-pages.store');
-    Route::get('sales-proposal/default-pages/{defaultPage}/edit', [ProposalDefaultPageController::class, 'edit'])->name('proposal-setup.default-pages.edit');
-    Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'update'])->name('proposal-setup.default-pages.update');
-    Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'destroy'])->name('proposal-setup.default-pages.destroy');
-    Route::resource('sales-proposal/subjects', ProposalSubjectController::class)->names([
-        'index' => 'proposal-setup.subjects.index',
-        'store' => 'proposal-setup.subjects.store',
-        'update' => 'proposal-setup.subjects.update',
-        'destroy' => 'proposal-setup.subjects.destroy',
-    ]);
-    Route::get('sales-proposal/subjects-list', [ProposalSubjectController::class, 'index'])->name('proposal.subjects.index');
+        // Proposal Setup & Default Pages
+        Route::get('sales-proposal/settings', [ProposalSetupController::class, 'index'])->name('proposal-setup.index');
+        Route::post('sales-proposal/settings', [ProposalSetupController::class, 'updateSettings'])->name('proposal-setup.update');
+        Route::post('sales-proposal/default-pages/reorder', [ProposalDefaultPageController::class, 'reorder'])->name('proposal-setup.default-pages.reorder');
+        Route::get('sales-proposal/default-pages/create', [ProposalDefaultPageController::class, 'create'])->name('proposal-setup.default-pages.create');
+        Route::post('sales-proposal/default-pages', [ProposalDefaultPageController::class, 'store'])->name('proposal-setup.default-pages.store');
+        Route::get('sales-proposal/default-pages/{defaultPage}/edit', [ProposalDefaultPageController::class, 'edit'])->name('proposal-setup.default-pages.edit');
+        Route::match(['put', 'patch'], 'sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'update'])->name('proposal-setup.default-pages.update');
+        Route::delete('sales-proposal/default-pages/{defaultPage}', [ProposalDefaultPageController::class, 'destroy'])->name('proposal-setup.default-pages.destroy');
+        Route::resource('sales-proposal/subjects', ProposalSubjectController::class)->names([
+            'index' => 'proposal-setup.subjects.index',
+            'store' => 'proposal-setup.subjects.store',
+            'update' => 'proposal-setup.subjects.update',
+            'destroy' => 'proposal-setup.subjects.destroy',
+        ]);
+        Route::get('sales-proposal/subjects-list', [ProposalSubjectController::class, 'index'])->name('proposal.subjects.index');
+    });
 
     // Messenger routes
     Route::get('messenger', [MessengerController::class, 'index'])->name('messenger.index');

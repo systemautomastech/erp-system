@@ -31,6 +31,7 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
         title: t('Proposal'),
         icon: Replace,
         permission: 'manage-sales-proposals',
+        module: 'ProductService',
         order: 20,
         children: [
             {
@@ -50,6 +51,7 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
         title: t('Invoice'),
         icon: Receipt,
         permission: 'manage-sales-invoices',
+        module: 'ProductService',
         order: 35,
         children: [
             {
@@ -73,6 +75,7 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
         title: t('Purchase'),
         icon: ShoppingCart,
         permission: 'manage-purchase-invoices',
+        module: 'ProductService',
         order: 40,
         children: [
             {

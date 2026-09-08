@@ -267,85 +267,87 @@ export default function Show() {
 
             <div className="space-y-8">
                 {/* Payroll Summary */}
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-primary/10 rounded-lg">
-                                    <Calculator className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-1xl font-bold text-gray-900">{payroll.title}</CardTitle>
-                                    <div className="flex items-center gap-6 mt-2">
-                                        <p className="text-base text-gray-600">
-                                            {formatDate(payroll.pay_period_start)} - {formatDate(payroll.pay_period_end)}
-                                        </p>
-                                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                                            <div className="flex items-center gap-2">
-                                                <Calendar className="h-4 w-4 text-gray-500" />
-                                                <span className="font-medium">{t('Pay Date')}:</span>
-                                                <span>{formatDate(payroll.pay_date)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium">{t('Frequency')}:</span>
-                                                <span>{t(payroll.payroll_frequency?.charAt(0).toUpperCase() + payroll.payroll_frequency?.slice(1))}</span>
+                {auth.user?.permissions?.includes('view-any-payrolls') && (
+                    <Card className="shadow-sm">
+                        <CardHeader className="pb-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-primary/10 rounded-lg">
+                                        <Calculator className="h-6 w-6 text-primary" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-1xl font-bold text-gray-900">{payroll.title}</CardTitle>
+                                        <div className="flex items-center gap-6 mt-2">
+                                            <p className="text-base text-gray-600">
+                                                {formatDate(payroll.pay_period_start)} - {formatDate(payroll.pay_period_end)}
+                                            </p>
+                                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="h-4 w-4 text-gray-500" />
+                                                    <span className="font-medium">{t('Pay Date')}:</span>
+                                                    <span>{formatDate(payroll.pay_date)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium">{t('Frequency')}:</span>
+                                                    <span>{t(payroll.payroll_frequency?.charAt(0).toUpperCase() + payroll.payroll_frequency?.slice(1))}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${payroll.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                                        payroll.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                            payroll.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                payroll.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                                    'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                    {t(payroll.status?.charAt(0).toUpperCase() + payroll.status?.slice(1) || 'Draft')}
+                                </span>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${payroll.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                    payroll.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                                        payroll.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                            payroll.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                                'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                {t(payroll.status?.charAt(0).toUpperCase() + payroll.status?.slice(1) || 'Draft')}
-                            </span>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <div className="flex items-center gap-4 p-5 bg-blue-50 rounded-xl border border-blue-100">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Users className="h-6 w-6 text-blue-600" />
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <div className="flex items-center gap-4 p-5 bg-blue-50 rounded-xl border border-blue-100">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <Users className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">{t('Employees')}</p>
+                                        <p className="text-2xl font-bold text-blue-600">{payroll.employee_count}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">{t('Employees')}</p>
-                                    <p className="text-2xl font-bold text-blue-600">{payroll.employee_count}</p>
+                                <div className="flex items-center gap-4 p-5 bg-green-50 rounded-xl border border-green-100">
+                                    <div className="p-2 bg-green-100 rounded-lg">
+                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">{t('Gross Pay')}</p>
+                                        <p className="text-2xl font-bold text-green-600">{formatCurrency(payroll.total_gross_pay)}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-4 p-5 bg-green-50 rounded-xl border border-green-100">
-                                <div className="p-2 bg-green-100 rounded-lg">
-                                    <DollarSign className="h-6 w-6 text-green-600" />
+                                <div className="flex items-center gap-4 p-5 bg-red-50 rounded-xl border border-red-100">
+                                    <div className="p-2 bg-red-100 rounded-lg">
+                                        <DollarSign className="h-6 w-6 text-red-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">{t('Deductions')}</p>
+                                        <p className="text-2xl font-bold text-red-600">{formatCurrency(payroll.total_deductions)}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">{t('Gross Pay')}</p>
-                                    <p className="text-2xl font-bold text-green-600">{formatCurrency(payroll.total_gross_pay)}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 p-5 bg-red-50 rounded-xl border border-red-100">
-                                <div className="p-2 bg-red-100 rounded-lg">
-                                    <DollarSign className="h-6 w-6 text-red-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">{t('Deductions')}</p>
-                                    <p className="text-2xl font-bold text-red-600">{formatCurrency(payroll.total_deductions)}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 p-5 bg-purple-50 rounded-xl border border-purple-100">
-                                <div className="p-2 bg-purple-100 rounded-lg">
-                                    <DollarSign className="h-6 w-6 text-purple-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">{t('Net Pay')}</p>
-                                    <p className="text-2xl font-bold text-purple-600">{formatCurrency(payroll.total_net_pay)}</p>
+                                <div className="flex items-center gap-4 p-5 bg-purple-50 rounded-xl border border-purple-100">
+                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                        <DollarSign className="h-6 w-6 text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">{t('Net Pay')}</p>
+                                        <p className="text-2xl font-bold text-purple-600">{formatCurrency(payroll.total_net_pay)}</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Employee Salary Details */}
                 <Card className="shadow-sm">

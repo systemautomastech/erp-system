@@ -22,7 +22,7 @@ import { CalendarDays, Building2, User, UserPlus, Users, X, FileText, Package } 
 import RichTextEditor from '@/components/ui/rich-text-editor';
 
 interface CreateProps {
-    customers: Array<{ id: number; name: string; email: string; phone?: string; address?: string }>;
+    customers: Array<{ id: number; user_id?: number; name: string; email: string; phone?: string; address?: string }>;
     products: Array<{ id: number; name: string; sku: string; sale_price: number; unit: string; unit_name?: string; type: string; taxes: Array<{ id: number; tax_name: string; rate: number }> }>;
     warehouses: Array<{ id: number; name: string; address: string }>;
     default_payment_terms?: string;
@@ -75,7 +75,7 @@ export default function Create() {
 
     const selectedCustomer = useMemo(() => {
         if (!data.customer_id) return null;
-        return customers.find(c => c.id.toString() === data.customer_id.toString());
+        return customers.find(c => (c.user_id ?? c.id)?.toString() === data.customer_id.toString());
     }, [data.customer_id, customers]);
 
     // Calendar sync fields
@@ -103,7 +103,7 @@ export default function Create() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                { label: t('Invoice'), url: route('sales-invoices.index') },
+                { label: t('Invoices'), url: route('sales-invoices.index') },
                 { label: t('Create Invoice') }
             ]}
             pageTitle={t('Create Invoice')}

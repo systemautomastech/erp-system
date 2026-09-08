@@ -8,7 +8,7 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Phone, Edit, Trash2, Plus } from 'lucide-react';
 import NoRecordsFound from '@/components/no-records-found';
-import { formatTime } from '@/utils/helpers';
+import { formatCallDuration, formatDigitalDuration } from '@/utils/helpers';
 import { Deal } from '../../types';
 import { DealCall } from './types';
 import Create from './Create';
@@ -59,7 +59,18 @@ export default function Index({ deal, onRegisterAddHandler }: CallsProps) {
         {
             key: 'duration',
             header: t('Duration'),
-            render: (value: string) => value ? formatTime(value) : '-',
+            render: (value: string) => {
+                if (!value) return '-';
+                const formatted = formatCallDuration(value);
+                if (!formatted || formatted === '-') return '-';
+                const digital = formatDigitalDuration(value);
+                return (
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="font-mono font-medium text-slate-800 dark:text-slate-200">{digital}</span>
+                        <span className="text-xs text-muted-foreground">({formatted})</span>
+                    </div>
+                );
+            },
         },
         {
             key: 'user_id',
