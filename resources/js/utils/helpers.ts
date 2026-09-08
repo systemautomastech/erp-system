@@ -170,6 +170,121 @@ const formatTime = (time: string, pageProps?: any): string => {
     .replace('i', m);
 };
 
+export interface ParsedDuration {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  totalSeconds: number;
+}
+
+/**
+ * Parse any duration representation (seconds, HH:mm:ss, HH:mm, or malformed) into structured duration
+ */
+const parseCallDuration = (raw: string | number | null | undefined): ParsedDuration => {
+  if (raw === null || raw === undefined || raw === '') {
+    return { hours: 0, minutes: 0, seconds: 0, totalSeconds: 0 };
+  }
+
+  const str = String(raw).trim();
+  if (!str || str === '0') {
+    return { hours: 0, minutes: 0, seconds: 0, totalSeconds: 0 };
+  }
+
+  // Handle malformed strings from previous bugs like "47:undefined"
+  if (str.includes(':undefined')) {
+    const numPart = str.replace(':undefined', '').trim();
+    const total = parseInt(numPart, 10) || 0;
+    return {
+      hours: Math.floor(total / 3600),
+      minutes: Math.floor((total % 3600) / 60),
+      seconds: total % 60,
+      totalSeconds: total,
+    };
+  }
+
+  // Pure integer (e.g. PBX seconds like "47")
+  if (/^\d+$/.test(str)) {
+    const total = parseInt(str, 10) || 0;
+    return {
+      hours: Math.floor(total / 3600),
+      minutes: Math.floor((total % 3600) / 60),
+      seconds: total % 60,
+      totalSeconds: total,
+    };
+  }
+
+  // Colon-separated: HH:mm:ss or HH:mm
+  if (str.includes(':')) {
+    const parts = str.split(':').map((p) => parseInt(p, 10) || 0);
+    if (parts.length >= 3) {
+      const [h, m, s] = parts;
+      const total = h * 3600 + m * 60 + s;
+      return { hours: h, minutes: m, seconds: s, totalSeconds: total };
+    } else if (parts.length === 2) {
+      const [p0, p1] = parts;
+      const total = p0 * 3600 + p1 * 60;
+      return { hours: p0, minutes: p1, seconds: 0, totalSeconds: total };
+    }
+  }
+
+  // Human string formats like "1h 30m 15s", "15m", "47s"
+  let total = 0;
+  const hMatch = str.match(/(\d+)\s*h/i);
+  const mMatch = str.match(/(\d+)\s*m/i);
+  const sMatch = str.match(/(\d+)\s*s/i);
+
+  if (hMatch || mMatch || sMatch) {
+    if (hMatch) total += parseInt(hMatch[1], 10) * 3600;
+    if (mMatch) total += parseInt(mMatch[1], 10) * 60;
+    if (sMatch) total += parseInt(sMatch[1], 10);
+    return {
+      hours: Math.floor(total / 3600),
+      minutes: Math.floor((total % 3600) / 60),
+      seconds: total % 60,
+      totalSeconds: total,
+    };
+  }
+
+  const fallback = parseInt(str, 10) || 0;
+  return {
+    hours: Math.floor(fallback / 3600),
+    minutes: Math.floor((fallback % 3600) / 60),
+    seconds: fallback % 60,
+    totalSeconds: fallback,
+  };
+};
+
+/**
+ * Format call duration into human-readable format, e.g. "47s", "15m", "15m 30s", "1h 30m"
+ */
+const formatCallDuration = (raw: string | number | null | undefined): string => {
+  const { hours, minutes, seconds, totalSeconds } = parseCallDuration(raw);
+  if (totalSeconds <= 0) return '-';
+
+  const parts: string[] = [];
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+  if (seconds > 0 || (hours === 0 && minutes === 0)) {
+    parts.push(`${seconds}s`);
+  }
+
+  return parts.join(' ');
+};
+
+/**
+ * Format call duration into digital timer string "HH:mm:ss", e.g. "00:00:47", "00:15:00"
+ */
+const formatDigitalDuration = (raw: string | number | null | undefined): string => {
+  const { hours, minutes, seconds } = parseCallDuration(raw);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+};
+
+
 /**
  * Format date and time to readable format according to company date and time format settings
  */
@@ -600,5 +715,8 @@ export {
   convertFileToBase64,
   getBase64FileExtension,
   downloadFile,
-  getSubscriptionDetails
+  getSubscriptionDetails,
+  parseCallDuration,
+  formatCallDuration,
+  formatDigitalDuration
 };

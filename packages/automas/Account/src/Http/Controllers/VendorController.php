@@ -57,12 +57,17 @@ class VendorController extends Controller
         if(Auth::user()->can('create-vendors')){
             $validated = $request->validated();
 
+            if(empty($validated['user_id'])){
+                $user = $this->storeUser($request, $validated);
+                $validated['user_id'] = $user->id;
+            }
+
             $vendor = new Vendor();
-            $vendor->user_id = $validated['user_id'] ?? null;
+            $vendor->user_id = $validated['user_id'];
             $vendor->company_name = $validated['company_name'];
             $vendor->contact_person_name = $validated['contact_person_name'];
-            $vendor->contact_person_email = $validated['contact_person_email'] ?? null;
-            $vendor->contact_person_mobile = $validated['contact_person_mobile'] ?? null;
+            $vendor->contact_person_email = $validated['contact_person_email'];
+            $vendor->contact_person_mobile = $validated['contact_person_mobile'];
             $vendor->tax_number = $validated['tax_number'] ?? null;
             $vendor->payment_terms = $validated['payment_terms'] ?? null;
             $vendor->billing_address = $validated['billing_address'];
@@ -112,5 +117,29 @@ class VendorController extends Controller
             return back()->with('success', __('The vendor has been deleted.'));
         }
         return back()->with('error', __('Permission denied'));
+    }
+
+    private function storeUser(StoreVendorRequest $request, array $validated): User
+    {
+        $role = Role::findByName('vendor');
+
+        $user = new User();
+        $user->name = $validated['company_name'];
+        $user->email = $validated['contact_person_email'];
+        $user->mobile_no = $validated['contact_person_mobile'] ?? null;
+        $user->password = Hash::make('12345678');
+        $user->type = 'vendor';
+        $user->is_enable_login = true;
+        $user->lang = company_setting('defaultLanguage') ?? 'en';
+        $user->email_verified_at = now();
+        $user->creator_id = Auth::id();
+        $user->created_by = creatorId();
+        $user->save();
+
+        $user->assignRole($role);
+
+        CreateUser::dispatch($request, $user);
+
+        return $user;
     }
 }

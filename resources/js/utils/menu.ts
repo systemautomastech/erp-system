@@ -45,7 +45,7 @@ const getPackageMenuItems = (userRoles: string[], activatedPackages: string[], t
 const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): NavItem[] => {
     const { auth } = usePage().props as any;
     const customMenus = auth?.customMenus || [];
-    
+
     return customMenus.map((menu: any) => {
         // Convert string icon to Lucide icon component
         let iconComponent = null;
@@ -55,7 +55,7 @@ const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): Na
                 iconComponent = IconComponent;
             }
         }
-        
+
         return {
             ...menu,
             icon: iconComponent,
@@ -97,6 +97,26 @@ const groupMenusByParent = (menuItems: NavItem[], packageMenuItems: NavItem[]): 
     return groupedItems;
 };
 
+// Filter menu items based on activated packages/modules
+const filterByModule = (items: NavItem[], activatedPackages: string[], userRoles: string[]): NavItem[] => {
+    if (userRoles.includes('superadmin')) {
+        return items;
+    }
+
+    return items.filter(item => {
+        if (item.module && !activatedPackages.includes(item.module)) {
+            return false;
+        }
+
+        if (item.children) {
+            item.children = filterByModule(item.children, activatedPackages, userRoles);
+            return item.children.length > 0;
+        }
+
+        return true;
+    });
+};
+
 // Filter menu items based on permissions
 const filterByPermission = (items: NavItem[], userPermissions: string[]): NavItem[] => {
     return items.filter(item => {
@@ -131,23 +151,25 @@ export const allMenuItems = (): NavItem[] => {
     const coreMenuItems = getCoreMenuItems(userRoles, t);
 
     const packageMenuItems = getPackageMenuItems(userRoles, activatedPackages, t);
-    
+
     const customMenuItems = getCustomMenuItems(userRoles, t);
-    
+
     // Separate custom menus into parents and children
     const customParentMenus = customMenuItems.filter(menu => !menu.parent);
     const customChildMenus = customMenuItems.filter(menu => menu.parent);
-    
+
     // First add custom parent menus to core menus
     const coreWithCustomParents = [...coreMenuItems, ...customParentMenus];
-    
+
     // Then group all children (package + custom children) with their parents
     const allChildMenus = [...packageMenuItems, ...customChildMenus];
     const finalGroupedMenuItems = groupMenusByParent(coreWithCustomParents, allChildMenus);
 
     const sortedMenuItems = finalGroupedMenuItems.sort((a, b) => (a.order || 999) - (b.order || 999));
 
-    const finalMenuItems = filterByPermission(sortedMenuItems, userPermissions);
+    const moduleFilteredMenuItems = filterByModule(sortedMenuItems, activatedPackages, userRoles);
+
+    const finalMenuItems = filterByPermission(moduleFilteredMenuItems, userPermissions);
 
     return finalMenuItems;
 };

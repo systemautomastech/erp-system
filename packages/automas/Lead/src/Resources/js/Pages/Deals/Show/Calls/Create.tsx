@@ -9,7 +9,7 @@ import { InputError } from '@/components/ui/input-error';
 import { Textarea } from '@/components/ui/textarea';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TimePicker } from '@/components/ui/time-picker';
+import { DurationPicker } from '@/components/ui/duration-picker';
 import { CreateCallProps } from './types';
 
 const emptyForm = { subject: '', call_type: 'Outbound', duration: '', assignee: '', description: '', call_result: '' };
@@ -54,7 +54,7 @@ export default function Create({ dealId, userDeals, onSuccess }: CreateCallProps
                     </div>
                     <div>
                         <Label htmlFor="duration" required>{t('Duration')}</Label>
-                        <TimePicker id="duration" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} placeholder={t('Select Duration')} />
+                        <DurationPicker id="duration" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} placeholder={t('Select Duration')} />
                         <InputError message={errors.duration} />
                     </div>
                 </div>

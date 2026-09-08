@@ -60,8 +60,8 @@ interface SalesIndexProps {
         links: any[];
         meta: any;
     };
-    customers: Array<{id: number; name: string; email: string}>;
-    warehouses: Array<{id: number; name: string; address: string}>;
+    customers: Array<{ id: number; name: string; email: string }>;
+    warehouses: Array<{ id: number; name: string; address: string }>;
     auth: any;
     stats: InvoiceStats;
     customerSummaries: CustomerSummary[];
@@ -158,7 +158,7 @@ export default function Index() {
 
     useFlashMessages();
 
-    const salesAlerts = useFormFields('salesInvoiceAlert', {}, () => {}, {});
+    const salesAlerts = useFormFields('salesInvoiceAlert', {}, () => { }, {});
 
     // Component for invoice action buttons
     const InvoiceActionButtons = ({ invoice }: { invoice: SalesInvoice }) => {
@@ -472,7 +472,7 @@ export default function Index() {
     return (
         <TooltipProvider>
             <AuthenticatedLayout
-                breadcrumbs={[{label: t('Invoices')}]}
+                breadcrumbs={[{ label: t('Invoices') }]}
                 pageTitle={t('Manage Invoices')}
                 pageActions={
                     <div className="flex flex-wrap gap-2">
@@ -511,250 +511,250 @@ export default function Index() {
                     </div>
                 }
             >
-            <Head title={t('Invoices')} />
+                <Head title={t('Invoices')} />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                {financeCards.map((card) => {
-                    const Icon = card.icon;
-                    const isActive = filters.status === card.key;
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                    {financeCards.map((card) => {
+                        const Icon = card.icon;
+                        const isActive = filters.status === card.key;
+                        return (
+                            <button
+                                key={card.label}
+                                type="button"
+                                onClick={() => filterByStatus(card.key)}
+                                className={cn(
+                                    'group text-left rounded-lg border bg-white p-4 transition-shadow hover:shadow-md',
+                                    isActive ? 'border-primary ring-1 ring-primary' : 'border-gray-200'
+                                )}
+                            >
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500">{card.label}</p>
+                                        <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(card.value)}</p>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            {card.count} {card.countLabel || t('invoices')}
+                                        </p>
+                                    </div>
+                                    <span className={cn(
+                                        'relative h-9 w-9 rounded-md flex items-center justify-center transition-transform duration-200 group-hover:scale-110 shrink-0',
+                                        card.iconClass
+                                    )}>
+                                        {card.key === 'overdue' && card.count > 0 && (
+                                            <span className="absolute inset-0 rounded-md bg-red-400/40 animate-ping" />
+                                        )}
+                                        <Icon className={cn('h-4 w-4 relative', card.key === 'overdue' && card.count > 0 && 'animate-pulse')} />
+                                    </span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {auth.user?.permissions?.includes('manage-any-sales-invoices') && customerSummaries.length > 0 && (() => {
+                    const visibleSummaries = showAllCustomers ? customerSummaries : customerSummaries.slice(0, 8);
+                    const canViewInvoices = !!auth.user?.permissions?.includes('view-sales-invoices');
                     return (
-                        <button
-                            key={card.label}
-                            type="button"
-                            onClick={() => filterByStatus(card.key)}
-                            className={cn(
-                                'group text-left rounded-lg border bg-white p-4 transition-shadow hover:shadow-md',
-                                isActive ? 'border-primary ring-1 ring-primary' : 'border-gray-200'
-                            )}
-                        >
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-gray-500">{card.label}</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(card.value)}</p>
-                                    <p className="text-xs text-gray-400 mt-1">
-                                        {card.count} {card.countLabel || t('invoices')}
-                                    </p>
+                        <Card className="shadow-sm mb-4">
+                            <CardContent className="p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Users className="h-4 w-4 text-gray-500" />
+                                        <h3 className="text-sm font-semibold text-gray-800">{t('Outstanding by Customer')}</h3>
+                                        <span className="text-xs text-gray-400">{t('ranked by most overdue, then balance')}</span>
+                                    </div>
+                                    {filters.customer_id && (() => {
+                                        const activeCustomer = customers.find((c) => c.id.toString() === filters.customer_id);
+                                        return (
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-blue-50 text-blue-700 pl-2.5 pr-1.5 py-1 rounded-full shrink-0">
+                                                {t('Filtered')}: {activeCustomer?.name || filters.customer_id}
+                                                <button
+                                                    type="button"
+                                                    onClick={clearCustomerFilter}
+                                                    className="h-4 w-4 rounded-full flex items-center justify-center hover:bg-blue-100"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
-                                <span className={cn(
-                                    'relative h-9 w-9 rounded-md flex items-center justify-center transition-transform duration-200 group-hover:scale-110 shrink-0',
-                                    card.iconClass
-                                )}>
-                                    {card.key === 'overdue' && card.count > 0 && (
-                                        <span className="absolute inset-0 rounded-md bg-red-400/40 animate-ping" />
-                                    )}
-                                    <Icon className={cn('h-4 w-4 relative', card.key === 'overdue' && card.count > 0 && 'animate-pulse')} />
-                                </span>
-                            </div>
-                        </button>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-3">
+                                    {visibleSummaries.map((summary) => (
+                                        <CustomerOutstandingCard
+                                            key={summary.customer?.id ?? Math.random()}
+                                            summary={summary}
+                                            canViewInvoices={canViewInvoices}
+                                            onFilterByCustomer={filterByCustomer}
+                                        />
+                                    ))}
+                                </div>
+
+                                {customerSummaries.length > 8 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAllCustomers(!showAllCustomers)}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-2"
+                                    >
+                                        {showAllCustomers ? t('Show less') : `${t('Show all')} (${customerSummaries.length})`}
+                                    </button>
+                                )}
+                            </CardContent>
+                        </Card>
                     );
-                })}
-            </div>
+                })()}
 
-            {auth.user?.permissions?.includes('manage-any-sales-invoices') && customerSummaries.length > 0 && (() => {
-                const visibleSummaries = showAllCustomers ? customerSummaries : customerSummaries.slice(0, 8);
-                const canViewInvoices = !!auth.user?.permissions?.includes('view-sales-invoices');
-                return (
-                    <Card className="shadow-sm mb-4">
-                        <CardContent className="p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Users className="h-4 w-4 text-gray-500" />
-                                    <h3 className="text-sm font-semibold text-gray-800">{t('Outstanding by Customer')}</h3>
-                                    <span className="text-xs text-gray-400">{t('ranked by most overdue, then balance')}</span>
-                                </div>
-                                {filters.customer_id && (() => {
-                                    const activeCustomer = customers.find((c) => c.id.toString() === filters.customer_id);
-                                    return (
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-blue-50 text-blue-700 pl-2.5 pr-1.5 py-1 rounded-full shrink-0">
-                                            {t('Filtered')}: {activeCustomer?.name || filters.customer_id}
-                                            <button
-                                                type="button"
-                                                onClick={clearCustomerFilter}
-                                                className="h-4 w-4 rounded-full flex items-center justify-center hover:bg-blue-100"
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        </span>
-                                    );
-                                })()}
+                <Card className="shadow-sm" ref={tableRef}>
+                    <CardContent className="p-6 border-b bg-gray-50/50">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="w-full sm:flex-1 sm:max-w-md">
+                                <SearchInput
+                                    value={filters.search || ''}
+                                    onChange={(value) => setFilters({ ...filters, search: value })}
+                                    onSearch={handleFilter}
+                                    placeholder={t('Search by invoice number...')}
+                                />
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-3">
-                                {visibleSummaries.map((summary) => (
-                                    <CustomerOutstandingCard
-                                        key={summary.customer?.id ?? Math.random()}
-                                        summary={summary}
-                                        canViewInvoices={canViewInvoices}
-                                        onFilterByCustomer={filterByCustomer}
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <PerPageSelector
+                                    routeName="sales-invoices.index"
+                                    filters={filters}
+                                />
+                                <div className="relative">
+                                    <FilterButton
+                                        showFilters={showFilters}
+                                        onToggle={() => setShowFilters(!showFilters)}
                                     />
-                                ))}
-                            </div>
-
-                            {customerSummaries.length > 8 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAllCustomers(!showAllCustomers)}
-                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-2"
-                                >
-                                    {showAllCustomers ? t('Show less') : `${t('Show all')} (${customerSummaries.length})`}
-                                </button>
-                            )}
-                        </CardContent>
-                    </Card>
-                );
-            })()}
-
-            <Card className="shadow-sm" ref={tableRef}>
-                <CardContent className="p-6 border-b bg-gray-50/50">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="w-full sm:flex-1 sm:max-w-md">
-                            <SearchInput
-                                value={filters.search || ''}
-                                onChange={(value) => setFilters({...filters, search: value})}
-                                onSearch={handleFilter}
-                                placeholder={t('Search by invoice number...')}
-                            />
-                        </div>
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <PerPageSelector
-                                routeName="sales-invoices.index"
-                                filters={filters}
-                            />
-                            <div className="relative">
-                                <FilterButton
-                                    showFilters={showFilters}
-                                    onToggle={() => setShowFilters(!showFilters)}
-                                />
-                                {(() => {
-                                    const activeFilters = [filters.customer_id, filters.warehouse_id, filters.status, filters.date_range].filter(Boolean).length;
-                                    return activeFilters > 0 && (
-                                        <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                                            {activeFilters}
-                                        </span>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-
-                {showFilters && (
-                    <CardContent className="p-6 bg-blue-50/30 border-b">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                            {auth.user?.permissions?.includes('manage-users') && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer')}</label>
-                                    <Select value={filters.customer_id} onValueChange={(value) => setFilters({...filters, customer_id: value})}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('Filter by customer')} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {customers.map((customer) => (
-                                                <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                    {customer.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    {(() => {
+                                        const activeFilters = [filters.customer_id, filters.warehouse_id, filters.status, filters.date_range].filter(Boolean).length;
+                                        return activeFilters > 0 && (
+                                            <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                                                {activeFilters}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
-                            )}
-                            {auth.user?.permissions?.includes('manage-warehouses') && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Warehouse')}</label>
-                                    <Select value={filters.warehouse_id} onValueChange={(value) => setFilters({...filters, warehouse_id: value})}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('Filter by warehouse')} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {warehouses.map((warehouse) => (
-                                                <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                    {warehouse.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
-                                <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('Filter by status')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="draft">{t('Draft')}</SelectItem>
-                                        <SelectItem value="posted">{t('Posted')}</SelectItem>
-                                        <SelectItem value="partial">{t('Partial')}</SelectItem>
-                                        <SelectItem value="paid">{t('Paid')}</SelectItem>
-                                        <SelectItem value="overdue">{t('Overdue')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Range')}</label>
-                                <DateRangePicker
-                                    value={filters.date_range}
-                                    onChange={(value) => setFilters({...filters, date_range: value})}
-                                    placeholder={t('Select date range')}
-                                />
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
-                                <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
                             </div>
                         </div>
                     </CardContent>
-                )}
 
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
-                        <div className="min-w-[800px]">
-                            <DataTable
-                                data={invoices.data}
-                                columns={tableColumns}
-                                onSort={handleSort}
-                                sortKey={sortField}
-                                sortDirection={sortDirection as 'asc' | 'desc'}
-                                className="rounded-none"
-                                emptyState={
-                                    <NoRecordsFound
-                                        icon={Receipt}
-                                        title={t('No invoices found')}
-                                        description={t('Get started by creating your first invoice.')}
-                                        hasFilters={hasActiveFilters}
-                                        onClearFilters={clearFilters}
-                                        createPermission="create-sales-invoices"
-                                        onCreateClick={() => router.visit(route('sales-invoices.create'))}
-                                        createButtonText={t('Create Invoice')}
-                                        className="h-auto"
+                    {showFilters && (
+                        <CardContent className="p-6 bg-blue-50/30 border-b">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                {auth.user?.permissions?.includes('manage-users') && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer')}</label>
+                                        <Select value={filters.customer_id} onValueChange={(value) => setFilters({ ...filters, customer_id: value })}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={t('Filter by customer')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {customers.map((customer) => (
+                                                    <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                        {customer.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                                {auth.user?.permissions?.includes('manage-warehouses') && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{t('Warehouse')}</label>
+                                        <Select value={filters.warehouse_id} onValueChange={(value) => setFilters({ ...filters, warehouse_id: value })}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={t('Filter by warehouse')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {warehouses.map((warehouse) => (
+                                                    <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                                                        {warehouse.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
+                                    <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('Filter by status')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="draft">{t('Draft')}</SelectItem>
+                                            <SelectItem value="posted">{t('Posted')}</SelectItem>
+                                            <SelectItem value="partial">{t('Partial')}</SelectItem>
+                                            <SelectItem value="paid">{t('Paid')}</SelectItem>
+                                            <SelectItem value="overdue">{t('Overdue')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Range')}</label>
+                                    <DateRangePicker
+                                        value={filters.date_range}
+                                        onChange={(value) => setFilters({ ...filters, date_range: value })}
+                                        placeholder={t('Select date range')}
                                     />
-                                }
-                            />
+                                </div>
+                                <div className="flex items-end gap-2">
+                                    <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
+                                    <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    )}
+
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
+                            <div className="min-w-[800px]">
+                                <DataTable
+                                    data={invoices.data}
+                                    columns={tableColumns}
+                                    onSort={handleSort}
+                                    sortKey={sortField}
+                                    sortDirection={sortDirection as 'asc' | 'desc'}
+                                    className="rounded-none"
+                                    emptyState={
+                                        <NoRecordsFound
+                                            icon={Receipt}
+                                            title={t('No invoices found')}
+                                            description={t('Get started by creating your first invoice.')}
+                                            hasFilters={hasActiveFilters}
+                                            onClearFilters={clearFilters}
+                                            createPermission="create-sales-invoices"
+                                            onCreateClick={() => router.visit(route('sales-invoices.create'))}
+                                            createButtonText={t('Create Invoice')}
+                                            className="h-auto"
+                                        />
+                                    }
+                                />
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
+                    </CardContent>
 
-                <CardContent className="px-4 py-2 border-t bg-gray-50/30">
-                    <Pagination
-                        data={{...invoices, ...invoices.meta}}
-                        routeName="sales-invoices.index"
-                        filters={{...filters, per_page: perPage}}
-                    />
-                </CardContent>
-            </Card>
+                    <CardContent className="px-4 py-2 border-t bg-gray-50/30">
+                        <Pagination
+                            data={{ ...invoices, ...invoices.meta }}
+                            routeName="sales-invoices.index"
+                            filters={{ ...filters, per_page: perPage }}
+                        />
+                    </CardContent>
+                </Card>
 
-            <ConfirmationDialog
-                open={deleteState.isOpen}
-                onOpenChange={closeDeleteDialog}
-                title={t('Delete Invoice')}
-                message={deleteState.message}
-                confirmText={t('Delete')}
-                onConfirm={confirmDelete}
-                variant="destructive"
-            />
-            {salesAlerts.map((alert) => (
-                <div key={alert.id}>{alert.component}</div>
-            ))}
+                <ConfirmationDialog
+                    open={deleteState.isOpen}
+                    onOpenChange={closeDeleteDialog}
+                    title={t('Delete Invoice')}
+                    message={deleteState.message}
+                    confirmText={t('Delete')}
+                    onConfirm={confirmDelete}
+                    variant="destructive"
+                />
+                {salesAlerts.map((alert) => (
+                    <div key={alert.id}>{alert.component}</div>
+                ))}
             </AuthenticatedLayout>
         </TooltipProvider>
     );
