@@ -589,7 +589,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                                 </div>
                                             )}
 
-                                            {/* 3. A4 Live Editable Preview */}
+                                            {/* 3. A4 Live Preview */}
                                             {editorMode === 'preview' && (
                                                 <div
                                                     className="border rounded-lg bg-slate-100 dark:bg-slate-950 overflow-hidden shadow-xs"
@@ -602,39 +602,25 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                                                 <ProposalPreviewSheet
                                                                     key={`edit-preview-${pageIdx}`}
                                                                     pageKey={`edit-preview-${pageIdx}`}
+                                                                    content={pageHtml}
                                                                     backgroundImage={data.background_image}
                                                                     defaultBg={defaultTemplateBg}
                                                                     templateColor={templateColor}
                                                                     headerLogo={logoUrl}
                                                                     headerLogoAlign={headerLogoAlign}
-                                                                >
-                                                                    <LiveA4Editor
-                                                                        content={pageHtml}
-                                                                        onChange={(newHtml) => {
-                                                                            setData('content', newHtml);
-                                                                        }}
-                                                                        className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
-                                                                    />
-                                                                </ProposalPreviewSheet>
+                                                                />
                                                             ))
                                                         ) : (
                                                             <ProposalPreviewSheet
                                                                 key="edit-preview-0"
                                                                 pageKey="edit-preview-0"
+                                                                content={processedContent}
                                                                 backgroundImage={data.background_image}
                                                                 defaultBg={defaultTemplateBg}
                                                                 templateColor={templateColor}
                                                                 headerLogo={logoUrl}
                                                                 headerLogoAlign={headerLogoAlign}
-                                                              >
-                                                                <LiveA4Editor
-                                                                    content={processedContent}
-                                                                    onChange={(newHtml) => {
-                                                                        setData('content', newHtml);
-                                                                    }}
-                                                                    className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
-                                                                />
-                                                            </ProposalPreviewSheet>
+                                                            />
                                                         )}
                                                     </div>
                                                 </div>
