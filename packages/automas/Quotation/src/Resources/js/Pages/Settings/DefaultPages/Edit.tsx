@@ -197,7 +197,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
 
     useEffect(() => {
         if (!processedContent) {
-            setPaginatedPreviewPages([]);
+            setPaginatedPreviewPages((prev) => (prev.length === 0 ? prev : []));
             return;
         }
 
@@ -207,19 +207,25 @@ export default function Edit({ settings, defaultPage }: EditProps) {
             if (measureContainerRef.current) {
                 const scrollH = measureContainerRef.current.scrollHeight;
                 if (!hasExplicitBreak && scrollH <= 980) {
-                    setPaginatedPreviewPages([processedContent]);
+                    setPaginatedPreviewPages((prev) =>
+                        prev.length === 1 && prev[0] === processedContent ? prev : [processedContent],
+                    );
                 } else {
                     const chunks = paginateDomContainer(measureContainerRef.current, 980);
-                    setPaginatedPreviewPages(chunks);
+                    setPaginatedPreviewPages((prev) =>
+                        prev.length === chunks.length && prev.every((val, idx) => val === chunks[idx])
+                            ? prev
+                            : chunks,
+                    );
                 }
             } else {
-                setPaginatedPreviewPages([processedContent]);
+                setPaginatedPreviewPages((prev) =>
+                    prev.length === 1 && prev[0] === processedContent ? prev : [processedContent],
+                );
             }
         };
 
         runPagination();
-        const animId = requestAnimationFrame(runPagination);
-        return () => cancelAnimationFrame(animId);
     }, [processedContent, editorMode]);
 
     const handleSwitchMode = (mode: 'code' | 'rich' | 'preview') => {

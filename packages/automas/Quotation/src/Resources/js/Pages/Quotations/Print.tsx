@@ -259,11 +259,25 @@ export default function Print() {
 
     return (
         <>
-            <Head title={`${t('Sales Quotation')} - ${quotation?.quotation_number || ''}`} />
+            <Head
+                title={(() => {
+                    const subject = quotation?.subject || '';
+                    const customerName = quotation?.customer?.name || quotation?.customer_name || formattedCustomers[0]?.name || '';
+                    const parts = [subject, customerName].filter(Boolean);
+                    if (parts.length > 0) return parts.join('_');
+                    return quotation?.quotation_number || t('Sales Quotation');
+                })()}
+            />
             <PreviewModal
                 inline
                 autoPrint={autoPrint || true}
                 hideHeaderBar
+                title={(() => {
+                    const subject = quotation?.subject || '';
+                    const customerName = quotation?.customer?.name || quotation?.customer_name || formattedCustomers[0]?.name || '';
+                    const parts = [subject, customerName].filter(Boolean);
+                    return parts.length > 0 ? parts.join('_') : (quotation?.quotation_number || '');
+                })()}
                 formData={formData}
                 sections={sections}
                 customers={formattedCustomers}

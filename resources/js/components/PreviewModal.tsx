@@ -1,16 +1,22 @@
-import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, {
+    useRef,
+    useMemo,
+    useCallback,
+    useState,
+    useEffect,
+} from "react";
+import { useTranslation } from "react-i18next";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Printer, FileText, Eye } from 'lucide-react';
-import { getImagePath } from '@/utils/helpers';
-import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Printer, FileText, Eye } from "lucide-react";
+import { getImagePath } from "@/utils/helpers";
+import { replaceProposalShortcodes } from "@/pages/SalesProposals/utils/proposalShortcodes";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -103,7 +109,12 @@ export interface PreviewModalProps {
     // Full Proposal Mode Props
     formData?: ProposalFormData;
     sections?: ProposalPreviewSection[];
-    customers?: Array<{ id: number; name: string; email: string; address?: string }>;
+    customers?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        address?: string;
+    }>;
     warehouses?: Array<{ id: number; name: string; address?: string }>;
     availableProducts?: Array<{
         id: number;
@@ -135,14 +146,23 @@ export interface PreviewModalProps {
 // CONSTANTS & STYLES
 // =============================================================================
 
-export const DEFAULT_TEMPLATE_COLOR = '#E9591C';
-export const FALLBACK_LOGO = 'uploads/logo/logo_dark.png';
-export const PROPOSAL_CONTENT_CLASSES = 'html-preview-container';
+export const DEFAULT_TEMPLATE_COLOR = "#E9591C";
+export const FALLBACK_LOGO = "uploads/logo/logo_dark.png";
+export const PROPOSAL_CONTENT_CLASSES = "html-preview-container";
+
+export const A4_PAGE_WIDTH_MM = 210;
+export const A4_PAGE_HEIGHT_MM = 297;
+export const A4_HEADER_RESERVED_MM = 32;
+export const A4_FOOTER_RESERVED_MM = 30;
+export const A4_HORIZONTAL_PADDING_MM = 15;
 
 export const PRINT_STYLES = `
     @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
 
+    .phone-tab{
+        display:none;
+    }
     .proposal-cover__sheet, .proposal-preview-sheet {
         width: 210mm; min-height: 297mm; height: 297mm; max-height: 297mm; margin: 0 auto; background: #fff; position: relative !important; overflow: hidden !important; box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08); page-break-after: always; font-family: "Open Sans", sans-serif !important;
     }
@@ -201,180 +221,1452 @@ export const PRINT_STYLES = `
 `;
 
 // =============================================================================
-// DOM PAGINATOR UTILITY
+// DOM PAGINATOR
 // =============================================================================
 
-const DEFAULT_A4_CONTENT_HEIGHT_PX = 850;
-
-function getA4ContentHeightPx(): number {
-    if (typeof document === 'undefined') return DEFAULT_A4_CONTENT_HEIGHT_PX;
-
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:245mm;width:1px;';
-    document.body.appendChild(probe);
-    const height = probe.getBoundingClientRect().height;
-    probe.remove();
-
-    return height || DEFAULT_A4_CONTENT_HEIGHT_PX;
+interface PaginationContext {
+    maxHeight: number;
+    sectionIndex?: string;
 }
 
-export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = DEFAULT_A4_CONTENT_HEIGHT_PX): string[] {
-    const effectiveMaxHeight = maxPageHeight - 20;
-    const styleTags = Array.from(container.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+/**
+ * Convert millimetres to browser CSS pixels using an actual DOM probe.
+ * No DPI / screen-resolution assumptions.
+ */
+function mmToPx(mm: number): number {
+    if (typeof document === "undefined") {
+        return mm * 3.7795275591;
+    }
 
-    const pages: string[] = [];
-    let currentPageHtml: string[] = [];
-    let currentPageAccumulatedHeight = 0;
+    const probe = document.createElement("div");
 
-    const startNewPage = () => {
-        if (currentPageHtml.length > 0) {
-            pages.push((styleTags ? styleTags + '\n' : '') + currentPageHtml.join(''));
-            currentPageHtml = [];
-            currentPageAccumulatedHeight = 0;
-        }
+    probe.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        pointer-events: none;
+        width: ${mm}mm;
+        height: 0;
+        padding: 0;
+        margin: 0;
+        border: 0;
+        left: -10000px;
+        top: -10000px;
+    `;
+
+    document.body.appendChild(probe);
+
+    const px = probe.getBoundingClientRect().width;
+
+    probe.remove();
+
+    return px || mm * 3.7795275591;
+}
+
+/**
+ * Measures the exact usable A4 content height.
+ *
+ * A4:
+ * 297mm total
+ * - 38.1mm top reserved area
+ * - 25.4mm bottom reserved area
+ *
+ * = 233.5mm usable content area.
+ *
+ * The browser calculates the actual CSS pixel value.
+ */
+export function getA4ContentHeightPx(): number {
+    if (typeof document === "undefined") {
+        return (
+            mmToPx(A4_PAGE_HEIGHT_MM) -
+            mmToPx(A4_HEADER_RESERVED_MM) -
+            mmToPx(A4_FOOTER_RESERVED_MM)
+        );
+    }
+
+    const probe = document.createElement("div");
+
+    probe.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        pointer-events: none;
+        left: -10000px;
+        top: -10000px;
+
+        width: ${A4_PAGE_WIDTH_MM}mm;
+        height: ${A4_PAGE_HEIGHT_MM}mm;
+
+        box-sizing: border-box;
+
+        padding:
+            ${A4_HEADER_RESERVED_MM}mm
+            ${A4_HORIZONTAL_PADDING_MM}mm
+            ${A4_FOOTER_RESERVED_MM}mm;
+
+        display: flex;
+        flex-direction: column;
+
+        margin: 0;
+        border: 0;
+    `;
+
+    const contentProbe = document.createElement("div");
+
+    contentProbe.style.cssText = `
+        width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        box-sizing: border-box;
+    `;
+
+    probe.appendChild(contentProbe);
+    document.body.appendChild(probe);
+
+    const height = contentProbe.getBoundingClientRect().height;
+
+    probe.remove();
+
+    return (
+        height ||
+        mmToPx(A4_PAGE_HEIGHT_MM) -
+            mmToPx(A4_HEADER_RESERVED_MM) -
+            mmToPx(A4_FOOTER_RESERVED_MM)
+    );
+}
+
+/**
+ * Small tolerance only for browser fractional-pixel rounding.
+ *
+ * This is NOT a page-height limit.
+ */
+const PAGINATION_EPSILON_PX = 1;
+
+/**
+ * Gets vertical margin contribution.
+ */
+function getVerticalMargins(el: HTMLElement): number {
+    if (typeof window === "undefined") {
+        return 0;
+    }
+
+    const computedStyle = window.getComputedStyle(el);
+
+    return (
+        (parseFloat(computedStyle.marginTop) || 0) +
+        (parseFloat(computedStyle.marginBottom) || 0)
+    );
+}
+
+/**
+ * Gets actual rendered height.
+ */
+function getRenderedHeight(el: HTMLElement): number {
+    const rect = el.getBoundingClientRect();
+
+    if (rect.height > 0) {
+        return rect.height;
+    }
+
+    return el.offsetHeight || 0;
+}
+
+/**
+ * Gets occupied height including margins.
+ */
+function getOccupiedHeight(el: HTMLElement): number {
+    return getRenderedHeight(el) + getVerticalMargins(el);
+}
+
+/**
+ * Adds section marker to generated fragments.
+ */
+function addSectionMarker(html: string, sectionIndex?: string): string {
+    if (
+        sectionIndex === undefined ||
+        /data-proposal-section-index=/.test(html)
+    ) {
+        return html;
+    }
+
+    return html.replace(
+        /^<(\w+)(\s|>)/,
+        `<$1 data-proposal-section-index="${escapeHtmlAttribute(
+            sectionIndex,
+        )}"$2`,
+    );
+}
+
+/**
+ * Escape HTML attribute values.
+ */
+function escapeHtmlAttribute(value: string): string {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+/**
+ * Checks explicit page-break instructions.
+ */
+function hasForcedPageBreak(el: HTMLElement): boolean {
+    return (
+        el.classList?.contains("page-break") ||
+        el.style?.pageBreakAfter === "always" ||
+        el.style?.pageBreakBefore === "always" ||
+        el.style?.breakAfter === "page" ||
+        el.style?.breakBefore === "page"
+    );
+}
+
+/**
+ * Only explicit full-page markers are treated as full-page units.
+ *
+ * IMPORTANT:
+ * Do NOT use inherited sectionIndex here.
+ */
+function isFullPageElement(el: HTMLElement): boolean {
+    return (
+        el.hasAttribute("data-full-page") ||
+        el.classList?.contains("cover-page-wrapper") ||
+        el.style?.height?.includes("297mm") ||
+        el.style?.minHeight?.includes("297mm")
+    );
+}
+
+/**
+ * Structural containers which can normally be traversed.
+ */
+function isTraversableContainer(el: HTMLElement): boolean {
+    const tag = el.tagName.toLowerCase();
+
+    return (
+        (tag === "div" ||
+            tag === "section" ||
+            tag === "article" ||
+            tag === "main") &&
+        el.children.length > 0 &&
+        !el.classList.contains("page-break")
+    );
+}
+
+/**
+ * Clone element shell while preserving all attributes.
+ */
+function cloneElementShell(el: HTMLElement, childrenHtml = ""): string {
+    const clone = el.cloneNode(false) as HTMLElement;
+
+    clone.innerHTML = childrenHtml;
+
+    return clone.outerHTML;
+}
+
+/**
+ * Measure generated HTML inside the actual
+ * measurement container.
+ *
+ * This ensures:
+ * - same width
+ * - same fonts
+ * - same table CSS
+ * - same Tailwind-generated CSS
+ * - same typography
+ */
+function measureHtmlHeight(measurementRoot: HTMLElement, html: string): number {
+    const probe = document.createElement("div");
+
+    probe.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        pointer-events: none;
+
+        left: 0;
+        top: 0;
+
+        width: 100%;
+
+        margin: 0;
+        padding: 0;
+        border: 0;
+
+        box-sizing: border-box;
+    `;
+
+    probe.innerHTML = html;
+
+    measurementRoot.appendChild(probe);
+
+    const rectHeight = probe.getBoundingClientRect().height;
+
+    const scrollHeight = probe.scrollHeight;
+
+    probe.remove();
+
+    return Math.max(rectHeight, scrollHeight, 0);
+}
+
+/**
+ * Builds a clone of an element containing selected child nodes.
+ */
+function buildChildFragment(parent: HTMLElement, children: Node[]): string {
+    const wrapper = parent.cloneNode(false) as HTMLElement;
+
+    children.forEach((child) => {
+        wrapper.appendChild(child.cloneNode(true));
+    });
+
+    return wrapper.outerHTML;
+}
+
+/**
+ * Finds a table which is a direct visual child of a wrapper.
+ */
+function findDirectTable(el: HTMLElement): HTMLTableElement | null {
+    const directTable = Array.from(el.children).find(
+        (child) => child.tagName.toLowerCase() === "table",
+    );
+
+    return directTable ? (directTable as HTMLTableElement) : null;
+}
+
+/**
+ * Returns the content directly before a table
+ * which visually behaves like its label.
+ */
+function findTableLabel(
+    wrapper: HTMLElement,
+    table: HTMLTableElement,
+): HTMLElement | null {
+    const children = Array.from(wrapper.children);
+
+    const tableIndex = children.indexOf(table);
+
+    if (tableIndex <= 0) {
+        return null;
+    }
+
+    const previous = children[tableIndex - 1] as HTMLElement;
+
+    if (!previous) {
+        return null;
+    }
+
+    const previousTag = previous.tagName.toLowerCase();
+
+    if (
+        previousTag === "div" ||
+        previousTag === "h1" ||
+        previousTag === "h2" ||
+        previousTag === "h3" ||
+        previousTag === "h4" ||
+        previousTag === "h5" ||
+        previousTag === "h6" ||
+        previousTag === "p"
+    ) {
+        return previous;
+    }
+
+    return null;
+}
+
+/**
+ * Gets image/font resources inside the element.
+ *
+ * Pagination should ideally run after images have a
+ * real browser layout.
+ */
+function waitForElementResources(root: HTMLElement): Promise<void> {
+    const images = Array.from(root.querySelectorAll("img"));
+
+    if (images.length === 0) {
+        return Promise.resolve();
+    }
+
+    return Promise.all(
+        images.map((img) => {
+            if (img.complete) {
+                return Promise.resolve();
+            }
+
+            return new Promise<void>((resolve) => {
+                const done = () => {
+                    img.removeEventListener("load", done);
+
+                    img.removeEventListener("error", done);
+
+                    resolve();
+                };
+
+                img.addEventListener("load", done);
+
+                img.addEventListener("error", done);
+            });
+        }),
+    ).then(() => undefined);
+}
+
+/**
+ * Split oversized text-only elements by actual browser measurement.
+ */
+function splitSingleTextNodeElement(
+    el: HTMLElement,
+    measurementRoot: HTMLElement,
+    availableHeight: number,
+): string[] | null {
+    const childNodes = Array.from(el.childNodes);
+
+    if (childNodes.length !== 1) {
+        return null;
+    }
+
+    const node = childNodes[0];
+
+    if (node.nodeType !== Node.TEXT_NODE) {
+        return null;
+    }
+
+    const text = node.textContent || "";
+
+    if (!text.trim()) {
+        return null;
+    }
+
+    const words = text.split(/(\s+)/);
+
+    if (words.length <= 1) {
+        return null;
+    }
+
+    const chunks: string[] = [];
+
+    let current = "";
+
+    const fits = (candidate: string): boolean => {
+        const wrapper = el.cloneNode(false) as HTMLElement;
+
+        wrapper.textContent = candidate;
+
+        return (
+            measureHtmlHeight(measurementRoot, wrapper.outerHTML) <=
+            availableHeight + PAGINATION_EPSILON_PX
+        );
     };
 
-    const processElement = (el: HTMLElement, inheritedSectionIndex?: string) => {
-        const sectionIndex = el.getAttribute('data-proposal-section-index') || inheritedSectionIndex;
-        const addSectionMarker = (html: string): string => {
-            if (sectionIndex === undefined || /data-proposal-section-index=/.test(html)) return html;
-            return html.replace(/^<(\w+)(\s|>)/, `<$1 data-proposal-section-index=\"${sectionIndex}\"$2`);
-        };
-        if (el.tagName.toLowerCase() === 'style' || el.tagName.toLowerCase() === 'script') return;
+    for (const part of words) {
+        const candidate = current + part;
 
-        if (
-            el.classList?.contains('page-break') ||
-            el.style?.pageBreakAfter === 'always' ||
-            el.style?.pageBreakBefore === 'always' ||
-            el.style?.breakAfter === 'page' ||
-            el.style?.breakBefore === 'page'
-        ) {
-            startNewPage();
-            currentPageHtml.push(addSectionMarker(el.outerHTML));
-            currentPageAccumulatedHeight = el.offsetHeight || 25;
-            startNewPage();
+        if (current.trim() && !fits(candidate)) {
+            chunks.push(current.trim());
+
+            current = part;
+        } else {
+            current = candidate;
+        }
+    }
+
+    if (current.trim()) {
+        chunks.push(current.trim());
+    }
+
+    if (chunks.length <= 1) {
+        return null;
+    }
+
+    return chunks.map((textChunk) => {
+        const wrapper = el.cloneNode(false) as HTMLElement;
+
+        wrapper.textContent = textChunk;
+
+        return wrapper.outerHTML;
+    });
+}
+
+/**
+ * Split an oversized element using its direct children.
+ */
+function splitOversizedElement(
+    el: HTMLElement,
+    measurementRoot: HTMLElement,
+    availableHeight: number,
+): string[] | null {
+    const childNodes = Array.from(el.childNodes);
+
+    if (childNodes.length <= 1) {
+        return null;
+    }
+
+    const chunks: string[] = [];
+
+    let currentNodes: Node[] = [];
+
+    const flush = () => {
+        if (currentNodes.length === 0) {
             return;
         }
+
+        chunks.push(buildChildFragment(el, currentNodes));
+
+        currentNodes = [];
+    };
+
+    for (const node of childNodes) {
+        const candidateNodes = [...currentNodes, node];
+
+        const candidateHtml = buildChildFragment(el, candidateNodes);
+
+        const candidateHeight = measureHtmlHeight(
+            measurementRoot,
+            candidateHtml,
+        );
+
+        if (
+            currentNodes.length > 0 &&
+            candidateHeight > availableHeight + PAGINATION_EPSILON_PX
+        ) {
+            flush();
+
+            currentNodes = [node];
+        } else {
+            currentNodes.push(node);
+        }
+    }
+
+    flush();
+
+    return chunks.length > 1 ? chunks : null;
+}
+
+/**
+ * Handles an element which cannot fit onto a fresh page.
+ */
+function paginateOversizedElement(
+    el: HTMLElement,
+    measurementRoot: HTMLElement,
+    availableHeight: number,
+    sectionIndex?: string,
+): string[] {
+    const childChunks = splitOversizedElement(
+        el,
+        measurementRoot,
+        availableHeight,
+    );
+
+    if (childChunks && childChunks.length > 1) {
+        return childChunks.map((html) => addSectionMarker(html, sectionIndex));
+    }
+
+    const textChunks = splitSingleTextNodeElement(
+        el,
+        measurementRoot,
+        availableHeight,
+    );
+
+    if (textChunks && textChunks.length > 1) {
+        return textChunks.map((html) => addSectionMarker(html, sectionIndex));
+    }
+
+    /*
+     * No safe semantic split exists.
+     *
+     * Keep original structure intact.
+     */
+    const fallback = el.cloneNode(true) as HTMLElement;
+
+    fallback.classList.add("proposal-pagination-splittable");
+
+    return [addSectionMarker(fallback.outerHTML, sectionIndex)];
+}
+
+/**
+ * Builds a table chunk.
+ *
+ * Header repeats on every chunk.
+ * Footer appears only on final chunk.
+ */
+function buildTableChunkHtml(
+    table: HTMLTableElement,
+    rows: string[],
+    theadHtml: string,
+    tfootHtml: string,
+    includeFooter: boolean,
+    sectionIndex?: string,
+): string {
+    const tableClasses = table.getAttribute("class") || "";
+
+    const tableStyle = table.getAttribute("style") || "";
+
+    const marker =
+        sectionIndex !== undefined
+            ? ` data-proposal-section-index="${escapeHtmlAttribute(
+                  sectionIndex,
+              )}"`
+            : "";
+
+    return (
+        `<table class="${escapeHtmlAttribute(
+            tableClasses,
+        )}"${marker} style="${escapeHtmlAttribute(tableStyle)}">` +
+        theadHtml +
+        `<tbody>${rows.join("")}</tbody>` +
+        (includeFooter ? tfootHtml : "") +
+        `</table>`
+    );
+}
+
+/**
+ * ============================================================================
+ * TABLE PAGINATION
+ * ============================================================================
+ *
+ * Important rules:
+ *
+ * 1. Label + first table chunk are measured together.
+ * 2. Label can never be left alone at the bottom of a page.
+ * 3. Header repeats on every table chunk.
+ * 4. Footer appears only on the final chunk.
+ * 5. Rows remain in exact original order.
+ * 6. OTC/MRC table markup is not modified.
+ */
+function paginateTableWithLabel(
+    wrapper: HTMLElement,
+    table: HTMLTableElement,
+    label: HTMLElement | null,
+    measurementRoot: HTMLElement,
+    effectiveMaxHeight: number,
+    currentPageAccumulatedHeight: number,
+    sectionIndex?: string,
+): {
+    pages: string[];
+    remainingHeight: number;
+} {
+    void wrapper;
+
+    const thead = table.querySelector("thead");
+
+    const tfoot = table.querySelector("tfoot");
+
+    const bodyRows = Array.from(
+        table.querySelectorAll("tbody > tr"),
+    ) as HTMLElement[];
+
+    const theadHtml = thead ? thead.outerHTML : "";
+
+    const tfootHtml = tfoot ? tfoot.outerHTML : "";
+
+    const labelHtml = label
+        ? addSectionMarker(label.outerHTML, sectionIndex)
+        : "";
+
+    const pages: string[] = [];
+
+    /*
+     * Empty table.
+     */
+    if (bodyRows.length === 0) {
+        const tableHtml = buildTableChunkHtml(
+            table,
+            [],
+            theadHtml,
+            tfootHtml,
+            true,
+            sectionIndex,
+        );
+
+        const combinedHtml = labelHtml + tableHtml;
+
+        const combinedHeight = measureHtmlHeight(measurementRoot, combinedHtml);
+
+        if (
+            currentPageAccumulatedHeight > 0 &&
+            currentPageAccumulatedHeight + combinedHeight >
+                effectiveMaxHeight + PAGINATION_EPSILON_PX
+        ) {
+            pages.push(combinedHtml);
+
+            return {
+                pages,
+                remainingHeight: combinedHeight,
+            };
+        }
+
+        return {
+            pages: [combinedHtml],
+            remainingHeight: currentPageAccumulatedHeight + combinedHeight,
+        };
+    }
+
+    let rowIndex = 0;
+    let firstChunk = true;
+    let pageHeight = currentPageAccumulatedHeight;
+
+    while (rowIndex < bodyRows.length) {
+        const chunkRows: string[] = [];
+
+        while (rowIndex < bodyRows.length) {
+            const row = bodyRows[rowIndex];
+
+            const candidateRows = [...chunkRows, row.outerHTML];
+
+            const isLastRow = rowIndex === bodyRows.length - 1;
+
+            const candidateTableHtml = buildTableChunkHtml(
+                table,
+                candidateRows,
+                theadHtml,
+                tfootHtml,
+                isLastRow,
+                sectionIndex,
+            );
+
+            const candidateHtml = firstChunk
+                ? labelHtml + candidateTableHtml
+                : candidateTableHtml;
+
+            const candidateHeight = measureHtmlHeight(
+                measurementRoot,
+                candidateHtml,
+            );
+
+            /*
+             * Normal fit.
+             */
+            if (
+                pageHeight + candidateHeight <=
+                effectiveMaxHeight + PAGINATION_EPSILON_PX
+            ) {
+                chunkRows.push(row.outerHTML);
+
+                rowIndex++;
+
+                continue;
+            }
+
+            /*
+             * Existing chunk already has rows.
+             * Finish it and move remaining rows
+             * to the next page.
+             */
+            if (chunkRows.length > 0) {
+                break;
+            }
+
+            /*
+             * Nothing fits on current page.
+             *
+             * Move the COMPLETE label + first row/table
+             * to a fresh page.
+             */
+            if (pageHeight > 0) {
+                pages.push("__PAGINATION_PUSH_CURRENT_PAGE__");
+
+                pageHeight = 0;
+
+                continue;
+            }
+
+            /*
+             * Fresh page, but row itself is larger
+             * than the usable page.
+             *
+             * Preserve row structure.
+             */
+            const oversizedRow = row.cloneNode(true) as HTMLElement;
+
+            oversizedRow.classList.add("proposal-oversized-row");
+
+            chunkRows.push(oversizedRow.outerHTML);
+
+            rowIndex++;
+
+            break;
+        }
+
+        if (chunkRows.length === 0) {
+            break;
+        }
+
+        const isFinalChunk = rowIndex >= bodyRows.length;
+
+        const tableHtml = buildTableChunkHtml(
+            table,
+            chunkRows,
+            theadHtml,
+            tfootHtml,
+            isFinalChunk,
+            sectionIndex,
+        );
+
+        const chunkHtml = firstChunk ? labelHtml + tableHtml : tableHtml;
+
+        const chunkHeight = measureHtmlHeight(measurementRoot, chunkHtml);
+
+        /*
+         * If first chunk doesn't fit current page,
+         * label + table move together.
+         */
+        if (
+            pageHeight > 0 &&
+            pageHeight + chunkHeight >
+                effectiveMaxHeight + PAGINATION_EPSILON_PX
+        ) {
+            pages.push("__PAGINATION_PUSH_CURRENT_PAGE__");
+
+            pageHeight = 0;
+        }
+
+        pageHeight += chunkHeight;
+
+        firstChunk = false;
+
+        /*
+         * Every non-final table chunk gets its own page.
+         */
+        if (!isFinalChunk) {
+            pages.push(chunkHtml);
+
+            pageHeight = 0;
+        }
+    }
+
+    return {
+        pages,
+        remainingHeight: pageHeight,
+    };
+}
+
+/**
+ * ============================================================================
+ * MAIN DOM PAGINATOR
+ * ============================================================================
+ */
+export function paginateDomContainer(
+    container: HTMLElement,
+    maxPageHeight: number = getA4ContentHeightPx(),
+): string[] {
+    const styleTags = Array.from(container.querySelectorAll("style"))
+        .map((s) => s.outerHTML)
+        .join("\n");
+
+    const pages: string[] = [];
+
+    let currentPageHtml: string[] = [];
+
+    let currentPageAccumulatedHeight = 0;
+
+    const effectiveMaxHeight = Math.max(
+        1,
+        maxPageHeight - PAGINATION_EPSILON_PX,
+    );
+
+    const pushCurrentPage = () => {
+        if (currentPageHtml.length === 0) {
+            return;
+        }
+
+        pages.push(
+            (styleTags ? styleTags + "\n" : "") + currentPageHtml.join(""),
+        );
+
+        currentPageHtml = [];
+
+        currentPageAccumulatedHeight = 0;
+    };
+
+    const addHtmlToCurrentPage = (html: string, height: number) => {
+        currentPageHtml.push(html);
+
+        currentPageAccumulatedHeight += height;
+    };
+
+    /**
+     * Process table and keep label + table together.
+     */
+    const processTable = (
+        wrapper: HTMLElement,
+        table: HTMLTableElement,
+        label: HTMLElement | null,
+        sectionIndex?: string,
+    ) => {
+        const thead = table.querySelector("thead");
+
+        const tfoot = table.querySelector("tfoot");
+
+        const bodyRows = Array.from(
+            table.querySelectorAll("tbody > tr"),
+        ) as HTMLElement[];
+
+        const theadHtml = thead ? thead.outerHTML : "";
+
+        const tfootHtml = tfoot ? tfoot.outerHTML : "";
+
+        const labelHtml = label
+            ? addSectionMarker(label.outerHTML, sectionIndex)
+            : "";
+
+        /*
+         * ------------------------------------------------------------
+         * EMPTY TABLE
+         * ------------------------------------------------------------
+         */
+        if (bodyRows.length === 0) {
+            const tableHtml = buildTableChunkHtml(
+                table,
+                [],
+                theadHtml,
+                tfootHtml,
+                true,
+                sectionIndex,
+            );
+
+            const combinedHtml = labelHtml + tableHtml;
+
+            const combinedHeight = measureHtmlHeight(container, combinedHtml);
+
+            if (
+                currentPageAccumulatedHeight > 0 &&
+                currentPageAccumulatedHeight + combinedHeight >
+                    effectiveMaxHeight + PAGINATION_EPSILON_PX
+            ) {
+                pushCurrentPage();
+            }
+
+            addHtmlToCurrentPage(combinedHtml, combinedHeight);
+
+            return;
+        }
+
+        let rowIndex = 0;
+        let firstChunk = true;
+
+        while (rowIndex < bodyRows.length) {
+            const chunkRows: string[] = [];
+
+            /*
+             * --------------------------------------------------------
+             * Find largest fitting row group.
+             * --------------------------------------------------------
+             */
+            while (rowIndex < bodyRows.length) {
+                const row = bodyRows[rowIndex];
+
+                const candidateRows = [...chunkRows, row.outerHTML];
+
+                const isLastRow = rowIndex === bodyRows.length - 1;
+
+                const candidateTableHtml = buildTableChunkHtml(
+                    table,
+                    candidateRows,
+                    theadHtml,
+                    tfootHtml,
+                    isLastRow,
+                    sectionIndex,
+                );
+
+                const candidateHtml = firstChunk
+                    ? labelHtml + candidateTableHtml
+                    : candidateTableHtml;
+
+                const candidateHeight = measureHtmlHeight(
+                    container,
+                    candidateHtml,
+                );
+
+                /*
+                 * Fits current page.
+                 */
+                if (
+                    currentPageAccumulatedHeight + candidateHeight <=
+                    effectiveMaxHeight + PAGINATION_EPSILON_PX
+                ) {
+                    chunkRows.push(row.outerHTML);
+
+                    rowIndex++;
+
+                    continue;
+                }
+
+                /*
+                 * Existing chunk has rows.
+                 */
+                if (chunkRows.length > 0) {
+                    break;
+                }
+
+                /*
+                 * No row fits current page.
+                 *
+                 * Most important rule:
+                 *
+                 * label + table must move together.
+                 */
+                if (
+                    currentPageHtml.length > 0 &&
+                    currentPageAccumulatedHeight > 0
+                ) {
+                    pushCurrentPage();
+
+                    continue;
+                }
+
+                /*
+                 * Fresh page but the row itself is
+                 * larger than usable page.
+                 */
+                const oversizedRow = row.cloneNode(true) as HTMLElement;
+
+                oversizedRow.classList.add("proposal-oversized-row");
+
+                chunkRows.push(oversizedRow.outerHTML);
+
+                rowIndex++;
+
+                break;
+            }
+
+            if (chunkRows.length === 0) {
+                break;
+            }
+
+            const isFinalChunk = rowIndex >= bodyRows.length;
+
+            const tableHtml = buildTableChunkHtml(
+                table,
+                chunkRows,
+                theadHtml,
+                tfootHtml,
+                isFinalChunk,
+                sectionIndex,
+            );
+
+            /*
+             * Label ONLY appears on first table chunk.
+             */
+            const chunkHtml = firstChunk ? labelHtml + tableHtml : tableHtml;
+
+            const chunkHeight = measureHtmlHeight(container, chunkHtml);
+
+            /*
+             * First chunk safety.
+             *
+             * If label + table doesn't fit,
+             * move both to next page.
+             */
+            if (
+                currentPageAccumulatedHeight > 0 &&
+                currentPageAccumulatedHeight + chunkHeight >
+                    effectiveMaxHeight + PAGINATION_EPSILON_PX
+            ) {
+                pushCurrentPage();
+            }
+
+            addHtmlToCurrentPage(chunkHtml, chunkHeight);
+
+            firstChunk = false;
+
+            /*
+             * More rows remain:
+             * table continuation starts on new page.
+             */
+            if (!isFinalChunk) {
+                pushCurrentPage();
+            }
+        }
+
+        /*
+         * Keep wrapper referenced so TypeScript does not
+         * consider the argument accidental.
+         */
+        void wrapper;
+    };
+
+    /**
+     * Main recursive processor.
+     */
+    const processElement = (
+        el: HTMLElement,
+        inheritedSectionIndex?: string,
+    ) => {
+        const ownSectionIndex = el.getAttribute("data-proposal-section-index");
+
+        const sectionIndex = ownSectionIndex ?? inheritedSectionIndex;
 
         const tag = el.tagName.toLowerCase();
 
-        // Unwrap block container divs or lists (ul/ol) if they contain multiple children so individual elements fill page 1 first
-        if ((tag === 'div' || tag === 'section' || tag === 'article' || tag === 'main' || tag === 'ul' || tag === 'ol') && el.children.length > 0 && !el.classList.contains('page-break')) {
-            const elHeight = el.offsetHeight || 25;
-            const computedStyle = window.getComputedStyle(el);
-            const margin = (parseFloat(computedStyle.marginTop) || 0) + (parseFloat(computedStyle.marginBottom) || 0);
-            const totalElHeight = elHeight + margin;
-
-            // If the list/div fits entirely on current page, keep it as a single block
-            if (currentPageAccumulatedHeight + totalElHeight <= effectiveMaxHeight) {
-                currentPageHtml.push(addSectionMarker(el.outerHTML));
-                currentPageAccumulatedHeight += totalElHeight;
-                return;
-            }
-
-            // Otherwise, unwrap its children (items or elements) item by item
-            if (tag === 'ul' || tag === 'ol') {
-                const listClasses = el.getAttribute('class') || '';
-                const listStyle = el.getAttribute('style') || '';
-                const items = Array.from(el.children);
-                let currentListItems: string[] = [];
-
-                for (let i = 0; i < items.length; i++) {
-                    const itemEl = items[i] as HTMLElement;
-                    const itemHeight = itemEl.offsetHeight || 25;
-                    if (currentPageAccumulatedHeight + itemHeight > effectiveMaxHeight && currentListItems.length > 0) {
-                        currentPageHtml.push(addSectionMarker(`<${tag} class="${listClasses}" style="${listStyle}">${currentListItems.join('')}</${tag}>`));
-                        startNewPage();
-                        currentListItems = [addSectionMarker(itemEl.outerHTML)];
-                        currentPageAccumulatedHeight = itemHeight;
-                    } else {
-                        currentListItems.push(addSectionMarker(itemEl.outerHTML));
-                        currentPageAccumulatedHeight += itemHeight;
-                    }
-                }
-                if (currentListItems.length > 0) {
-                    currentPageHtml.push(addSectionMarker(`<${tag} class="${listClasses}" style="${listStyle}">${currentListItems.join('')}</${tag}>`));
-                }
-                return;
-            }
-
-            const children = Array.from(el.children);
-            for (let i = 0; i < children.length; i++) {
-                processElement(children[i] as HTMLElement, sectionIndex);
-            }
+        if (tag === "style" || tag === "script") {
             return;
         }
 
-        const elHeight = el.offsetHeight || 25;
-        const computedStyle = window.getComputedStyle(el);
-        const margin = (parseFloat(computedStyle.marginTop) || 0) + (parseFloat(computedStyle.marginBottom) || 0);
-        const totalElHeight = elHeight + margin;
+        /*
+         * ------------------------------------------------------------
+         * Explicit page break
+         * ------------------------------------------------------------
+         */
+        if (hasForcedPageBreak(el)) {
+            pushCurrentPage();
 
-        const tableInside = tag === 'table' ? el : el.querySelector('table');
-        if (tableInside) {
-            const tableEl = tableInside as HTMLElement;
-            const thead = tableEl.querySelector('thead');
-            const theadHtml = thead ? thead.outerHTML : '';
-            const theadHeight = thead ? ((thead as HTMLElement).offsetHeight || 32) : 0;
-            const tfoot = tableEl.querySelector('tfoot');
-            const tfootHtml = tfoot ? tfoot.outerHTML : '';
-            const tfootHeight = tfoot ? ((tfoot as HTMLElement).offsetHeight || 80) : 0;
-            const bodyRows = Array.from(tableEl.querySelectorAll('tbody > tr'));
-            const tableClasses = tableEl.getAttribute('class') || '';
-            const tableStyle = tableEl.getAttribute('style') || '';
-            const tableSectionMarker = sectionIndex !== undefined ? ` data-proposal-section-index=\"${sectionIndex}\"` : '';
+            const directTable = findDirectTable(el);
 
-            if (currentPageAccumulatedHeight + totalElHeight <= effectiveMaxHeight) {
-                currentPageHtml.push(addSectionMarker(el.outerHTML));
-                currentPageAccumulatedHeight += totalElHeight;
+            if (directTable) {
+                const label = findTableLabel(el, directTable);
+
+                processTable(el, directTable, label, sectionIndex);
+
+                /*
+                 * Preserve siblings after table.
+                 */
+                const children = Array.from(el.children) as HTMLElement[];
+
+                const tableIndex = children.indexOf(directTable);
+
+                for (let i = tableIndex + 1; i < children.length; i++) {
+                    processElement(children[i], sectionIndex);
+                }
+
                 return;
             }
 
-            if (bodyRows.length > 0) {
-                let currentTableRows: string[] = [];
-                let currentTableChunkHeight = theadHeight;
-                let isFirstTableChunk = true;
+            const html = addSectionMarker(el.outerHTML, sectionIndex);
 
-                for (let rIdx = 0; rIdx < bodyRows.length; rIdx++) {
-                    const row = bodyRows[rIdx] as HTMLElement;
-                    const rowHeight = row.offsetHeight || 30;
-                    const isLastRow = (rIdx === bodyRows.length - 1);
-                    const neededRowHeight = rowHeight + (isLastRow ? tfootHeight : 0);
+            const height = getOccupiedHeight(el);
 
-                    if (currentPageAccumulatedHeight + currentTableChunkHeight + neededRowHeight > effectiveMaxHeight && currentTableRows.length > 0) {
-                        const tableHtml = `<table class="${tableClasses}"${tableSectionMarker} style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`;
-                        currentPageHtml.push(tableHtml);
-                        startNewPage();
-                        isFirstTableChunk = false;
-                        currentTableRows = [row.outerHTML];
-                        currentTableChunkHeight = theadHeight + rowHeight;
-                    } else {
-                        currentTableRows.push(row.outerHTML);
-                        currentTableChunkHeight += rowHeight;
+            addHtmlToCurrentPage(html, height);
+
+            pushCurrentPage();
+
+            return;
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * Explicit full-page unit
+         * ------------------------------------------------------------
+         */
+        if (isFullPageElement(el)) {
+            if (currentPageHtml.length > 0) {
+                pushCurrentPage();
+            }
+
+            const html = addSectionMarker(el.outerHTML, sectionIndex);
+
+            currentPageHtml.push(html);
+
+            currentPageAccumulatedHeight = getOccupiedHeight(el);
+
+            pushCurrentPage();
+
+            return;
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * DIRECT TABLE
+         * ------------------------------------------------------------
+         */
+        if (tag === "table") {
+            processTable(el, el as HTMLTableElement, null, sectionIndex);
+
+            return;
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * TABLE WRAPPER
+         * ------------------------------------------------------------
+         */
+        const directTable = findDirectTable(el);
+
+        if (directTable) {
+            const children = Array.from(el.children) as HTMLElement[];
+
+            const tableIndex = children.indexOf(directTable);
+
+            const label = findTableLabel(el, directTable);
+
+            /*
+             * Preserve content BEFORE label/table.
+             *
+             * Normally OTC/MRC only contains:
+             *
+             * label
+             * table
+             *
+             * but this protects future templates.
+             */
+            const labelIndex = label ? children.indexOf(label) : tableIndex;
+
+            for (let i = 0; i < Math.max(0, labelIndex); i++) {
+                processElement(children[i], sectionIndex);
+            }
+
+            processTable(el, directTable, label, sectionIndex);
+
+            /*
+             * Preserve siblings AFTER table.
+             */
+            for (let i = tableIndex + 1; i < children.length; i++) {
+                processElement(children[i], sectionIndex);
+            }
+
+            return;
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * LISTS
+         * ------------------------------------------------------------
+         */
+        if ((tag === "ul" || tag === "ol") && el.children.length > 0) {
+            const listClasses = el.getAttribute("class") || "";
+
+            const listStyle = el.getAttribute("style") || "";
+
+            const items = Array.from(el.children) as HTMLElement[];
+
+            let currentItems: string[] = [];
+
+            const flushList = () => {
+                if (currentItems.length === 0) {
+                    return;
+                }
+
+                const listHtml =
+                    `<${tag} class="${escapeHtmlAttribute(
+                        listClasses,
+                    )}" style="${escapeHtmlAttribute(listStyle)}">` +
+                    currentItems.join("") +
+                    `</${tag}>`;
+
+                const height = measureHtmlHeight(container, listHtml);
+
+                addHtmlToCurrentPage(
+                    addSectionMarker(listHtml, sectionIndex),
+                    height,
+                );
+
+                currentItems = [];
+            };
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+
+                const candidateItems = [
+                    ...currentItems,
+                    addSectionMarker(item.outerHTML, sectionIndex),
+                ];
+
+                const candidateHtml = `<${tag}>${candidateItems.join(
+                    "",
+                )}</${tag}>`;
+
+                const candidateHeight = measureHtmlHeight(
+                    container,
+                    candidateHtml,
+                );
+
+                /*
+                 * Current item doesn't fit.
+                 */
+                if (
+                    currentPageAccumulatedHeight + candidateHeight >
+                    effectiveMaxHeight + PAGINATION_EPSILON_PX
+                ) {
+                    /*
+                     * Existing list items:
+                     * finish current list first.
+                     */
+                    if (currentItems.length > 0) {
+                        flushList();
+
+                        pushCurrentPage();
                     }
+
+                    /*
+                     * Re-measure item alone on fresh page.
+                     */
+                    const itemHeight = measureHtmlHeight(
+                        container,
+                        `<${tag}>${addSectionMarker(
+                            item.outerHTML,
+                            sectionIndex,
+                        )}</${tag}>`,
+                    );
+
+                    /*
+                     * Normal item fits fresh page.
+                     */
+                    if (
+                        itemHeight <=
+                        effectiveMaxHeight + PAGINATION_EPSILON_PX
+                    ) {
+                        currentItems.push(
+                            addSectionMarker(item.outerHTML, sectionIndex),
+                        );
+
+                        continue;
+                    }
+
+                    /*
+                     * Oversized LI.
+                     */
+                    const chunks = paginateOversizedElement(
+                        item,
+                        container,
+                        effectiveMaxHeight,
+                        sectionIndex,
+                    );
+
+                    chunks.forEach((chunk, chunkIndex) => {
+                        if (
+                            currentPageHtml.length > 0 &&
+                            currentPageAccumulatedHeight > 0
+                        ) {
+                            pushCurrentPage();
+                        }
+
+                        const height = measureHtmlHeight(container, chunk);
+
+                        addHtmlToCurrentPage(chunk, height);
+
+                        if (chunkIndex < chunks.length - 1) {
+                            pushCurrentPage();
+                        }
+                    });
+
+                    continue;
                 }
 
-                if (currentTableRows.length > 0) {
-                    const tableHtml = `<table class="${tableClasses}"${tableSectionMarker} style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody>${tfootHtml}</table>`;
-                    currentPageHtml.push(tableHtml);
-                    currentPageAccumulatedHeight += currentTableChunkHeight + tfootHeight;
-                }
+                currentItems.push(
+                    addSectionMarker(item.outerHTML, sectionIndex),
+                );
+            }
+
+            flushList();
+
+            return;
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * GENERIC STRUCTURAL CONTAINER
+         * ------------------------------------------------------------
+         */
+        if (isTraversableContainer(el)) {
+            const elHeight = getOccupiedHeight(el);
+
+            /*
+             * Keep complete block when possible.
+             *
+             * This is important for existing design.
+             */
+            if (
+                currentPageAccumulatedHeight + elHeight <=
+                effectiveMaxHeight + PAGINATION_EPSILON_PX
+            ) {
+                addHtmlToCurrentPage(
+                    addSectionMarker(el.outerHTML, sectionIndex),
+                    elHeight,
+                );
+
+                return;
+            }
+
+            /*
+             * Block doesn't fit.
+             *
+             * Traverse children instead of forcing
+             * the entire block onto the page.
+             */
+            const children = Array.from(el.children) as HTMLElement[];
+
+            if (children.length > 0) {
+                children.forEach((child) =>
+                    processElement(child, sectionIndex),
+                );
+
                 return;
             }
         }
 
-        if (currentPageAccumulatedHeight + totalElHeight > effectiveMaxHeight && currentPageHtml.length > 0) {
-            startNewPage();
+        /*
+         * ------------------------------------------------------------
+         * GENERIC LEAF
+         * ------------------------------------------------------------
+         */
+        const elHeight = getOccupiedHeight(el);
+
+        /*
+         * Fits current page.
+         */
+        if (
+            currentPageAccumulatedHeight + elHeight <=
+            effectiveMaxHeight + PAGINATION_EPSILON_PX
+        ) {
+            addHtmlToCurrentPage(
+                addSectionMarker(el.outerHTML, sectionIndex),
+                elHeight,
+            );
+
+            return;
         }
 
-        currentPageHtml.push(addSectionMarker(el.outerHTML));
-        currentPageAccumulatedHeight += totalElHeight;
+        /*
+         * Doesn't fit current page.
+         */
+        if (currentPageHtml.length > 0) {
+            pushCurrentPage();
+        }
+
+        /*
+         * Fits fresh page.
+         */
+        if (elHeight <= effectiveMaxHeight + PAGINATION_EPSILON_PX) {
+            addHtmlToCurrentPage(
+                addSectionMarker(el.outerHTML, sectionIndex),
+                elHeight,
+            );
+
+            return;
+        }
+
+        /*
+         * Oversized rich-text/media/block fallback.
+         */
+        const chunks = paginateOversizedElement(
+            el,
+            container,
+            effectiveMaxHeight,
+            sectionIndex,
+        );
+
+        chunks.forEach((chunk, chunkIndex) => {
+            if (
+                currentPageHtml.length > 0 &&
+                currentPageAccumulatedHeight > 0
+            ) {
+                pushCurrentPage();
+            }
+
+            const height = measureHtmlHeight(container, chunk);
+
+            addHtmlToCurrentPage(chunk, height);
+
+            if (chunkIndex < chunks.length - 1) {
+                pushCurrentPage();
+            }
+        });
     };
 
-    Array.from(container.children).forEach((child) => processElement(child as HTMLElement));
+    /*
+     * Process top-level content in exact DOM order.
+     *
+     * Existing Page Order remains unchanged.
+     */
+    Array.from(container.children).forEach((child) => {
+        processElement(child as HTMLElement);
+    });
 
     if (currentPageHtml.length > 0) {
-        pages.push((styleTags ? styleTags + '\n' : '') + currentPageHtml.join(''));
+        pushCurrentPage();
     }
 
     return pages.length > 0 ? pages : [container.innerHTML];
@@ -382,7 +1674,10 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
 
 const formatAmountOnly = (val: number | string): string => {
     const num = Number(val) || 0;
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return num.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
 };
 
 // =============================================================================
@@ -396,99 +1691,147 @@ export interface ProposalPreviewSheetProps {
     defaultBg?: string;
     templateColor?: string;
     headerLogo?: string;
-    headerLogoAlign?: 'left' | 'center' | 'right' | string;
+    headerLogoAlign?: "left" | "center" | "right" | string;
     pageKey?: string;
     className?: string;
 }
 
-export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
-    children,
-    content,
-    backgroundImage,
-    defaultBg,
-    templateColor = DEFAULT_TEMPLATE_COLOR,
-    headerLogo,
-    headerLogoAlign = 'right',
-    pageKey,
-    className = '',
-}) => {
-    const rawBg = (backgroundImage && String(backgroundImage).trim() !== '') ? backgroundImage : defaultBg;
-    const bgUrl = rawBg ? getImagePath(rawBg) : '';
-    const logoUrl = headerLogo ? getImagePath(headerLogo) : '';
+export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
+    ({
+        children,
+        content,
+        backgroundImage,
+        defaultBg,
+        templateColor = DEFAULT_TEMPLATE_COLOR,
+        headerLogo,
+        headerLogoAlign = "right",
+        pageKey,
+        className = "",
+    }) => {
+        const rawBg =
+            backgroundImage && String(backgroundImage).trim() !== ""
+                ? backgroundImage
+                : defaultBg;
+        const bgUrl = rawBg ? getImagePath(rawBg) : "";
+        const logoUrl = headerLogo ? getImagePath(headerLogo) : "";
 
-    const getLogoContainerStyle = (): React.CSSProperties => {
-        const align = headerLogoAlign || 'right';
-        if (align === 'left') {
-            return { top: '8mm', left: '15mm', right: 'auto', justifyContent: 'flex-start', maxHeight: '20mm', maxWidth: '60mm' };
-        }
-        if (align === 'center' || align === 'middle') {
-            return { top: '8mm', left: '50%', right: 'auto', transform: 'translateX(-50%)', justifyContent: 'center', maxHeight: '20mm', maxWidth: '60mm' };
-        }
-        return { top: '8mm', right: '15mm', left: 'auto', justifyContent: 'flex-end', maxHeight: '20mm', maxWidth: '60mm' };
-    };
+        const getLogoContainerStyle = (): React.CSSProperties => {
+            const align = headerLogoAlign || "right";
+            if (align === "left") {
+                return {
+                    top: "8mm",
+                    left: "15mm",
+                    right: "auto",
+                    justifyContent: "flex-start",
+                    maxHeight: "20mm",
+                    maxWidth: "60mm",
+                };
+            }
+            if (align === "center" || align === "middle") {
+                return {
+                    top: "8mm",
+                    left: "50%",
+                    right: "auto",
+                    transform: "translateX(-50%)",
+                    justifyContent: "center",
+                    maxHeight: "20mm",
+                    maxWidth: "60mm",
+                };
+            }
+            return {
+                top: "8mm",
+                right: "15mm",
+                left: "auto",
+                justifyContent: "flex-end",
+                maxHeight: "20mm",
+                maxWidth: "60mm",
+            };
+        };
 
-    return (
-        <div
-            key={pageKey}
-            style={{
-                width: '210mm',
-                height: '297mm',
-                minHeight: '297mm',
-                maxHeight: '297mm',
-                boxSizing: 'border-box',
-                pageBreakAfter: 'always',
-                breakAfter: 'page',
-                pageBreakInside: 'avoid',
-                breakInside: 'avoid-page',
-                fontFamily: '"Open Sans", sans-serif',
-                '--template-color': templateColor,
-            } as React.CSSProperties}
-            className={cn(
-                "proposal-preview-sheet proposal-cover__sheet bg-white text-slate-900 w-[210mm] h-[297mm] max-w-full shadow-2xl rounded-sm text-sm border border-slate-300 dark:border-slate-800 shrink-0 overflow-hidden relative",
-                className
-            )}
-        >
-            {bgUrl && (
-                <div className="absolute inset-0 w-full h-full z-0 pointer-events-none overflow-hidden">
-                    <img src={bgUrl} alt="Page Background" className="w-full h-full object-fill block" />
-                </div>
-            )}
-
-            {logoUrl && (
-                <div className="absolute z-20 pointer-events-none flex items-center" style={getLogoContainerStyle()}>
-                    <img src={logoUrl} alt="Header Logo" className="max-h-[16mm] max-w-[55mm] object-contain" />
-                </div>
-            )}
-
+        return (
             <div
-                className="proposal-page__body"
-                style={{
-                    position: 'relative',
-                    zIndex: 1,
-                    padding: '32mm 15mm 20mm',
-                    height: 'calc(297mm - 52mm)',
-                    minHeight: 'calc(297mm - 52mm)',
-                    maxHeight: 'calc(297mm - 52mm)',
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-start',
-                }}
+                key={pageKey}
+                style={
+                    {
+                        width: "210mm",
+                        height: "297mm",
+                        minHeight: "297mm",
+                        maxHeight: "297mm",
+                        boxSizing: "border-box",
+                        pageBreakAfter: "always",
+                        breakAfter: "page",
+                        pageBreakInside: "avoid",
+                        breakInside: "avoid-page",
+                        fontFamily: '"Open Sans", sans-serif',
+                        "--template-color": templateColor,
+                    } as React.CSSProperties
+                }
+                className={cn(
+                    "proposal-preview-sheet proposal-cover__sheet bg-white text-slate-900 w-[210mm] h-[297mm] max-w-full shadow-2xl rounded-sm text-sm border border-slate-300 dark:border-slate-800 shrink-0 overflow-hidden relative",
+                    className,
+                )}
             >
-                {children ? (
-                    children
-                ) : content ? (
+                {bgUrl && (
+                    <div className="absolute inset-0 w-full h-full z-0 pointer-events-none overflow-hidden">
+                        <img
+                            src={bgUrl}
+                            alt="Page Background"
+                            className="w-full h-full object-fill block"
+                        />
+                    </div>
+                )}
+
+                {logoUrl && (
                     <div
-                        className={cn("html-preview-container flex-1 flex flex-col", PROPOSAL_CONTENT_CLASSES)}
-                        style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%' }}
-                        dangerouslySetInnerHTML={{ __html: content }}
-                    />
-                ) : null}
+                        className="absolute z-20 pointer-events-none flex items-center"
+                        style={getLogoContainerStyle()}
+                    >
+                        <img
+                            src={logoUrl}
+                            alt="Header Logo"
+                            className="max-h-[16mm] max-w-[55mm] object-contain"
+                        />
+                    </div>
+                )}
+
+                <div
+                    className="proposal-page__body"
+                    style={{
+                        position: "relative",
+                        zIndex: 1,
+                        padding: "32mm 15mm 20mm",
+                        height: "calc(297mm - 52mm)",
+                        minHeight: "calc(297mm - 52mm)",
+                        maxHeight: "calc(297mm - 52mm)",
+                        boxSizing: "border-box",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "flex-start",
+                    }}
+                >
+                    {children ? (
+                        children
+                    ) : content ? (
+                        <div
+                            className={cn(
+                                "html-preview-container flex-1 flex flex-col",
+                                PROPOSAL_CONTENT_CLASSES,
+                            )}
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                flex: 1,
+                                width: "100%",
+                            }}
+                            dangerouslySetInnerHTML={{ __html: content }}
+                        />
+                    ) : null}
+                </div>
             </div>
-        </div>
-    );
-});
-ProposalPreviewSheet.displayName = 'ProposalPreviewSheet';
+        );
+    },
+);
+ProposalPreviewSheet.displayName = "ProposalPreviewSheet";
 
 // =============================================================================
 // MAIN UNIFIED PREVIEW MODAL COMPONENT
@@ -521,11 +1864,25 @@ export default function PreviewModal({
     const isModalOpen = Boolean(isOpen ?? open);
 
     useEffect(() => {
+        const subject = formData?.subject || title || pageTitle || '';
+        const customerName = (formData as any)?.customer_name || (customers && customers.length > 0 ? customers[0]?.name : '') || '';
+        const parts = [subject, customerName].filter(Boolean);
+        const printTitle = parts.length > 0 ? parts.join('_') : (formData?.proposal_number ? String(formData.proposal_number) : (title || ''));
+
+        if (inline && printTitle) {
+            document.title = printTitle;
+        }
+
         if (inline && autoPrint) {
-            const timer = setTimeout(() => window.print(), 600);
+            const timer = setTimeout(() => {
+                if (printTitle) {
+                    document.title = printTitle;
+                }
+                window.print();
+            }, 600);
             return () => clearTimeout(timer);
         }
-    }, [inline, autoPrint]);
+    }, [inline, autoPrint, formData, customers, title, pageTitle]);
 
     const handleClose = useCallback(() => {
         if (onClose) onClose();
@@ -536,26 +1893,44 @@ export default function PreviewModal({
     const measureContainerRef = useRef<HTMLDivElement>(null);
 
     const activeSettings = proposalSetting || settings || null;
-    const templateColor = activeSettings?.template_color || DEFAULT_TEMPLATE_COLOR;
-    const isLogoEnabled = activeSettings?.show_logo !== undefined
-        ? (activeSettings.show_logo === '1' || activeSettings.show_logo === true || activeSettings.show_logo === 1 || activeSettings.show_logo === 'true')
-        : true;
-    const rawLogo = activeSettings?.logo_image || activeSettings?.company_logo || '';
-    const headerLogo = (isLogoEnabled && rawLogo) ? rawLogo : '';
-    const headerLogoAlign = activeSettings?.header_logo_align || 'right';
-    const defaultBgImage = activeSettings?.background_image || '';
+    const templateColor =
+        activeSettings?.template_color || DEFAULT_TEMPLATE_COLOR;
+    const isLogoEnabled =
+        activeSettings?.show_logo !== undefined
+            ? activeSettings.show_logo === "1" ||
+              activeSettings.show_logo === true ||
+              activeSettings.show_logo === 1 ||
+              activeSettings.show_logo === "true"
+            : true;
+    const rawLogo =
+        activeSettings?.logo_image || activeSettings?.company_logo || "";
+    const headerLogo = isLogoEnabled && rawLogo ? rawLogo : "";
+    const headerLogoAlign = activeSettings?.header_logo_align || "right";
+    const defaultBgImage = activeSettings?.background_image || "";
 
-    const isSinglePageMode = Boolean(!formData && (content !== undefined || title !== undefined || pageTitle !== undefined));
+    const isSinglePageMode = Boolean(
+        !formData &&
+        (content !== undefined ||
+            title !== undefined ||
+            pageTitle !== undefined),
+    );
 
     const singleProcessedContent = useMemo(() => {
-        if (!isSinglePageMode || !content) return '';
+        if (!isSinglePageMode) return "";
+        const rawContent = (content || "").trim();
+        if (!rawContent && (backgroundImage || defaultBgImage)) {
+            return "&nbsp;";
+        }
+        if (!rawContent) return "";
         return replaceProposalShortcodes(content, {
             settings: activeSettings,
             isDefaultPageSetup: isDefaultPageSetup ?? true,
         });
-    }, [isSinglePageMode, content, activeSettings, isDefaultPageSetup]);
+    }, [isSinglePageMode, content, backgroundImage, defaultBgImage, activeSettings, isDefaultPageSetup]);
 
-    const [paginatedSinglePages, setPaginatedSinglePages] = useState<string[]>([]);
+    const [paginatedSinglePages, setPaginatedSinglePages] = useState<string[]>(
+        [],
+    );
 
     useEffect(() => {
         if (!isSinglePageMode) return;
@@ -566,7 +1941,10 @@ export default function PreviewModal({
 
         const runPagination = () => {
             if (measureContainerRef.current) {
-                const chunks = paginateDomContainer(measureContainerRef.current, getA4ContentHeightPx());
+                const chunks = paginateDomContainer(
+                    measureContainerRef.current,
+                    getA4ContentHeightPx(),
+                );
                 setPaginatedSinglePages(chunks);
             } else {
                 setPaginatedSinglePages([singleProcessedContent]);
@@ -581,7 +1959,9 @@ export default function PreviewModal({
         };
 
         start();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline]);
 
     const getItemName = useCallback(
@@ -590,12 +1970,18 @@ export default function PreviewModal({
             if (item.name) return item.name;
             if (item.product?.name) return item.product.name;
             if (item.product_id && availableProducts.length > 0) {
-                const found = availableProducts.find((p) => String(p.id) === String(item.product_id));
+                const found = availableProducts.find(
+                    (p) => String(p.id) === String(item.product_id),
+                );
                 if (found?.name) return found.name;
             }
-            return item.product_description || item.description || t('Item / Service');
+            return (
+                item.product_description ||
+                item.description ||
+                t("Item / Service")
+            );
         },
-        [availableProducts, t]
+        [availableProducts, t],
     );
 
     const getItemDesc = useCallback(
@@ -604,106 +1990,175 @@ export default function PreviewModal({
             if (item.description) return item.description;
             if (item.product?.description) return item.product.description;
             if (item.product_id && availableProducts.length > 0) {
-                const found = availableProducts.find((p) => String(p.id) === String(item.product_id));
+                const found = availableProducts.find(
+                    (p) => String(p.id) === String(item.product_id),
+                );
                 if (found?.description) return found.description;
             }
-            return '';
+            return "";
         },
-        [availableProducts]
+        [availableProducts],
     );
 
     const getItemUnit = useCallback(
         (item: ProposalItem): string => {
             if (item.unit_name) return item.unit_name;
             if (item.unit && isNaN(Number(item.unit))) return item.unit;
-            if (item.product?.unit_relation?.unit_name) return item.product.unit_relation.unit_name;
+            if (item.product?.unit_relation?.unit_name)
+                return item.product.unit_relation.unit_name;
             if (item.product?.unit_name) return item.product.unit_name;
-            if (item.product?.unit && isNaN(Number(item.product.unit))) return item.product.unit;
+            if (item.product?.unit && isNaN(Number(item.product.unit)))
+                return item.product.unit;
             if (item.product_id && availableProducts.length > 0) {
-                const found: any = availableProducts.find((p) => String(p.id) === String(item.product_id));
+                const found: any = availableProducts.find(
+                    (p) => String(p.id) === String(item.product_id),
+                );
                 if (found?.unit_name) return found.unit_name;
                 if (found?.unit && isNaN(Number(found.unit))) return found.unit;
             }
-            return '';
+            return "";
         },
-        [availableProducts]
+        [availableProducts],
     );
 
     const customer = useMemo(() => {
-        if ((formData as any)?.customer_mode === 'new') {
+        if ((formData as any)?.customer_mode === "new") {
             return {
                 id: 0,
-                name: (formData as any)?.customer_name || '',
-                email: (formData as any)?.customer_email || '',
-                mobile_no: (formData as any)?.customer_phone || '',
-                phone: (formData as any)?.customer_phone || '',
-                address: (formData as any)?.customer_address || '',
-                type: (formData as any)?.customer_type || 'Individual',
+                name: (formData as any)?.customer_name || "",
+                email: (formData as any)?.customer_email || "",
+                mobile_no: (formData as any)?.customer_phone || "",
+                phone: (formData as any)?.customer_phone || "",
+                address: (formData as any)?.customer_address || "",
+                type: (formData as any)?.customer_type || "Individual",
             };
         }
-        return customers.find((c) => String(c.id) === String(formData?.customer_id));
-    }, [customers, formData?.customer_id, (formData as any)?.customer_mode, (formData as any)?.customer_name, (formData as any)?.customer_email, (formData as any)?.customer_phone, (formData as any)?.customer_address]);
+        return customers.find(
+            (c) => String(c.id) === String(formData?.customer_id),
+        );
+    }, [
+        customers,
+        formData?.customer_id,
+        (formData as any)?.customer_mode,
+        (formData as any)?.customer_name,
+        (formData as any)?.customer_email,
+        (formData as any)?.customer_phone,
+        (formData as any)?.customer_address,
+    ]);
 
-    const [paginatedFullProposalPages, setPaginatedFullProposalPages] = useState<string[]>([]);
-    const [paginatedFullProposalBackgrounds, setPaginatedFullProposalBackgrounds] = useState<string[]>([]);
+    const [paginatedFullProposalPages, setPaginatedFullProposalPages] =
+        useState<string[]>([]);
+    const [
+        paginatedFullProposalBackgrounds,
+        setPaginatedFullProposalBackgrounds,
+    ] = useState<string[]>([]);
 
     const fullProposalHtml = useMemo(() => {
-        if (isSinglePageMode || !formData) return '';
+        if (isSinglePageMode || !formData) return "";
 
         const items = formData.items || [];
         const otcItems = items.filter(
-            (i) => (i.section === 'otc' || i.section === 'general' || !i.section) &&
-                (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+            (i) =>
+                (i.section === "otc" ||
+                    i.section === "general" ||
+                    !i.section) &&
+                (Number(i.product_id) > 0 ||
+                    Number(i.unit_price) > 0 ||
+                    Boolean(i.product_description)),
         );
         const mrcItems = items.filter(
-            (i) => i.section === 'mrc' &&
-                (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
+            (i) =>
+                i.section === "mrc" &&
+                (Number(i.product_id) > 0 ||
+                    Number(i.unit_price) > 0 ||
+                    Boolean(i.product_description)),
         );
 
-        const secSubtotalOtc = otcItems.reduce((sum, item) => sum + (Number(item.quantity ?? 1) * Number(item.unit_price || 0)), 0);
+        const secSubtotalOtc = otcItems.reduce(
+            (sum, item) =>
+                sum + Number(item.quantity ?? 1) * Number(item.unit_price || 0),
+            0,
+        );
         let secDiscountOtc = 0;
         if ((formData as any).otc_discount_value > 0) {
             const discVal = Number((formData as any).otc_discount_value) || 0;
-            if ((formData as any).otc_discount_type === 'percentage') {
-                secDiscountOtc = (secSubtotalOtc * Math.min(Math.max(discVal, 0), 100)) / 100;
+            if ((formData as any).otc_discount_type === "percentage") {
+                secDiscountOtc =
+                    (secSubtotalOtc * Math.min(Math.max(discVal, 0), 100)) /
+                    100;
             } else {
                 secDiscountOtc = Math.min(Math.max(discVal, 0), secSubtotalOtc);
             }
         }
-        const secTaxOtc = otcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
-        const secTotalOtc = Math.max(0, secSubtotalOtc - secDiscountOtc + secTaxOtc);
+        const secTaxOtc = otcItems.reduce(
+            (sum, item) => sum + Number(item.tax_amount || 0),
+            0,
+        );
+        const secTotalOtc = Math.max(
+            0,
+            secSubtotalOtc - secDiscountOtc + secTaxOtc,
+        );
 
-        const secSubtotalMrc = mrcItems.reduce((sum, item) => sum + (Number(item.quantity ?? 1) * Number(item.unit_price || 0)), 0);
+        const secSubtotalMrc = mrcItems.reduce(
+            (sum, item) =>
+                sum + Number(item.quantity ?? 1) * Number(item.unit_price || 0),
+            0,
+        );
         let secDiscountMrc = 0;
         if ((formData as any).mrc_discount_value > 0) {
             const discVal = Number((formData as any).mrc_discount_value) || 0;
-            if ((formData as any).mrc_discount_type === 'percentage') {
-                secDiscountMrc = (secSubtotalMrc * Math.min(Math.max(discVal, 0), 100)) / 100;
+            if ((formData as any).mrc_discount_type === "percentage") {
+                secDiscountMrc =
+                    (secSubtotalMrc * Math.min(Math.max(discVal, 0), 100)) /
+                    100;
             } else {
                 secDiscountMrc = Math.min(Math.max(discVal, 0), secSubtotalMrc);
             }
         }
-        const secTaxMrc = mrcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
-        const secTotalMrc = Math.max(0, secSubtotalMrc - secDiscountMrc + secTaxMrc);
+        const secTaxMrc = mrcItems.reduce(
+            (sum, item) => sum + Number(item.tax_amount || 0),
+            0,
+        );
+        const secTotalMrc = Math.max(
+            0,
+            secSubtotalMrc - secDiscountMrc + secTaxMrc,
+        );
 
         const htmlParts: string[] = [];
 
         sections.forEach((sec, sectionIndex) => {
-            const rawContent = (sec.content || '').trim();
-            const pageType = (sec.page_type || '').toLowerCase();
-            const isOtc = pageType === 'otc' || rawContent === '[OTC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('one-time charges'));
-            const isMrc = pageType === 'mrc' || rawContent === '[MRC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('monthly recurring charges'));
-            const isOther = pageType === 'other-details' || rawContent === '[OTHER_DETAILS_CONTENT]' || (sec.title && sec.title.toLowerCase().includes('other details'));
+            const rawContent = (sec.content || "").trim();
+            const pageType = (sec.page_type || "").toLowerCase();
+            const isOtc =
+                pageType === "otc" ||
+                rawContent === "[OTC_CHARGES_TABLE]" ||
+                (sec.title &&
+                    sec.title.toLowerCase().includes("one-time charges"));
+            const isMrc =
+                pageType === "mrc" ||
+                rawContent === "[MRC_CHARGES_TABLE]" ||
+                (sec.title &&
+                    sec.title
+                        .toLowerCase()
+                        .includes("monthly recurring charges"));
+            const isOther =
+                pageType === "other-details" ||
+                rawContent === "[OTHER_DETAILS_CONTENT]" ||
+                (sec.title &&
+                    sec.title.toLowerCase().includes("other details"));
 
             if (isOtc) {
                 if (otcItems.length === 0) return;
-                const title = sec.title || t('ONE-TIME CHARGES (OTC)');
-                let rowsHtml = '';
+                const title = sec.title || t("ONE-TIME CHARGES (OTC)");
+                let rowsHtml = "";
                 otcItems.forEach((item, idx) => {
                     const qty = Number(item.quantity ?? 1);
                     const unit = getItemUnit(item);
                     const price = Number(item.unit_price) || 0;
-                    const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
+                    const lineTotal =
+                        item.total_amount !== undefined
+                            ? Number(item.total_amount)
+                            : qty * price;
                     const desc = getItemDesc(item);
                     const taxAmt = Number(item.tax_amount) || 0;
 
@@ -713,12 +2168,12 @@ export default function PreviewModal({
                             <td class="font-semibold text-slate-900 border border-slate-200 align-top" style="font-size: 11px; padding: 6.5px 8px !important; line-height: 1.35;">${getItemName(item)}</td>
                             <td class="text-slate-600 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">
                                 <div class="leading-normal break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
-                                    ${desc || '-'}
+                                    ${desc || "-"}
                                 </div>
                             </td>
-                            <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}${unit ? ` ${unit}` : ''}</td>
+                            <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
-                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : '-'}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : "-"}</td>
                             <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
                         </tr>
                     `;
@@ -730,13 +2185,13 @@ export default function PreviewModal({
                         <table class="charges-table w-full text-xs mb-2 border-collapse border border-slate-300" style="font-size: 11px; width: 100%; table-layout: fixed;">
                             <thead>
                                 <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t('S/N')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t('Description')}</th>
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Tax / VAT')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t("S/N")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t("Item / Service")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t("Description")}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t("Qty.")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Price (BDT)")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Tax / VAT")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Total (BDT)")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -745,24 +2200,32 @@ export default function PreviewModal({
                             <tfoot>
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Subtotal')}:</td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
                                 </tr>
-                                ${(secDiscountOtc > 0) ? `
+                                ${
+                                    secDiscountOtc > 0
+                                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Discount')}:</td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
                                     <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountOtc)}</td>
-                                </tr>` : ''}
-                                ${(secTaxOtc > 0) ? `
+                                </tr>`
+                                        : ""
+                                }
+                                ${
+                                    secTaxOtc > 0
+                                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Tax / VAT')}:</td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxOtc)}</td>
-                                </tr>` : ''}
+                                </tr>`
+                                        : ""
+                                }
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t('Total')}:</td>
+                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
                                     <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalOtc)} BDT</td>
                                 </tr>
                             </tfoot>
@@ -774,13 +2237,16 @@ export default function PreviewModal({
 
             if (isMrc) {
                 if (mrcItems.length === 0) return;
-                const title = sec.title || t('MONTHLY RECURRING CHARGES (MRC)');
-                let rowsHtml = '';
+                const title = sec.title || t("MONTHLY RECURRING CHARGES (MRC)");
+                let rowsHtml = "";
                 mrcItems.forEach((item, idx) => {
                     const qty = Number(item.quantity ?? 1);
                     const unit = getItemUnit(item);
                     const price = Number(item.unit_price) || 0;
-                    const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
+                    const lineTotal =
+                        item.total_amount !== undefined
+                            ? Number(item.total_amount)
+                            : qty * price;
                     const desc = getItemDesc(item);
                     const taxAmt = Number(item.tax_amount) || 0;
 
@@ -790,12 +2256,12 @@ export default function PreviewModal({
                             <td class="font-semibold text-slate-900 border border-slate-200 align-top" style="font-size: 11px; padding: 6.5px 8px !important; line-height: 1.35;">${getItemName(item)}</td>
                             <td class="text-slate-600 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">
                                 <div class="leading-normal break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_li]:my-0.5 [&_li]:list-item [&_li_p]:inline [&_li_p]:m-0 [&_p]:my-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
-                                    ${desc || '-'}
+                                    ${desc || "-"}
                                 </div>
                             </td>
-                            <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}${unit ? ` ${unit}` : ''}</td>
+                            <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
-                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : '-'}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : "-"}</td>
                             <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
                         </tr>
                     `;
@@ -807,13 +2273,13 @@ export default function PreviewModal({
                         <table class="charges-table w-full text-xs mb-2 border-collapse border border-slate-300" style="font-size: 11px; width: 100%; table-layout: fixed;">
                             <thead>
                                 <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t('S/N')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t('Description')}</th>
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Tax / VAT')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t("S/N")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t("Item / Service")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t("Description")}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t("Qty.")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Price (BDT)")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Tax / VAT")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Total (BDT)")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -822,24 +2288,32 @@ export default function PreviewModal({
                             <tfoot>
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Subtotal')}:</td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
                                 </tr>
-                                ${(secDiscountMrc > 0) ? `
+                                ${
+                                    secDiscountMrc > 0
+                                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Discount')}:</td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
                                     <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountMrc)}</td>
-                                </tr>` : ''}
-                                ${(secTaxMrc > 0) ? `
+                                </tr>`
+                                        : ""
+                                }
+                                ${
+                                    secTaxMrc > 0
+                                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Tax / VAT')}:</td>
+                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxMrc)}</td>
-                                </tr>` : ''}
+                                </tr>`
+                                        : ""
+                                }
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t('Total')}:</td>
+                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
                                     <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalMrc)} BDT</td>
                                 </tr>
                             </tfoot>
@@ -850,66 +2324,79 @@ export default function PreviewModal({
             }
 
             if (isOther) {
-                const otherVal = formData.other_details || other_details;
-                if (!otherVal || otherVal.trim() === '' || otherVal === '<p></p>') return;
-                const processed = replaceProposalShortcodes(otherVal, {
-                    formData,
-                    customer,
-                    totals,
-                    proposalSetting: activeSettings,
-                    isDefaultPageSetup,
-                });
+                const detailsText =
+                    formData.other_details || other_details || "";
+                if (!detailsText) return;
+                const title = sec.title || t("OTHER DETAILS");
                 htmlParts.push(`
-                    <div class="proposal-section-block other-details-block mb-6" data-proposal-section-index="${sectionIndex}">
-                        ${sec.title ? `<div class="font-bold mb-2 text-[#293240] text-sm">${sec.title}</div>` : ''}
-                        <div>${processed}</div>
+                    <div class="proposal-section-block other-details-block" data-proposal-section-index="${sectionIndex}" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
+                        <div class="font-bold mb-2 text-[#293240] text-sm">${title}</div>
+                        <div class="prose max-w-none text-xs leading-relaxed text-slate-700">
+                            ${detailsText}
+                        </div>
                     </div>
                 `);
                 return;
             }
 
-            if (sec.content && sec.content.trim() !== '') {
-                const processed = replaceProposalShortcodes(sec.content, {
-                    formData,
-                    customer,
-                    totals,
-                    proposalSetting: activeSettings,
-                    isDefaultPageSetup,
-                });
-                htmlParts.push(`
-                    <div class="proposal-section-block content-block mb-6 page-break" data-proposal-section-index="${sectionIndex}">
-                        ${processed}
-                    </div>
-                `);
+            const isCustomPage = sec.page_type === "custom" || (!isOtc && !isMrc && !isOther);
+            if (isCustomPage) {
+                const bgImage = sec.background_image || "";
+                if (rawContent || bgImage) {
+                    htmlParts.push(`
+                        <div class="proposal-section-block custom-section-block page-break" data-full-page="true" data-proposal-section-index="${sectionIndex}" style="min-height: 297mm; height: 100%;">
+                            ${rawContent || "&nbsp;"}
+                        </div>
+                    `);
+                }
             }
         });
 
-        return htmlParts.join('\n');
-    }, [isSinglePageMode, formData, sections, other_details, activeSettings, isDefaultPageSetup, customer, totals, templateColor, getItemDesc, getItemName, getItemUnit, t]);
+        const combinedRaw = htmlParts.join("\n\n");
+        return replaceProposalShortcodes(combinedRaw, {
+            proposal: formData,
+            customer,
+            settings: activeSettings,
+            isDefaultPageSetup: false,
+        });
+    }, [
+        isSinglePageMode,
+        formData,
+        sections,
+        customers,
+        getItemName,
+        getItemDesc,
+        getItemUnit,
+        t,
+        templateColor,
+        activeSettings,
+        other_details,
+    ]);
 
     useEffect(() => {
-        if (isSinglePageMode) return;
-        if (!fullProposalHtml) {
-            setPaginatedFullProposalPages([]);
-            setPaginatedFullProposalBackgrounds([]);
+        if (!isSinglePageMode) return;
+        if (!singleProcessedContent) {
+            setPaginatedSinglePages((prev) => (prev.length === 0 ? prev : []));
             return;
         }
 
         const runPagination = () => {
             if (measureContainerRef.current) {
-                const chunks = paginateDomContainer(measureContainerRef.current, getA4ContentHeightPx());
-                const backgrounds = chunks.map((pageHtml) => {
-                    const match = pageHtml.match(/data-proposal-section-index=\"(\d+)\"/);
-                    const sectionIndex = match ? Number(match[1]) : -1;
-                    const specificBg = sectionIndex >= 0 ? sections[sectionIndex]?.background_image : '';
-                    return specificBg && String(specificBg).trim() !== '' ? String(specificBg) : defaultBgImage;
-                });
-                setPaginatedFullProposalPages(chunks);
-                setPaginatedFullProposalBackgrounds(backgrounds);
+                const chunks = paginateDomContainer(
+                    measureContainerRef.current,
+                    getA4ContentHeightPx(),
+                );
+                setPaginatedSinglePages((prev) =>
+                    prev.length === chunks.length && prev.every((val, idx) => val === chunks[idx])
+                        ? prev
+                        : chunks,
+                );
             } else {
-                setPaginatedFullProposalPages([fullProposalHtml]);
-                const firstSectionBg = sections[0]?.background_image;
-                setPaginatedFullProposalBackgrounds([firstSectionBg && String(firstSectionBg).trim() !== '' ? String(firstSectionBg) : defaultBgImage]);
+                setPaginatedSinglePages((prev) =>
+                    prev.length === 1 && prev[0] === singleProcessedContent
+                        ? prev
+                        : [singleProcessedContent],
+                );
             }
         };
 
@@ -921,63 +2408,108 @@ export default function PreviewModal({
         };
 
         start();
-        return () => { cancelled = true; };
-    }, [isSinglePageMode, fullProposalHtml, isModalOpen, inline]);
+        return () => {
+            cancelled = true;
+        };
+    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline]);
 
-    const handlePrint = useCallback(() => {
-        if (!previewContainerRef.current) return;
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
+    useEffect(() => {
+        if (isSinglePageMode || !fullProposalHtml) {
+            setPaginatedFullProposalPages((prev) => (prev.length === 0 ? prev : []));
+            setPaginatedFullProposalBackgrounds((prev) => (prev.length === 0 ? prev : []));
+            return;
+        }
 
-        const stylesHtml = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-            .map((node) => node.outerHTML)
-            .join('\n');
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>${t('Sales Proposal Preview')}</title>
-                    ${stylesHtml}
-                    <style>${PRINT_STYLES}</style>
-                </head>
-                <body>
-                    <div class="print-wrapper">${previewContainerRef.current.outerHTML}</div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-
-        const printWhenReady = async () => {
-            try {
-                await printWindow.document.fonts?.ready;
-
-                const images = Array.from(printWindow.document.images);
-                await Promise.all(
-                    images.map((img) => {
-                        if (img.complete) return Promise.resolve();
-                        return new Promise<void>((resolve) => {
-                            img.onload = () => resolve();
-                            img.onerror = () => resolve();
-                        });
-                    })
+        const runPagination = () => {
+            if (measureContainerRef.current) {
+                const chunks = paginateDomContainer(
+                    measureContainerRef.current,
+                    getA4ContentHeightPx(),
                 );
-            } catch {
-                // Continue printing even if some external assets fail to load.
-            }
+                setPaginatedFullProposalPages((prev) =>
+                    prev.length === chunks.length && prev.every((val, idx) => val === chunks[idx])
+                        ? prev
+                        : chunks,
+                );
 
-            printWindow.focus();
-            printWindow.onafterprint = () => printWindow.close();
-            printWindow.print();
+                const bgs: string[] = [];
+                chunks.forEach((chunkHtml) => {
+                    const match = chunkHtml.match(
+                        /data-proposal-section-index=["'](\d+)["']/,
+                    );
+                    if (match && match[1] !== undefined) {
+                        const secIdx = parseInt(match[1], 10);
+                        const matchedSec = sections[secIdx];
+                        if (
+                            matchedSec?.background_image &&
+                            matchedSec.background_image.trim() !== ""
+                        ) {
+                            bgs.push(matchedSec.background_image);
+                            return;
+                        }
+                    }
+                    bgs.push(defaultBgImage);
+                });
+                setPaginatedFullProposalBackgrounds((prev) =>
+                    prev.length === bgs.length && prev.every((val, idx) => val === bgs[idx])
+                        ? prev
+                        : bgs,
+                );
+            } else {
+                setPaginatedFullProposalPages((prev) =>
+                    prev.length === 1 && prev[0] === fullProposalHtml
+                        ? prev
+                        : [fullProposalHtml],
+                );
+                setPaginatedFullProposalBackgrounds((prev) =>
+                    prev.length === 1 && prev[0] === defaultBgImage
+                        ? prev
+                        : [defaultBgImage],
+                );
+            }
         };
 
-        printWhenReady();
-    }, [t]);
+        let cancelled = false;
 
-    const modalTitleText = title || pageTitle || (formData?.subject ? `${t('Proposal Preview')}: ${formData.subject}` : t('Proposal Preview'));
+        const start = async () => {
+            if (document.fonts?.ready) await document.fonts.ready;
+            if (!cancelled) runPagination();
+        };
+
+        start();
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        isSinglePageMode,
+        fullProposalHtml,
+        sections,
+        defaultBgImage,
+        isModalOpen,
+        inline,
+    ]);
+
+    const handlePrint = useCallback(() => {
+        const subject = formData?.subject || title || pageTitle || '';
+        const customerName = (customer as any)?.name || (formData as any)?.customer_name || '';
+        const parts = [subject, customerName].filter(Boolean);
+        const printTitle = parts.length > 0 ? parts.join('_') : (formData?.proposal_number ? String(formData.proposal_number) : document.title);
+
+        const originalTitle = document.title;
+        if (printTitle) {
+            document.title = printTitle;
+        }
+        window.print();
+        setTimeout(() => {
+            document.title = originalTitle;
+        }, 1000);
+    }, [formData, customer, title, pageTitle]);
+
+    const modalTitleText =
+        title || pageTitle || formData?.subject || t("Preview");
 
     const renderSheetsContent = () => (
-        <div ref={previewContainerRef} className="flex flex-col gap-6 items-center w-full print:gap-0 print:block">
+        <div className="flex flex-col gap-6 items-center w-full print:gap-0 print:block">
             {isSinglePageMode ? (
                 paginatedSinglePages.length > 0 ? (
                     paginatedSinglePages.map((pageHtml, pIdx) => (
@@ -1004,25 +2536,26 @@ export default function PreviewModal({
                         content={singleProcessedContent}
                     />
                 )
+            ) : paginatedFullProposalPages.length > 0 ? (
+                paginatedFullProposalPages.map((pageHtml, pIdx) => (
+                    <ProposalPreviewSheet
+                        key={`proposal-page-${pIdx}`}
+                        pageKey={`proposal-page-${pIdx}`}
+                        backgroundImage={
+                            paginatedFullProposalBackgrounds[pIdx] ||
+                            defaultBgImage
+                        }
+                        defaultBg={defaultBgImage}
+                        templateColor={templateColor}
+                        headerLogo={headerLogo}
+                        headerLogoAlign={headerLogoAlign}
+                        content={pageHtml}
+                    />
+                ))
             ) : (
-                paginatedFullProposalPages.length > 0 ? (
-                    paginatedFullProposalPages.map((pageHtml, pIdx) => (
-                        <ProposalPreviewSheet
-                            key={`proposal-page-${pIdx}`}
-                            pageKey={`proposal-page-${pIdx}`}
-                            backgroundImage={paginatedFullProposalBackgrounds[pIdx] || defaultBgImage}
-                            defaultBg={defaultBgImage}
-                            templateColor={templateColor}
-                            headerLogo={headerLogo}
-                            headerLogoAlign={headerLogoAlign}
-                            content={pageHtml}
-                        />
-                    ))
-                ) : (
-                    <div className="p-8 text-center text-slate-500">
-                        {t('No pages configured in Page Order.')}
-                    </div>
-                )
+                <div className="p-8 text-center text-slate-500">
+                    {t("No pages configured in Page Order.")}
+                </div>
             )}
         </div>
     );
@@ -1031,21 +2564,33 @@ export default function PreviewModal({
         <>
             <div
                 ref={measureContainerRef}
-                className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
+                className={cn(
+                    "html-preview-container",
+                    PROPOSAL_CONTENT_CLASSES,
+                )}
                 style={{
-                    position: 'fixed',
-                    left: '-9999px',
+                    position: "fixed",
+                    left: "-9999px",
                     top: 0,
-                    width: '180mm',
-                    visibility: 'hidden',
-                    pointerEvents: 'none',
+                    width: "180mm",
+                    visibility: "hidden",
+                    pointerEvents: "none",
                     zIndex: -1,
                 }}
-                dangerouslySetInnerHTML={{ __html: isSinglePageMode ? singleProcessedContent : fullProposalHtml }}
+                dangerouslySetInnerHTML={{
+                    __html: isSinglePageMode
+                        ? singleProcessedContent
+                        : fullProposalHtml,
+                }}
             />
 
             {inline ? (
-                <div className={cn("min-h-screen bg-slate-100 dark:bg-slate-950 px-4 print:p-0 print:bg-white flex flex-col items-center", hideHeaderBar ? "py-0" : "py-8")}>
+                <div
+                    className={cn(
+                        "min-h-screen bg-slate-100 dark:bg-slate-950 px-4 print:p-0 print:bg-white flex flex-col items-center",
+                        hideHeaderBar ? "py-0" : "py-8",
+                    )}
+                >
                     {!hideHeaderBar && (
                         <div className="w-full max-w-[210mm] mb-6 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 print:hidden">
                             <div className="flex items-center gap-3">
@@ -1054,51 +2599,75 @@ export default function PreviewModal({
                                 </div>
                                 <div>
                                     <h1 className="font-bold text-slate-900 dark:text-slate-100 text-base">
-                                        {formData?.proposal_number || modalTitleText}
+                                        {formData?.proposal_number ||
+                                            modalTitleText}
                                     </h1>
                                     {formData?.subject && (
-                                        <p className="text-xs text-slate-500">{formData.subject}</p>
+                                        <p className="text-xs text-slate-500">
+                                            {formData.subject}
+                                        </p>
                                     )}
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2">
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => window.print()}
+                                    className="gap-2"
+                                >
                                     <Printer className="h-4 w-4" />
-                                    {t('Print / Save PDF')}
+                                    {t("Print / Save PDF")}
                                 </Button>
                             </div>
                         </div>
                     )}
 
                     <div className="w-full flex justify-center">
-                        <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
+                        <style
+                            dangerouslySetInnerHTML={{ __html: PRINT_STYLES }}
+                        />
                         {renderSheetsContent()}
                     </div>
                 </div>
             ) : (
-                <Dialog open={isModalOpen} onOpenChange={(openVal) => !openVal && handleClose()}>
+                <Dialog
+                    open={isModalOpen}
+                    onOpenChange={(openVal) => !openVal && handleClose()}
+                >
                     <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-background border-border shadow-xl !rounded-md [&>div]:p-0 [&>div]:max-h-[92vh] [&>div]:flex [&>div]:flex-col [&>button]:top-2.5 [&>button]:right-3">
                         <DialogHeader className="!py-3 !px-5 bg-background border-b border-border flex flex-row items-center justify-between space-y-0 shrink-0">
                             <div className="flex items-center gap-2.5 pr-8">
                                 <div className="p-1.5 rounded-md bg-primary/10 text-primary">
                                     <Eye className="h-4 w-4" />
                                 </div>
-                                <DialogTitle className="text-sm font-semibold">{modalTitleText}</DialogTitle>
+                                <DialogTitle className="text-sm font-semibold">
+                                    {modalTitleText}
+                                </DialogTitle>
                             </div>
 
                             {showPrintButton && (
                                 <div className="flex items-center gap-2 pr-6">
-                                    <Button variant="default" size="sm" onClick={handlePrint} className="gap-2 text-xs h-8">
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={handlePrint}
+                                        className="gap-2 text-xs h-8"
+                                    >
                                         <Printer className="h-3.5 w-3.5" />
-                                        {t('Print')}
+                                        {t("Print")}
                                     </Button>
                                 </div>
                             )}
                         </DialogHeader>
 
                         <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-100/70 dark:bg-slate-900 flex justify-center scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                            <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
+                            <style
+                                dangerouslySetInnerHTML={{
+                                    __html: PRINT_STYLES,
+                                }}
+                            />
                             {renderSheetsContent()}
                         </div>
                     </DialogContent>
