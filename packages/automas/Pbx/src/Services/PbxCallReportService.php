@@ -99,7 +99,7 @@ class PbxCallReportService
             'Accept' => 'application/json',
         ])
             ->connectTimeout(5)
-            ->timeout(20)
+            ->timeout(60)
             ->retry(1, 200)
             ->get($url, $query);
 
@@ -251,7 +251,7 @@ class PbxCallReportService
 
         $response = Http::withHeaders($headers)
             ->connectTimeout(5)
-            ->timeout(20)
+            ->timeout(60)
             ->retry(1, 200)
             ->get($url, $query);
 

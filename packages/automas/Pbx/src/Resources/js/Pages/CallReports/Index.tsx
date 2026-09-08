@@ -9,6 +9,8 @@ import {
     PhoneIncoming,
     PhoneOutgoing,
     RefreshCw,
+    Search,
+    X,
     XCircle,
 } from 'lucide-react';
 
@@ -636,6 +638,30 @@ export default function Index({
         );
     };
 
+    const handleClearSearch = () => {
+        setFilters((prev) => ({
+            ...prev,
+            search: '',
+        }));
+
+        const reqFilters: Record<string, any> = {
+            ...buildRequestFilters(),
+            search: undefined,
+        };
+
+        router.get(
+            route('pbx.call-reports.index'),
+            reqFilters,
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onStart: () => setLoading(true),
+                onFinish: () => setLoading(false),
+            }
+        );
+    };
+
     /*
     |--------------------------------------------------------------------------
     | Clear Filter
@@ -1027,8 +1053,8 @@ export default function Index({
                     <CardContent className="border-b bg-gray-50/50 p-6 space-y-4">
                         <div className="flex items-end justify-between gap-4">
 
-                            <div className="max-w-md flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex gap-2">
+                                <div className="block gap-2">
                                     <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                         {t('Period')}:
                                     </label>
@@ -1050,6 +1076,44 @@ export default function Index({
                                                 {t(opt.label)}
                                             </Button>
                                         ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-end gap-2">
+                                    <div className="flex items-center gap-1 rounded-lg border border-slate-200/60 bg-slate-100 p-1 dark:border-slate-800 dark:bg-slate-800/60">
+                                        <Search className="ml-1.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={filters.search || ''}
+                                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleFilter();
+                                                }
+                                            }}
+                                            className="h-7 w-64 md:w-80 border-none bg-transparent px-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
+                                            placeholder={t('search by caller id, called id or agent name')}
+                                        />
+                                        {filters.search && (
+                                            <button
+                                                type="button"
+                                                onClick={handleClearSearch}
+                                                className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors"
+                                                title={t('Clear search')}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={handleFilter}
+                                            disabled={loading}
+                                            className="h-7 bg-blue-600 px-3 text-xs text-white shadow-xs hover:bg-blue-700"
+                                        >
+                                            {t('Search')}
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
