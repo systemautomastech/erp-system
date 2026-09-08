@@ -135,26 +135,6 @@ export default function Create() {
                                         </Link>
                                     </div>
 
-<<<<<<< HEAD
-                                    {data.customer_mode === 'existing' ? (
-                                        <>
-                                            <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('Select Customer')} />
-                                                </SelectTrigger>
-                                                <SelectContent searchable>
-                                                    {customers.map((customer) => {
-                                                        const customerValue = (customer.user_id ?? customer.id).toString();
-                                                        return (
-                                                            <SelectItem key={customerValue} value={customerValue}>
-                                                                {customer.name} - {customer.email}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError message={errors.customer_id} />
-=======
                                     <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('Select Customer')} />
@@ -168,7 +148,6 @@ export default function Create() {
                                         </SelectContent>
                                     </Select>
                                     <InputError message={errors.customer_id} />
->>>>>>> b635130786af20b8cd196984abc86a162557e071
 
                                     {/* Selected Customer Card directly below customer select */}
                                     {selectedCustomer && (
