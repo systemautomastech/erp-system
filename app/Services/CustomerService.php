@@ -16,15 +16,11 @@ class CustomerService
             $customers = Customer::where('created_by', creatorId())->get()->map(function ($customer) {
                 return [
                     'id' => $customer->user_id,
-                    'name' => $customer->customer_name ?? '',
-                    'email' => $customer->email ?? '',
-                    'mobile_no' => $customer->mobile_no ?? '',
-                    'billing_name' => $customer->billing_name ?? '',
+                    'name' => $customer->company_name ?? '',
+                    'email' => $customer->contact_person_email ?? '',
+                    'mobile_no' => $customer->contact_person_mobile ?? '',
                     'billing_address' => $customer->billing_address ?? '',
-                    'billing_email' => $customer->billing_email ?? '',
-                    'shipping_name' => $customer->shipping_name ?? '',
                     'shipping_address' => $customer->shipping_address ?? '',
-                    'shipping_email' => $customer->shipping_email ?? '',
                 ];
             });
             return $customers;

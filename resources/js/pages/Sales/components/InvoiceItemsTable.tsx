@@ -31,9 +31,10 @@ interface Props {
     showAddButton?: boolean;
     onRefresh?: () => void | Promise<void>;
     isRefreshing?: boolean;
+    warehouseId?: string | number;
 }
 
-export default function InvoiceItemsTable({ items, onChange, errors, products = [], showAddButton = true, onRefresh, isRefreshing = false }: Props) {
+export default function InvoiceItemsTable({ items, onChange, errors, products = [], showAddButton = true, onRefresh, isRefreshing = false, warehouseId }: Props) {
     const { t } = useTranslation();
 
     const addItem = () => {
@@ -273,6 +274,7 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                                             value={item.product_id}
                                             onChange={(productId, prod) => handleProductSelect(index, productId, prod)}
                                             placeholder={t('Select {{type}}', { type: formatTypeName(currentType) })}
+                                            warehouseId={warehouseId}
                                         />
                                         <InputError message={errors[`items.${index}.product_id`]} />
 

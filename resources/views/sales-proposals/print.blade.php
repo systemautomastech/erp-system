@@ -124,7 +124,7 @@
         $authorName = $authorUser?->name ?? 'Administrator';
         $authorDesignation = $employeeRecord?->designation?->name ?? $authorUser?->designation ?? 'Sales Representative';
         $authorEmail = $authorUser?->email ?? '';
-        $authorPhone = $employeeRecord?->emergency_contact_number ?? $authorUser?->mobile_no ?? $authorUser?->phone ?? '';
+        $authorPhone = $authorUser?->mobile_no ?? $authorUser?->phone ?? '';
         $authorId = $employeeRecord?->employee_id ?? ($authorUser?->id ?? '');
 
         $rawDate = $proposal->proposal_date ?? $proposal->invoice_date ?? null;

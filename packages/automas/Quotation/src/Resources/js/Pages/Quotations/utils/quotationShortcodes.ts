@@ -125,7 +125,6 @@ export const replaceQuotationShortcodes = (
     '';
 
   const userPhone =
-    employeeRecord?.emergency_contact_number ||
     authUser?.mobile_no ||
     authUser?.phone ||
     authUser?.mobile ||
@@ -226,7 +225,6 @@ export const replaceUserShortcodes = (content: string | undefined | null, authUs
   const userName = authUser?.name || '';
   const userEmail = authUser?.email || '';
   const userPhone =
-    employeeRecord?.emergency_contact_number ||
     authUser?.mobile_no ||
     authUser?.phone ||
     authUser?.mobile ||
