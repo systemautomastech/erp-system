@@ -184,13 +184,8 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
             const hasExplicitBreak = /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(processedContent);
 
             if (measureContainerRef.current) {
-                const scrollH = measureContainerRef.current.scrollHeight;
-                if (!hasExplicitBreak && scrollH <= 980) {
-                    setPaginatedPreviewPages([processedContent]);
-                } else {
-                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
-                    setPaginatedPreviewPages(chunks);
-                }
+                const chunks = paginateDomContainer(measureContainerRef.current);
+                setPaginatedPreviewPages(chunks);
             } else {
                 setPaginatedPreviewPages([processedContent]);
             }
@@ -272,7 +267,7 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                 onOpenChange={setIsPreviewModalOpen}
                 title={data.title || t('Create Default Page')}
                 pageTitle={data.title || t('Create Default Page')}
-                content={data.content}
+                content={processedContent}
                 backgroundImage={data.background_image}
                 settings={settings}
                 isDefaultPageSetup={true}

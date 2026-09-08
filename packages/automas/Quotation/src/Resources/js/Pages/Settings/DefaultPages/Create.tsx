@@ -12,7 +12,7 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { replaceQuotationShortcodes } from '../../Quotations/utils/quotationShortcodes';
 import { getImagePath } from '@/utils/helpers';
 import MediaPicker from '@/components/MediaPicker';
-import {
+import PreviewModal, {
     ProposalPreviewSheet,
     paginateDomContainer,
     PROPOSAL_CONTENT_CLASSES,
@@ -172,6 +172,7 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
 
     const measureContainerRef = useRef<HTMLDivElement>(null);
     const [paginatedPreviewPages, setPaginatedPreviewPages] = useState<string[]>([]);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
 
     useEffect(() => {
@@ -571,7 +572,16 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                                 </div>
 
                                 {/* Save Button Bar */}
-                                <div className="flex justify-end pt-4 border-t">
+                                <div className="flex justify-end gap-3 pt-4 border-t">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsPreviewOpen(true)}
+                                        className="flex items-center gap-1.5"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                        {t('Preview')}
+                                    </Button>
                                     <Button type="submit" disabled={processing} className="min-w-28 gap-2">
                                         <Save className="h-4 w-4" />
                                         {processing ? t('Saving...') : t('Create Page')}
@@ -582,6 +592,17 @@ export default function Create({ settings, nextSortOrder = 1 }: Props) {
                     </Card>
                 </div>
             </div>
+
+            <PreviewModal
+                open={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                title={data.title || t('Page Preview')}
+                content={processedContent}
+                backgroundImage={data.background_image}
+                settings={quotationSetting || QuotationSetting}
+                isDefaultPageSetup={true}
+                showPrintButton={false}
+            />
         </AuthenticatedLayout>
     );
 }

@@ -6,140 +6,210 @@ import { QuotationDefaultPage, SalesQuotation } from './types';
 
 interface PrintProps {
     quotation: SalesQuotation;
-    customers?: Array<{ id: number; name: string; email: string; address?: string }>;
-    warehouses?: Array<{ id: number; name: string; address?: string }>;
+    customers?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        address?: string;
+        mobile_no?: string;
+        phone?: string;
+    }>;
+    warehouses?: Array<{
+        id: number;
+        name: string;
+        address?: string;
+    }>;
     defaultPages?: QuotationDefaultPage[];
     quotationSetting?: any;
+    autoPrint?: boolean;
     [key: string]: any;
 }
 
 export default function Print() {
     const { t } = useTranslation();
-    const { quotation, customers = [], warehouses = [], defaultPages = [], quotationSetting } = usePage<PrintProps>().props;
+    const {
+        quotation,
+        customers = [],
+        warehouses = [],
+        defaultPages = [],
+        quotationSetting,
+        autoPrint = false,
+    } = usePage<PrintProps>().props;
 
     const sections = useMemo<QuotationPreviewSection[]>(() => {
-        let loadedSections: QuotationPreviewSection[] = [];
+        let pages: any[] = [];
 
-        // 1. Check if quotation has saved contents
-        if (quotation?.contents && Array.isArray(quotation.contents) && quotation.contents.length > 0) {
-            loadedSections = quotation.contents.map((c: any) => {
+        /* 1. Quotation Contents Relation */
+        if (Array.isArray(quotation?.contents) && quotation.contents.length > 0) {
+            pages = quotation.contents.map((item: any, index: number) => {
+                const rawContent = item.content || item.quotation_content || '';
                 let parsed: any = null;
-                if (typeof c.quotation_content === 'string') {
+
+                if (rawContent) {
                     try {
-                        parsed = JSON.parse(c.quotation_content);
-                    } catch (e) {
+                        parsed = typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
+                    } catch {
                         parsed = null;
                     }
                 }
-                if (parsed && typeof parsed === 'object') {
+
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
                     return {
-                        id: String(c.id || Math.random()),
-                        title: parsed.title || c.title || '',
-                        content: parsed.content || c.content || '',
-                        page_type: parsed.page_type || c.page_type || 'content',
-                        background_image: parsed.background_image || c.background_image || undefined,
-                        order: c.sort_order ?? c.order ?? 1,
+                        id: String(item.id || `content-${index}`),
+                        title: parsed.title || item.title || '',
+                        content: parsed.content || rawContent || '',
+                        page_type: parsed.page_type || item.page_type || 'general',
+                        background_image: parsed.background_image || item.background_image || '',
+                        order: parsed.order ?? item.order ?? index + 1,
                     };
                 }
+
                 return {
-                    id: String(c.id || Math.random()),
-                    title: c.title || '',
-                    content: c.content || c.quotation_content || '',
-                    page_type: c.page_type || 'content',
-                    background_image: c.background_image || undefined,
-                    order: c.sort_order ?? c.order ?? 1,
+                    id: String(item.id || `content-${index}`),
+                    title: item.title || '',
+                    content: rawContent,
+                    page_type: item.page_type || 'general',
+                    background_image: item.background_image || '',
+                    order: item.order ?? index + 1,
                 };
             });
         }
 
-        // 2. If no custom sections, load from defaultPages
-        if (loadedSections.length === 0 && defaultPages && defaultPages.length > 0) {
-            loadedSections = defaultPages.map((dp) => {
-                const title = dp.title || '';
-                const content = dp.content || '';
-                let page_type = dp.page_type;
-
-                if (!page_type || page_type === 'content') {
-                    if (content === '[OTC_CHARGES_TABLE]' || title.toLowerCase().includes('one-time charges') || title.toLowerCase().includes('otc')) {
-                        page_type = 'otc';
-                    } else if (content === '[MRC_CHARGES_TABLE]' || title.toLowerCase().includes('monthly recurring charges') || title.toLowerCase().includes('mrc')) {
-                        page_type = 'mrc';
-                    } else if (content === '[OTHER_DETAILS_CONTENT]' || title.toLowerCase().includes('other details')) {
-                        page_type = 'other-details';
-                    } else {
-                        page_type = 'content';
+        /* 2. Old Proposal / Quotation Content Format */
+        if (pages.length === 0) {
+            const rawContent = quotation?.quotation_content || quotation?.others;
+            if (typeof rawContent === 'string') {
+                try {
+                    const parsed = JSON.parse(rawContent);
+                    if (Array.isArray(parsed)) {
+                        pages = parsed;
                     }
+                } catch {
+                    pages = [];
                 }
-
-                return {
-                    id: String(dp.id),
-                    title: title,
-                    content: content,
-                    page_type: page_type,
-                    background_image: dp.background_image,
-                    order: dp.sort_order,
-                };
-            });
+            } else if (Array.isArray(rawContent)) {
+                pages = rawContent;
+            }
         }
 
-        // 3. Ensure OTC and MRC charge cards exist if items are present
-        const items = quotation?.items || [];
-        const hasOtcItems = items.some(
-            (i: any) => (i.section === 'otc' || i.section === 'general' || !i.section) && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.description || i.product_description))
-        );
-        const hasMrcItems = items.some(
-            (i: any) => i.section === 'mrc' && (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.description || i.product_description))
-        );
-        const hasOtherDetails = Boolean(quotation?.other_details && quotation.other_details.trim() !== '' && quotation.other_details !== '<p></p>');
-
-        const otcIdx = loadedSections.findIndex((s) => s.page_type === 'otc' || s.content === '[OTC_CHARGES_TABLE]');
-        if (hasOtcItems && otcIdx === -1) {
-            loadedSections.push({
-                id: `sec-otc-auto`,
-                title: 'One-Time Charges (OTC)',
-                content: '[OTC_CHARGES_TABLE]',
-                page_type: 'otc',
-                order: loadedSections.length + 1,
-            });
+        /* 3. Default Pages Fallback */
+        if (pages.length === 0 && defaultPages.length > 0) {
+            pages = defaultPages.map((page, index) => ({
+                id: String(page.id),
+                title: page.title,
+                content: page.content || '',
+                page_type: page.page_type || 'general',
+                background_image: page.background_image || '',
+                order: Number(page.sort_order) || index + 1,
+            }));
         }
 
-        const mrcIdx = loadedSections.findIndex((s) => s.page_type === 'mrc' || s.content === '[MRC_CHARGES_TABLE]');
-        if (hasMrcItems && mrcIdx === -1) {
-            loadedSections.push({
-                id: `sec-mrc-auto`,
-                title: 'Monthly Recurring Charges (MRC)',
-                content: '[MRC_CHARGES_TABLE]',
-                page_type: 'mrc',
-                order: loadedSections.length + 1,
-            });
-        }
+        /* Sort Pages */
+        pages.sort((a: any, b: any) => Number(a.order || 0) - Number(b.order || 0));
 
-        const otherIdx = loadedSections.findIndex((s) => s.page_type === 'other-details' || s.content === '[OTHER_DETAILS_CONTENT]');
-        if (hasOtherDetails && otherIdx === -1) {
-            loadedSections.push({
-                id: `sec-other-auto`,
-                title: 'Other Details',
-                content: '[OTHER_DETAILS_CONTENT]',
-                page_type: 'other-details',
-                order: loadedSections.length + 1,
-            });
-        }
-
-        return loadedSections.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
-    }, [quotation, defaultPages]);
+        /* Normalize Final Data */
+        return pages.map((item: any, index: number): QuotationPreviewSection => {
+            const pageType = item.page_type || 'general';
+            return {
+                id: String(item.id || `section-${index}`),
+                title: item.title || getDefaultSectionTitle(pageType, index, t),
+                content: item.content || '',
+                page_type: pageType,
+                background_image: item.background_image || '',
+                order: Number(item.order) || index + 1,
+            };
+        });
+    }, [quotation, defaultPages, t]);
 
     const formattedCustomers = useMemo(() => {
-        if (customers.length > 0) return customers;
-        if (quotation?.customer) return [quotation.customer];
-        return [];
-    }, [customers, quotation?.customer]);
+        if (quotation?.customer) {
+            const customer = quotation.customer;
+            return [
+                {
+                    id: customer.id,
+                    name: customer.name || quotation.customer_name || '',
+                    email: customer.email || quotation.customer_email || '',
+                    mobile_no: customer.mobile_no || customer.phone || quotation.customer_phone || '',
+                    phone: customer.mobile_no || customer.phone || quotation.customer_phone || '',
+                    address: customer.address || quotation.customer_address || '',
+                },
+            ];
+        }
+        return customers;
+    }, [quotation, customers]);
 
     const totals = useMemo(() => {
+        const items = quotation?.items || [];
+
+        const otcItems = items.filter(
+            (item: any) => item.section === 'otc' || item.section === 'general' || !item.section
+        );
+        const mrcItems = items.filter((item: any) => item.section === 'mrc');
+
+        const calculateSubtotal = (list: any[]) => {
+            return list.reduce((total: number, item: any) => {
+                const quantity = Number(item.quantity || 1);
+                const price = Number(item.unit_price || 0);
+                return total + quantity * price;
+            }, 0);
+        };
+
+        const otcSubtotal = calculateSubtotal(otcItems);
+        const mrcSubtotal = calculateSubtotal(mrcItems);
+
+        const calculateDiscount = (subtotal: number, type: string, value: any) => {
+            const discountValue = Math.max(Number(value) || 0, 0);
+            if (type === 'percentage') {
+                return (subtotal * Math.min(discountValue, 100)) / 100;
+            }
+            return Math.min(discountValue, subtotal);
+        };
+
+        const otcDiscount = calculateDiscount(
+            otcSubtotal,
+            quotation?.otc_discount_type,
+            quotation?.otc_discount_value
+        );
+
+        const mrcDiscount = calculateDiscount(
+            mrcSubtotal,
+            quotation?.mrc_discount_type,
+            quotation?.mrc_discount_value
+        );
+
+        const calculateTax = (list: any[]) => {
+            return list.reduce((total: number, item: any) => total + Number(item.tax_amount || 0), 0);
+        };
+
+        const otcTax = calculateTax(otcItems);
+        const mrcTax = calculateTax(mrcItems);
+
+        const calculatedSubtotal = otcSubtotal + mrcSubtotal;
+        const calculatedDiscount = otcDiscount + mrcDiscount;
+        const calculatedTax = otcTax + mrcTax;
+
+        const subtotal = Number(quotation?.subtotal) || calculatedSubtotal;
+        const discountAmount = Number(quotation?.discount_amount) || calculatedDiscount;
+        const taxAmount = Number(quotation?.tax_amount) || calculatedTax;
+        const calculatedTotal = Math.max(0, subtotal - discountAmount + taxAmount);
+        const total = Number(quotation?.total_amount) || calculatedTotal;
+
         return {
-            subtotal: Number(quotation?.subtotal || 0),
-            tax_amount: Number(quotation?.tax_amount || 0),
-            discount_amount: Number(quotation?.discount_amount || 0),
-            total_amount: Number(quotation?.total_amount || 0),
+            subtotal,
+            discount_amount: discountAmount,
+            discountAmount,
+            tax_amount: taxAmount,
+            taxAmount,
+            total_amount: total,
+            total,
+            otcSubtotal,
+            otcDiscount,
+            otcTax,
+            otcTotal: Math.max(0, otcSubtotal - otcDiscount + otcTax),
+            mrcSubtotal,
+            mrcDiscount,
+            mrcTax,
+            mrcTotal: Math.max(0, mrcSubtotal - mrcDiscount + mrcTax),
         };
     }, [quotation]);
 
@@ -147,27 +217,43 @@ export default function Print() {
         return {
             ...quotation,
             id: quotation?.id,
-            quotation_number: quotation?.quotation_number,
-            invoice_date: quotation?.quotation_date,
-            due_date: quotation?.due_date,
-            customer_id: quotation?.customer_id,
+            proposal_id: quotation?.id,
+            proposal_number: quotation?.quotation_number || '',
+            quotation_number: quotation?.quotation_number || '',
+            subject: quotation?.subject || '',
+            invoice_date: quotation?.quotation_date || quotation?.invoice_date || '',
+            due_date: quotation?.due_date || '',
+            customer_id: quotation?.customer_id ?? quotation?.customer?.id,
             warehouse_id: quotation?.warehouse_id,
-            payment_terms: quotation?.payment_terms,
-            notes: quotation?.notes,
-            items: (quotation?.items || []).map((i: any) => ({
-                id: i.id,
-                product_id: i.product_id,
-                product_name: i.product?.name || i.name,
-                description: i.description || i.product_description,
-                product_description: i.product?.description || i.description,
-                quantity: i.quantity,
-                unit_price: i.unit_price,
-                discount_amount: i.discount_amount,
-                tax_amount: i.tax_amount,
-                total_amount: i.total_amount,
-                section: i.section,
-                product: i.product,
-            })),
+            payment_terms: quotation?.payment_terms || '',
+            notes: quotation?.notes || '',
+            other_details: quotation?.other_details || '',
+            otc_discount_type: quotation?.otc_discount_type,
+            otc_discount_value: quotation?.otc_discount_value,
+            mrc_discount_type: quotation?.mrc_discount_type,
+            mrc_discount_value: quotation?.mrc_discount_value,
+            items: (quotation?.items || []).map((item: any) => {
+                const quantity = Number(item.quantity || 1);
+                const unitPrice = Number(item.unit_price || 0);
+
+                return {
+                    id: item.id,
+                    product_id: item.product_id,
+                    product_name: item.product?.name || item.product_name || item.name || '',
+                    name: item.name || item.product_name || item.product?.name || '',
+                    description: item.description || item.product_description || item.product?.description || '',
+                    product_description: item.product_description || item.description || item.product?.description || '',
+                    quantity,
+                    unit_price: unitPrice,
+                    discount_amount: Number(item.discount_amount || 0),
+                    tax_amount: Number(item.tax_amount || 0),
+                    total_amount: item.total_amount !== undefined ? Number(item.total_amount) : quantity * unitPrice,
+                    section: item.section || 'otc',
+                    product: item.product,
+                    unit: item.unit,
+                    unit_name: item.unit_name,
+                };
+            }),
         };
     }, [quotation]);
 
@@ -175,14 +261,34 @@ export default function Print() {
         <>
             <Head title={`${t('Sales Quotation')} - ${quotation?.quotation_number || ''}`} />
             <PreviewModal
-                inline={true}
+                inline
+                autoPrint={autoPrint || true}
+                hideHeaderBar
                 formData={formData}
                 sections={sections}
                 customers={formattedCustomers}
                 warehouses={warehouses}
                 totals={totals}
                 proposalSetting={quotationSetting}
+                other_details={quotation?.other_details}
             />
         </>
     );
+}
+
+function getDefaultSectionTitle(
+    pageType: string,
+    index: number,
+    t: (key: string) => string
+): string {
+    switch (pageType) {
+        case 'otc':
+            return t('One-Time Charges (OTC)');
+        case 'mrc':
+            return t('Monthly Recurring Charges (MRC)');
+        case 'other-details':
+            return t('Other Details');
+        default:
+            return `${t('Page')} ${index + 1}`;
+    }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Head, useForm, usePage, router } from '@inertiajs/react';
+import { Head, useForm, usePage, router, Link } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -126,98 +126,57 @@ export default function Create() {
                                         <Label htmlFor="customer_id" required className="text-xs">
                                             {t('Customer')}
                                         </Label>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (data.customer_mode === 'existing') {
-                                                    setData((prev) => ({
-                                                        ...prev,
-                                                        customer_mode: 'new',
-                                                        customer_id: '',
-                                                    }));
-                                                } else {
-                                                    setData((prev) => ({
-                                                        ...prev,
-                                                        customer_mode: 'existing',
-                                                        customer_name: '',
-                                                        customer_email: '',
-                                                        customer_phone: '',
-                                                        customer_address: '',
-                                                    }));
-                                                }
-                                            }}
+                                        <Link
+                                            href={route('account.customers.index')}
                                             className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 focus:outline-none"
                                         >
-                                            {data.customer_mode === 'new' ? (
-                                                <>
-                                                    <Users className="h-3 w-3" />
-                                                    {t('Select Existing')}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <UserPlus className="h-3 w-3" />
-                                                    {t('New Customer')}
-                                                </>
-                                            )}
-                                        </button>
+                                            <UserPlus className="h-3 w-3" />
+                                            {t('New Customer')}
+                                        </Link>
                                     </div>
 
-                                    {data.customer_mode === 'existing' ? (
-                                        <>
-                                            <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('Select Customer')} />
-                                                </SelectTrigger>
-                                                <SelectContent searchable>
-                                                    {Array.isArray(customers) && customers.map((customer: any) => customer && customer.id !== undefined && customer.id !== null ? (
-                                                        <SelectItem key={customer.id} value={String(customer.id)}>
-                                                            {customer.name || customer.billing_name || 'Customer'} - {customer.email || customer.billing_email || '-'}
-                                                        </SelectItem>
-                                                    ) : null)}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError message={errors.customer_id} />
+                                    <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('Select Customer')} />
+                                        </SelectTrigger>
+                                        <SelectContent searchable>
+                                            {Array.isArray(customers) && customers.map((customer: any) => customer && customer.id !== undefined && customer.id !== null ? (
+                                                <SelectItem key={customer.id} value={String(customer.id)}>
+                                                    {customer.name || customer.billing_name || 'Customer'} - {customer.email || customer.billing_email || '-'}
+                                                </SelectItem>
+                                            ) : null)}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.customer_id} />
 
-                                            {/* Selected Customer Card directly below customer select */}
-                                            {selectedCustomer && (
-                                                <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50/80 dark:bg-slate-900/40 text-xs space-y-1">
-                                                    <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
-                                                        <div className="flex items-center gap-1.5 min-w-0">
-                                                            <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">
-                                                                <User className="w-2.5 h-2.5" />
-                                                            </div>
-                                                            <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs truncate">
-                                                                {selectedCustomer.name}
-                                                            </span>
-                                                        </div>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-4 px-1 text-[10px] font-medium gap-0.5 shrink-0"
-                                                            onClick={() => setData('customer_id', '')}
-                                                        >
-                                                            <X className="w-2.5 h-2.5" />
-                                                            {t('Clear')}
-                                                        </Button>
+                                    {/* Selected Customer Card directly below customer select */}
+                                    {selectedCustomer && (
+                                        <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50/80 dark:bg-slate-900/40 text-xs space-y-1">
+                                            <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">
+                                                        <User className="w-2.5 h-2.5" />
                                                     </div>
-                                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 truncate">
-                                                        <div className="truncate">{selectedCustomer.email || '-'}</div>
-                                                        {selectedCustomer.phone && <div className="truncate">{selectedCustomer.phone}</div>}
-                                                        {selectedCustomer.address && <div className="truncate text-muted-foreground">{selectedCustomer.address}</div>}
-                                                    </div>
+                                                    <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs truncate">
+                                                        {selectedCustomer.name}
+                                                    </span>
                                                 </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div className="h-10 px-3 py-1 rounded-md border border-dashed border-primary/50 bg-primary/5 text-primary text-xs font-medium flex items-center justify-between">
-                                            <span className="flex items-center gap-1.5">
-                                                <UserPlus className="h-3.5 w-3.5" />
-                                                {data.customer_name || t('New Customer Mode')}
-                                            </span>
-                                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                                                {t('New')}
-                                            </Badge>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-4 px-1 text-[10px] font-medium gap-0.5 shrink-0"
+                                                    onClick={() => setData('customer_id', '')}
+                                                >
+                                                    <X className="w-2.5 h-2.5" />
+                                                    {t('Clear')}
+                                                </Button>
+                                            </div>
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 truncate">
+                                                <div className="truncate">{selectedCustomer.email || '-'}</div>
+                                                {selectedCustomer.phone && <div className="truncate">{selectedCustomer.phone}</div>}
+                                                {selectedCustomer.address && <div className="truncate text-muted-foreground">{selectedCustomer.address}</div>}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -281,80 +240,7 @@ export default function Create() {
                                 </div>
                             </div>
 
-                            {/* New Customer Form Row when New Mode is Active */}
-                            {data.customer_mode === 'new' && (
-                                <div className="p-3 rounded-md border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-2.5 animate-in fade-in-50 duration-200">
-                                    <div className="flex items-center justify-between pb-1 border-b border-primary/10">
-                                        <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
-                                            <UserPlus className="h-3.5 w-3.5" />
-                                            {t('New Customer Details')}
-                                        </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                                        <div className="space-y-1">
-                                            <Label htmlFor="customer_name" required className="text-xs">
-                                                {t('Customer Name')}
-                                            </Label>
-                                            <Input
-                                                id="customer_name"
-                                                value={data.customer_name}
-                                                onChange={(e) => setData('customer_name', e.target.value)}
-                                                placeholder={t('Customer or Company Name')}
-                                                className="h-8 text-xs"
-                                                required
-                                            />
-                                            <InputError message={errors.customer_name} />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <Label htmlFor="customer_email" required className="text-xs">
-                                                {t('Email Address')}
-                                            </Label>
-                                            <Input
-                                                id="customer_email"
-                                                type="email"
-                                                value={data.customer_email}
-                                                onChange={(e) => setData('customer_email', e.target.value)}
-                                                placeholder={t('email@example.com')}
-                                                className="h-8 text-xs"
-                                                required
-                                            />
-                                            <InputError message={errors.customer_email} />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <Label htmlFor="customer_phone" required className="text-xs">
-                                                {t('Phone / Mobile')}
-                                            </Label>
-                                            <Input
-                                                id="customer_phone"
-                                                value={data.customer_phone}
-                                                onChange={(e) => setData('customer_phone', e.target.value)}
-                                                placeholder={t('+1 (555) 000-0000')}
-                                                className="h-8 text-xs"
-                                                required
-                                            />
-                                            <InputError message={errors.customer_phone} />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <Label htmlFor="customer_address" required className="text-xs">
-                                                {t('Address')}
-                                            </Label>
-                                            <Input
-                                                id="customer_address"
-                                                value={data.customer_address}
-                                                onChange={(e) => setData('customer_address', e.target.value)}
-                                                placeholder={t('Street, City, Country')}
-                                                className="h-8 text-xs"
-                                                required
-                                            />
-                                            <InputError message={errors.customer_address} />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
@@ -506,6 +392,7 @@ export default function Create() {
                                 showAddButton={false}
                                 onRefresh={handleRefresh}
                                 isRefreshing={isRefreshing}
+                                warehouseId={data.warehouse_id}
                             />
 
                             {/* Invoice Summary - Bottom of Items */}

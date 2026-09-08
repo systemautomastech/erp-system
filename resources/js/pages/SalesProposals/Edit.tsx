@@ -14,7 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CalendarDays, Plus, Trash2, GripVertical, FileText, User, Users, UserPlus, X, Tag, Loader2, Save } from 'lucide-react';
+import { CalendarDays, Plus, Trash2, GripVertical, FileText, User, Users, UserPlus, X, Tag, Loader2, Save, Eye } from 'lucide-react';
+import PreviewModal from '@/components/PreviewModal';
 import { Badge } from '@/components/ui/badge';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,7 @@ export default function Edit() {
     const { t } = useTranslation();
     const { proposal, customers, warehouses, products = [], defaultPages = [], defaultTerms, proposalSetting, subjects = [] } = usePage<EditProps>().props;
     const [availableProducts, setAvailableProducts] = useState<any[]>(Array.isArray(products) ? products : []);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     const [subjectList, setSubjectList] = useState<Array<{ id: number; name: string }>>(() => {
         const initialList = [...subjects];
@@ -120,7 +122,7 @@ export default function Edit() {
 
         if (parsed.length === 0 && defaultPages && defaultPages.length > 0) {
             parsed = defaultPages
-                .map((p, idx) => ({
+                .map((p: any, idx) => ({
                     default_page_id: p.id,
                     title: p.title,
                     content: p.content || '',
@@ -859,6 +861,15 @@ export default function Edit() {
                                 {t('Cancel')}
                             </Button>
                             <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsPreviewOpen(true)}
+                                className="flex items-center gap-1.5"
+                            >
+                                <Eye className="h-4 w-4" />
+                                {t('Preview')}
+                            </Button>
+                            <Button
                                 type="submit"
                                 disabled={processing || data.items.length === 0}
                             >
@@ -868,6 +879,20 @@ export default function Edit() {
                     </div>
                 </form>
             </div>
+
+            <PreviewModal
+                open={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                formData={data as any}
+                sections={sections as any}
+                customers={customers}
+                warehouses={warehouses}
+                availableProducts={availableProducts}
+                proposalSetting={proposalSetting}
+                totals={totals}
+                other_details={data.other_details}
+                showPrintButton={false}
+            />
         </AuthenticatedLayout>
     );
 }

@@ -19,10 +19,14 @@ interface Props {
     value: number;
     onChange: (productId: number, product?: Product) => void;
     placeholder?: string;
+    warehouseId?: string | number;
+    disabled?: boolean;
 }
 
-export default function ProductSelector({ products, value, onChange, placeholder }: Props) {
+export default function ProductSelector({ products, value, onChange, placeholder, warehouseId, disabled }: Props) {
     const { t } = useTranslation();
+
+    const isWarehouseMissing = warehouseId !== undefined && (!warehouseId || String(warehouseId).trim() === '' || String(warehouseId) === '0');
 
     const handleChange = (productId: string) => {
         const id = parseInt(productId);
@@ -30,14 +34,21 @@ export default function ProductSelector({ products, value, onChange, placeholder
         onChange(id, product);
     };
 
-    const displayPlaceholder = placeholder || t('Select Item');
+    let displayPlaceholder = placeholder || t('Select Item');
+    if (isWarehouseMissing) {
+        displayPlaceholder = t('Select Warehouse First');
+    } else if (products.length === 0) {
+        displayPlaceholder = t('No items found');
+    }
+
+    const isDisabled = disabled || isWarehouseMissing || products.length === 0;
 
     return (
-        <Select value={value ? value.toString() : ''} onValueChange={handleChange} disabled={products.length === 0}>
+        <Select value={value ? value.toString() : ''} onValueChange={handleChange} disabled={isDisabled}>
             <SelectTrigger className="w-full">
-                <SelectValue placeholder={products.length === 0 ? t('No items found') : displayPlaceholder} />
+                <SelectValue placeholder={displayPlaceholder} />
             </SelectTrigger>
-            {products.length > 0 && (
+            {!isDisabled && products.length > 0 && (
                 <SelectContent searchable>
                     {products.map((product) => (
                         <SelectItem key={product.id} value={product.id.toString()}>

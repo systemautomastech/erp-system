@@ -7,10 +7,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, FileText } from 'lucide-react';
-import {
-    getImagePath,
-} from '@/utils/helpers';
+import { Printer, FileText, Eye } from 'lucide-react';
+import { getImagePath } from '@/utils/helpers';
 import { replaceProposalShortcodes } from '@/pages/SalesProposals/utils/proposalShortcodes';
 import { cn } from '@/lib/utils';
 
@@ -127,9 +125,10 @@ export interface PreviewModalProps {
     isDefaultPageSetup?: boolean;
     showPrintButton?: boolean;
 
-    // Direct Page / Inline Render Mode (e.g. SalesProposals/Print.tsx)
+    // Direct Page / Inline Render Mode
     inline?: boolean;
     autoPrint?: boolean;
+    hideHeaderBar?: boolean;
 }
 
 // =============================================================================
@@ -144,137 +143,60 @@ export const PRINT_STYLES = `
     @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
 
-    .proposal-cover {
-        margin: 0 auto; width: 210mm; min-height: 297mm; position: relative; font-family: "Open Sans", sans-serif !important;
-    }
     .proposal-cover__sheet, .proposal-preview-sheet {
-        width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; position: relative !important; overflow: hidden !important; box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08); page-break-after: always; font-family: "Open Sans", sans-serif !important;
-    }
-    .proposal-cover__topbar {
-        position: absolute !important; top: 0; left: 0; right: 0; height: 10px; background: linear-gradient(90deg, #E9591C, #fffb00); z-index: 1;
-    }
-    .proposal-cover__body {
-        padding: 10mm 20mm; position: relative !important; z-index: 2; min-height: calc(297mm - 10px); display: flex; flex-direction: column;
+        width: 210mm; min-height: 297mm; height: 297mm; max-height: 297mm; margin: 0 auto; background: #fff; position: relative !important; overflow: hidden !important; box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08); page-break-after: always; font-family: "Open Sans", sans-serif !important;
     }
     .proposal-page__body {
-        position: relative !important; z-index: 1; padding: 32mm 15mm 20mm; min-height: calc(297mm - 20mm); box-sizing: border-box;
+        position: relative !important; z-index: 1; padding: 32mm 15mm 20mm; height: calc(297mm - 52mm); min-height: calc(297mm - 52mm); max-height: calc(297mm - 52mm); box-sizing: border-box; display: flex !important; flex-direction: column !important;
     }
-    .logo-container { margin-bottom: 20mm; text-align: right; }
-    .proposal-cover__logo { max-height: 70px; object-fit: contain; }
-    .proposal-cover__label { letter-spacing: .18em; font-size: .8rem; color: #E9591C !important; font-weight: 700; text-transform: uppercase; }
-    .proposal-cover__title { font-size: 2.2rem; line-height: 1.15; max-width: 75%; color: #111827; font-weight: 700; }
-    .proposal-cover__line { width: 90px; height: 4px; border-radius: 999px; background: #E9591C; }
-    .proposal-cover__date { display: inline-block; border: 1px solid #E9591C; padding: .4rem .85rem; font-size: .8rem; font-weight: 600; letter-spacing: .04em; color: #111827; background: #ffffff; border-radius: 0.25rem; }
-    .proposal-cover__box { border: 1px solid #dee2e6; border-radius: .25rem; background: #ffffff00; }
-    .proposal-cover__submitted { position: relative !important; padding: 40px 25px; overflow: hidden !important; border: 1px solid #e5e7eb; background: linear-gradient(135deg, #f9fafb, #eef2f7); border-radius: .25rem; }
-    .proposal-cover__prepared { padding: 1.5rem; }
-    .proposal-cover__watermark, .proposal-cover__shape { position: absolute !important; pointer-events: none !important; z-index: 1; }
-    .proposal-cover__shape--top { position: absolute !important; top: -46px !important; left: -46px !important; width: 240px !important; opacity: 1 !important; }
-    .proposal-cover__shape--bottom { position: absolute !important; right: -30px !important; bottom: -30px !important; width: 240px !important; transform: rotate(180deg) !important; opacity: .5 !important; }
-    .proposal-cover__watermark { position: absolute !important; right: 22mm !important; top: 76mm !important; width: 150px !important; height: 150px !important; opacity: .05 !important; }
-    .proposal-cover__watermark_bottom { position: absolute !important; left: 0.5rem !important; bottom: 7.5rem !important; width: 150px !important; height: 150px !important; opacity: .08 !important; pointer-events: none !important; z-index: 1 !important; }
-    .proposal-cover__footer { margin-top: auto; padding-top: .875rem; border-top: 1px solid #dee2e6; font-size: .875rem; }
 
-    .proposal-preview-sheet table thead, .proposal-preview-sheet table thead tr, .proposal-preview-sheet table thead th, .proposal-preview-sheet table th,
-    .proposal-page__body table thead, .proposal-page__body table thead tr, .proposal-page__body table thead th, .proposal-page__body table th,
-    .quotation-page__body table thead, .quotation-page__body table thead tr, .quotation-page__body table thead th, .quotation-page__body table th,
-    .html-preview-container table thead, .html-preview-container table thead tr, .html-preview-container table thead th, .html-preview-container table th,
-    .prose table thead, .prose table thead tr, .prose table thead th, .prose table th { background-color: var(--template-color, #E9591C) !important; color: #ffffff !important; }
+    /* Table Styles */
+    .proposal-preview-sheet table, .proposal-page__body table, .html-preview-container table, .prose table {
+        width: 100% !important; border-collapse: collapse !important; border: 1px solid #cbd5e1 !important; font-size: 10px !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; margin: 8px 0 !important; color: #293240 !important;
+    }
+    .proposal-preview-sheet table th, .proposal-page__body table th, .html-preview-container table th, .prose table th {
+        padding: 7.5px 8px !important; font-size: 10px !important; font-weight: 600 !important; border: 1px solid #cbd5e1 !important; vertical-align: middle !important; background-color: var(--template-color, #E9591C) !important; color: #ffffff !important; line-height: 1.2 !important;
+    }
+    .proposal-preview-sheet table th *, .proposal-page__body table th *, .html-preview-container table th *, .prose table th * {
+        color: #ffffff !important; font-size: 10px !important; font-weight: 600 !important; margin: 0 !important; padding: 0 !important; line-height: 1.2 !important;
+    }
+    .proposal-preview-sheet table td, .proposal-page__body table td, .html-preview-container table td, .prose table td {
+        padding: 6.5px 8px !important; font-size: 10px !important; border: 1px solid #cbd5e1 !important; vertical-align: middle !important; color: #293240 !important; word-break: break-word !important; line-height: 1.35 !important; background-color: transparent;
+    }
+    .proposal-preview-sheet table td > p, .proposal-page__body table td > p, .html-preview-container table td > p, .prose table td > p {
+        margin: 0 !important; padding: 0 !important; line-height: 1.35 !important; font-size: 10px !important;
+    }
+    .proposal-preview-sheet table td p + p, .proposal-page__body table td p + p, .html-preview-container table td p + p, .prose table td p + p { margin-top: 3px !important; }
 
-    .proposal-preview-sheet table thead th, .proposal-preview-sheet table th, .proposal-page__body table thead th, .proposal-page__body table th,
-    .quotation-page__body table thead th, .quotation-page__body table th, .html-preview-container table thead th, .html-preview-container table th,
-    .prose table thead th, .prose table th { color: #ffffff !important; font-weight: 600 !important; }
-
-    .html-preview-container { font-size: 14px; line-height: 1.5; color: #1e293b; width: 100%; font-family: "Open Sans", sans-serif; }
-    .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; }
-    .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; }
-    .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; }
-    .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; }
-    .html-preview-container h1:not([style*="color"]), .html-preview-container h2:not([style*="color"]), .html-preview-container h3:not([style*="color"]), .html-preview-container h4:not([style*="color"]) { color: #0f172a; }
+    /* Content Typography */
+    .html-preview-container { font-size: 14px; line-height: 1.5; color: #1e293b; width: 100%; font-family: "Open Sans", sans-serif; display: flex !important; flex-direction: column !important; flex: 1 !important; height: 100% !important; }
+    .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+    .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+    .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; color: #0f172a; }
+    .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; color: #0f172a; }
     .html-preview-container p { margin: 4px 0; }
-    .html-preview-container > p:first-child { margin-top: 0; }
-    .html-preview-container > p:last-child { margin-bottom: 0; }
-    .html-preview-container p:empty { min-height: 1.15em; margin: 0; }
     .html-preview-container p:empty::before { content: "\\00a0"; }
-    .html-preview-container p:has(> br:only-child) { min-height: 1.15em; margin: 0; }
-    .html-preview-container ul, .proposal-preview-sheet ul, .proposal-page__body ul, .prose ul { list-style-type: disc !important; padding-left: 24px !important; margin-left: 0 !important; margin-top: 8px !important; margin-bottom: 8px !important; }
-    .html-preview-container ol, .proposal-preview-sheet ol, .proposal-page__body ol, .prose ol { list-style-type: decimal !important; padding-left: 24px !important; margin-left: 0 !important; margin-top: 8px !important; margin-bottom: 8px !important; }
-    .html-preview-container li, .proposal-preview-sheet li, .proposal-page__body li, .prose li { display: list-item !important; list-style-type: inherit !important; margin-top: 3px !important; margin-bottom: 3px !important; }
-    .html-preview-container li p, .proposal-preview-sheet li p, .proposal-page__body li p, .prose li p { display: inline !important; margin: 0 !important; }
+    .html-preview-container ul, .proposal-page__body ul, .prose ul { list-style-type: disc !important; list-style-position: outside !important; padding-left: 20px !important; margin: 6px 0 !important; }
+    .html-preview-container ol, .proposal-page__body ol, .prose ol { list-style-type: decimal !important; list-style-position: outside !important; padding-left: 20px !important; margin: 6px 0 !important; }
+    .html-preview-container li, .proposal-page__body li, .prose li { display: list-item !important; margin: 3px 0 !important; line-height: 1.45 !important; }
+    .html-preview-container li p, .proposal-page__body li p, .prose li p { display: inline !important; margin: 0 !important; }
+
+    /* Tables Inner Lists Formatting */
+    table td ul, .html-preview-container table td ul { list-style-type: disc !important; list-style-position: outside !important; padding-left: 14px !important; margin: 3px 0 3px 2px !important; }
+    table td ol, .html-preview-container table td ol { list-style-type: decimal !important; list-style-position: outside !important; padding-left: 14px !important; margin: 3px 0 3px 2px !important; }
+    table td li, .html-preview-container table td li { display: list-item !important; margin: 2px 0 !important; font-size: 10px !important; line-height: 1.35 !important; color: #293240 !important; }
+    table td li p, .html-preview-container table td li p { display: inline !important; margin: 0 !important; }
     .html-preview-container blockquote { border-left: 4px solid #cbd5e1; padding-left: 16px; font-style: italic; margin: 8px 0; }
-    .html-preview-container img { display: inline-block; vertical-align: middle; }
+    .html-preview-container img, .proposal-page__body img, .prose img, img.proposal-logo { display: inline-block !important; vertical-align: middle; }
     .html-preview-container a { color: #2563eb; text-decoration: underline; }
-    .html-preview-container a:hover { color: #1d4ed8; }
-
-    .proposal-preview-sheet table:not(.charges-table), .proposal-page__body table:not(.proposal-table), .quotation-page__body table:not(.quotation-table),
-    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table), .prose table, .ProseMirror table {
-        width: 100% !important; border-collapse: collapse !important; border: 1px solid #cbd5e1 !important; font-size: 10px !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; margin-top: 8px !important; margin-bottom: 8px !important; color: #293240 !important;
-    }
-    .proposal-preview-sheet table:not(.charges-table) thead tr, .proposal-page__body table:not(.proposal-table) thead tr, .quotation-page__body table:not(.quotation-table) thead tr,
-    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) thead tr, .prose table thead tr, .ProseMirror table thead tr {
-        background-color: var(--template-color, #E9591C) !important; color: #ffffff !important; text-align: left !important; font-weight: 600 !important;
-    }
-    .proposal-preview-sheet table:not(.charges-table) thead th, .proposal-preview-sheet table:not(.charges-table) th, .proposal-page__body table:not(.proposal-table) thead th, .proposal-page__body table:not(.proposal-table) th,
-    .quotation-page__body table:not(.quotation-table) thead th, .quotation-page__body table:not(.quotation-table) th, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) thead th, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) th,
-    .prose table thead th, .prose table th, .ProseMirror table thead th, .ProseMirror table th {
-        padding: 6px 8px !important; font-size: 10px !important; font-weight: 600 !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; border: 1px solid #cbd5e1 !important; box-sizing: border-box !important; vertical-align: middle !important; background-color: var(--template-color, #E9591C) !important; color: #ffffff !important; text-align: left !important;
-    }
-    .proposal-preview-sheet table:not(.charges-table) th *, .proposal-page__body table:not(.proposal-table) th *, .quotation-page__body table:not(.quotation-table) th *,
-    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) th *, .prose table th *, .ProseMirror table th * {
-        margin: 0 !important; padding: 0 !important; font-size: 10px !important; font-weight: 600 !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; color: #ffffff !important;
-    }
-    .proposal-preview-sheet table:not(.charges-table) tbody td, .proposal-preview-sheet table:not(.charges-table) td, .proposal-page__body table:not(.proposal-table) tbody td, .proposal-page__body table:not(.proposal-table) td,
-    .quotation-page__body table:not(.quotation-table) tbody td, .quotation-page__body table:not(.quotation-table) td, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) tbody td, .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td,
-    .prose table tbody td, .prose table td, .ProseMirror table tbody td, .ProseMirror table td {
-        padding: 6px 8px !important; font-size: 10px !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; border: 1px solid #cbd5e1 !important; box-sizing: border-box !important; vertical-align: middle !important; color: #293240 !important; word-break: break-word !important;
-    }
-    .proposal-preview-sheet table:not(.charges-table) td *:not([style*="color"]), .proposal-page__body table:not(.proposal-table) td *:not([style*="color"]), .quotation-page__body table:not(.quotation-table) td *:not([style*="color"]),
-    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td *:not([style*="color"]), .prose table td *:not([style*="color"]), .ProseMirror table td *:not([style*="color"]) {
-        margin: 0 !important; padding: 0 !important; font-size: 10px !important; font-family: "Open Sans", sans-serif !important; line-height: 1.35 !important; color: inherit !important;
-    }
-    .proposal-preview-sheet table:not(.charges-table) td p + p, .proposal-page__body table:not(.proposal-table) td p + p, .quotation-page__body table:not(.quotation-table) td p + p,
-    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) td p + p, .prose table td p + p, .ProseMirror table td p + p { margin-top: 3px !important; }
-    .proposal-preview-sheet table:not(.charges-table) tr, .proposal-page__body table:not(.proposal-table) tr, .quotation-page__body table:not(.quotation-table) tr,
-    .html-preview-container table:not(.charges-table):not(.proposal-table):not(.quotation-table) tr, .prose table tr, .ProseMirror table tr { min-height: auto !important; border-bottom: 1px solid #cbd5e1 !important; }
-
-    .proposal-preview-sheet img, .proposal-page__body img, .prose img, img.proposal-logo, .proposal-logo { display: inline-block !important; vertical-align: middle; }
-    .proposal-preview-sheet [style*="text-align: center"] img, .proposal-preview-sheet [style*="text-align:center"] img, .proposal-page__body [style*="text-align: center"] img, .proposal-page__body [style*="text-align:center"] img, .prose [style*="text-align: center"] img, .prose [style*="text-align:center"] img, .text-center img { display: inline-block !important; margin-left: auto !important; margin-right: auto !important; }
-    .proposal-preview-sheet [style*="text-align: right"] img, .proposal-preview-sheet [style*="text-align:right"] img, .proposal-page__body [style*="text-align: right"] img, .proposal-page__body [style*="text-align:right"] img, .prose [style*="text-align: right"] img, .prose [style*="text-align:right"] img, .text-right img { display: inline-block !important; margin-left: auto !important; margin-right: 0 !important; }
-    .proposal-preview-sheet [style*="text-align: left"] img, .proposal-preview-sheet [style*="text-align:left"] img, .proposal-page__body [style*="text-align: left"] img, .proposal-page__body [style*="text-align:left"] img, .prose [style*="text-align: left"] img, .prose [style*="text-align:left"] img, .text-left img { display: inline-block !important; margin-right: auto !important; margin-left: 0 !important; }
 
     @media print {
         @page { size: 210mm 297mm; margin: 0; }
-        html, body {
-            width: 210mm !important; margin: 0 !important; padding: 0 !important;
-            background: white !important;
-            font-family: "Open Sans", sans-serif !important;
-        }
-        .print-wrapper {
-            width: 210mm !important; margin: 0 !important; padding: 0 !important;
-        }
-        .proposal-preview-sheet,
-        .proposal-cover__sheet {
-            width: 210mm !important; height: 297mm !important;
-            min-height: 297mm !important; max-height: 297mm !important;
-            padding: 0 !important; margin: 0 !important;
-            box-sizing: border-box !important;
-            page-break-after: always !important; break-after: page !important;
-            page-break-inside: avoid !important; break-inside: avoid-page !important;
-            overflow: hidden !important;
-            font-family: "Open Sans", sans-serif !important;
-        }
-        .proposal-page__body {
-            position: relative !important; z-index: 1 !important;
-            padding: 32mm 15mm 20mm !important;
-            min-height: calc(297mm - 20mm) !important;
-            box-sizing: border-box !important;
-            display: flex !important; flex-direction: column !important;
-            justify-content: flex-start !important;
-        }
-        .proposal-preview-sheet:last-child,
-        .proposal-cover__sheet:last-child {
-            page-break-after: auto !important; break-after: auto !important;
-        }
+        html, body { width: 210mm !important; margin: 0 !important; padding: 0 !important; background: white !important; font-family: "Open Sans", sans-serif !important; }
+        .print-wrapper { width: 210mm !important; margin: 0 !important; padding: 0 !important; }
+        .proposal-preview-sheet, .proposal-cover__sheet { width: 210mm !important; height: 297mm !important; min-height: 297mm !important; max-height: 297mm !important; padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; page-break-after: always !important; break-after: page !important; page-break-inside: avoid !important; break-inside: avoid-page !important; overflow: hidden !important; }
+        .proposal-page__body { position: relative !important; z-index: 1 !important; padding: 32mm 15mm 20mm !important; height: calc(297mm - 52mm) !important; min-height: calc(297mm - 52mm) !important; max-height: calc(297mm - 52mm) !important; box-sizing: border-box !important; display: flex !important; flex-direction: column !important; justify-content: flex-start !important; }
+        .proposal-preview-sheet:last-child, .proposal-cover__sheet:last-child { page-break-after: auto !important; break-after: auto !important; }
     }
 `;
 
@@ -282,16 +204,23 @@ export const PRINT_STYLES = `
 // DOM PAGINATOR UTILITY
 // =============================================================================
 
-export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = 880): string[] {
-    const hasExplicitBreak = container.querySelector('.page-break, [style*="page-break"], [style*="break-after"], [style*="break-before"]');
+const DEFAULT_A4_CONTENT_HEIGHT_PX = 850;
 
-    // Extract any <style> tags so they apply across pages
+function getA4ContentHeightPx(): number {
+    if (typeof document === 'undefined') return DEFAULT_A4_CONTENT_HEIGHT_PX;
+
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:245mm;width:1px;';
+    document.body.appendChild(probe);
+    const height = probe.getBoundingClientRect().height;
+    probe.remove();
+
+    return height || DEFAULT_A4_CONTENT_HEIGHT_PX;
+}
+
+export function paginateDomContainer(container: HTMLElement, maxPageHeight: number = DEFAULT_A4_CONTENT_HEIGHT_PX): string[] {
+    const effectiveMaxHeight = maxPageHeight - 20;
     const styleTags = Array.from(container.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
-
-    // If single page content and fits in 1 page, return intact
-    if (!hasExplicitBreak && container.scrollHeight <= maxPageHeight) {
-        return [container.innerHTML];
-    }
 
     const pages: string[] = [];
     let currentPageHtml: string[] = [];
@@ -305,10 +234,13 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
         }
     };
 
-    const processElement = (el: HTMLElement) => {
-        if (el.tagName.toLowerCase() === 'style' || el.tagName.toLowerCase() === 'script') {
-            return;
-        }
+    const processElement = (el: HTMLElement, inheritedSectionIndex?: string) => {
+        const sectionIndex = el.getAttribute('data-proposal-section-index') || inheritedSectionIndex;
+        const addSectionMarker = (html: string): string => {
+            if (sectionIndex === undefined || /data-proposal-section-index=/.test(html)) return html;
+            return html.replace(/^<(\w+)(\s|>)/, `<$1 data-proposal-section-index=\"${sectionIndex}\"$2`);
+        };
+        if (el.tagName.toLowerCase() === 'style' || el.tagName.toLowerCase() === 'script') return;
 
         if (
             el.classList?.contains('page-break') ||
@@ -318,49 +250,85 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
             el.style?.breakBefore === 'page'
         ) {
             startNewPage();
+            currentPageHtml.push(addSectionMarker(el.outerHTML));
+            currentPageAccumulatedHeight = el.offsetHeight || 25;
+            startNewPage();
             return;
         }
 
         const tag = el.tagName.toLowerCase();
+
+        // Unwrap block container divs or lists (ul/ol) if they contain multiple children so individual elements fill page 1 first
+        if ((tag === 'div' || tag === 'section' || tag === 'article' || tag === 'main' || tag === 'ul' || tag === 'ol') && el.children.length > 0 && !el.classList.contains('page-break')) {
+            const elHeight = el.offsetHeight || 25;
+            const computedStyle = window.getComputedStyle(el);
+            const margin = (parseFloat(computedStyle.marginTop) || 0) + (parseFloat(computedStyle.marginBottom) || 0);
+            const totalElHeight = elHeight + margin;
+
+            // If the list/div fits entirely on current page, keep it as a single block
+            if (currentPageAccumulatedHeight + totalElHeight <= effectiveMaxHeight) {
+                currentPageHtml.push(addSectionMarker(el.outerHTML));
+                currentPageAccumulatedHeight += totalElHeight;
+                return;
+            }
+
+            // Otherwise, unwrap its children (items or elements) item by item
+            if (tag === 'ul' || tag === 'ol') {
+                const listClasses = el.getAttribute('class') || '';
+                const listStyle = el.getAttribute('style') || '';
+                const items = Array.from(el.children);
+                let currentListItems: string[] = [];
+
+                for (let i = 0; i < items.length; i++) {
+                    const itemEl = items[i] as HTMLElement;
+                    const itemHeight = itemEl.offsetHeight || 25;
+                    if (currentPageAccumulatedHeight + itemHeight > effectiveMaxHeight && currentListItems.length > 0) {
+                        currentPageHtml.push(addSectionMarker(`<${tag} class="${listClasses}" style="${listStyle}">${currentListItems.join('')}</${tag}>`));
+                        startNewPage();
+                        currentListItems = [addSectionMarker(itemEl.outerHTML)];
+                        currentPageAccumulatedHeight = itemHeight;
+                    } else {
+                        currentListItems.push(addSectionMarker(itemEl.outerHTML));
+                        currentPageAccumulatedHeight += itemHeight;
+                    }
+                }
+                if (currentListItems.length > 0) {
+                    currentPageHtml.push(addSectionMarker(`<${tag} class="${listClasses}" style="${listStyle}">${currentListItems.join('')}</${tag}>`));
+                }
+                return;
+            }
+
+            const children = Array.from(el.children);
+            for (let i = 0; i < children.length; i++) {
+                processElement(children[i] as HTMLElement, sectionIndex);
+            }
+            return;
+        }
+
         const elHeight = el.offsetHeight || 25;
         const computedStyle = window.getComputedStyle(el);
         const margin = (parseFloat(computedStyle.marginTop) || 0) + (parseFloat(computedStyle.marginBottom) || 0);
         const totalElHeight = elHeight + margin;
 
-        // Check if element is a Table or a Block containing a Table
         const tableInside = tag === 'table' ? el : el.querySelector('table');
         if (tableInside) {
             const tableEl = tableInside as HTMLElement;
             const thead = tableEl.querySelector('thead');
             const theadHtml = thead ? thead.outerHTML : '';
             const theadHeight = thead ? ((thead as HTMLElement).offsetHeight || 32) : 0;
-
             const tfoot = tableEl.querySelector('tfoot');
             const tfootHtml = tfoot ? tfoot.outerHTML : '';
             const tfootHeight = tfoot ? ((tfoot as HTMLElement).offsetHeight || 80) : 0;
-
             const bodyRows = Array.from(tableEl.querySelectorAll('tbody > tr'));
             const tableClasses = tableEl.getAttribute('class') || '';
             const tableStyle = tableEl.getAttribute('style') || '';
+            const tableSectionMarker = sectionIndex !== undefined ? ` data-proposal-section-index=\"${sectionIndex}\"` : '';
 
-            // If whole element (section block with title + table + tfoot) fits on current page
-            if (currentPageAccumulatedHeight + totalElHeight <= maxPageHeight) {
-                currentPageHtml.push(el.outerHTML);
+            if (currentPageAccumulatedHeight + totalElHeight <= effectiveMaxHeight) {
+                currentPageHtml.push(addSectionMarker(el.outerHTML));
                 currentPageAccumulatedHeight += totalElHeight;
                 return;
             }
-
-            // If whole element doesn't fit on current page BUT fits on a fresh new page -> SHIFT TO NEW PAGE!
-            if (totalElHeight <= maxPageHeight && currentPageHtml.length > 0) {
-                startNewPage();
-                currentPageHtml.push(el.outerHTML);
-                currentPageAccumulatedHeight += totalElHeight;
-                return;
-            }
-
-            // Otherwise, table is too large for a single page and MUST be split row-by-row
-            const titleEl = tag !== 'table' ? el.querySelector('.font-bold, h1, h2, h3, h4, h5, h6') : null;
-            const titleHtml = titleEl ? titleEl.outerHTML : '';
 
             if (bodyRows.length > 0) {
                 let currentTableRows: string[] = [];
@@ -373,11 +341,8 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
                     const isLastRow = (rIdx === bodyRows.length - 1);
                     const neededRowHeight = rowHeight + (isLastRow ? tfootHeight : 0);
 
-                    if (currentPageAccumulatedHeight + currentTableChunkHeight + neededRowHeight > maxPageHeight && currentTableRows.length > 0) {
-                        const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`;
-                        if (isFirstTableChunk && titleHtml) {
-                            currentPageHtml.push(titleHtml);
-                        }
+                    if (currentPageAccumulatedHeight + currentTableChunkHeight + neededRowHeight > effectiveMaxHeight && currentTableRows.length > 0) {
+                        const tableHtml = `<table class="${tableClasses}"${tableSectionMarker} style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`;
                         currentPageHtml.push(tableHtml);
                         startNewPage();
                         isFirstTableChunk = false;
@@ -390,10 +355,7 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
                 }
 
                 if (currentTableRows.length > 0) {
-                    const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody>${tfootHtml}</table>`;
-                    if (isFirstTableChunk && titleHtml) {
-                        currentPageHtml.push(titleHtml);
-                    }
+                    const tableHtml = `<table class="${tableClasses}"${tableSectionMarker} style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody>${tfootHtml}</table>`;
                     currentPageHtml.push(tableHtml);
                     currentPageAccumulatedHeight += currentTableChunkHeight + tfootHeight;
                 }
@@ -401,27 +363,11 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
             }
         }
 
-        if ((tag === 'div' || tag === 'section' || tag === 'article' || tag === 'main') && el.children.length > 0) {
-            if (currentPageAccumulatedHeight + totalElHeight <= maxPageHeight) {
-                currentPageHtml.push(el.outerHTML);
-                currentPageAccumulatedHeight += totalElHeight;
-                return;
-            }
-            if (totalElHeight <= maxPageHeight && currentPageHtml.length > 0) {
-                startNewPage();
-                currentPageHtml.push(el.outerHTML);
-                currentPageAccumulatedHeight += totalElHeight;
-                return;
-            }
-            Array.from(el.children).forEach((child) => processElement(child as HTMLElement));
-            return;
-        }
-
-        if (currentPageAccumulatedHeight + totalElHeight > maxPageHeight && currentPageHtml.length > 0) {
+        if (currentPageAccumulatedHeight + totalElHeight > effectiveMaxHeight && currentPageHtml.length > 0) {
             startNewPage();
         }
 
-        currentPageHtml.push(el.outerHTML);
+        currentPageHtml.push(addSectionMarker(el.outerHTML));
         currentPageAccumulatedHeight += totalElHeight;
     };
 
@@ -434,16 +380,10 @@ export function paginateDomContainer(container: HTMLElement, maxPageHeight: numb
     return pages.length > 0 ? pages : [container.innerHTML];
 }
 
-// =============================================================================
-// PURE UTILITIES
-// =============================================================================
-
 const formatAmountOnly = (val: number | string): string => {
     const num = Number(val) || 0;
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
-
-
 
 // =============================================================================
 // REUSABLE PAGE COMPONENTS
@@ -508,52 +448,27 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                 className
             )}
         >
-            {/* Background Image Layer */}
             {bgUrl && (
                 <div className="absolute inset-0 w-full h-full z-0 pointer-events-none overflow-hidden">
-                    <img
-                        src={bgUrl}
-                        alt="Page Background"
-                        className="w-full h-full object-fill block"
-                        onError={(e) => {
-                            const target = e.currentTarget;
-                            if (rawBg && !target.src.includes('/storage/media/')) {
-                                target.src = `/storage/media/${rawBg.split('/').pop()}`;
-                            }
-                        }}
-                    />
+                    <img src={bgUrl} alt="Page Background" className="w-full h-full object-fill block" />
                 </div>
             )}
 
-            {/* Top Header Logo */}
             {logoUrl && (
-                <div
-                    className="absolute z-20 pointer-events-none flex items-center"
-                    style={getLogoContainerStyle()}
-                >
-                    <img
-                        src={logoUrl}
-                        alt="Header Logo"
-                        className="max-h-[16mm] max-w-[55mm] object-contain"
-                        onError={(e) => {
-                            const target = e.currentTarget;
-                            if (headerLogo && !target.src.includes('/storage/media/')) {
-                                target.src = `/storage/media/${headerLogo.split('/').pop()}`;
-                            }
-                        }}
-                    />
+                <div className="absolute z-20 pointer-events-none flex items-center" style={getLogoContainerStyle()}>
+                    <img src={logoUrl} alt="Header Logo" className="max-h-[16mm] max-w-[55mm] object-contain" />
                 </div>
             )}
 
-            {/* Page Body strictly adhering to standard 32mm 15mm 20mm padding */}
             <div
                 className="proposal-page__body"
                 style={{
                     position: 'relative',
                     zIndex: 1,
                     padding: '32mm 15mm 20mm',
-                    height: '297mm',
-                    maxHeight: '297mm',
+                    height: 'calc(297mm - 52mm)',
+                    minHeight: 'calc(297mm - 52mm)',
+                    maxHeight: 'calc(297mm - 52mm)',
                     boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',
@@ -564,7 +479,8 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(({
                     children
                 ) : content ? (
                     <div
-                        className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
+                        className={cn("html-preview-container flex-1 flex flex-col", PROPOSAL_CONTENT_CLASSES)}
+                        style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%' }}
                         dangerouslySetInnerHTML={{ __html: content }}
                     />
                 ) : null}
@@ -583,16 +499,13 @@ export default function PreviewModal({
     open,
     onClose,
     onOpenChange,
-    // Full Proposal Props
     formData,
     sections = [],
     customers = [],
-    warehouses = [],
     availableProducts = [],
     proposalSetting,
     totals,
     other_details,
-    // Single Page / Default Page Props
     title,
     pageTitle,
     content,
@@ -600,18 +513,16 @@ export default function PreviewModal({
     settings,
     isDefaultPageSetup,
     showPrintButton = true,
-    // Direct Page / Inline Render Mode
     inline = false,
     autoPrint = false,
+    hideHeaderBar = false,
 }: PreviewModalProps) {
     const { t } = useTranslation();
     const isModalOpen = Boolean(isOpen ?? open);
 
     useEffect(() => {
         if (inline && autoPrint) {
-            const timer = setTimeout(() => {
-                window.print();
-            }, 600);
+            const timer = setTimeout(() => window.print(), 600);
             return () => clearTimeout(timer);
         }
     }, [inline, autoPrint]);
@@ -624,7 +535,6 @@ export default function PreviewModal({
     const previewContainerRef = useRef<HTMLDivElement>(null);
     const measureContainerRef = useRef<HTMLDivElement>(null);
 
-    // Merge settings
     const activeSettings = proposalSetting || settings || null;
     const templateColor = activeSettings?.template_color || DEFAULT_TEMPLATE_COLOR;
     const isLogoEnabled = activeSettings?.show_logo !== undefined
@@ -635,10 +545,8 @@ export default function PreviewModal({
     const headerLogoAlign = activeSettings?.header_logo_align || 'right';
     const defaultBgImage = activeSettings?.background_image || '';
 
-    // Check if Single Page Mode (e.g. from Default Pages Setup Preview)
     const isSinglePageMode = Boolean(!formData && (content !== undefined || title !== undefined || pageTitle !== undefined));
 
-    // Single page processed content & pagination
     const singleProcessedContent = useMemo(() => {
         if (!isSinglePageMode || !content) return '';
         return replaceProposalShortcodes(content, {
@@ -657,29 +565,25 @@ export default function PreviewModal({
         }
 
         const runPagination = () => {
-            // Check for explicit page break in the content
-            const hasExplicitBreak = /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(singleProcessedContent);
-
             if (measureContainerRef.current) {
-                // A4 page body is 297mm - 52mm (top/bottom padding) = 245mm (~925px to 960px).
-                // If there is no explicit page-break and the content easily fits in one standard A4, keep as single page.
-                const scrollH = measureContainerRef.current.scrollHeight;
-                if (!hasExplicitBreak && scrollH <= 980) {
-                    setPaginatedSinglePages([singleProcessedContent]);
-                } else {
-                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
-                    setPaginatedSinglePages(chunks);
-                }
+                const chunks = paginateDomContainer(measureContainerRef.current, getA4ContentHeightPx());
+                setPaginatedSinglePages(chunks);
             } else {
                 setPaginatedSinglePages([singleProcessedContent]);
             }
         };
 
-        const timer = setTimeout(runPagination, 60);
-        return () => clearTimeout(timer);
-    }, [isSinglePageMode, singleProcessedContent]);
+        let cancelled = false;
 
-    // Full proposal items helpers
+        const start = async () => {
+            if (document.fonts?.ready) await document.fonts.ready;
+            if (!cancelled) runPagination();
+        };
+
+        start();
+        return () => { cancelled = true; };
+    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline]);
+
     const getItemName = useCallback(
         (item: ProposalItem): string => {
             if (item.product_name) return item.product_name;
@@ -738,19 +642,11 @@ export default function PreviewModal({
             };
         }
         return customers.find((c) => String(c.id) === String(formData?.customer_id));
-    }, [
-        customers,
-        formData?.customer_id,
-        (formData as any)?.customer_mode,
-        (formData as any)?.customer_name,
-        (formData as any)?.customer_email,
-        (formData as any)?.customer_phone,
-        (formData as any)?.customer_address,
-    ]);
+    }, [customers, formData?.customer_id, (formData as any)?.customer_mode, (formData as any)?.customer_name, (formData as any)?.customer_email, (formData as any)?.customer_phone, (formData as any)?.customer_address]);
 
     const [paginatedFullProposalPages, setPaginatedFullProposalPages] = useState<string[]>([]);
+    const [paginatedFullProposalBackgrounds, setPaginatedFullProposalBackgrounds] = useState<string[]>([]);
 
-    // Assemble unified HTML for continuous flowing proposal
     const fullProposalHtml = useMemo(() => {
         if (isSinglePageMode || !formData) return '';
 
@@ -764,7 +660,7 @@ export default function PreviewModal({
                 (Number(i.product_id) > 0 || Number(i.unit_price) > 0 || Boolean(i.product_description))
         );
 
-        const secSubtotalOtc = otcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
+        const secSubtotalOtc = otcItems.reduce((sum, item) => sum + (Number(item.quantity ?? 1) * Number(item.unit_price || 0)), 0);
         let secDiscountOtc = 0;
         if ((formData as any).otc_discount_value > 0) {
             const discVal = Number((formData as any).otc_discount_value) || 0;
@@ -777,7 +673,7 @@ export default function PreviewModal({
         const secTaxOtc = otcItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
         const secTotalOtc = Math.max(0, secSubtotalOtc - secDiscountOtc + secTaxOtc);
 
-        const secSubtotalMrc = mrcItems.reduce((sum, item) => sum + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0);
+        const secSubtotalMrc = mrcItems.reduce((sum, item) => sum + (Number(item.quantity ?? 1) * Number(item.unit_price || 0)), 0);
         let secDiscountMrc = 0;
         if ((formData as any).mrc_discount_value > 0) {
             const discVal = Number((formData as any).mrc_discount_value) || 0;
@@ -792,7 +688,7 @@ export default function PreviewModal({
 
         const htmlParts: string[] = [];
 
-        sections.forEach((sec) => {
+        sections.forEach((sec, sectionIndex) => {
             const rawContent = (sec.content || '').trim();
             const pageType = (sec.page_type || '').toLowerCase();
             const isOtc = pageType === 'otc' || rawContent === '[OTC_CHARGES_TABLE]' || (sec.title && sec.title.toLowerCase().includes('one-time charges'));
@@ -804,11 +700,12 @@ export default function PreviewModal({
                 const title = sec.title || t('ONE-TIME CHARGES (OTC)');
                 let rowsHtml = '';
                 otcItems.forEach((item, idx) => {
-                    const qty = Number(item.quantity) || 1;
+                    const qty = Number(item.quantity ?? 1);
                     const unit = getItemUnit(item);
                     const price = Number(item.unit_price) || 0;
                     const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
                     const desc = getItemDesc(item);
+                    const taxAmt = Number(item.tax_amount) || 0;
 
                     rowsHtml += `
                         <tr class="border-b border-slate-200 hover:bg-slate-50/50">
@@ -821,23 +718,25 @@ export default function PreviewModal({
                             </td>
                             <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}${unit ? ` ${unit}` : ''}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : '-'}</td>
                             <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
                         </tr>
                     `;
                 });
 
                 htmlParts.push(`
-                    <div class="proposal-section-block otc-charges-block" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
+                    <div class="proposal-section-block otc-charges-block" data-proposal-section-index="${sectionIndex}" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
                         <div class="font-bold mb-2 text-[#293240] text-sm">${title}</div>
                         <table class="charges-table w-full text-xs mb-2 border-collapse border border-slate-300" style="font-size: 11px; width: 100%; table-layout: fixed;">
                             <thead>
                                 <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
                                     <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t('S/N')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 22%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 36%; padding: 7.5px 8px !important;">${t('Description')}</th>
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 9%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t('Description')}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Tax / VAT')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -845,24 +744,24 @@ export default function PreviewModal({
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Subtotal')}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
                                 </tr>
                                 ${(secDiscountOtc > 0) ? `
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Discount')}:</td>
                                     <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountOtc)}</td>
                                 </tr>` : ''}
                                 ${(secTaxOtc > 0) ? `
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Tax / VAT')}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxOtc)}</td>
                                 </tr>` : ''}
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t('Total')}:</td>
                                     <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalOtc)} BDT</td>
                                 </tr>
@@ -878,11 +777,12 @@ export default function PreviewModal({
                 const title = sec.title || t('MONTHLY RECURRING CHARGES (MRC)');
                 let rowsHtml = '';
                 mrcItems.forEach((item, idx) => {
-                    const qty = Number(item.quantity) || 1;
+                    const qty = Number(item.quantity ?? 1);
                     const unit = getItemUnit(item);
                     const price = Number(item.unit_price) || 0;
                     const lineTotal = item.total_amount !== undefined ? Number(item.total_amount) : qty * price;
                     const desc = getItemDesc(item);
+                    const taxAmt = Number(item.tax_amount) || 0;
 
                     rowsHtml += `
                         <tr class="border-b border-slate-200 hover:bg-slate-50/50">
@@ -895,23 +795,25 @@ export default function PreviewModal({
                             </td>
                             <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}${unit ? ` ${unit}` : ''}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : '-'}</td>
                             <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
                         </tr>
                     `;
                 });
 
                 htmlParts.push(`
-                    <div class="proposal-section-block mrc-charges-block" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
+                    <div class="proposal-section-block mrc-charges-block" data-proposal-section-index="${sectionIndex}" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
                         <div class="font-bold mb-2 text-[#293240] text-sm">${title}</div>
                         <table class="charges-table w-full text-xs mb-2 border-collapse border border-slate-300" style="font-size: 11px; width: 100%; table-layout: fixed;">
                             <thead>
                                 <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
                                     <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t('S/N')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 22%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 36%; padding: 7.5px 8px !important;">${t('Description')}</th>
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 9%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t('Item / Service')}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t('Description')}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t('Qty.')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Price (BDT)')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Tax / VAT')}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t('Total (BDT)')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -919,24 +821,24 @@ export default function PreviewModal({
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Subtotal')}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
                                 </tr>
                                 ${(secDiscountMrc > 0) ? `
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Discount')}:</td>
                                     <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountMrc)}</td>
                                 </tr>` : ''}
                                 ${(secTaxMrc > 0) ? `
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t('Tax / VAT')}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxMrc)}</td>
                                 </tr>` : ''}
                                 <tr>
-                                    <td colspan="4" class="border border-slate-200"></td>
+                                    <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t('Total')}:</td>
                                     <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalMrc)} BDT</td>
                                 </tr>
@@ -958,7 +860,7 @@ export default function PreviewModal({
                     isDefaultPageSetup,
                 });
                 htmlParts.push(`
-                    <div class="proposal-section-block other-details-block mb-6">
+                    <div class="proposal-section-block other-details-block mb-6" data-proposal-section-index="${sectionIndex}">
                         ${sec.title ? `<div class="font-bold mb-2 text-[#293240] text-sm">${sec.title}</div>` : ''}
                         <div>${processed}</div>
                     </div>
@@ -975,7 +877,7 @@ export default function PreviewModal({
                     isDefaultPageSetup,
                 });
                 htmlParts.push(`
-                    <div class="proposal-section-block content-block mb-6">
+                    <div class="proposal-section-block content-block mb-6 page-break" data-proposal-section-index="${sectionIndex}">
                         ${processed}
                     </div>
                 `);
@@ -985,33 +887,43 @@ export default function PreviewModal({
         return htmlParts.join('\n');
     }, [isSinglePageMode, formData, sections, other_details, activeSettings, isDefaultPageSetup, customer, totals, templateColor, getItemDesc, getItemName, getItemUnit, t]);
 
-    // Paginate Full Proposal HTML continuously
     useEffect(() => {
         if (isSinglePageMode) return;
         if (!fullProposalHtml) {
             setPaginatedFullProposalPages([]);
+            setPaginatedFullProposalBackgrounds([]);
             return;
         }
 
         const runPagination = () => {
             if (measureContainerRef.current) {
-                const scrollH = measureContainerRef.current.scrollHeight;
-                if (scrollH <= 980) {
-                    setPaginatedFullProposalPages([fullProposalHtml]);
-                } else {
-                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
-                    setPaginatedFullProposalPages(chunks);
-                }
+                const chunks = paginateDomContainer(measureContainerRef.current, getA4ContentHeightPx());
+                const backgrounds = chunks.map((pageHtml) => {
+                    const match = pageHtml.match(/data-proposal-section-index=\"(\d+)\"/);
+                    const sectionIndex = match ? Number(match[1]) : -1;
+                    const specificBg = sectionIndex >= 0 ? sections[sectionIndex]?.background_image : '';
+                    return specificBg && String(specificBg).trim() !== '' ? String(specificBg) : defaultBgImage;
+                });
+                setPaginatedFullProposalPages(chunks);
+                setPaginatedFullProposalBackgrounds(backgrounds);
             } else {
                 setPaginatedFullProposalPages([fullProposalHtml]);
+                const firstSectionBg = sections[0]?.background_image;
+                setPaginatedFullProposalBackgrounds([firstSectionBg && String(firstSectionBg).trim() !== '' ? String(firstSectionBg) : defaultBgImage]);
             }
         };
 
-        const timer = setTimeout(runPagination, 80);
-        return () => clearTimeout(timer);
-    }, [isSinglePageMode, fullProposalHtml]);
+        let cancelled = false;
 
-    // Print Action
+        const start = async () => {
+            if (document.fonts?.ready) await document.fonts.ready;
+            if (!cancelled) runPagination();
+        };
+
+        start();
+        return () => { cancelled = true; };
+    }, [isSinglePageMode, fullProposalHtml, isModalOpen, inline]);
+
     const handlePrint = useCallback(() => {
         if (!previewContainerRef.current) return;
         const printWindow = window.open('', '_blank');
@@ -1035,24 +947,37 @@ export default function PreviewModal({
             </html>
         `);
         printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
+
+        const printWhenReady = async () => {
+            try {
+                await printWindow.document.fonts?.ready;
+
+                const images = Array.from(printWindow.document.images);
+                await Promise.all(
+                    images.map((img) => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise<void>((resolve) => {
+                            img.onload = () => resolve();
+                            img.onerror = () => resolve();
+                        });
+                    })
+                );
+            } catch {
+                // Continue printing even if some external assets fail to load.
+            }
+
+            printWindow.focus();
+            printWindow.onafterprint = () => printWindow.close();
             printWindow.print();
-            printWindow.close();
-        }, 500);
+        };
+
+        printWhenReady();
     }, [t]);
 
-    const modalTitleText = isSinglePageMode
-        ? (title || pageTitle || t('Page Preview'))
-        : t('Proposal Preview');
+    const modalTitleText = title || pageTitle || (formData?.subject ? `${t('Proposal Preview')}: ${formData.subject}` : t('Proposal Preview'));
 
     const renderSheetsContent = () => (
-        <div
-            ref={previewContainerRef}
-            className="space-y-8 flex flex-col items-center w-full print:space-y-0 print:gap-0"
-            style={{ '--template-color': templateColor } as React.CSSProperties}
-        >
-            {/* Mode A: Single Page / Default Page Mode */}
+        <div ref={previewContainerRef} className="flex flex-col gap-6 items-center w-full print:gap-0 print:block">
             {isSinglePageMode ? (
                 paginatedSinglePages.length > 0 ? (
                     paginatedSinglePages.map((pageHtml, pIdx) => (
@@ -1080,13 +1005,12 @@ export default function PreviewModal({
                     />
                 )
             ) : (
-                /* Mode B: Full Continuous Flow Proposal Mode */
                 paginatedFullProposalPages.length > 0 ? (
                     paginatedFullProposalPages.map((pageHtml, pIdx) => (
                         <ProposalPreviewSheet
                             key={`proposal-page-${pIdx}`}
                             pageKey={`proposal-page-${pIdx}`}
-                            backgroundImage={sections[pIdx]?.background_image || defaultBgImage}
+                            backgroundImage={paginatedFullProposalBackgrounds[pIdx] || defaultBgImage}
                             defaultBg={defaultBgImage}
                             templateColor={templateColor}
                             headerLogo={headerLogo}
@@ -1105,7 +1029,6 @@ export default function PreviewModal({
 
     return (
         <>
-            {/* Hidden Offscreen Container for Accurate HTML Height Pagination Measurement */}
             <div
                 ref={measureContainerRef}
                 className={cn("html-preview-container", PROPOSAL_CONTENT_CLASSES)}
@@ -1122,32 +1045,32 @@ export default function PreviewModal({
             />
 
             {inline ? (
-                <div className="min-h-screen bg-slate-100 dark:bg-slate-950 py-8 px-4 print:p-0 print:bg-white flex flex-col items-center">
-                    {/* Print Action Bar (Hidden when printed) */}
-                    <div className="w-full max-w-[210mm] mb-6 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 print:hidden">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                                <FileText className="h-5 w-5" />
+                <div className={cn("min-h-screen bg-slate-100 dark:bg-slate-950 px-4 print:p-0 print:bg-white flex flex-col items-center", hideHeaderBar ? "py-0" : "py-8")}>
+                    {!hideHeaderBar && (
+                        <div className="w-full max-w-[210mm] mb-6 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 print:hidden">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                    <FileText className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h1 className="font-bold text-slate-900 dark:text-slate-100 text-base">
+                                        {formData?.proposal_number || modalTitleText}
+                                    </h1>
+                                    {formData?.subject && (
+                                        <p className="text-xs text-slate-500">{formData.subject}</p>
+                                    )}
+                                </div>
                             </div>
-                            <div>
-                                <h1 className="font-bold text-slate-900 dark:text-slate-100 text-base">
-                                    {formData?.proposal_number || modalTitleText}
-                                </h1>
-                                {formData?.subject && (
-                                    <p className="text-xs text-slate-500">{formData.subject}</p>
-                                )}
+
+                            <div className="flex items-center gap-2">
+                                <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2">
+                                    <Printer className="h-4 w-4" />
+                                    {t('Print / Save PDF')}
+                                </Button>
                             </div>
                         </div>
+                    )}
 
-                        <div className="flex items-center gap-2">
-                            <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2">
-                                <Printer className="h-4 w-4" />
-                                {t('Print / Save PDF')}
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Printable Canvas */}
                     <div className="w-full flex justify-center">
                         <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
                         {renderSheetsContent()}
@@ -1155,14 +1078,13 @@ export default function PreviewModal({
                 </div>
             ) : (
                 <Dialog open={isModalOpen} onOpenChange={(openVal) => !openVal && handleClose()}>
-                    <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-900/40 backdrop-blur-md border-slate-700">
-                        {/* Modal Header */}
-                        <DialogHeader className="p-4 sm:px-6 bg-background border-b border-border flex flex-row items-center justify-between space-y-0 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                                    <FileText className="h-5 w-5" />
+                    <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-background border-border shadow-xl !rounded-md [&>div]:p-0 [&>div]:max-h-[92vh] [&>div]:flex [&>div]:flex-col [&>button]:top-2.5 [&>button]:right-3">
+                        <DialogHeader className="!py-3 !px-5 bg-background border-b border-border flex flex-row items-center justify-between space-y-0 shrink-0">
+                            <div className="flex items-center gap-2.5 pr-8">
+                                <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                                    <Eye className="h-4 w-4" />
                                 </div>
-                                <DialogTitle className="text-base font-semibold">{modalTitleText}</DialogTitle>
+                                <DialogTitle className="text-sm font-semibold">{modalTitleText}</DialogTitle>
                             </div>
 
                             {showPrintButton && (
@@ -1175,8 +1097,7 @@ export default function PreviewModal({
                             )}
                         </DialogHeader>
 
-                        {/* Modal Body / Scrollable Canvas */}
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-100/70 dark:bg-slate-900 flex justify-center scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
                             <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
                             {renderSheetsContent()}
                         </div>
@@ -1186,6 +1107,3 @@ export default function PreviewModal({
         </>
     );
 }
-
-// Re-export as ProposalPreviewModal for backwards compatibility
-export { PreviewModal as ProposalPreviewModal };
