@@ -78,11 +78,8 @@ trait TracksDealActivity
                 }
                 // Array fields (e.g. sources, products, labels if serialized or json)
                 elseif (in_array($field, ['sources', 'products', 'labels'])) {
-                    $origArr = is_array($originalValue) ? $originalValue : (is_string($originalValue) ? json_decode($originalValue, true) ?? explode(',', $originalValue) : []);
-                    $newArr = is_array($newValue) ? $newValue : (is_string($newValue) ? json_decode($newValue, true) ?? explode(',', $newValue) : []);
-                    
-                    $origClean = array_values(array_filter(array_map('strval', $origArr ?? [])));
-                    $newClean = array_values(array_filter(array_map('strval', $newArr ?? [])));
+                    $origClean = static::normalizeArrayField($originalValue);
+                    $newClean = static::normalizeArrayField($newValue);
                     sort($origClean);
                     sort($newClean);
 
@@ -258,24 +255,70 @@ trait TracksDealActivity
         return (string)$val;
     }
 
+    /**
+     * Safely normalize any value (array, json string, comma-separated string, numeric ID) into a clean string array.
+     */
+    protected static function normalizeArrayField(mixed $value): array
+    {
+        if ($value === null || $value === '' || $value === []) {
+            return [];
+        }
+
+        if (is_array($value)) {
+            return array_values(array_filter(array_map('strval', $value), fn($v) => trim($v) !== ''));
+        }
+
+        if (is_numeric($value)) {
+            return [(string)$value];
+        }
+
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed === '') {
+                return [];
+            }
+
+            if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                $decoded = json_decode($trimmed, true);
+                if (is_array($decoded)) {
+                    return array_values(array_filter(array_map('strval', $decoded), fn($v) => trim($v) !== ''));
+                }
+            }
+
+            $parts = explode(',', $trimmed);
+            return array_values(array_filter(array_map('trim', array_map('strval', $parts)), fn($v) => $v !== ''));
+        }
+
+        return [];
+    }
+
     protected static function formatLabelsText(mixed $val): string
     {
-        if (!$val) return '';
-        $ids = is_array($val) ? $val : (is_string($val) ? json_decode($val, true) ?? explode(',', $val) : []);
-        return Label::whereIn('id', array_filter($ids))->pluck('name')->implode(', ');
+        $ids = static::normalizeArrayField($val);
+        if (empty($ids)) {
+            return '';
+        }
+        return Label::whereIn('id', $ids)->pluck('name')->implode(', ');
     }
 
     protected static function formatSourcesText(mixed $val): string
     {
-        if (!$val) return '';
-        $ids = is_array($val) ? $val : (is_string($val) ? json_decode($val, true) ?? explode(',', $val) : []);
-        return Source::whereIn('id', array_filter($ids))->pluck('name')->implode(', ');
+        $ids = static::normalizeArrayField($val);
+        if (empty($ids)) {
+            return '';
+        }
+        return Source::whereIn('id', $ids)->pluck('name')->implode(', ');
     }
 
     protected static function formatProductsText(mixed $val): string
     {
-        if (!$val || !module_is_active('ProductService')) return '';
-        $ids = is_array($val) ? $val : (is_string($val) ? json_decode($val, true) ?? explode(',', $val) : []);
-        return ProductServiceItem::whereIn('id', array_filter($ids))->pluck('name')->implode(', ');
+        if (!module_is_active('ProductService')) {
+            return '';
+        }
+        $ids = static::normalizeArrayField($val);
+        if (empty($ids)) {
+            return '';
+        }
+        return ProductServiceItem::whereIn('id', $ids)->pluck('name')->implode(', ');
     }
 }
