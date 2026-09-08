@@ -744,18 +744,26 @@ export default function Print() {
     return (
         <>
             <Head
-                title={`${t(
-                    'Sales Proposal'
-                )} - ${
-                    proposal?.proposal_number ||
-                    ''
-                }`}
+                title={(() => {
+                    const subject = proposal?.subject || '';
+                    const customerName = proposal?.customer?.name || proposal?.customer_name || formattedCustomers[0]?.name || '';
+                    const parts = [subject, customerName].filter(Boolean);
+                    if (parts.length > 0) return parts.join('_');
+                    return proposal?.proposal_number || t('Sales Proposal');
+                })()}
             />
 
             <PreviewModal
                 inline
                 autoPrint
                 hideHeaderBar
+                title={(() => {
+                    const subject = proposal?.subject || '';
+                    const customerName = proposal?.customer?.name || proposal?.customer_name || formattedCustomers[0]?.name || '';
+                    const parts = [subject, customerName].filter(Boolean);
+                    if (parts.length > 0) return parts.join('_');
+                    return proposal?.proposal_number || '';
+                })()}
 
                 formData={formData}
 

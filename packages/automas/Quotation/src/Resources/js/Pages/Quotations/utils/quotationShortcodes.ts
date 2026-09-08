@@ -1,4 +1,3 @@
-import { usePage } from '@inertiajs/react';
 import { getCompanySetting, getAdminSetting, getImagePath, formatDate, formatCurrency } from '@/utils/helpers';
 
 export interface QuotationShortcodeContext {
@@ -28,16 +27,8 @@ export const replaceQuotationShortcodes = (
   if (!content) return '';
 
   let pageProps = context.pageProps;
-  if (!pageProps) {
-    try {
-      const page = usePage();
-      pageProps = page?.props;
-    } catch {
-      // Fallback for non-React contexts or when outside Inertia Provider
-      if (typeof window !== 'undefined' && (window as any)?.__INITIAL_PAGE__?.props) {
-        pageProps = (window as any).__INITIAL_PAGE__.props;
-      }
-    }
+  if (!pageProps && typeof window !== 'undefined') {
+    pageProps = (window as any)?.__INITIAL_PAGE__?.props;
   }
 
   const companyName = getCompanySetting('company_name', pageProps) || context.settings?.company_name || 'My Company Ltd.';
@@ -71,9 +62,19 @@ export const replaceQuotationShortcodes = (
   const proposalSubject = context.formData?.subject || context.proposal?.subject || '';
   const proposalNumber = context.formData?.quotation_number || context.proposal?.quotation_number || '';
   const proposalDate = context.formData?.invoice_date || context.formData?.quotation_date || context.proposal?.quotation_date || context.proposal?.invoice_date;
-  const formattedProposalDate = proposalDate ? formatDate(proposalDate, pageProps) : '';
+  const formatCustomDate = (dateVal: any): string => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = d.toLocaleString('en-US', { month: 'long' });
+    const year = d.getFullYear();
+    return `${day} ${month}, ${year}`;
+  };
+
+  const formattedProposalDate = proposalDate ? formatCustomDate(proposalDate) : '';
   const dueDate = context.formData?.due_date || context.proposal?.due_date;
-  const formattedDueDate = dueDate ? formatDate(dueDate, pageProps) : '';
+  const formattedDueDate = dueDate ? formatCustomDate(dueDate) : '';
 
   const customer = context.customer || context.formData?.customer || context.proposal?.customer || {};
   const customerName = customer?.name || context.formData?.customer_name || context.proposal?.customer_name || '';
@@ -156,9 +157,14 @@ export const replaceQuotationShortcodes = (
     creator_email: userEmail,
     creator_phone: userPhone,
     quotation_subject: proposalSubject,
+    proposal_subject: proposalSubject,
     quotation_number: proposalNumber,
+    proposal_number: proposalNumber,
     quotation_date: formattedProposalDate,
+    proposal_date: formattedProposalDate,
     due_date: formattedDueDate,
+    quotation_due_date: formattedDueDate,
+    proposal_due_date: formattedDueDate,
     quotation_validity: context.formData?.payment_terms || context.proposal?.payment_terms || '',
     customer_name: customerName,
     customer_email: customerEmail,
