@@ -16,7 +16,7 @@ class SalesInvoiceSetup extends Model
 
     public static function getSettings($creatorId = null)
     {
-        $creatorId = $creatorId ?? (function_exists('creatorId') ? creatorId() : auth()->id());
+        $creatorId = $creatorId ?? creatorId();
         $authId = auth()->id();
 
         $defaults = [
@@ -25,6 +25,8 @@ class SalesInvoiceSetup extends Model
             'sales_invoice_bg_letterhead' => '',
             'sales_invoice_enable_letterhead' => 'off',
             'sales_invoice_default_payment_terms' => '<p>Payment due within 30 days of invoice date.</p>',
+            'sales_invoice_prefix' => 'SI',
+            'sales_invoice_starting_number' => '01',
         ];
 
         $targetIds = array_filter(array_unique([$creatorId, $authId]));
@@ -41,7 +43,7 @@ class SalesInvoiceSetup extends Model
 
     public static function setSettings(array $settings, $creatorId = null)
     {
-        $creatorId = $creatorId ?? (function_exists('creatorId') ? creatorId() : auth()->id());
+        $creatorId = $creatorId ?? creatorId();
 
         if (!$creatorId) {
             return;

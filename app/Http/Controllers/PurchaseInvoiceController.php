@@ -218,6 +218,8 @@ class PurchaseInvoiceController extends Controller
                 'products' => $products,
                 'warehouses' => $warehouses,
                 'default_payment_terms' => $setupSettings['purchase_invoice_default_payment_terms'] ?? '',
+                'invoice_settings' => $setupSettings,
+                'invoice_number' => PurchaseInvoice::generateInvoiceNumber(),
             ]);
         } else {
             return back()->with('error', __('Permission denied'));
@@ -230,6 +232,9 @@ class PurchaseInvoiceController extends Controller
             $totals = $this->calculateTotals($request->items);
 
             $invoice = new PurchaseInvoice();
+            if (!empty($request->invoice_number)) {
+                $invoice->invoice_number = $request->invoice_number;
+            }
             $invoice->invoice_date = $request->invoice_date;
             $invoice->due_date = $request->due_date;
 

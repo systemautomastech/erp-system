@@ -63,39 +63,6 @@ export default function Create() {
         return subjectList.filter((s) => s.name.toLowerCase().includes(q));
     }, [subjectList, subjectSearchQuery]);
 
-    const [isQuickSubjectModalOpen, setIsQuickSubjectModalOpen] = useState(false);
-    const [quickSubjectName, setQuickSubjectName] = useState('');
-    const [isQuickSubjectSaving, setIsQuickSubjectSaving] = useState(false);
-    const [quickSubjectError, setQuickSubjectError] = useState('');
-
-    const handleCreateQuickSubject = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!quickSubjectName.trim()) {
-            setQuickSubjectError(t('Subject name is required.'));
-            return;
-        }
-        setIsQuickSubjectSaving(true);
-        try {
-            const response = await axios.post(route('quotation-setup.subjects.store'), {
-                name: quickSubjectName.trim()
-            }, {
-                headers: { 'Accept': 'application/json' }
-            });
-            if (response.data?.subject) {
-                const newSub = response.data.subject;
-                setSubjectList((prev) => [newSub, ...prev]);
-                setData('subject', newSub.name);
-                toast.success(t('Subject created and selected.'));
-                setIsQuickSubjectModalOpen(false);
-                setQuickSubjectName('');
-                setQuickSubjectError('');
-            }
-        } catch (err: any) {
-            setQuickSubjectError(err.response?.data?.errors?.name?.[0] || err.response?.data?.message || t('Failed to create subject.'));
-        } finally {
-            setIsQuickSubjectSaving(false);
-        }
-    };
 
     // Helper to build active sections strictly following defaultPages order rule
     const buildSectionsFromDefaultPages = (itemsList: QuotationItem[], otherDetailsContent: string) => {
@@ -474,23 +441,9 @@ export default function Create() {
                                 </div>
 
                                 <div className="w-full flex-1">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <Label htmlFor="subject" required className="mb-0">
-                                            {t('Subject')}
-                                        </Label>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setQuickSubjectName('');
-                                                setQuickSubjectError('');
-                                                setIsQuickSubjectModalOpen(true);
-                                            }}
-                                            className="text-[11px] font-semibold text-primary flex items-center gap-1 cursor-pointer hover:underline transition-colors"
-                                        >
-                                            <Plus className="h-3 w-3" />
-                                            {t('New Subject')}
-                                        </button>
-                                    </div>
+                                    <Label htmlFor="subject" required className="mb-1.5">
+                                        {t('Subject')}
+                                    </Label>
 
                                     <Select
                                         value={data.subject}
@@ -868,6 +821,15 @@ export default function Create() {
                         >
                             {t('Cancel')}
                         </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsPreviewOpen(true)}
+                            className="flex items-center gap-1.5"
+                        >
+                            <Eye className="h-4 w-4" />
+                            {t('Preview')}
+                        </Button>
                         <Button type="submit" disabled={processing}>
                             {t('Create')}
                         </Button>
@@ -875,60 +837,19 @@ export default function Create() {
                 </form>
             </div>
 
-            {/* QUICK SUBJECT MODAL */}
-            <Dialog open={isQuickSubjectModalOpen} onOpenChange={setIsQuickSubjectModalOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Tag className="h-5 w-5 text-primary" />
-                            {t('Add New Quotation Subject')}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {t('Create a new subject name to instantly select for this quotation.')}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <form onSubmit={handleCreateQuickSubject} className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="quick-subject-name" required>
-                                {t('Subject Name')}
-                            </Label>
-                            <Input
-                                id="quick-subject-name"
-                                value={quickSubjectName}
-                                onChange={(e) => {
-                                    setQuickSubjectName(e.target.value);
-                                    if (quickSubjectError) setQuickSubjectError('');
-                                }}
-                                placeholder={t('e.g., Quotation for Web Development Service')}
-                                autoFocus
-                            />
-                            {quickSubjectError && (
-                                <p className="text-xs font-medium text-destructive">{quickSubjectError}</p>
-                            )}
-                        </div>
-
-                        <DialogFooter className="pt-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsQuickSubjectModalOpen(false)}
-                                disabled={isQuickSubjectSaving}
-                            >
-                                {t('Cancel')}
-                            </Button>
-                            <Button type="submit" disabled={isQuickSubjectSaving} className="gap-2">
-                                {isQuickSubjectSaving ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Save className="h-4 w-4" />
-                                )}
-                                {t('Save & Select')}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <PreviewModal
+                open={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                formData={data as any}
+                sections={sections as any}
+                customers={customers}
+                warehouses={warehouses}
+                availableProducts={availableProducts}
+                proposalSetting={activeSetting}
+                totals={totals}
+                other_details={data.other_details}
+                showPrintButton={false}
+            />
         </AuthenticatedLayout>
     );
 }

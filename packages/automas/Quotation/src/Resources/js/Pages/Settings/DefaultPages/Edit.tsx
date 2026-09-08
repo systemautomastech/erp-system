@@ -12,7 +12,7 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { replaceQuotationShortcodes } from '../../Quotations/utils/quotationShortcodes';
 import { getImagePath } from '@/utils/helpers';
 import MediaPicker from '@/components/MediaPicker';
-import {
+import PreviewModal, {
     ProposalPreviewSheet,
     paginateDomContainer,
     PROPOSAL_CONTENT_CLASSES,
@@ -192,6 +192,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
 
     const measureContainerRef = useRef<HTMLDivElement>(null);
     const [paginatedPreviewPages, setPaginatedPreviewPages] = useState<string[]>([]);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
 
     useEffect(() => {
@@ -363,8 +364,8 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                 {/* Page Title & Status Row */}
                                 <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
                                     <div className="flex-1 space-y-1.5 min-w-0">
-                                        <Label htmlFor="page-title" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                            {t('Page Title')} <span className="text-red-500">*</span>
+                                        <Label htmlFor="page-title" className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                            {t('Page Title')}
                                         </Label>
                                         <Input
                                             id="page-title"
@@ -481,7 +482,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                         {/* Page Content & Editor */}
                                         <div className="space-y-2 pt-1">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <Label htmlFor="page-content" className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                                <Label htmlFor="page-content" className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                                     {t('Page Content')}
                                                 </Label>
 
@@ -625,7 +626,16 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                                 )}
 
                                 {/* Save Button Bar */}
-                                <div className="flex justify-end pt-4 border-t">
+                                <div className="flex justify-end gap-3 pt-4 border-t">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsPreviewOpen(true)}
+                                        className="flex items-center gap-1.5"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                        {t('Preview')}
+                                    </Button>
                                     <Button type="submit" disabled={processing} className="min-w-28 gap-2">
                                         <Save className="h-4 w-4" />
                                         {processing ? t('Saving...') : t('Save Changes')}
@@ -636,6 +646,17 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                     </Card>
                 </div>
             </div>
+
+            <PreviewModal
+                open={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                title={data.title || t('Page Preview')}
+                content={processedContent}
+                backgroundImage={data.background_image}
+                settings={quotationSetting || QuotationSetting}
+                isDefaultPageSetup={true}
+                showPrintButton={false}
+            />
         </AuthenticatedLayout>
     );
 }

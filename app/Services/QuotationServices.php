@@ -376,6 +376,10 @@ class QuotationServices
         $quotation->notes = $data['notes'] ?? $quotation->notes;
         $quotation->is_prepaid = filter_var($data['is_prepaid'] ?? $quotation->is_prepaid ?? false, FILTER_VALIDATE_BOOLEAN);
         $quotation->is_tax_enabled = $isTaxEnabled;
+        $quotation->otc_discount_type = $data['otc_discount_type'] ?? $quotation->otc_discount_type ?? 'percentage';
+        $quotation->otc_discount_value = (float) ($data['otc_discount_value'] ?? $quotation->otc_discount_value ?? 0);
+        $quotation->mrc_discount_type = $data['mrc_discount_type'] ?? $quotation->mrc_discount_type ?? 'percentage';
+        $quotation->mrc_discount_value = (float) ($data['mrc_discount_value'] ?? $quotation->mrc_discount_value ?? 0);
 
         $this->assignCustomerData($quotation, $data);
 

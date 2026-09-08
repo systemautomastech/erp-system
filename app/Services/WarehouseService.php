@@ -32,13 +32,7 @@ class WarehouseService
             });
 
         if ($warehouseId) {
-            $productsQuery->where(function ($q) use ($warehouseId) {
-                $q->whereHas('warehouseStocks', function ($stockQuery) use ($warehouseId) {
-                    $stockQuery->where('warehouse_id', $warehouseId)->where('quantity', '>', 0);
-                })->orWhere('type', 'service')
-                    ->orWhereNull('type')
-                    ->orWhereDoesntHave('warehouseStocks');
-            })->with([
+            $productsQuery->with([
                 'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
             ]);
         }

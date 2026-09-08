@@ -23,6 +23,12 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import NoRecordsFound from '@/components/no-records-found';
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { InputError } from "@/components/ui/input-error";
+import { toast } from 'sonner';
+import axios from 'axios';
 import { usePageButtons } from '@/hooks/usePageButtons';
 import { cn } from '@/lib/utils';
 
@@ -88,13 +94,49 @@ const STATUS_COLUMNS = [
 
 export default function Index() {
     const { t } = useTranslation();
-    const { proposals, auth, customers, stats, boardData } = usePage<{
+    const { proposals, auth, customers, stats, boardData, quotationSubjects = [] } = usePage<{
         proposals: { data: SalesProposal[];[key: string]: any };
         auth: { user: { permissions: string[] } };
         customers: { id: number; name: string; email: string }[];
         stats: ProposalStats;
         boardData: Record<string, SalesProposal[]> | null;
+        quotationSubjects?: { id: number; name: string }[];
     }>().props;
+
+    const [subjectList, setSubjectList] = useState<{ id: number; name: string }[]>(quotationSubjects);
+    const [isQuickSubjectModalOpen, setIsQuickSubjectModalOpen] = useState(false);
+    const [quickSubjectName, setQuickSubjectName] = useState('');
+    const [isQuickSubjectSaving, setIsQuickSubjectSaving] = useState(false);
+    const [quickSubjectError, setQuickSubjectError] = useState('');
+
+    const handleCreateQuickSubject = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!quickSubjectName.trim()) {
+            setQuickSubjectError(t('Subject name is required.'));
+            return;
+        }
+        setIsQuickSubjectSaving(true);
+        try {
+            const response = await axios.post(route('quotation-setup.subjects.store'), {
+                name: quickSubjectName.trim()
+            }, {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (response.data?.subject) {
+                const newSub = response.data.subject;
+                setSubjectList((prev) => [newSub, ...prev]);
+                setConvertState((prev) => ({ ...prev, subject: newSub.name, error: '' }));
+                toast.success(t('Subject created and selected.'));
+                setIsQuickSubjectModalOpen(false);
+                setQuickSubjectName('');
+                setQuickSubjectError('');
+            }
+        } catch (err: any) {
+            setQuickSubjectError(err.response?.data?.errors?.name?.[0] || err.response?.data?.message || t('Failed to create subject.'));
+        } finally {
+            setIsQuickSubjectSaving(false);
+        }
+    };
 
     const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
 
@@ -115,7 +157,17 @@ export default function Index() {
 
     const [viewMode, setViewMode] = useState<'board' | 'list'>(urlParams.get('view') as 'board' | 'list' || 'list');
     const [showFilters, setShowFilters] = useState(false);
-    const [convertState, setConvertState] = useState({ isOpen: false, proposalId: null as number | null });
+    const [convertState, setConvertState] = useState<{
+        isOpen: boolean;
+        proposalId: number | null;
+        subject: string;
+        error: string;
+    }>({
+        isOpen: false,
+        proposalId: null,
+        subject: '',
+        error: '',
+    });
     const [isDownloading, setIsDownloading] = useState(false);
 
     useFlashMessages();
@@ -194,18 +246,33 @@ export default function Index() {
         navigate({ per_page: perPage, view: 'list' });
     };
 
-    const openConvertDialog = (proposalId: number) => {
-        setConvertState({ isOpen: true, proposalId });
+    const openConvertDialog = (proposal: SalesProposal) => {
+        setConvertState({
+            isOpen: true,
+            proposalId: proposal.id,
+            subject: '',
+            error: '',
+        });
     };
 
     const closeConvertDialog = () => {
-        setConvertState({ isOpen: false, proposalId: null });
+        setConvertState({ isOpen: false, proposalId: null, subject: '', error: '' });
     };
 
-    const confirmConvert = () => {
+    const confirmConvert = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!convertState.subject || !convertState.subject.trim()) {
+            setConvertState((prev) => ({ ...prev, error: t('Subject is required to convert proposal to quotation.') }));
+            return;
+        }
         if (convertState.proposalId) {
-            router.post(route('sales-proposals.convert-to-invoice', convertState.proposalId));
-            closeConvertDialog();
+            router.post(
+                route('sales-proposals.convert-to-invoice', convertState.proposalId),
+                { subject: convertState.subject.trim() },
+                {
+                    onSuccess: () => closeConvertDialog(),
+                }
+            );
         }
     };
 
@@ -288,7 +355,7 @@ export default function Index() {
                 auth.user?.permissions?.includes('convert-sales-proposals') && item.status === 'accepted' && (
                     <Tooltip delayDuration={0}>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={() => openConvertDialog(item.id)} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
+                            <Button variant="ghost" size="sm" onClick={() => openConvertDialog(item)} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
@@ -766,7 +833,8 @@ export default function Index() {
                                                                         <div className="flex items-center justify-between mt-2">
                                                                             <span className="text-xs text-gray-400">{t('Due')} {formatDate(proposal.due_date)}</span>
                                                                             <div className="flex items-center gap-1">
-                                                                                {proposal.display_status === 'overdue' && (
+{
+                                                                                proposal.display_status === 'overdue' && (
                                                                                     <span className="flex items-center gap-1 text-[10px] font-medium text-red-600">
                                                                                         <AlertTriangle className="h-3 w-3" /> {t('Overdue')}
                                                                                     </span>
@@ -813,7 +881,7 @@ export default function Index() {
                                                                                     {auth.user?.permissions?.includes('convert-sales-proposals') && (
                                                                                         <button
                                                                                             type="button"
-                                                                                            onClick={() => openConvertDialog(proposal.id)}
+                                                                                            onClick={() => openConvertDialog(proposal)}
                                                                                             className="text-[11px] font-semibold text-green-700 hover:text-green-900 underline shrink-0"
                                                                                         >
                                                                                             {t('Convert now')}
@@ -880,14 +948,49 @@ export default function Index() {
                     variant="destructive"
                 />
 
-                <ConfirmationDialog
-                    open={convertState.isOpen}
-                    onOpenChange={closeConvertDialog}
-                    title={t('Convert to Quotation')}
-                    message={t('Are you sure you want to convert this proposal to a quotation?')}
-                    confirmText={t('Convert')}
-                    onConfirm={confirmConvert}
-                />
+                <Dialog open={convertState.isOpen} onOpenChange={closeConvertDialog}>
+                    <DialogContent className="max-w-md [&>div]:p-0 [&>div>form]:p-0">
+                        <form onSubmit={confirmConvert} className="!p-0">
+                            <DialogHeader className="!px-5 !pt-4 !pb-3">
+                                <DialogTitle className="!text-base">{t('Convert Proposal to Quotation')}</DialogTitle>
+                                <DialogDescription className="!text-xs">
+                                    {t('Please specify/confirm the subject before converting this proposal to a quotation.')}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogBody className="!px-5 !py-4 space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="convert_subject" required>
+                                        {t('Quotation Subject')}
+                                    </Label>
+                                    <Select
+                                        value={convertState.subject || undefined}
+                                        onValueChange={(value) => setConvertState({ ...convertState, subject: value, error: '' })}
+                                    >
+                                        <SelectTrigger id="convert_subject" className="w-full">
+                                            <SelectValue placeholder={t('Select Subject')} />
+                                        </SelectTrigger>
+                                        <SelectContent searchable>
+                                            {quotationSubjects.map((subj) => (
+                                                <SelectItem key={subj.id} value={subj.name}>
+                                                    {subj.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={convertState.error} />
+                                </div>
+                            </DialogBody>
+                            <DialogFooter className="!px-5 !py-3.5">
+                                <Button type="button" variant="outline" onClick={closeConvertDialog}>
+                                    {t('Cancel')}
+                                </Button>
+                                <Button type="submit">
+                                    {t('Convert')}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
 
             </AuthenticatedLayout>
         </TooltipProvider>

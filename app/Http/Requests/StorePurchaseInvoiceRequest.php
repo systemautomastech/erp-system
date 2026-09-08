@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePurchaseInvoiceRequest extends FormRequest
 {
@@ -14,6 +15,14 @@ class StorePurchaseInvoiceRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'invoice_number' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('purchase_invoices', 'invoice_number')->where(function ($query) {
+                    return $query->where('created_by', creatorId());
+                }),
+            ],
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
             'vendor_mode' => 'nullable|in:existing,new',

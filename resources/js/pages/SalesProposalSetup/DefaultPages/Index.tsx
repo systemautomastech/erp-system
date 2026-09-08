@@ -344,7 +344,7 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                                             </span>
 
                                             <div className="min-w-0 flex-1">
-                                                <h4 className="font-semibold text-sm truncate text-foreground leading-snug tracking-tight" title={page.title}>
+                                                <h4 className="font-bold text-sm truncate text-foreground leading-snug tracking-tight" title={page.title}>
                                                     {page.title}
                                                 </h4>
                                             </div>
@@ -473,6 +473,7 @@ export default function Index({ settings, defaultPages = [] }: DefaultPagesIndex
                     content={viewingPage?.content}
                     backgroundImage={viewingPage?.background_image}
                     settings={settings}
+                    isDefaultPageSetup={true}
                     showPrintButton={false}
                 />
 

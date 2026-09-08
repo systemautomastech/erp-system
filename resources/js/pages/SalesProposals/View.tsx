@@ -6,13 +6,21 @@ import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { RefreshCw, Download, ArrowLeft, Printer, Edit } from 'lucide-react';
+import { RefreshCw, Download, ArrowLeft, Printer, Edit, Plus } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { InputError } from "@/components/ui/input-error";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import axios from 'axios';
 import { useFormFields } from '@/hooks/useFormFields';
 
 interface SalesProposal {
     id: number;
     proposal_number: string;
+    subject?: string | null;
     proposal_date: string;
     due_date: string;
     customer_id?: number | null;
@@ -62,13 +70,54 @@ interface SalesProposal {
 interface ViewProps {
     proposal: SalesProposal;
     auth: any;
+    quotationSubjects?: Array<{ id: number; name: string }>;
     [key: string]: any;
 }
 
 export default function View() {
     const { t } = useTranslation();
-    const { proposal, auth } = usePage<ViewProps>().props;
+    const { proposal, auth, quotationSubjects = [] } = usePage<ViewProps>().props;
     const [isDownloading, setIsDownloading] = useState(false);
+
+    const [convertState, setConvertState] = useState<{
+        isOpen: boolean;
+        subject: string;
+        error: string;
+    }>({
+        isOpen: false,
+        subject: '',
+        error: '',
+    });
+
+    const openConvertDialog = () => {
+        setConvertState({
+            isOpen: true,
+            subject: '',
+            error: '',
+        });
+    };
+
+    const closeConvertDialog = () => {
+        setConvertState({ isOpen: false, subject: '', error: '' });
+    };
+
+    const confirmConvert = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!convertState.subject || !convertState.subject.trim()) {
+            setConvertState((prev) => ({ ...prev, error: t('Subject is required to convert proposal to quotation.') }));
+            return;
+        }
+        router.post(
+            route('sales-proposals.convert-to-invoice', proposal.id),
+            { subject: convertState.subject.trim() },
+            {
+                onSuccess: () => {
+                    closeConvertDialog();
+                    router.reload();
+                },
+            }
+        );
+    };
 
     useFlashMessages();
 
@@ -166,12 +215,6 @@ export default function View() {
                                         <span className="text-muted-foreground">{t('Warehouse')}</span>
                                         <span>{proposal.warehouse?.name || '-'}</span>
                                     </div>
-                                    {/* {proposal.payment_terms && (
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">{t('Terms')}</span>
-                                            <span>{proposal.payment_terms.replace(/<[^>]*>/g, '').trim()}</span>
-                                        </div>
-                                    )} */}
                                 </div>
                                 <div className="mt-4 p-3 bg-blue-50 rounded">
                                     <div className="flex justify-between items-center">
@@ -201,11 +244,7 @@ export default function View() {
                                                         <TooltipTrigger asChild>
                                                             <Button
                                                                 size="sm"
-                                                                onClick={() => router.post(route('sales-proposals.convert-to-invoice', proposal.id), {}, {
-                                                                    onSuccess: () => {
-                                                                        router.reload();
-                                                                    }
-                                                                })}
+                                                                onClick={openConvertDialog}
                                                             >
                                                                 <RefreshCw className="h-4 w-4 mr-2" />
                                                                 {t('Convert to Quotation')}
@@ -355,6 +394,51 @@ export default function View() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={convertState.isOpen} onOpenChange={closeConvertDialog}>
+                <DialogContent className="max-w-md [&>div]:p-0 [&>div>form]:p-0">
+                    <form onSubmit={confirmConvert} className="!p-0">
+                        <DialogHeader className="!px-5 !pt-4 !pb-3">
+                            <DialogTitle className="!text-base">{t('Convert Proposal to Quotation')}</DialogTitle>
+                            <DialogDescription className="!text-xs">
+                                {t('Please specify/confirm the subject before converting this proposal to a quotation.')}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogBody className="!px-5 !py-4 space-y-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="convert_subject_view" required>
+                                    {t('Quotation Subject')}
+                                </Label>
+
+                                <Select
+                                    value={convertState.subject || undefined}
+                                    onValueChange={(value) => setConvertState({ ...convertState, subject: value, error: '' })}
+                                >
+                                    <SelectTrigger id="convert_subject_view" className="w-full">
+                                        <SelectValue placeholder={t('Select Subject')} />
+                                    </SelectTrigger>
+                                    <SelectContent searchable>
+                                        {quotationSubjects.map((subj) => (
+                                            <SelectItem key={subj.id} value={subj.name}>
+                                                {subj.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={convertState.error} />
+                            </div>
+                        </DialogBody>
+                        <DialogFooter className="!px-5 !py-3.5">
+                            <Button type="button" variant="outline" onClick={closeConvertDialog}>
+                                {t('Cancel')}
+                            </Button>
+                            <Button type="submit">
+                                {t('Convert')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AuthenticatedLayout>
     );
 }

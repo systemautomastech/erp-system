@@ -882,6 +882,15 @@ export default function Edit() {
                                 {t('Cancel')}
                             </Button>
                             <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsPreviewOpen(true)}
+                                className="flex items-center gap-1.5"
+                            >
+                                <Eye className="h-4 w-4" />
+                                {t('Preview')}
+                            </Button>
+                            <Button
                                 type="submit"
                                 disabled={processing}
                             >
@@ -891,6 +900,20 @@ export default function Edit() {
                     </div>
                 </form>
             </div>
+
+            <PreviewModal
+                open={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                formData={data as any}
+                sections={sections as any}
+                customers={customers}
+                warehouses={warehouses}
+                availableProducts={availableProducts}
+                proposalSetting={activeSetting}
+                totals={totals}
+                other_details={data.other_details}
+                showPrintButton={false}
+            />
         </AuthenticatedLayout>
     );
 }
