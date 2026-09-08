@@ -395,7 +395,7 @@ class SalesProposalController extends Controller
         $defaultPages = $this->proposalService->getActiveDefaultPages($authorId);
         $proposalSetting = ProposalSetting::getSettings(creatorId());
 
-        return view('sales-proposals.print', [
+        return inertia('SalesProposals/Print', [
             'proposal' => $salesProposal,
             'defaultPages' => $defaultPages,
             'proposalSetting' => $proposalSetting,

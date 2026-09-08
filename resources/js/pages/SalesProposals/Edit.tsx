@@ -122,7 +122,7 @@ export default function Edit() {
 
         if (parsed.length === 0 && defaultPages && defaultPages.length > 0) {
             parsed = defaultPages
-                .map((p, idx) => ({
+                .map((p: any, idx) => ({
                     default_page_id: p.id,
                     title: p.title,
                     content: p.content || '',

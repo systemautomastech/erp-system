@@ -223,12 +223,8 @@
         rel="stylesheet">
     <style>
         :root {
-            --template-color:
-                {{ $templateColor }}
-                !important;
-            --sp-accent-color:
-                {{ $templateColor }}
-                !important;
+            --template-color: {{ $templateColor }} !important;
+            --sp-accent-color: {{ $templateColor }} !important;
             --sp-text-title: #111827;
             --sp-text-sub: #64748b;
             --sp-text-body: #334155;
@@ -243,8 +239,7 @@
             print-color-adjust: exact !important;
         }
 
-        html,
-        body {
+        html, body {
             background-color: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -264,26 +259,18 @@
         .quotation-preview-sheet,
         .quotation-cover__sheet {
             width: 210mm;
-            min-height: 297mm;
             height: 297mm;
+            min-height: 297mm;
             max-height: 297mm;
             background-color: #ffffff;
             margin: 0 auto;
+            position: relative !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
             page-break-after: always;
             break-after: page;
             page-break-inside: avoid;
             break-inside: avoid-page;
-            box-shadow: none !important;
-            border: none !important;
-            position: relative !important;
-            overflow: hidden !important;
-            box-sizing: border-box !important;
-            --template-color:
-                {{ $templateColor }}
-                !important;
-            --sp-accent-color:
-                {{ $templateColor }}
-                !important;
         }
 
         .quotation-preview-sheet:last-child,
@@ -320,7 +307,11 @@
             max-width: 60mm;
         }
 
-        .quotation-header-logo-container img {
+        .quotation-header-logo-container img,
+        img.quotation-logo,
+        .quotation-logo {
+            display: inline-block !important;
+            vertical-align: middle;
             max-height: 16mm;
             max-width: 55mm;
             object-fit: contain;
@@ -330,15 +321,13 @@
             position: relative !important;
             z-index: 1 !important;
             padding: 32mm 15mm 20mm !important;
-            min-height: 297mm !important;
+            height: calc(297mm - 52mm) !important;
+            min-height: calc(297mm - 52mm) !important;
+            max-height: calc(297mm - 52mm) !important;
             box-sizing: border-box !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: flex-start !important;
-        }
-
-        .quotation-page__body.body-combined {
-            padding: 28mm 15mm 18mm !important;
         }
 
         .quotation-section-title {
@@ -349,319 +338,42 @@
             color: #293240;
         }
 
-        .quotation-page__body> :first-child .quotation-section-title,
+        .quotation-page__body > :first-child .quotation-section-title,
         .quotation-charges-wrapper:first-child .quotation-section-title {
             margin-top: 0;
         }
 
-        /* Quotation Table System */
-        .quotation-table {
+        /* Merged Quotation & HTML Table System */
+        .quotation-table,
+        .html-preview-container table {
             width: 100% !important;
             font-size: 10px !important;
+            font-family: "Open Sans", sans-serif !important;
+            line-height: 1.35 !important;
             table-layout: fixed !important;
             border-collapse: collapse !important;
             border: 1px solid #cbd5e1 !important;
             margin-bottom: 8px !important;
         }
 
-        .quotation-table thead tr {
-            background-color:
-                {{ $templateColor }}
-                !important;
-            color: #ffffff !important;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .quotation-table thead th {
-            padding: 6px 8px;
-            border: 1px solid #cbd5e1;
-            color: #ffffff !important;
-            font-size: 10px;
-            font-weight: 600;
-            background-color:
-                {{ $templateColor }}
-                !important;
-            box-sizing: border-box;
-        }
-
-        .quotation-table th.col-sn {
-            width: 5%;
-            text-align: center;
-            padding: 6px 4px;
-        }
-
-        .quotation-table th.col-item {
-            width: 16%;
-            text-align: left;
-        }
-
-        .quotation-table th.col-desc {
-            width: 33%;
-            text-align: left;
-        }
-
-        .quotation-table th.col-qty {
-            width: 7%;
-            text-align: center;
-            padding: 6px 4px;
-        }
-
-        .quotation-table th.col-price {
-            width: 12%;
-            text-align: right;
-        }
-
-        .quotation-table th.col-tax {
-            width: 14%;
-            text-align: right;
-        }
-
-        .quotation-table th.col-total {
-            width: 13%;
-            text-align: right;
-        }
-
-        .quotation-table tbody td {
-            border: 1px solid #cbd5e1;
-            color: #293240;
-            vertical-align: middle;
-            box-sizing: border-box;
-            word-break: break-word;
-            overflow-wrap: anywhere;
-            font-size: 10px;
-        }
-
-        .quotation-td-sn {
-            padding: 4px;
-            text-align: center;
-        }
-
-        .quotation-td-item {
-            padding: 4px 6px;
-            font-weight: 500;
-        }
-
-        .quotation-td-qty {
-            padding: 4px;
-            text-align: center;
-        }
-
-        .quotation-td-price {
-            padding: 4px 6px;
-            text-align: right;
-        }
-
-        .quotation-td-tax {
-            padding: 4px 6px;
-            text-align: right;
-        }
-
-        .quotation-td-total {
-            padding: 4px 6px;
-            text-align: right;
-            font-weight: 700;
-        }
-
-        .quotation-no-items {
-            padding: 16px;
-            text-align: center;
-            color: #94a3b8;
-            font-style: italic;
-        }
-
-        .quotation-summary-label {
-            padding: 4px 6px;
-            border: 1px solid #cbd5e1;
-            text-align: right;
-            font-weight: 700;
-            color: #1e293b;
-            font-size: 10px;
-            white-space: nowrap;
-            vertical-align: middle;
-        }
-
-        .quotation-summary-value {
-            padding: 4px 6px;
-            border: 1px solid #cbd5e1;
-            text-align: right;
-            font-weight: 700;
-            color: #0f172a;
-            font-size: 10px;
-            white-space: nowrap;
-            vertical-align: middle;
-        }
-
-        /* Description HTML Typography */
-        .quotation-item-desc {
-            padding: 4px 6px;
-            text-align: left;
-            font-size: 10px;
-            line-height: 1.35;
-            color: #293240;
-            word-break: break-word;
-            overflow-wrap: anywhere;
-        }
-
-        .quotation-item-desc p {
-            margin: 0 0 2px 0 !important;
-            padding: 0 !important;
-            line-height: 1.35 !important;
-        }
-
-        .quotation-item-desc p:last-child {
-            margin-bottom: 0 !important;
-        }
-
-        .quotation-item-desc ul,
-        .quotation-item-desc ol {
-            margin: 0 0 2px 0 !important;
-            padding-left: 14px !important;
-            list-style-position: outside !important;
-        }
-
-        .quotation-item-desc li {
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1.35 !important;
-        }
-
-        .quotation-item-desc li p {
-            display: inline !important;
-            margin: 0 !important;
-        }
-
-        /* Content / Other Details Typography */
-        .html-preview-container {
-            font-size: 14px;
-            line-height: 1.5;
-            color: #1e293b;
-            width: 100%;
-        }
-
-        .html-preview-container h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin: 8px 0;
-        }
-
-        .html-preview-container h2 {
-            font-size: 20px;
-            font-weight: 700;
-            margin: 8px 0;
-        }
-
-        .html-preview-container h3 {
-            font-size: 18px;
-            font-weight: 600;
-            margin: 6px 0;
-        }
-
-        .html-preview-container h4 {
-            font-size: 16px;
-            font-weight: 600;
-            margin: 4px 0;
-        }
-
-        .html-preview-container h1:not([style*="color"]),
-        .html-preview-container h2:not([style*="color"]),
-        .html-preview-container h3:not([style*="color"]),
-        .html-preview-container h4:not([style*="color"]) {
-            color: #0f172a;
-        }
-
-        .html-preview-container p {
-            margin: 4px 0;
-        }
-
-        .html-preview-container>p:first-child {
-            margin-top: 0;
-        }
-
-        .html-preview-container>p:last-child {
-            margin-bottom: 0;
-        }
-
-        .html-preview-container p:empty {
-            min-height: 1.15em;
-            margin: 0;
-        }
-
-        .html-preview-container p:empty::before {
-            content: "\00a0";
-        }
-
-        .html-preview-container ul {
-            list-style-type: disc !important;
-            padding-left: 24px !important;
-            margin-left: 0 !important;
-            margin-top: 8px !important;
-            margin-bottom: 8px !important;
-        }
-
-        .html-preview-container ol {
-            list-style-type: decimal !important;
-            padding-left: 24px !important;
-            margin-left: 0 !important;
-            margin-top: 8px !important;
-            margin-bottom: 8px !important;
-        }
-
-        .html-preview-container li {
-            display: list-item !important;
-            list-style-type: inherit !important;
-            margin-top: 3px !important;
-            margin-bottom: 3px !important;
-        }
-
-        .html-preview-container li p {
-            display: inline !important;
-            margin: 0 !important;
-        }
-
-        .html-preview-container blockquote {
-            border-left: 4px solid #cbd5e1;
-            padding-left: 16px;
-            font-style: italic;
-            margin: 8px 0;
-        }
-
-        .html-preview-container a {
-            color: #2563eb;
-            text-decoration: underline;
-        }
-
-        .html-preview-container table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            margin: 8px 0 !important;
-            border: 1px solid #cbd5e1 !important;
-            font-size: 10px !important;
-            font-family: "Open Sans", sans-serif !important;
-            line-height: 1.35 !important;
-        }
-
+        .quotation-table thead tr,
         .html-preview-container table thead tr {
-            background-color:
-                {{ $templateColor }}
-                !important;
+            background-color: {{ $templateColor }} !important;
             color: #ffffff !important;
         }
 
+        .quotation-table thead th,
         .html-preview-container th {
-            border: 1px solid #cbd5e1 !important;
             padding: 6px 8px !important;
-            font-weight: 600 !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #ffffff !important;
             font-size: 10px !important;
+            font-weight: 600 !important;
             font-family: "Open Sans", sans-serif !important;
             line-height: 1.35 !important;
-            text-align: left !important;
-            background-color:
-                {{ $templateColor }}
-                !important;
-            color: #ffffff !important;
-            vertical-align: middle !important;
+            background-color: {{ $templateColor }} !important;
             box-sizing: border-box !important;
+            vertical-align: middle !important;
         }
 
         .html-preview-container th * {
@@ -674,19 +386,21 @@
             color: #ffffff !important;
         }
 
+        .quotation-table tbody td,
         .html-preview-container table td {
             border: 1px solid #cbd5e1 !important;
+            color: #293240 !important;
             padding: 6px 8px !important;
             font-size: 10px !important;
             font-family: "Open Sans", sans-serif !important;
             line-height: 1.35 !important;
-            color: #293240 !important;
             vertical-align: middle !important;
             box-sizing: border-box !important;
             word-break: break-word !important;
+            overflow-wrap: anywhere !important;
         }
 
-        .html-preview-container table td *:not([style*="color"]) {
+        .html-preview-container table td * {
             margin: 0 !important;
             padding: 0 !important;
             font-size: 10px !important;
@@ -699,39 +413,88 @@
             margin-top: 3px !important;
         }
 
+        .quotation-table th.col-sn { width: 5%; text-align: center; padding: 6px 4px !important; }
+        .quotation-table th.col-item { width: 16%; text-align: left; }
+        .quotation-table th.col-desc { width: 33%; text-align: left; }
+        .quotation-table th.col-qty { width: 7%; text-align: center; padding: 6px 4px !important; }
+        .quotation-table th.col-price { width: 12%; text-align: right; }
+        .quotation-table th.col-tax { width: 14%; text-align: right; }
+        .quotation-table th.col-total { width: 13%; text-align: right; }
+
+        .quotation-td-sn { text-align: center; }
+        .quotation-td-item { font-weight: 500; }
+        .quotation-td-qty { text-align: center; }
+        .quotation-td-price, .quotation-td-tax { text-align: right; }
+        .quotation-td-total { text-align: right; font-weight: 700; }
+
+        .quotation-no-items {
+            padding: 16px !important;
+            text-align: center;
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .quotation-summary-label,
+        .quotation-summary-value {
+            padding: 4px 6px !important;
+            border: 1px solid #cbd5e1 !important;
+            text-align: right;
+            font-weight: 700;
+            font-size: 10px !important;
+            white-space: nowrap;
+            vertical-align: middle !important;
+        }
+        .quotation-summary-label { color: #1e293b; }
+        .quotation-summary-value { color: #0f172a; }
+
+        /* Description HTML Typography */
+        .quotation-item-desc {
+            padding: 4px 6px !important;
+            text-align: left;
+            font-size: 10px !important;
+            line-height: 1.35 !important;
+            color: #293240;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+
+        .quotation-item-desc p { margin: 0 0 2px 0 !important; padding: 0 !important; line-height: 1.35 !important; }
+        .quotation-item-desc p:last-child { margin-bottom: 0 !important; }
+        .quotation-item-desc ul, .quotation-item-desc ol { margin: 0 0 2px 0 !important; padding-left: 14px !important; list-style-position: outside !important; }
+        .quotation-item-desc li { margin: 0 !important; padding: 0 !important; line-height: 1.35 !important; }
+        .quotation-item-desc li p { display: inline !important; margin: 0 !important; }
+
+        /* Content / Other Details Typography */
+        .html-preview-container {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #1e293b;
+            width: 100%;
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 !important;
+            height: 100% !important;
+        }
+
+        .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+        .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; color: #0f172a; }
+        .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; color: #0f172a; }
+        .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; color: #0f172a; }
+        .html-preview-container p { margin: 4px 0; }
+        .html-preview-container > p:first-child { margin-top: 0; }
+        .html-preview-container > p:last-child { margin-bottom: 0; }
+        .html-preview-container p:empty { min-height: 1.15em; margin: 0; }
+        .html-preview-container p:empty::before { content: "\00a0"; }
+        .html-preview-container ul { list-style-type: disc; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
+        .html-preview-container ol { list-style-type: decimal; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
+        .html-preview-container li { margin-top: 2px; margin-bottom: 2px; }
+        .html-preview-container blockquote { border-left: 4px solid #cbd5e1; padding-left: 16px; font-style: italic; margin: 8px 0; }
+        .html-preview-container a { color: #2563eb; text-decoration: underline; }
+
         /* Accent & Badge Dynamic Coloring */
-        .sp-doc-badge-label {
-            color:
-                {{ $templateColor }}
-                !important;
-        }
-
-        .sp-doc-accent-line {
-            background-color:
-                {{ $templateColor }}
-                !important;
-            background:
-                {{ $templateColor }}
-                !important;
-        }
-
-        .sp-doc-date-tag {
-            border-color:
-                {{ $templateColor }}
-                !important;
-            color:
-                {{ $templateColor }}
-                !important;
-        }
-
-        /* Logo alignments */
-        .quotation-preview-sheet img,
-        .quotation-page__body img,
-        img.quotation-logo,
-        .quotation-logo {
-            display: inline-block !important;
-            vertical-align: middle;
-        }
+        .sp-doc-badge-label { color: {{ $templateColor }} !important; }
+        .sp-doc-accent-line { background-color: {{ $templateColor }} !important; background: {{ $templateColor }} !important; }
+        .sp-doc-date-tag { border-color: {{ $templateColor }} !important; color: {{ $templateColor }} !important; }
 
         @media print {
             @page {
@@ -739,9 +502,7 @@
                 margin: 0;
             }
 
-            html,
-            body,
-            .print-container {
+            html, body, .print-container {
                 width: 210mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -768,16 +529,13 @@
                 position: relative !important;
                 z-index: 1 !important;
                 padding: 32mm 15mm 20mm !important;
-                height: 297mm !important;
-                max-height: 297mm !important;
+                height: calc(297mm - 52mm) !important;
+                min-height: calc(297mm - 52mm) !important;
+                max-height: calc(297mm - 52mm) !important;
                 box-sizing: border-box !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: flex-start !important;
-            }
-
-            .quotation-page__body.body-combined {
-                padding: 28mm 15mm 18mm !important;
             }
 
             .quotation-preview-sheet:last-child,
@@ -1330,213 +1088,191 @@
         @endforeach
     </div>
 
-    {{-- CLIENT-SIDE DYNAMIC PAGINATION ENGINE --}}
+    {{-- CLIENT-SIDE DYNAMIC PAGINATION ENGINE (SYNCED WITH PREVIEW MODAL) --}}
     <script>
-        function getBodyContentHeight(body) {
-            if (!body) return 0;
-            let total = 0;
-            Array.from(body.children).forEach(child => {
-                total += (child.offsetHeight || child.scrollHeight || 0);
-            });
-            return total;
-        }
+        const MM_TO_PX = 3.7795;
+        const A4_USABLE_HEIGHT_MM = 297 - 32 - 20; // 245mm
+        const DEFAULT_A4_CONTENT_HEIGHT_PX = Math.round(A4_USABLE_HEIGHT_MM * MM_TO_PX); // 926px
 
-        function paginateTablePage(pageElement, maxContentHeight = 905) {
-            if (!pageElement) return;
+        function paginateDomContainer(container, maxPageHeight = DEFAULT_A4_CONTENT_HEIGHT_PX) {
+            const effectiveMaxHeight = maxPageHeight;
+            const pages = [];
+            let currentPageHtml = [];
+            let currentPageAccumulatedHeight = 0;
 
-            let body = pageElement.querySelector(".quotation-page__body");
-            let wrapper = pageElement.querySelector(".quotation-charges-wrapper");
-            if (!body || !wrapper) return;
-
-            let table = wrapper.querySelector("table");
-            if (!table) return;
-
-            let tbody = table.querySelector("tbody");
-            let tfoot = table.querySelector("tfoot");
-            let rows = Array.from(tbody.querySelectorAll("tr"));
-
-            if (rows.length === 0) return;
-
-            // Only paginate if rows cause actual overflow
-            let initialHeight = getBodyContentHeight(body);
-            if (initialHeight <= maxContentHeight) {
-                return;
-            }
-
-            let currentPage = pageElement;
-            let currentBody = body;
-            let currentWrapper = wrapper;
-            let currentTbody = tbody;
-            let currentTable = table;
-
-            let tfootClone = tfoot ? tfoot.cloneNode(true) : null;
-            if (tfoot) {
-                tfoot.remove();
-            }
-
-            currentTbody.innerHTML = "";
-
-            rows.forEach((row) => {
-                currentTbody.appendChild(row);
-                let height = getBodyContentHeight(currentBody);
-
-                if (height > maxContentHeight && currentTbody.children.length > 1) {
-                    currentTbody.removeChild(row);
-
-                    let newPage = pageElement.cloneNode(true);
-                    newPage.removeAttribute("id");
-                    let newBody = newPage.querySelector(".quotation-page__body");
-                    let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
-                    let newTable = newWrapper.querySelector("table");
-                    let newTbody = newTable.querySelector("tbody");
-                    let newTfoot = newTable.querySelector("tfoot");
-                    if (newTfoot) newTfoot.remove();
-
-                    newTbody.innerHTML = "";
-                    newTbody.appendChild(row);
-
-                    currentPage.after(newPage);
-
-                    currentPage = newPage;
-                    currentBody = newBody;
-                    currentWrapper = newWrapper;
-                    currentTbody = newTbody;
-                    currentTable = newTable;
+            const startNewPage = () => {
+                if (currentPageHtml.length > 0) {
+                    pages.push(currentPageHtml.join(''));
+                    currentPageHtml = [];
+                    currentPageAccumulatedHeight = 0;
                 }
-            });
+            };
 
-            if (tfootClone) {
-                currentTable.appendChild(tfootClone);
+            const processElement = (el) => {
+                if (!el || el.nodeType !== 1) return;
+                const tag = el.tagName.toLowerCase();
+                if (tag === 'style' || tag === 'script') return;
 
-                if (getBodyContentHeight(currentBody) > maxContentHeight && currentTbody.children.length > 1) {
-                    let lastRow = currentTbody.lastElementChild;
-                    currentTbody.removeChild(lastRow);
-
-                    let newPage = pageElement.cloneNode(true);
-                    newPage.removeAttribute("id");
-                    let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
-                    let newTable = newWrapper.querySelector("table");
-                    let newTbody = newTable.querySelector("tbody");
-                    newTbody.innerHTML = "";
-                    newTbody.appendChild(lastRow);
-                    newTable.appendChild(tfootClone);
-
-                    currentPage.after(newPage);
-                }
-            }
-        }
-
-        // Dynamic Charges Pagination: Paginates OTC and MRC together seamlessly
-        function runDynamicChargesPagination(maxContentHeight = 905) {
-            // 1. First paginate OTC
-            let otcPages = Array.from(document.querySelectorAll(".otc-paginated-page"));
-            otcPages.forEach(page => paginateTablePage(page, maxContentHeight));
-
-            // 2. Find the last page of OTC
-            let allOtcPages = Array.from(document.querySelectorAll(".otc-paginated-page"));
-            let lastOtcPage = allOtcPages.length > 0 ? allOtcPages[allOtcPages.length - 1] : null;
-
-            let mrcPage = document.querySelector(".mrc-paginated-page");
-            if (!mrcPage) return;
-
-            // If there is an OTC page right before MRC, try flowing MRC directly into the last OTC page
-            if (lastOtcPage && lastOtcPage.nextElementSibling === mrcPage) {
-                let mrcWrapper = mrcPage.querySelector(".quotation-charges-wrapper");
-                let mrcTable = mrcWrapper ? mrcWrapper.querySelector("table") : null;
-
-                if (mrcWrapper && mrcTable) {
-                    let otcBody = lastOtcPage.querySelector(".quotation-page__body");
-                    let mrcCloneWrapper = mrcWrapper.cloneNode(true);
-                    let mrcCloneTable = mrcCloneWrapper.querySelector("table");
-                    let mrcCloneTbody = mrcCloneTable.querySelector("tbody");
-                    let mrcCloneTfoot = mrcCloneTable.querySelector("tfoot");
-                    let mrcRows = Array.from(mrcCloneTbody.querySelectorAll("tr"));
-
-                    let tfootClone = mrcCloneTfoot ? mrcCloneTfoot.cloneNode(true) : null;
-                    if (mrcCloneTfoot) mrcCloneTfoot.remove();
-
-                    mrcCloneTbody.innerHTML = "";
-                    otcBody.appendChild(mrcCloneWrapper);
-
-                    let currentPage = lastOtcPage;
-                    let currentBody = otcBody;
-                    let currentMrcWrapper = mrcCloneWrapper;
-                    let currentMrcTable = mrcCloneTable;
-                    let currentMrcTbody = mrcCloneTbody;
-
-                    mrcRows.forEach((row) => {
-                        currentMrcTbody.appendChild(row);
-                        let height = getBodyContentHeight(currentBody);
-
-                        if (height > maxContentHeight) {
-                            currentMrcTbody.removeChild(row);
-
-                            // If not even 1 row fit on this page, remove the orphan header completely from this page
-                            if (currentMrcTbody.children.length === 0) {
-                                currentBody.removeChild(currentMrcWrapper);
-                            }
-
-                            // Spawn new page
-                            let newPage = mrcPage.cloneNode(true);
-                            newPage.removeAttribute("id");
-                            let newBody = newPage.querySelector(".quotation-page__body");
-                            let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
-                            let newTable = newWrapper.querySelector("table");
-                            let newTbody = newTable.querySelector("tbody");
-                            let newTfoot = newTable.querySelector("tfoot");
-                            if (newTfoot) newTfoot.remove();
-
-                            newTbody.innerHTML = "";
-                            newTbody.appendChild(row);
-
-                            currentPage.after(newPage);
-
-                            currentPage = newPage;
-                            currentBody = newBody;
-                            currentMrcWrapper = newWrapper;
-                            currentMrcTable = newTable;
-                            currentMrcTbody = newTbody;
-                        }
-                    });
-
-                    // Append MRC footer
-                    if (tfootClone) {
-                        currentMrcTable.appendChild(tfootClone);
-                        let height = getBodyContentHeight(currentBody);
-
-                        if (height > maxContentHeight && currentMrcTbody.children.length > 1) {
-                            let lastRow = currentMrcTbody.lastElementChild;
-                            currentMrcTbody.removeChild(lastRow);
-
-                            let newPage = mrcPage.cloneNode(true);
-                            newPage.removeAttribute("id");
-                            let newWrapper = newPage.querySelector(".quotation-charges-wrapper");
-                            let newTable = newWrapper.querySelector("table");
-                            let newTbody = newTable.querySelector("tbody");
-                            newTbody.innerHTML = "";
-                            newTbody.appendChild(lastRow);
-                            newTable.appendChild(tfootClone);
-
-                            currentPage.after(newPage);
-                        }
-                    }
-
-                    // Remove original template MRC page since we flowed its rows
-                    mrcPage.remove();
+                if (
+                    el.classList.contains('page-break') ||
+                    el.style.pageBreakAfter === 'always' ||
+                    el.style.pageBreakBefore === 'always' ||
+                    el.style.breakAfter === 'page' ||
+                    el.style.breakBefore === 'page'
+                ) {
+                    startNewPage();
                     return;
                 }
+
+                const elHeight = el.offsetHeight || 25;
+                const computedStyle = window.getComputedStyle(el);
+                const margin = (parseFloat(computedStyle.marginTop) || 0) + (parseFloat(computedStyle.marginBottom) || 0);
+                const totalElHeight = elHeight + margin;
+
+                const tableInside = tag === 'table' ? el : el.querySelector('table');
+                if (tableInside) {
+                    const tableEl = tableInside;
+                    const thead = tableEl.querySelector('thead');
+                    const theadHtml = thead ? thead.outerHTML : '';
+                    const theadHeight = thead ? (thead.offsetHeight || 32) : 0;
+                    const tfoot = tableEl.querySelector('tfoot');
+                    const tfootHtml = tfoot ? tfoot.outerHTML : '';
+                    const tfootHeight = tfoot ? (tfoot.offsetHeight || 80) : 0;
+                    const bodyRows = Array.from(tableEl.querySelectorAll('tbody > tr'));
+                    const tableClasses = tableEl.getAttribute('class') || '';
+                    const tableStyle = tableEl.getAttribute('style') || '';
+
+                    if (currentPageAccumulatedHeight + totalElHeight <= effectiveMaxHeight) {
+                        currentPageHtml.push(el.outerHTML);
+                        currentPageAccumulatedHeight += totalElHeight;
+                        return;
+                    }
+
+                    if (totalElHeight <= effectiveMaxHeight && currentPageHtml.length > 0) {
+                        startNewPage();
+                        currentPageHtml.push(el.outerHTML);
+                        currentPageAccumulatedHeight += totalElHeight;
+                        return;
+                    }
+
+                    const titleEl = tag !== 'table' ? el.querySelector('.proposal-section-title, .quotation-section-title, .font-bold, h1, h2, h3, h4, h5, h6') : null;
+                    const titleHtml = titleEl ? titleEl.outerHTML : '';
+
+                    if (bodyRows.length > 0) {
+                        let currentTableRows = [];
+                        let currentTableChunkHeight = theadHeight;
+                        let isFirstTableChunk = true;
+
+                        for (let rIdx = 0; rIdx < bodyRows.length; rIdx++) {
+                            const row = bodyRows[rIdx];
+                            const rowHeight = row.offsetHeight || 30;
+                            const isLastRow = (rIdx === bodyRows.length - 1);
+                            const neededRowHeight = rowHeight + (isLastRow ? tfootHeight : 0);
+
+                            if (currentPageAccumulatedHeight + currentTableChunkHeight + neededRowHeight > effectiveMaxHeight && currentTableRows.length > 0) {
+                                const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody></table>`;
+                                if (isFirstTableChunk && titleHtml) currentPageHtml.push(titleHtml);
+                                currentPageHtml.push(tableHtml);
+                                startNewPage();
+                                isFirstTableChunk = false;
+                                currentTableRows = [row.outerHTML];
+                                currentTableChunkHeight = theadHeight + rowHeight;
+                            } else {
+                                currentTableRows.push(row.outerHTML);
+                                currentTableChunkHeight += rowHeight;
+                            }
+                        }
+
+                        if (currentTableRows.length > 0) {
+                            const tableHtml = `<table class="${tableClasses}" style="${tableStyle}">${theadHtml}<tbody>${currentTableRows.join('')}</tbody>${tfootHtml}</table>`;
+                            if (isFirstTableChunk && titleHtml) currentPageHtml.push(titleHtml);
+                            currentPageHtml.push(tableHtml);
+                            currentPageAccumulatedHeight += currentTableChunkHeight + tfootHeight;
+                        }
+                        return;
+                    }
+                }
+
+                if ((tag === 'div' || tag === 'section' || tag === 'article') && el.children.length > 0) {
+                    if (currentPageAccumulatedHeight + totalElHeight <= effectiveMaxHeight) {
+                        currentPageHtml.push(el.outerHTML);
+                        currentPageAccumulatedHeight += totalElHeight;
+                        return;
+                    }
+                    if (totalElHeight <= effectiveMaxHeight && currentPageHtml.length > 0) {
+                        startNewPage();
+                        currentPageHtml.push(el.outerHTML);
+                        currentPageAccumulatedHeight += totalElHeight;
+                        return;
+                    }
+                    Array.from(el.children).forEach((child) => processElement(child));
+                    return;
+                }
+
+                if (currentPageAccumulatedHeight + totalElHeight > effectiveMaxHeight && currentPageHtml.length > 0) {
+                    startNewPage();
+                }
+
+                currentPageHtml.push(el.outerHTML);
+                currentPageAccumulatedHeight += totalElHeight;
+            };
+
+            Array.from(container.children).forEach((child) => processElement(child));
+
+            if (currentPageHtml.length > 0) {
+                pages.push(currentPageHtml.join(''));
             }
 
-            // Fallback: paginate MRC normally if not adjacent to OTC
-            paginateTablePage(mrcPage, maxContentHeight);
+            return pages.length > 0 ? pages : [container.innerHTML];
         }
 
-        function runDynamicPagination() {
-            runDynamicChargesPagination(905);
+        function runFullPagination() {
+            let printContainer = document.getElementById('boxes');
+            if (!printContainer) return;
+
+            let sheets = Array.from(printContainer.querySelectorAll('.proposal-preview-sheet, .quotation-preview-sheet'));
+            if (sheets.length === 0) return;
+
+            let measureBox = document.createElement('div');
+            measureBox.style.cssText = 'position: absolute; left: -9999px; top: -9999px; width: 180mm; visibility: hidden; pointer-events: none; padding: 0; margin: 0; font-family: "Open Sans", sans-serif; font-size: 14px; box-sizing: border-box;';
+            document.body.appendChild(measureBox);
+
+            let newSheets = [];
+
+            sheets.forEach(sheet => {
+                let body = sheet.querySelector('.proposal-page__body, .quotation-page__body');
+                if (!body) {
+                    newSheets.push(sheet);
+                    return;
+                }
+
+                measureBox.innerHTML = body.innerHTML;
+
+                let pages = paginateDomContainer(measureBox, DEFAULT_A4_CONTENT_HEIGHT_PX);
+
+                if (pages.length <= 1) {
+                    newSheets.push(sheet);
+                } else {
+                    pages.forEach((pageHtml) => {
+                        let sheetClone = sheet.cloneNode(true);
+                        sheetClone.removeAttribute('id');
+                        let cloneBody = sheetClone.querySelector('.proposal-page__body, .quotation-page__body');
+                        if (cloneBody) {
+                            cloneBody.innerHTML = pageHtml;
+                        }
+                        newSheets.push(sheetClone);
+                    });
+                }
+            });
+
+            measureBox.remove();
+
+            printContainer.innerHTML = '';
+            newSheets.forEach(s => printContainer.appendChild(s));
         }
 
         window.addEventListener('DOMContentLoaded', function () {
-            runDynamicPagination();
+            runFullPagination();
 
             @if(empty($isServerPdf))
                 var urlParams = new URLSearchParams(window.location.search);

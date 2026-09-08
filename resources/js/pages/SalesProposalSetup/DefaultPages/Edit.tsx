@@ -204,13 +204,8 @@ export default function Edit({ settings, defaultPage }: EditProps) {
             const hasExplicitBreak = /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(processedContent);
 
             if (measureContainerRef.current) {
-                const scrollH = measureContainerRef.current.scrollHeight;
-                if (!hasExplicitBreak && scrollH <= 980) {
-                    setPaginatedPreviewPages([processedContent]);
-                } else {
-                    const chunks = paginateDomContainer(measureContainerRef.current, 980);
-                    setPaginatedPreviewPages(chunks);
-                }
+                const chunks = paginateDomContainer(measureContainerRef.current);
+                setPaginatedPreviewPages(chunks);
             } else {
                 setPaginatedPreviewPages([processedContent]);
             }
@@ -292,7 +287,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                 onOpenChange={setIsPreviewModalOpen}
                 title={data.title || defaultPage.title}
                 pageTitle={data.title || defaultPage.title}
-                content={data.content}
+                content={processedContent}
                 backgroundImage={data.background_image}
                 settings={settings}
                 isDefaultPageSetup={true}
@@ -664,6 +659,7 @@ export default function Edit({ settings, defaultPage }: EditProps) {
                     </Card>
                 </div>
             </div>
+
         </AuthenticatedLayout>
     );
 }

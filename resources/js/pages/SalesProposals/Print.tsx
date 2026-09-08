@@ -1,7 +1,14 @@
 import React, { useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import PreviewModal, { ProposalPreviewSection } from '@/components/PreviewModal';
+
+import PreviewModal, {
+    ProposalPreviewSection,
+} from '@/components/PreviewModal';
+
+/* ==========================================================================
+   TYPES
+========================================================================== */
 
 interface ProposalDefaultPage {
     id: number;
@@ -14,121 +21,794 @@ interface ProposalDefaultPage {
 
 interface PrintProps {
     proposal: any;
-    customers?: Array<{ id: number; name: string; email: string; address?: string }>;
-    warehouses?: Array<{ id: number; name: string; address?: string }>;
+
+    customers?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        address?: string;
+        mobile_no?: string;
+        phone?: string;
+    }>;
+
+    warehouses?: Array<{
+        id: number;
+        name: string;
+        address?: string;
+    }>;
+
     defaultPages?: ProposalDefaultPage[];
+
     proposalSetting?: any;
+
     [key: string]: any;
 }
 
+/* ==========================================================================
+   COMPONENT
+========================================================================== */
+
 export default function Print() {
     const { t } = useTranslation();
-    const { proposal, customers = [], warehouses = [], defaultPages = [], proposalSetting } = usePage<PrintProps>().props;
+
+    const {
+        proposal,
+        customers = [],
+        warehouses = [],
+        defaultPages = [],
+        proposalSetting,
+    } = usePage<PrintProps>().props;
+
+    /* ==========================================================================
+       SECTIONS
+    ========================================================================== */
 
     const sections = useMemo<ProposalPreviewSection[]>(() => {
-        let loadedSections: ProposalPreviewSection[] = [];
+        let pages: any[] = [];
 
-        // 1. Check if proposal has saved contents
-        const proposalContents = proposal?.contents;
-        if (Array.isArray(proposalContents) && proposalContents.length > 0) {
-            loadedSections = proposalContents.map((c: any) => ({
-                id: String(c.id || Math.random()),
-                title: c.title || '',
-                content: c.content || c.proposal_content || '',
-                page_type: c.page_type || 'content',
-                background_image: c.background_image || undefined,
-                order: c.order ?? 1,
-            }));
-        } else if (proposal?.proposal_content) {
-            try {
-                const parsed = typeof proposal.proposal_content === 'string'
-                    ? JSON.parse(proposal.proposal_content)
-                    : proposal.proposal_content;
-                if (Array.isArray(parsed)) {
-                    loadedSections = parsed.map((p: any, idx: number) => ({
-                        id: String(p.id || idx + 1),
-                        title: p.title || '',
-                        content: p.content || '',
-                        page_type: p.page_type || 'content',
-                        background_image: p.background_image || undefined,
-                        order: p.order ?? idx + 1,
-                    }));
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Proposal Contents Relation
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            Array.isArray(proposal?.contents) &&
+            proposal.contents.length > 0
+        ) {
+            pages = proposal.contents.map(
+                (item: any, index: number) => {
+                    const rawContent =
+                        item.content ||
+                        item.proposal_content ||
+                        '';
+
+                    let parsed: any = null;
+
+                    if (rawContent) {
+                        try {
+                            parsed =
+                                typeof rawContent === 'string'
+                                    ? JSON.parse(rawContent)
+                                    : rawContent;
+                        } catch {
+                            parsed = null;
+                        }
+                    }
+
+                    if (
+                        parsed &&
+                        typeof parsed === 'object' &&
+                        !Array.isArray(parsed)
+                    ) {
+                        return {
+                            id: String(
+                                item.id ||
+                                    `content-${index}`
+                            ),
+
+                            title:
+                                parsed.title ||
+                                item.title ||
+                                '',
+
+                            content:
+                                parsed.content ||
+                                rawContent ||
+                                '',
+
+                            page_type:
+                                parsed.page_type ||
+                                item.page_type ||
+                                'general',
+
+                            background_image:
+                                parsed.background_image ||
+                                item.background_image ||
+                                '',
+
+                            order:
+                                parsed.order ??
+                                item.order ??
+                                index + 1,
+                        };
+                    }
+
+                    return {
+                        id: String(
+                            item.id ||
+                                `content-${index}`
+                        ),
+
+                        title:
+                            item.title || '',
+
+                        content:
+                            rawContent,
+
+                        page_type:
+                            item.page_type ||
+                            'general',
+
+                        background_image:
+                            item.background_image ||
+                            '',
+
+                        order:
+                            item.order ??
+                            index + 1,
+                    };
                 }
-            } catch (e) {}
+            );
         }
 
-        // 2. If no custom sections, load from defaultPages
-        if (loadedSections.length === 0 && defaultPages && defaultPages.length > 0) {
-            loadedSections = defaultPages.map((dp) => ({
-                id: String(dp.id),
-                title: dp.title,
-                content: dp.content,
-                background_image: dp.background_image,
-                order: dp.sort_order,
-            }));
+        /*
+        |--------------------------------------------------------------------------
+        | 2. Old Proposal Content Format
+        |--------------------------------------------------------------------------
+        */
+
+        if (pages.length === 0) {
+            const rawContent =
+                proposal?.proposal_content ||
+                proposal?.others;
+
+            if (typeof rawContent === 'string') {
+                try {
+                    const parsed =
+                        JSON.parse(rawContent);
+
+                    if (Array.isArray(parsed)) {
+                        pages = parsed;
+                    }
+                } catch {
+                    pages = [];
+                }
+            } else if (
+                Array.isArray(rawContent)
+            ) {
+                pages = rawContent;
+            }
         }
 
-        return loadedSections.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
-    }, [proposal, defaultPages]);
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Default Pages Fallback
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            pages.length === 0 &&
+            defaultPages.length > 0
+        ) {
+            pages = defaultPages.map(
+                (page, index) => ({
+                    id: String(page.id),
+
+                    title: page.title,
+
+                    content:
+                        page.content || '',
+
+                    page_type:
+                        page.page_type ||
+                        'general',
+
+                    background_image:
+                        page.background_image ||
+                        '',
+
+                    order:
+                        Number(page.sort_order) ||
+                        index + 1,
+                })
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sort Pages
+        |--------------------------------------------------------------------------
+        */
+
+        pages.sort(
+            (a: any, b: any) =>
+                Number(a.order || 0) -
+                Number(b.order || 0)
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Normalize Final Data
+        |--------------------------------------------------------------------------
+        */
+
+        return pages.map(
+            (
+                item: any,
+                index: number
+            ): ProposalPreviewSection => {
+                const pageType =
+                    item.page_type || 'general';
+
+                return {
+                    id: String(
+                        item.id ||
+                            `section-${index}`
+                    ),
+
+                    title:
+                        item.title ||
+                        getDefaultSectionTitle(
+                            pageType,
+                            index,
+                            t
+                        ),
+
+                    content:
+                        item.content || '',
+
+                    page_type:
+                        pageType,
+
+                    background_image:
+                        item.background_image ||
+                        '',
+
+                    order:
+                        Number(item.order) ||
+                        index + 1,
+                };
+            }
+        );
+    }, [
+        proposal,
+        defaultPages,
+        t,
+    ]);
+
+    /* ==========================================================================
+       CUSTOMER
+    ========================================================================== */
 
     const formattedCustomers = useMemo(() => {
-        if (customers.length > 0) return customers;
-        if (proposal?.customer) return [proposal.customer];
-        return [];
-    }, [customers, proposal?.customer]);
+        /*
+        |--------------------------------------------------------------------------
+        | Proposal Customer Relation
+        |--------------------------------------------------------------------------
+        */
+
+        if (proposal?.customer) {
+            const customer =
+                proposal.customer;
+
+            return [
+                {
+                    id: customer.id,
+
+                    name:
+                        customer.name ||
+                        proposal.customer_name ||
+                        '',
+
+                    email:
+                        customer.email ||
+                        proposal.customer_email ||
+                        '',
+
+                    mobile_no:
+                        customer.mobile_no ||
+                        customer.phone ||
+                        proposal.customer_phone ||
+                        '',
+
+                    phone:
+                        customer.mobile_no ||
+                        customer.phone ||
+                        proposal.customer_phone ||
+                        '',
+
+                    address:
+                        customer.address ||
+                        proposal.customer_address ||
+                        '',
+                },
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Customer List Fallback
+        |--------------------------------------------------------------------------
+        */
+
+        return customers;
+    }, [
+        proposal,
+        customers,
+    ]);
+
+    /* ==========================================================================
+       TOTALS
+    ========================================================================== */
 
     const totals = useMemo(() => {
+        const items =
+            proposal?.items || [];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Separate OTC & MRC
+        |--------------------------------------------------------------------------
+        */
+
+        const otcItems = items.filter(
+            (item: any) =>
+                item.section === 'otc' ||
+                item.section === 'general' ||
+                !item.section
+        );
+
+        const mrcItems = items.filter(
+            (item: any) =>
+                item.section === 'mrc'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Subtotals
+        |--------------------------------------------------------------------------
+        */
+
+        const calculateSubtotal = (
+            list: any[]
+        ) => {
+            return list.reduce(
+                (
+                    total: number,
+                    item: any
+                ) => {
+                    const quantity =
+                        Number(
+                            item.quantity || 1
+                        );
+
+                    const price =
+                        Number(
+                            item.unit_price || 0
+                        );
+
+                    return (
+                        total +
+                        quantity * price
+                    );
+                },
+                0
+            );
+        };
+
+        const otcSubtotal =
+            calculateSubtotal(otcItems);
+
+        const mrcSubtotal =
+            calculateSubtotal(mrcItems);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Discounts
+        |--------------------------------------------------------------------------
+        */
+
+        const calculateDiscount = (
+            subtotal: number,
+            type: string,
+            value: any
+        ) => {
+            const discountValue =
+                Math.max(
+                    Number(value) || 0,
+                    0
+                );
+
+            if (type === 'percentage') {
+                return (
+                    subtotal *
+                    Math.min(
+                        discountValue,
+                        100
+                    )
+                ) / 100;
+            }
+
+            return Math.min(
+                discountValue,
+                subtotal
+            );
+        };
+
+        const otcDiscount =
+            calculateDiscount(
+                otcSubtotal,
+                proposal?.otc_discount_type,
+                proposal?.otc_discount_value
+            );
+
+        const mrcDiscount =
+            calculateDiscount(
+                mrcSubtotal,
+                proposal?.mrc_discount_type,
+                proposal?.mrc_discount_value
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tax
+        |--------------------------------------------------------------------------
+        */
+
+        const calculateTax = (
+            list: any[]
+        ) => {
+            return list.reduce(
+                (
+                    total: number,
+                    item: any
+                ) =>
+                    total +
+                    Number(
+                        item.tax_amount || 0
+                    ),
+                0
+            );
+        };
+
+        const otcTax =
+            calculateTax(otcItems);
+
+        const mrcTax =
+            calculateTax(mrcItems);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Grand Totals
+        |--------------------------------------------------------------------------
+        */
+
+        const calculatedSubtotal =
+            otcSubtotal + mrcSubtotal;
+
+        const calculatedDiscount =
+            otcDiscount + mrcDiscount;
+
+        const calculatedTax =
+            otcTax + mrcTax;
+
+        const subtotal =
+            Number(proposal?.subtotal) ||
+            calculatedSubtotal;
+
+        const discountAmount =
+            Number(
+                proposal?.discount_amount
+            ) || calculatedDiscount;
+
+        const taxAmount =
+            Number(
+                proposal?.tax_amount
+            ) || calculatedTax;
+
+        const calculatedTotal =
+            Math.max(
+                0,
+                subtotal -
+                    discountAmount +
+                    taxAmount
+            );
+
+        const total =
+            Number(
+                proposal?.total_amount
+            ) || calculatedTotal;
+
         return {
-            subtotal: Number(proposal?.subtotal || 0),
-            tax_amount: Number(proposal?.tax_amount || 0),
-            discount_amount: Number(proposal?.discount_amount || 0),
-            total_amount: Number(proposal?.total_amount || 0),
+            subtotal,
+
+            discount_amount:
+                discountAmount,
+
+            discountAmount,
+
+            tax_amount:
+                taxAmount,
+
+            taxAmount,
+
+            total_amount:
+                total,
+
+            total,
+
+            /*
+            |--------------------------------------------------------------------------
+            | OTC
+            |--------------------------------------------------------------------------
+            */
+
+            otcSubtotal,
+
+            otcDiscount,
+
+            otcTax,
+
+            otcTotal:
+                Math.max(
+                    0,
+                    otcSubtotal -
+                        otcDiscount +
+                        otcTax
+                ),
+
+            /*
+            |--------------------------------------------------------------------------
+            | MRC
+            |--------------------------------------------------------------------------
+            */
+
+            mrcSubtotal,
+
+            mrcDiscount,
+
+            mrcTax,
+
+            mrcTotal:
+                Math.max(
+                    0,
+                    mrcSubtotal -
+                        mrcDiscount +
+                        mrcTax
+                ),
         };
     }, [proposal]);
+
+    /* ==========================================================================
+       FORM DATA
+    ========================================================================== */
 
     const formData = useMemo(() => {
         return {
             ...proposal,
-            id: proposal?.id,
-            proposal_number: proposal?.proposal_number,
-            subject: proposal?.subject,
-            invoice_date: proposal?.proposal_date || proposal?.invoice_date,
-            due_date: proposal?.due_date,
-            customer_id: proposal?.customer_id,
-            warehouse_id: proposal?.warehouse_id,
-            payment_terms: proposal?.payment_terms,
-            notes: proposal?.notes,
-            other_details: proposal?.other_details,
-            items: (proposal?.items || []).map((i: any) => ({
-                id: i.id,
-                product_id: i.product_id,
-                product_name: i.product?.name || i.name,
-                description: i.description || i.product_description,
-                product_description: i.product?.description || i.description,
-                quantity: i.quantity,
-                unit_price: i.unit_price,
-                discount_amount: i.discount_amount,
-                tax_amount: i.tax_amount,
-                total_amount: i.total_amount,
-                section: i.section,
-                product: i.product,
-            })),
+
+            id:
+                proposal?.id,
+
+            proposal_id:
+                proposal?.id,
+
+            proposal_number:
+                proposal?.proposal_number ||
+                '',
+
+            subject:
+                proposal?.subject || '',
+
+            invoice_date:
+                proposal?.proposal_date ||
+                proposal?.invoice_date ||
+                '',
+
+            due_date:
+                proposal?.due_date || '',
+
+            customer_id:
+                proposal?.customer_id ??
+                proposal?.customer?.id,
+
+            warehouse_id:
+                proposal?.warehouse_id,
+
+            payment_terms:
+                proposal?.payment_terms ||
+                '',
+
+            notes:
+                proposal?.notes || '',
+
+            other_details:
+                proposal?.other_details ||
+                '',
+
+            otc_discount_type:
+                proposal?.otc_discount_type,
+
+            otc_discount_value:
+                proposal?.otc_discount_value,
+
+            mrc_discount_type:
+                proposal?.mrc_discount_type,
+
+            mrc_discount_value:
+                proposal?.mrc_discount_value,
+
+            /*
+            |--------------------------------------------------------------------------
+            | Items
+            |--------------------------------------------------------------------------
+            */
+
+            items: (
+                proposal?.items || []
+            ).map((item: any) => {
+                const quantity =
+                    Number(
+                        item.quantity || 1
+                    );
+
+                const unitPrice =
+                    Number(
+                        item.unit_price || 0
+                    );
+
+                return {
+                    id: item.id,
+
+                    product_id:
+                        item.product_id,
+
+                    product_name:
+                        item.product?.name ||
+                        item.product_name ||
+                        item.name ||
+                        '',
+
+                    name:
+                        item.name ||
+                        item.product_name ||
+                        item.product?.name ||
+                        '',
+
+                    description:
+                        item.description ||
+                        item.product_description ||
+                        item.product?.description ||
+                        '',
+
+                    product_description:
+                        item.product_description ||
+                        item.description ||
+                        item.product?.description ||
+                        '',
+
+                    quantity,
+
+                    unit_price:
+                        unitPrice,
+
+                    discount_amount:
+                        Number(
+                            item.discount_amount || 0
+                        ),
+
+                    tax_amount:
+                        Number(
+                            item.tax_amount || 0
+                        ),
+
+                    total_amount:
+                        item.total_amount !==
+                        undefined
+                            ? Number(
+                                  item.total_amount
+                              )
+                            : quantity * unitPrice,
+
+                    section:
+                        item.section || 'otc',
+
+                    product:
+                        item.product,
+
+                    unit:
+                        item.unit,
+
+                    unit_name:
+                        item.unit_name,
+                };
+            }),
         };
     }, [proposal]);
 
+    /* ==========================================================================
+       RENDER
+    ========================================================================== */
+
     return (
         <>
-            <Head title={`${t('Sales Proposal')} - ${proposal?.proposal_number || ''}`} />
+            <Head
+                title={`${t(
+                    'Sales Proposal'
+                )} - ${
+                    proposal?.proposal_number ||
+                    ''
+                }`}
+            />
+
             <PreviewModal
-                inline={true}
+                inline
+                autoPrint
+                hideHeaderBar
+
                 formData={formData}
+
                 sections={sections}
-                customers={formattedCustomers}
+
+                customers={
+                    formattedCustomers
+                }
+
                 warehouses={warehouses}
+
                 totals={totals}
-                proposalSetting={proposalSetting}
-                other_details={proposal?.other_details}
+
+                proposalSetting={
+                    proposalSetting
+                }
+
+                other_details={
+                    proposal?.other_details
+                }
             />
         </>
     );
+}
+
+/* ==========================================================================
+   HELPERS
+========================================================================== */
+
+function getDefaultSectionTitle(
+    pageType: string,
+    index: number,
+    t: (key: string) => string
+): string {
+    switch (pageType) {
+        case 'otc':
+            return t(
+                'One-Time Charges (OTC)'
+            );
+
+        case 'mrc':
+            return t(
+                'Monthly Recurring Charges (MRC)'
+            );
+
+        case 'other-details':
+            return t(
+                'Other Details'
+            );
+
+        default:
+            return `${t('Page')} ${
+                index + 1
+            }`;
+    }
 }

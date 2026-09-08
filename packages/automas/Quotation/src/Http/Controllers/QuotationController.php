@@ -327,7 +327,7 @@ class QuotationController extends Controller
         $pages = $this->quotationServices->getActiveDefaultPages($authorId);
         $settings = $this->quotationServices->getQuotationSetting();
 
-        return view('sales-quotations.print', [
+        return Inertia::render('Quotation/Quotations/Print', [
             'quotation' => $quotation,
             'defaultPages' => $pages,
             'quotationSetting' => $settings,
@@ -345,17 +345,12 @@ class QuotationController extends Controller
         $pages = $this->quotationServices->getActiveDefaultPages($authorId);
         $settings = $this->quotationServices->getQuotationSetting();
 
-        $filename = "Quotation_{$quotation->subject}_({$quotation->quotation_number}).pdf";
-
-        return Pdf::view('sales-quotations.print', [
+        return Inertia::render('Quotation/Quotations/Print', [
             'quotation' => $quotation,
             'defaultPages' => $pages,
             'quotationSetting' => $settings,
-            'isServerPdf' => true,
-        ])
-            ->format('a4')
-            ->margins(0, 0, 0, 0)
-            ->download($filename);
+            'autoPrint' => true,
+        ]);
     }
 
     public function warehouseProducts(Request $request)
