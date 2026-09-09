@@ -182,7 +182,7 @@ export default function DefaultPageForm({
 
     const hasInitialCustomBg = Boolean(
         defaultPage?.background_image &&
-            String(defaultPage.background_image).trim() !== "",
+        String(defaultPage.background_image).trim() !== "",
     );
     const [useCustomBg, setUseCustomBg] = useState(hasInitialCustomBg);
 
@@ -219,9 +219,9 @@ export default function DefaultPageForm({
     const isLogoEnabled =
         settings?.show_logo !== undefined
             ? settings.show_logo === "1" ||
-              settings.show_logo === true ||
-              settings.show_logo === 1 ||
-              settings.show_logo === "true"
+            settings.show_logo === true ||
+            settings.show_logo === 1 ||
+            settings.show_logo === "true"
             : true;
 
     const rawLogo = settings?.logo_image || settings?.company_logo || "";
@@ -511,7 +511,7 @@ export default function DefaultPageForm({
                                                 setData(
                                                     "sort_order",
                                                     parseInt(e.target.value) ||
-                                                        1,
+                                                    1,
                                                 )
                                             }
                                             className={
@@ -577,8 +577,8 @@ export default function DefaultPageForm({
                                             {useCustomBg
                                                 ? t("Use Default Background")
                                                 : t(
-                                                      "Upload Custom Background",
-                                                  )}
+                                                    "Upload Custom Background",
+                                                )}
                                         </Button>
                                     </div>
 
@@ -755,7 +755,7 @@ export default function DefaultPageForm({
                                             />
                                             <div className="w-full overflow-x-auto p-4 sm:p-6 flex flex-col items-center gap-8 max-h-[820px] bg-slate-200/70 dark:bg-slate-900/60 shadow-inner">
                                                 {paginatedPreviewPages.length >
-                                                0 ? (
+                                                    0 ? (
                                                     paginatedPreviewPages.map(
                                                         (pageHtml, pIdx) => (
                                                             <ProposalPreviewSheet
@@ -803,12 +803,12 @@ export default function DefaultPageForm({
                                                                     }}
                                                                     className={
                                                                         contentEditorType ===
-                                                                        "html"
+                                                                            "html"
                                                                             ? "w-full h-full p-0 m-0 border-0"
                                                                             : cn(
-                                                                                  "html-preview-container flex-1 flex flex-col",
-                                                                                  PROPOSAL_CONTENT_CLASSES,
-                                                                              )
+                                                                                "html-preview-container flex-1 flex flex-col",
+                                                                                PROPOSAL_CONTENT_CLASSES,
+                                                                            )
                                                                     }
                                                                 />
                                                             </ProposalPreviewSheet>
@@ -857,12 +857,12 @@ export default function DefaultPageForm({
                                                             }}
                                                             className={
                                                                 contentEditorType ===
-                                                                "html"
+                                                                    "html"
                                                                     ? "w-full h-full p-0 m-0 border-0"
                                                                     : cn(
-                                                                          "html-preview-container flex-1 flex flex-col",
-                                                                          PROPOSAL_CONTENT_CLASSES,
-                                                                      )
+                                                                        "html-preview-container flex-1 flex flex-col",
+                                                                        PROPOSAL_CONTENT_CLASSES,
+                                                                    )
                                                             }
                                                         />
                                                     </ProposalPreviewSheet>
@@ -889,8 +889,8 @@ export default function DefaultPageForm({
                                         {processing
                                             ? t("Saving...")
                                             : mode === "create"
-                                              ? t("Create Page")
-                                              : t("Save Changes")}
+                                                ? t("Create Page")
+                                                : t("Save Changes")}
                                     </Button>
                                 </div>
                             </form>

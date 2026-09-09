@@ -64,7 +64,7 @@ export default function EditChartOfAccount({ chartofaccount, onSuccess }: EditCh
                         <SelectTrigger>
                             <SelectValue placeholder={t('Select Account Type')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent searchable>
                             {accounttypes.map((item: any) => (
                                 <SelectItem key={item.id} value={item.id.toString()}>
                                     {item.name}
