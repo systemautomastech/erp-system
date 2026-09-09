@@ -223,8 +223,12 @@
         rel="stylesheet">
     <style>
         :root {
-            --template-color: {{ $templateColor }} !important;
-            --sp-accent-color: {{ $templateColor }} !important;
+            --template-color:
+                {{ $templateColor }}
+                !important;
+            --sp-accent-color:
+                {{ $templateColor }}
+                !important;
             --sp-text-title: #111827;
             --sp-text-sub: #64748b;
             --sp-text-body: #334155;
@@ -239,7 +243,8 @@
             print-color-adjust: exact !important;
         }
 
-        html, body {
+        html,
+        body {
             background-color: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -338,7 +343,7 @@
             color: #293240;
         }
 
-        .quotation-page__body > :first-child .quotation-section-title,
+        .quotation-page__body> :first-child .quotation-section-title,
         .quotation-charges-wrapper:first-child .quotation-section-title {
             margin-top: 0;
         }
@@ -358,7 +363,9 @@
 
         .quotation-table thead tr,
         .html-preview-container table thead tr {
-            background-color: {{ $templateColor }} !important;
+            background-color:
+                {{ $templateColor }}
+                !important;
             color: #ffffff !important;
         }
 
@@ -371,7 +378,9 @@
             font-weight: 600 !important;
             font-family: "Open Sans", sans-serif !important;
             line-height: 1.35 !important;
-            background-color: {{ $templateColor }} !important;
+            background-color:
+                {{ $templateColor }}
+                !important;
             box-sizing: border-box !important;
             vertical-align: middle !important;
         }
@@ -409,23 +418,68 @@
             color: inherit !important;
         }
 
-        .html-preview-container table td p + p {
+        .html-preview-container table td p+p {
             margin-top: 3px !important;
         }
 
-        .quotation-table th.col-sn { width: 5%; text-align: center; padding: 6px 4px !important; }
-        .quotation-table th.col-item { width: 16%; text-align: left; }
-        .quotation-table th.col-desc { width: 33%; text-align: left; }
-        .quotation-table th.col-qty { width: 7%; text-align: center; padding: 6px 4px !important; }
-        .quotation-table th.col-price { width: 12%; text-align: right; }
-        .quotation-table th.col-tax { width: 14%; text-align: right; }
-        .quotation-table th.col-total { width: 13%; text-align: right; }
+        .quotation-table th.col-sn {
+            width: 5%;
+            text-align: center;
+            padding: 6px 4px !important;
+        }
 
-        .quotation-td-sn { text-align: center; }
-        .quotation-td-item { font-weight: 500; }
-        .quotation-td-qty { text-align: center; }
-        .quotation-td-price, .quotation-td-tax { text-align: right; }
-        .quotation-td-total { text-align: right; font-weight: 700; }
+        .quotation-table th.col-item {
+            width: 16%;
+            text-align: left;
+        }
+
+        .quotation-table th.col-desc {
+            width: 33%;
+            text-align: left;
+        }
+
+        .quotation-table th.col-qty {
+            width: 7%;
+            text-align: center;
+            padding: 6px 4px !important;
+        }
+
+        .quotation-table th.col-price {
+            width: 12%;
+            text-align: right;
+        }
+
+        .quotation-table th.col-tax {
+            width: 14%;
+            text-align: right;
+        }
+
+        .quotation-table th.col-total {
+            width: 13%;
+            text-align: right;
+        }
+
+        .quotation-td-sn {
+            text-align: center;
+        }
+
+        .quotation-td-item {
+            font-weight: 500;
+        }
+
+        .quotation-td-qty {
+            text-align: center;
+        }
+
+        .quotation-td-price,
+        .quotation-td-tax {
+            text-align: right;
+        }
+
+        .quotation-td-total {
+            text-align: right;
+            font-weight: 700;
+        }
 
         .quotation-no-items {
             padding: 16px !important;
@@ -444,8 +498,14 @@
             white-space: nowrap;
             vertical-align: middle !important;
         }
-        .quotation-summary-label { color: #1e293b; }
-        .quotation-summary-value { color: #0f172a; }
+
+        .quotation-summary-label {
+            color: #1e293b;
+        }
+
+        .quotation-summary-value {
+            color: #0f172a;
+        }
 
         /* Description HTML Typography */
         .quotation-item-desc {
@@ -458,11 +518,33 @@
             overflow-wrap: anywhere;
         }
 
-        .quotation-item-desc p { margin: 0 0 2px 0 !important; padding: 0 !important; line-height: 1.35 !important; }
-        .quotation-item-desc p:last-child { margin-bottom: 0 !important; }
-        .quotation-item-desc ul, .quotation-item-desc ol { margin: 0 0 2px 0 !important; padding-left: 14px !important; list-style-position: outside !important; }
-        .quotation-item-desc li { margin: 0 !important; padding: 0 !important; line-height: 1.35 !important; }
-        .quotation-item-desc li p { display: inline !important; margin: 0 !important; }
+        .quotation-item-desc p {
+            margin: 0 0 2px 0 !important;
+            padding: 0 !important;
+            line-height: 1.35 !important;
+        }
+
+        .quotation-item-desc p:last-child {
+            margin-bottom: 0 !important;
+        }
+
+        .quotation-item-desc ul,
+        .quotation-item-desc ol {
+            margin: 0 0 2px 0 !important;
+            padding-left: 14px !important;
+            list-style-position: outside !important;
+        }
+
+        .quotation-item-desc li {
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.35 !important;
+        }
+
+        .quotation-item-desc li p {
+            display: inline !important;
+            margin: 0 !important;
+        }
 
         /* Content / Other Details Typography */
         .html-preview-container {
@@ -476,25 +558,110 @@
             height: 100% !important;
         }
 
-        .html-preview-container h1 { font-size: 24px; font-weight: 700; margin: 8px 0; color: #0f172a; }
-        .html-preview-container h2 { font-size: 20px; font-weight: 700; margin: 8px 0; color: #0f172a; }
-        .html-preview-container h3 { font-size: 18px; font-weight: 600; margin: 6px 0; color: #0f172a; }
-        .html-preview-container h4 { font-size: 16px; font-weight: 600; margin: 4px 0; color: #0f172a; }
-        .html-preview-container p { margin: 4px 0; }
-        .html-preview-container > p:first-child { margin-top: 0; }
-        .html-preview-container > p:last-child { margin-bottom: 0; }
-        .html-preview-container p:empty { min-height: 1.15em; margin: 0; }
-        .html-preview-container p:empty::before { content: "\00a0"; }
-        .html-preview-container ul { list-style-type: disc; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
-        .html-preview-container ol { list-style-type: decimal; margin-left: 24px; margin-top: 8px; margin-bottom: 8px; }
-        .html-preview-container li { margin-top: 2px; margin-bottom: 2px; }
-        .html-preview-container blockquote { border-left: 4px solid #cbd5e1; padding-left: 16px; font-style: italic; margin: 8px 0; }
-        .html-preview-container a { color: #2563eb; text-decoration: underline; }
+        .html-preview-container h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 8px 0;
+            color: #0f172a;
+        }
+
+        .html-preview-container h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 8px 0;
+            color: #0f172a;
+        }
+
+        .html-preview-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 6px 0;
+            color: #0f172a;
+        }
+
+        .html-preview-container h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 4px 0;
+            color: #0f172a;
+        }
+
+        .html-preview-container p {
+            margin: 4px 0;
+        }
+
+        .html-preview-container>p:first-child {
+            margin-top: 0;
+        }
+
+        .html-preview-container>p:last-child {
+            margin-bottom: 0;
+        }
+
+        .html-preview-container p:empty {
+            min-height: 1.15em;
+            margin: 0;
+        }
+
+        .html-preview-container p:empty::before {
+            content: "\00a0";
+        }
+
+        .html-preview-container ul {
+            list-style-type: disc;
+            margin-left: 24px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .html-preview-container ol {
+            list-style-type: decimal;
+            margin-left: 24px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .html-preview-container li {
+            margin-top: 2px;
+            margin-bottom: 2px;
+        }
+
+        .html-preview-container blockquote {
+            border-left: 4px solid #cbd5e1;
+            padding-left: 16px;
+            font-style: italic;
+            margin: 8px 0;
+        }
+
+        .html-preview-container a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
 
         /* Accent & Badge Dynamic Coloring */
-        .sp-doc-badge-label { color: {{ $templateColor }} !important; }
-        .sp-doc-accent-line { background-color: {{ $templateColor }} !important; background: {{ $templateColor }} !important; }
-        .sp-doc-date-tag { border-color: {{ $templateColor }} !important; color: {{ $templateColor }} !important; }
+        .sp-doc-badge-label {
+            color:
+                {{ $templateColor }}
+                !important;
+        }
+
+        .sp-doc-accent-line {
+            background-color:
+                {{ $templateColor }}
+                !important;
+            background:
+                {{ $templateColor }}
+                !important;
+        }
+
+        .sp-doc-date-tag {
+            border-color:
+                {{ $templateColor }}
+                !important;
+            color:
+                {{ $templateColor }}
+                !important;
+        }
 
         @media print {
             @page {
@@ -502,7 +669,9 @@
                 margin: 0;
             }
 
-            html, body, .print-container {
+            html,
+            body,
+            .print-container {
                 width: 210mm !important;
                 margin: 0 !important;
                 padding: 0 !important;

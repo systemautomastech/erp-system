@@ -62,19 +62,9 @@ export const replaceQuotationShortcodes = (
   const proposalSubject = context.formData?.subject || context.proposal?.subject || '';
   const proposalNumber = context.formData?.quotation_number || context.proposal?.quotation_number || '';
   const proposalDate = context.formData?.invoice_date || context.formData?.quotation_date || context.proposal?.quotation_date || context.proposal?.invoice_date;
-  const formatCustomDate = (dateVal: any): string => {
-    if (!dateVal) return '';
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return String(dateVal);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = d.toLocaleString('en-US', { month: 'long' });
-    const year = d.getFullYear();
-    return `${day} ${month}, ${year}`;
-  };
-
-  const formattedProposalDate = proposalDate ? formatCustomDate(proposalDate) : '';
+  const formattedProposalDate = proposalDate ? formatDate(proposalDate, pageProps) : '';
   const dueDate = context.formData?.due_date || context.proposal?.due_date;
-  const formattedDueDate = dueDate ? formatCustomDate(dueDate) : '';
+  const formattedDueDate = dueDate ? formatDate(dueDate, pageProps) : '';
 
   const customer = context.customer || context.formData?.customer || context.proposal?.customer || {};
   const customerName = customer?.name || context.formData?.customer_name || context.proposal?.customer_name || '';
