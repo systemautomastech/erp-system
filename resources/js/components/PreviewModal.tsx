@@ -151,6 +151,13 @@ export const DEFAULT_TEMPLATE_COLOR = "#E9591C";
 export const FALLBACK_LOGO = "uploads/logo/logo_dark.png";
 export const PROPOSAL_CONTENT_CLASSES = "html-preview-container";
 
+export function isCustomHtmlContent(html?: string | null): boolean {
+    if (!html) return false;
+    return /<style|<link\s+rel|<!doctype|<html|<head|<svg|position:\s*absolute|297mm|210mm/i.test(
+        html,
+    );
+}
+
 export const A4_PAGE_WIDTH_MM = 210;
 export const A4_PAGE_HEIGHT_MM = 297;
 export const A4_HEADER_RESERVED_MM = 32;
@@ -1945,7 +1952,6 @@ export default function PreviewModal({
     const headerLogo = isLogoEnabled && rawLogo ? rawLogo : "";
     const headerLogoAlign = activeSettings?.header_logo_align || "right";
     const defaultBgImage = activeSettings?.background_image || "";
-
     const isSinglePageMode = Boolean(
         !formData &&
         (content !== undefined ||
@@ -1957,9 +1963,7 @@ export default function PreviewModal({
         customHtml ||
             (isSinglePageMode &&
                 content &&
-                /<style|<link\s+rel|<!doctype|<html|<head/i.test(
-                    content,
-                )),
+                isCustomHtmlContent(content)),
     );
 
     const singleProcessedContent = useMemo(() => {
@@ -2480,7 +2484,7 @@ export default function PreviewModal({
                         }
 
                         const secContent = matchedSec?.content || "";
-                        const isSecCustomHtml = /<style|<link\s+rel|<!doctype|<html|<head/i.test(secContent);
+                        const isSecCustomHtml = isCustomHtmlContent(secContent);
                         customHtmlFlags.push(isSecCustomHtml);
                         return;
                     }
