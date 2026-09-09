@@ -1808,19 +1808,20 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
 
                 <div
                     className={cn(
-                        "proposal-page__body",
-                        customHtml && "proposal-page__body--custom-html",
+                        !customHtml && "proposal-page__body",
+                        customHtml && "w-full h-full p-0 m-0",
                     )}
                     style={{
                         position: "relative",
                         zIndex: 1,
                         ...(customHtml
                             ? {
-                                  padding: "20mm 15mm",
-                                  minHeight: "calc(297mm - 40mm)",
+                                  padding: 0,
+                                  margin: 0,
+                                  width: "100%",
+                                  minHeight: "297mm",
                                   boxSizing: "border-box",
                                   display: "block",
-                                  width: "100%",
                               }
                             : {
                                   padding: "32mm 15mm 20mm",
@@ -1844,7 +1845,7 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                                         "html-preview-container flex-1 flex flex-col",
                                         PROPOSAL_CONTENT_CLASSES,
                                     ),
-                                customHtml && "w-full",
+                                customHtml && "w-full h-full",
                             )}
                             style={
                                 !customHtml
@@ -1856,6 +1857,7 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                                       }
                                     : {
                                           width: "100%",
+                                          height: "100%",
                                       }
                             }
                             dangerouslySetInnerHTML={{ __html: content }}
@@ -1951,6 +1953,15 @@ export default function PreviewModal({
             pageTitle !== undefined),
     );
 
+    const isCustomHtml = Boolean(
+        customHtml ||
+            (isSinglePageMode &&
+                content &&
+                /<style|<link\s+rel|<!doctype|<html|<head/i.test(
+                    content,
+                )),
+    );
+
     const singleProcessedContent = useMemo(() => {
         if (!isSinglePageMode) return "";
         const rawContent = (content || "").trim();
@@ -1967,6 +1978,16 @@ export default function PreviewModal({
     const [paginatedSinglePages, setPaginatedSinglePages] = useState<string[]>(
         [],
     );
+    const [paginatedFullProposalPages, setPaginatedFullProposalPages] =
+        useState<string[]>([]);
+    const [
+        paginatedFullProposalBackgrounds,
+        setPaginatedFullProposalBackgrounds,
+    ] = useState<string[]>([]);
+    const [
+        paginatedFullProposalCustomHtml,
+        setPaginatedFullProposalCustomHtml,
+    ] = useState<boolean[]>([]);
 
     useEffect(() => {
         if (!isSinglePageMode) return;
@@ -1976,7 +1997,7 @@ export default function PreviewModal({
         }
 
         const runPagination = () => {
-            if (customHtml) {
+            if (isCustomHtml) {
                 const hasExplicitBreak =
                     /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(
                         singleProcessedContent,
@@ -2015,7 +2036,7 @@ export default function PreviewModal({
         return () => {
             cancelled = true;
         };
-    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline, customHtml]);
+    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline, isCustomHtml]);
 
     const getItemName = useCallback(
         (item: ProposalItem): string => {
@@ -2098,13 +2119,6 @@ export default function PreviewModal({
         (formData as any)?.customer_phone,
         (formData as any)?.customer_address,
     ]);
-
-    const [paginatedFullProposalPages, setPaginatedFullProposalPages] =
-        useState<string[]>([]);
-    const [
-        paginatedFullProposalBackgrounds,
-        setPaginatedFullProposalBackgrounds,
-    ] = useState<string[]>([]);
 
     const fullProposalHtml = useMemo(() => {
         if (isSinglePageMode || !formData) return "";
@@ -2426,45 +2440,7 @@ export default function PreviewModal({
         other_details,
     ]);
 
-    useEffect(() => {
-        if (!isSinglePageMode) return;
-        if (!singleProcessedContent) {
-            setPaginatedSinglePages((prev) => (prev.length === 0 ? prev : []));
-            return;
-        }
 
-        const runPagination = () => {
-            if (measureContainerRef.current) {
-                const chunks = paginateDomContainer(
-                    measureContainerRef.current,
-                    getA4ContentHeightPx(),
-                );
-                setPaginatedSinglePages((prev) =>
-                    prev.length === chunks.length && prev.every((val, idx) => val === chunks[idx])
-                        ? prev
-                        : chunks,
-                );
-            } else {
-                setPaginatedSinglePages((prev) =>
-                    prev.length === 1 && prev[0] === singleProcessedContent
-                        ? prev
-                        : [singleProcessedContent],
-                );
-            }
-        };
-
-        let cancelled = false;
-
-        const start = async () => {
-            if (document.fonts?.ready) await document.fonts.ready;
-            if (!cancelled) runPagination();
-        };
-
-        start();
-        return () => {
-            cancelled = true;
-        };
-    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline]);
 
     useEffect(() => {
         if (isSinglePageMode || !fullProposalHtml) {
@@ -2486,6 +2462,7 @@ export default function PreviewModal({
                 );
 
                 const bgs: string[] = [];
+                const customHtmlFlags: boolean[] = [];
                 chunks.forEach((chunkHtml) => {
                     const match = chunkHtml.match(
                         /data-proposal-section-index=["'](\d+)["']/,
@@ -2498,15 +2475,27 @@ export default function PreviewModal({
                             matchedSec.background_image.trim() !== ""
                         ) {
                             bgs.push(matchedSec.background_image);
-                            return;
+                        } else {
+                            bgs.push(defaultBgImage);
                         }
+
+                        const secContent = matchedSec?.content || "";
+                        const isSecCustomHtml = /<style|<link\s+rel|<!doctype|<html|<head/i.test(secContent);
+                        customHtmlFlags.push(isSecCustomHtml);
+                        return;
                     }
                     bgs.push(defaultBgImage);
+                    customHtmlFlags.push(false);
                 });
                 setPaginatedFullProposalBackgrounds((prev) =>
                     prev.length === bgs.length && prev.every((val, idx) => val === bgs[idx])
                         ? prev
                         : bgs,
+                );
+                setPaginatedFullProposalCustomHtml((prev) =>
+                    prev.length === customHtmlFlags.length && prev.every((val, idx) => val === customHtmlFlags[idx])
+                        ? prev
+                        : customHtmlFlags,
                 );
             } else {
                 setPaginatedFullProposalPages((prev) =>
@@ -2518,6 +2507,11 @@ export default function PreviewModal({
                     prev.length === 1 && prev[0] === defaultBgImage
                         ? prev
                         : [defaultBgImage],
+                );
+                setPaginatedFullProposalCustomHtml((prev) =>
+                    prev.length === 1 && prev[0] === false
+                        ? prev
+                        : [false],
                 );
             }
         };
@@ -2575,7 +2569,7 @@ export default function PreviewModal({
                             headerLogo={headerLogo}
                             headerLogoAlign={headerLogoAlign}
                             content={pageHtml}
-                            customHtml={customHtml}
+                            customHtml={isCustomHtml}
                         />
                     ))
                 ) : (
@@ -2588,7 +2582,7 @@ export default function PreviewModal({
                         headerLogo={headerLogo}
                         headerLogoAlign={headerLogoAlign}
                         content={singleProcessedContent}
-                        customHtml={customHtml}
+                        customHtml={isCustomHtml}
                     />
                 )
             ) : paginatedFullProposalPages.length > 0 ? (
@@ -2605,6 +2599,7 @@ export default function PreviewModal({
                         headerLogo={headerLogo}
                         headerLogoAlign={headerLogoAlign}
                         content={pageHtml}
+                        customHtml={Boolean(paginatedFullProposalCustomHtml[pIdx])}
                     />
                 ))
             ) : (

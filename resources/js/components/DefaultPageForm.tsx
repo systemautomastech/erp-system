@@ -757,13 +757,10 @@ export default function DefaultPageForm({
                                                 {paginatedPreviewPages.length >
                                                 0 ? (
                                                     paginatedPreviewPages.map(
-                                                        (
-                                                            pageHtml,
-                                                            pageIdx,
-                                                        ) => (
+                                                        (pageHtml, pIdx) => (
                                                             <ProposalPreviewSheet
-                                                                key={`${mode}-preview-${pageIdx}`}
-                                                                pageKey={`${mode}-preview-${pageIdx}`}
+                                                                key={`${mode}-preview-${pIdx}`}
+                                                                pageKey={`${mode}-preview-${pIdx}`}
                                                                 backgroundImage={
                                                                     data.background_image
                                                                 }
@@ -807,8 +804,11 @@ export default function DefaultPageForm({
                                                                     className={
                                                                         contentEditorType ===
                                                                         "html"
-                                                                            ? "w-full"
-                                                                            : PROPOSAL_CONTENT_CLASSES
+                                                                            ? "w-full h-full p-0 m-0 border-0"
+                                                                            : cn(
+                                                                                  "html-preview-container flex-1 flex flex-col",
+                                                                                  PROPOSAL_CONTENT_CLASSES,
+                                                                              )
                                                                     }
                                                                 />
                                                             </ProposalPreviewSheet>
@@ -858,8 +858,11 @@ export default function DefaultPageForm({
                                                             className={
                                                                 contentEditorType ===
                                                                 "html"
-                                                                    ? "w-full"
-                                                                    : PROPOSAL_CONTENT_CLASSES
+                                                                    ? "w-full h-full p-0 m-0 border-0"
+                                                                    : cn(
+                                                                          "html-preview-container flex-1 flex flex-col",
+                                                                          PROPOSAL_CONTENT_CLASSES,
+                                                                      )
                                                             }
                                                         />
                                                     </ProposalPreviewSheet>
@@ -906,6 +909,7 @@ export default function DefaultPageForm({
                 backgroundImage={data.background_image}
                 settings={settings}
                 isDefaultPageSetup={true}
+                customHtml={contentEditorType === "html"}
                 showPrintButton={false}
             />
         </AuthenticatedLayout>
