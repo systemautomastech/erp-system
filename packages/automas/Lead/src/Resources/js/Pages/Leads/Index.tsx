@@ -504,29 +504,115 @@ export default function Index() {
         {
             key: 'phone',
             header: t('Phone'),
-            sortable: false
+            sortable: false,
+            render: (_: any, row: Lead) => {
+                const phone = row.phone;
+                if (!phone) return <span className="text-muted-foreground text-xs">-</span>;
+                return (
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <button
+                                type="button"
+                                className="text-xs text-foreground hover:text-primary cursor-pointer transition-colors"
+                                onClick={() => navigator.clipboard.writeText(phone)}
+                            >
+                                {phone}
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{t('Click to copy')}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                );
+            }
         },
         {
             key: 'subject',
             header: t('Subject'),
-            sortable: false
+            sortable: false,
+            render: (_: any, row: Lead) => {
+                const subject = row.subject || '-';
+                return (
+                    <div className="text-xs leading-tight">
+                        <div className="text-foreground">{subject}</div>
+                    </div>
+                );
+            }
+        },
+        {
+            key: 'users',
+            header: t('Users'),
+            sortable: false,
+            render: (_: any, lead: Lead) => {
+                const userLeads = lead.user_leads || [];
+                const assignedUsers = userLeads.length > 0
+                    ? userLeads.map((ul: any) => ul.user).filter(Boolean)
+                    : (lead.user ? [lead.user] : []);
+
+                if (assignedUsers.length === 0) {
+                    return (
+                        <div className="h-8 w-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium text-muted-foreground">
+                            -
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex items-center -space-x-2">
+                        <TooltipProvider>
+                            {assignedUsers.slice(0, 3).map((user: any, index: number) => (
+                                <Tooltip key={user.id || index} delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                        <div className="h-8 w-8 rounded-full border-2 border-background overflow-hidden ring-1 ring-border/50 shrink-0">
+                                            {user.avatar ? (
+                                                <img
+                                                    src={getImagePath(user.avatar)}
+                                                    alt={user.name || ''}
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="h-full w-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                                                    {user.name?.charAt(0).toUpperCase() || '?'}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{user.name}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            ))}
+                            {assignedUsers.length > 3 && (
+                                <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                        <div className="h-8 w-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium text-muted-foreground ring-1 ring-border/50 shrink-0">
+                                            +{assignedUsers.length - 3}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <div className="space-y-1">
+                                            {assignedUsers.slice(3).map((user: any, index: number) => (
+                                                <p key={user.id || index}>{user.name}</p>
+                                            ))}
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
+                        </TooltipProvider>
+                    </div>
+                );
+            }
         },
         {
             key: 'created_at',
             header: t('Created'),
             sortable: true,
             render: (value: string) => {
-                if (!value) return '-';
-                const isExpired = new Date(value) < new Date();
+                if (!value) return <span className="text-muted-foreground text-xs">-</span>;
                 return (
-                    <div className="whitespace-nowrap text-sm">
-                        <div className="text-foreground">
-                            {formatDate(value)}
-                        </div>
-
-                        <div className="text-xs text-muted-foreground">
-                            {formatTimeFromDate(value)}
-                        </div>
+                    <div className="text-xs leading-tight">
+                        <div className="text-foreground">{formatDate(value)}</div>
+                        <div className="text-muted-foreground">{formatTimeFromDate(value)}</div>
                     </div>
                 );
             }
@@ -539,7 +625,7 @@ export default function Index() {
                 const stageName = row.stage?.name || stages?.find(item => item.id.toString() === row.stage_id?.toString())?.name;
                 const color = getStageColor(row.stage_id);
                 return (
-                    <span className="inline-block max-w-[120px] leading-snug break-words px-2 py-1 text-xs font-medium rounded-md" style={{ backgroundColor: `${color}20`, color }}>
+                    <span className="inline-block max-w-[100px] truncate px-1.5 py-0.5 text-xs font-medium rounded" style={{ backgroundColor: `${color}20`, color }} title={stageName || 'No Stage'}>
                         {stageName || 'No Stage'}
                     </span>
                 );
@@ -554,17 +640,15 @@ export default function Index() {
                 const isFinalAccepted = !!stage?.is_final_accepted;
                 const isFinalRejected = !!stage?.is_final_rejected;
 
+                if (!value) return <span className="text-muted-foreground text-xs">-</span>;
+
                 if (isFinalRejected) {
                     return (
                         <span
-                            className="inline-flex min-w-[95px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-800 dark:text-gray-500 opacity-60"
-                            title={t('Rejected Stage - Follow up disabled')}
+                            className="inline-flex items-center max-w-[90px] truncate rounded-full border px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-800 dark:text-gray-500 opacity-60"
+                            title={`${t('Rejected')} — ${formatDate(value)}`}
                         >
-                            {value ? (
-                                <span className="line-through">{formatDate(value)}</span>
-                            ) : (
-                                <span>-</span>
-                            )}
+                            <span className="truncate line-through">{formatDate(value)}</span>
                         </span>
                     );
                 }
@@ -572,30 +656,26 @@ export default function Index() {
                 if (isFinalAccepted) {
                     return (
                         <span
-                            className="inline-flex min-w-[95px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300"
-                            title={formatDateTime(value) || (value ? formatDate(value) : t('Accepted'))}
+                            className="inline-flex items-center max-w-[90px] truncate rounded-full border px-1.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            title={formatDateTime(value) || formatDate(value)}
                         >
-                            {value ? formatDate(value) : t('Accepted')}
+                            <span className="truncate">{formatDate(value)}</span>
                         </span>
                     );
                 }
 
                 const followUp = getFollowUpStatus(value);
-
-                if (!value) {
-                    return <span className="text-muted-foreground">-</span>;
-                }
-
                 return (
                     <span
-                        className={`inline-flex min-w-[95px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${followUp.className}`}
-                        title={followUp.title}
+                        className={`inline-flex items-center max-w-[90px] rounded-full border px-1.5 py-0.5 text-xs font-semibold ${followUp.className}`}
+                        title={followUp.title || formatDate(value)}
                     >
-                        {followUp.label}
+                        <span className="truncate">{followUp.label}</span>
                     </span>
                 );
             },
         },
+
         {
             key: 'note',
             header: t('Note'),

@@ -136,10 +136,11 @@ const formatDate = (
     j: String(d.getDate()),
     M: shortMonths[monthIndex],
     F: fullMonths[monthIndex],
+    f: shortMonths[monthIndex],
   };
 
   return format.replace(
-    /Y|y|m|n|d|j|M|F/g,
+    /Y|y|m|n|d|j|M|F|f/g,
     (token: string) => replacements[token] || token
   );
 };
