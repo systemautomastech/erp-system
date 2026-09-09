@@ -12,11 +12,11 @@ import { router, usePage } from '@inertiajs/react';
 import languagesData from '@/../lang/language.json';
 
 interface Language {
-    code: string;
-    name: string;
-    countryCode: string;
-    enabled?: boolean;
-    flag?: string;
+  code: string;
+  name: string;
+  countryCode: string;
+  enabled?: boolean;
+  flag?: string;
 }
 
 const getCountryFlag = (countryCode: string): string => {
@@ -115,13 +115,13 @@ export default function SystemSettings({ userSettings, auth }: SystemSettingsPro
     });
   };
 
-   // Use availableLanguages from props instead of static languagesData
-    const languages: Language[] = (availableLanguages || languagesData)
-      .filter((lang: Language) => lang.enabled !== false)
-      .map((lang: Language) => ({
-          ...lang,
-          flag: getCountryFlag(lang.countryCode)
-      }));
+  // Use availableLanguages from props instead of static languagesData
+  const languages: Language[] = (availableLanguages || languagesData)
+    .filter((lang: Language) => lang.enabled !== false)
+    .map((lang: Language) => ({
+      ...lang,
+      flag: getCountryFlag(lang.countryCode)
+    }));
 
   const dateFormats = [
     { value: 'Y-m-d', label: 'YYYY-MM-DD (2026-01-15)' },
@@ -130,7 +130,8 @@ export default function SystemSettings({ userSettings, auth }: SystemSettingsPro
     { value: 'Y/m/d', label: 'YYYY/MM/DD (2026/01/15)' },
     { value: 'm/d/Y', label: 'MM/DD/YYYY (01/15/2026)' },
     { value: 'd/m/Y', label: 'DD/MM/YYYY (15/01/2026)' },
-    { value: 'd F, Y', label: 'DD F, YYYY (15 July, 2026)' },
+    { value: 'd F, Y', label: 'DD F, YYYY (15 August, 2026)' },
+    { value: 'd f, Y', label: 'DD Mon, YYYY (15 Aug, 2026)' },
   ];
 
   const timeFormats = [
@@ -181,149 +182,149 @@ export default function SystemSettings({ userSettings, auth }: SystemSettingsPro
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <Label>{t('Default Language')}</Label>
-            <Select
-              value={settings.defaultLanguage}
-              onValueChange={(value) => handleSelectChange('defaultLanguage', value)}
-              disabled={!canEdit}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('Select language')} />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((lang) => (
-                  <SelectItem key={lang.code} value={lang.code}>
-                    <div className="flex items-center gap-2">
-                      <span>{lang.flag}</span>
-                      <span>{lang.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-3">
-            <Label>{t('Date Format')}</Label>
-            <Select
-              value={settings.dateFormat}
-              onValueChange={(value) => handleSelectChange('dateFormat', value)}
-              disabled={!canEdit}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('Select date format')} />
-              </SelectTrigger>
-              <SelectContent>
-                {dateFormats.map((format) => (
-                  <SelectItem key={format.value} value={format.value}>
-                    {format.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-3">
-            <Label>{t('Time Format')}</Label>
-            <Select
-              value={settings.timeFormat}
-              onValueChange={(value) => handleSelectChange('timeFormat', value)}
-              disabled={!canEdit}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('Select time format')} />
-              </SelectTrigger>
-              <SelectContent>
-                {timeFormats.map((format) => (
-                  <SelectItem key={format.value} value={format.value}>
-                    {format.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-3">
-            <Label>{t('Calendar Start Day')}</Label>
-            <Select
-              value={settings.calendarStartDay}
-              onValueChange={(value) => handleSelectChange('calendarStartDay', value)}
-              disabled={!canEdit}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('Select start day')} />
-              </SelectTrigger>
-              <SelectContent>
-                {days.map((day) => (
-                  <SelectItem key={day.value} value={day.value}>
-                    {t(day.label)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {isSuperAdmin && (
-          <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <Label>{t('Terms & Conditions URL')}</Label>
-              <Input
-                type="url"
-                value={settings.termsConditionsUrl}
-                onChange={(e) => handleInputChange('termsConditionsUrl', e.target.value)}
-                placeholder="https://example.com/terms"
+              <Label>{t('Default Language')}</Label>
+              <Select
+                value={settings.defaultLanguage}
+                onValueChange={(value) => handleSelectChange('defaultLanguage', value)}
                 disabled={!canEdit}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('Select language')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      <div className="flex items-center gap-2">
+                        <span>{lang.flag}</span>
+                        <span>{lang.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <Label>{t('Enable Registration')}</Label>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={settings.enableRegistration === 'on'}
-                    onCheckedChange={(checked) => handleSwitchChange('enableRegistration', checked)}
-                    disabled={!canEdit}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {settings.enableRegistration === 'on' ? t('New users can register accounts') : t('Registration is disabled')}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>{t('Enable Email Verification')}</Label>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={settings.enableEmailVerification === 'on'}
-                    onCheckedChange={(checked) => handleSwitchChange('enableEmailVerification', checked)}
-                    disabled={!canEdit}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {settings.enableEmailVerification === 'on' ? t('Users must verify their email') : t('Email verification not required')}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>{t('Enable Landing Page')}</Label>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={settings.landingPageEnabled === 'on'}
-                    onCheckedChange={(checked) => handleSwitchChange('landingPageEnabled', checked)}
-                    disabled={!canEdit}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {settings.landingPageEnabled === 'on' ? t('Landing page is accessible') : t('Landing page is disabled')}
-                  </span>
-                </div>
-              </div>
+            <div className="space-y-3">
+              <Label>{t('Date Format')}</Label>
+              <Select
+                value={settings.dateFormat}
+                onValueChange={(value) => handleSelectChange('dateFormat', value)}
+                disabled={!canEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('Select date format')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {dateFormats.map((format) => (
+                    <SelectItem key={format.value} value={format.value}>
+                      {format.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </>
-        )}
+
+            <div className="space-y-3">
+              <Label>{t('Time Format')}</Label>
+              <Select
+                value={settings.timeFormat}
+                onValueChange={(value) => handleSelectChange('timeFormat', value)}
+                disabled={!canEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('Select time format')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeFormats.map((format) => (
+                    <SelectItem key={format.value} value={format.value}>
+                      {format.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              <Label>{t('Calendar Start Day')}</Label>
+              <Select
+                value={settings.calendarStartDay}
+                onValueChange={(value) => handleSelectChange('calendarStartDay', value)}
+                disabled={!canEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('Select start day')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {days.map((day) => (
+                    <SelectItem key={day.value} value={day.value}>
+                      {t(day.label)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {isSuperAdmin && (
+            <>
+              <div className="space-y-3">
+                <Label>{t('Terms & Conditions URL')}</Label>
+                <Input
+                  type="url"
+                  value={settings.termsConditionsUrl}
+                  onChange={(e) => handleInputChange('termsConditionsUrl', e.target.value)}
+                  placeholder="https://example.com/terms"
+                  disabled={!canEdit}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <Label>{t('Enable Registration')}</Label>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={settings.enableRegistration === 'on'}
+                      onCheckedChange={(checked) => handleSwitchChange('enableRegistration', checked)}
+                      disabled={!canEdit}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {settings.enableRegistration === 'on' ? t('New users can register accounts') : t('Registration is disabled')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>{t('Enable Email Verification')}</Label>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={settings.enableEmailVerification === 'on'}
+                      onCheckedChange={(checked) => handleSwitchChange('enableEmailVerification', checked)}
+                      disabled={!canEdit}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {settings.enableEmailVerification === 'on' ? t('Users must verify their email') : t('Email verification not required')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>{t('Enable Landing Page')}</Label>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={settings.landingPageEnabled === 'on'}
+                      onCheckedChange={(checked) => handleSwitchChange('landingPageEnabled', checked)}
+                      disabled={!canEdit}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {settings.landingPageEnabled === 'on' ? t('Landing page is accessible') : t('Landing page is disabled')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
