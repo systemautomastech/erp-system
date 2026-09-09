@@ -104,6 +104,7 @@ class LeadController extends Controller
                         $query->where('name', 'like', '%' . request('name') . '%');
                         $query->orWhere('email', 'like', '%' . request('name') . '%');
                         $query->orWhere('subject', 'like', '%' . request('name') . '%');
+                        $query->orWhere('phone', 'like', '%' . request('name') . '%');
                     });
                 })
                 ->when(request('is_active') !== null && request('is_active') !== '', fn($q) => $q->where('is_active', request('is_active') === '1' ? 1 : 0))
@@ -113,6 +114,8 @@ class LeadController extends Controller
                 ->when(request('lead_import_id'), fn($q) => $q->where('lead_import_id', request('lead_import_id')))
                 ->when(request('date_from'), fn($q) => $q->whereDate('date', '>=', request('date_from')))
                 ->when(request('date_to'), fn($q) => $q->whereDate('date', '<=', request('date_to')))
+                ->when(request('created_from'), fn($q) => $q->whereDate('created_at', '>=', request('created_from')))
+                ->when(request('created_to'), fn($q) => $q->whereDate('created_at', '<=', request('created_to')))
                 ->when(request('sort'), fn($q) => $q->orderBy(request('sort'), request('direction', 'asc')), fn($q) => $q->latest())
                 ->paginate(request('per_page', 10))
                 ->withQueryString();

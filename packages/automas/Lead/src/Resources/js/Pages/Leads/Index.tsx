@@ -49,6 +49,11 @@ export default function Index() {
             const toDate = urlParams.get('date_to');
             return (fromDate && toDate) ? `${fromDate} - ${toDate}` : '';
         })(),
+        created_at_range: (() => {
+            const fromDate = urlParams.get('created_from');
+            const toDate = urlParams.get('created_to');
+            return (fromDate && toDate) ? `${fromDate} - ${toDate}` : '';
+        })(),
     });
 
     const [perPage] = useState(urlParams.get('per_page') || '10');
@@ -92,6 +97,12 @@ export default function Index() {
             filterParams.date_to = toDate;
         }
         delete filterParams.date_range;
+        if (filters.created_at_range) {
+            const [fromDate, toDate] = filters.created_at_range.split(' - ');
+            filterParams.created_from = fromDate;
+            filterParams.created_to = toDate;
+        }
+        delete filterParams.created_at_range;
         router.get(route('lead.leads.index'), filterParams, {
             preserveState: true,
             replace: true
@@ -119,6 +130,7 @@ export default function Index() {
             pipeline_id: '',
             stage_id: '',
             date_range: '',
+            created_at_range: '',
         });
         router.get(route('lead.leads.index'), { per_page: perPage, view: viewMode });
     };
@@ -831,7 +843,7 @@ export default function Index() {
                                     value={filters.name}
                                     onChange={(value) => setFilters({ ...filters, name: value })}
                                     onSearch={handleFilter}
-                                    placeholder={t('Search Name and Subject...')}
+                                    placeholder={t('Search by name, phone, email or subject...')}
                                 />
                             </div>
                             <div className="flex items-center gap-3">
@@ -845,7 +857,7 @@ export default function Index() {
                                         onToggle={() => setShowFilters(!showFilters)}
                                     />
                                     {(() => {
-                                        const activeFilters = [filters.is_active, filters.user_id, filters.stage_id, filters.date_range].filter(f => f !== '' && f !== null && f !== undefined).length;
+                                        const activeFilters = [filters.is_active, filters.user_id, filters.stage_id, filters.date_range, filters.created_at_range].filter(f => f !== '' && f !== null && f !== undefined).length;
                                         return activeFilters > 0 && (
                                             <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
                                                 {activeFilters}
@@ -891,6 +903,14 @@ export default function Index() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Created At Date Range')}</label>
+                                    <DateRangePicker
+                                        value={filters.created_at_range}
+                                        onChange={(value) => setFilters({ ...filters, created_at_range: value })}
+                                        placeholder={t('Select date range')}
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('Follow Up Date Range')}</label>

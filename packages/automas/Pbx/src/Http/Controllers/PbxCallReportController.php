@@ -163,20 +163,48 @@ class PbxCallReportController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $pbxSearch = $search ?: null;
+
         if ($selectedExtension !== '') {
             $extensionNumbers = [
                 $selectedExtension,
             ];
         } else {
-            $extensionNumbers = $extensions
-                ->pluck('extension')
-                ->filter()
-                ->map(
-                    fn($extension) =>
-                    (string) $extension
-                )
-                ->values()
-                ->all();
+            // Check if search query matches an ERP agent/user name
+            if ($search !== '') {
+                $matchingAgentExtensions = $extensions->filter(function ($ext) use ($search) {
+                    $userName = (string) ($ext->user?->name ?? '');
+                    $callerId = (string) ($ext->caller_id ?? '');
+                    return ($userName !== '' && stripos($userName, $search) !== false)
+                        || ($callerId !== '' && stripos($callerId, $search) !== false);
+                });
+
+                // If non-numeric search strictly matched agent(s), query their extensions without restricting PBX CDR search
+                if ($matchingAgentExtensions->isNotEmpty() && !is_numeric($search)) {
+                    $extensionNumbers = $matchingAgentExtensions
+                        ->pluck('extension')
+                        ->filter()
+                        ->map(fn($extension) => (string) $extension)
+                        ->values()
+                        ->all();
+
+                    $pbxSearch = null;
+                } else {
+                    $extensionNumbers = $extensions
+                        ->pluck('extension')
+                        ->filter()
+                        ->map(fn($extension) => (string) $extension)
+                        ->values()
+                        ->all();
+                }
+            } else {
+                $extensionNumbers = $extensions
+                    ->pluck('extension')
+                    ->filter()
+                    ->map(fn($extension) => (string) $extension)
+                    ->values()
+                    ->all();
+            }
         }
 
         /*
@@ -209,7 +237,7 @@ class PbxCallReportController extends Controller
                 $setting,
                 $extensionNumbers,
                 [
-                    'search' => $search ?: null,
+                    'search' => $pbxSearch,
 
                     'from' => $from,
                     'to' => $to,

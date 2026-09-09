@@ -84,6 +84,7 @@ export interface LeadFilters {
     pipeline_id: string;
     stage_id: string;
     date_range: string;
+    created_at_range: string;
 }
 
 export type PaginatedLeads = PaginatedData<Lead>;
