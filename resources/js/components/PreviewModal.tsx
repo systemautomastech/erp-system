@@ -135,6 +135,7 @@ export interface PreviewModalProps {
     settings?: ProposalSettingsConfig | null;
     isDefaultPageSetup?: boolean;
     showPrintButton?: boolean;
+    customHtml?: boolean;
 
     // Direct Page / Inline Render Mode
     inline?: boolean;
@@ -1694,6 +1695,7 @@ export interface ProposalPreviewSheetProps {
     headerLogoAlign?: "left" | "center" | "right" | string;
     pageKey?: string;
     className?: string;
+    customHtml?: boolean;
 }
 
 export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
@@ -1707,6 +1709,7 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
         headerLogoAlign = "right",
         pageKey,
         className = "",
+        customHtml = false,
     }) => {
         const rawBg =
             backgroundImage && String(backgroundImage).trim() !== ""
@@ -1754,20 +1757,29 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                 style={
                     {
                         width: "210mm",
-                        height: "297mm",
-                        minHeight: "297mm",
-                        maxHeight: "297mm",
-                        boxSizing: "border-box",
+                        ...(customHtml
+                            ? {
+                                  minHeight: "297mm",
+                                  boxSizing: "border-box",
+                              }
+                            : {
+                                  height: "297mm",
+                                  minHeight: "297mm",
+                                  maxHeight: "297mm",
+                                  boxSizing: "border-box",
+                                  overflow: "hidden",
+                              }),
                         pageBreakAfter: "always",
                         breakAfter: "page",
                         pageBreakInside: "avoid",
                         breakInside: "avoid-page",
                         fontFamily: '"Open Sans", sans-serif',
                         "--template-color": templateColor,
-                    } as React.CSSProperties
+                    } as unknown as React.CSSProperties
                 }
                 className={cn(
-                    "proposal-preview-sheet proposal-cover__sheet bg-white text-slate-900 w-[210mm] h-[297mm] max-w-full shadow-2xl rounded-sm text-sm border border-slate-300 dark:border-slate-800 shrink-0 overflow-hidden relative",
+                    "proposal-preview-sheet proposal-cover__sheet bg-white text-slate-900 w-[210mm] max-w-full shadow-2xl rounded-sm text-sm border border-slate-300 dark:border-slate-800 shrink-0 relative",
+                    !customHtml && "h-[297mm] overflow-hidden",
                     className,
                 )}
             >
@@ -1795,18 +1807,32 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                 )}
 
                 <div
-                    className="proposal-page__body"
+                    className={cn(
+                        !customHtml && "proposal-page__body",
+                        customHtml && "w-full h-full p-0 m-0",
+                    )}
                     style={{
                         position: "relative",
                         zIndex: 1,
-                        padding: "32mm 15mm 20mm",
-                        height: "calc(297mm - 52mm)",
-                        minHeight: "calc(297mm - 52mm)",
-                        maxHeight: "calc(297mm - 52mm)",
-                        boxSizing: "border-box",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "flex-start",
+                        ...(customHtml
+                            ? {
+                                  padding: 0,
+                                  margin: 0,
+                                  width: "100%",
+                                  minHeight: "297mm",
+                                  boxSizing: "border-box",
+                                  display: "block",
+                              }
+                            : {
+                                  padding: "32mm 15mm 20mm",
+                                  height: "calc(297mm - 52mm)",
+                                  minHeight: "calc(297mm - 52mm)",
+                                  maxHeight: "calc(297mm - 52mm)",
+                                  boxSizing: "border-box",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  justifyContent: "flex-start",
+                              }),
                     }}
                 >
                     {children ? (
@@ -1814,15 +1840,26 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                     ) : content ? (
                         <div
                             className={cn(
-                                "html-preview-container flex-1 flex flex-col",
-                                PROPOSAL_CONTENT_CLASSES,
+                                !customHtml &&
+                                    cn(
+                                        "html-preview-container flex-1 flex flex-col",
+                                        PROPOSAL_CONTENT_CLASSES,
+                                    ),
+                                customHtml && "w-full h-full",
                             )}
-                            style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                flex: 1,
-                                width: "100%",
-                            }}
+                            style={
+                                !customHtml
+                                    ? {
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          flex: 1,
+                                          width: "100%",
+                                      }
+                                    : {
+                                          width: "100%",
+                                          height: "100%",
+                                      }
+                            }
                             dangerouslySetInnerHTML={{ __html: content }}
                         />
                     ) : null}
@@ -1856,6 +1893,7 @@ export default function PreviewModal({
     settings,
     isDefaultPageSetup,
     showPrintButton = true,
+    customHtml = false,
     inline = false,
     autoPrint = false,
     hideHeaderBar = false,
@@ -1915,6 +1953,15 @@ export default function PreviewModal({
             pageTitle !== undefined),
     );
 
+    const isCustomHtml = Boolean(
+        customHtml ||
+            (isSinglePageMode &&
+                content &&
+                /<style|<link\s+rel|<!doctype|<html|<head/i.test(
+                    content,
+                )),
+    );
+
     const singleProcessedContent = useMemo(() => {
         if (!isSinglePageMode) return "";
         const rawContent = (content || "").trim();
@@ -1931,6 +1978,16 @@ export default function PreviewModal({
     const [paginatedSinglePages, setPaginatedSinglePages] = useState<string[]>(
         [],
     );
+    const [paginatedFullProposalPages, setPaginatedFullProposalPages] =
+        useState<string[]>([]);
+    const [
+        paginatedFullProposalBackgrounds,
+        setPaginatedFullProposalBackgrounds,
+    ] = useState<string[]>([]);
+    const [
+        paginatedFullProposalCustomHtml,
+        setPaginatedFullProposalCustomHtml,
+    ] = useState<boolean[]>([]);
 
     useEffect(() => {
         if (!isSinglePageMode) return;
@@ -1940,6 +1997,23 @@ export default function PreviewModal({
         }
 
         const runPagination = () => {
+            if (isCustomHtml) {
+                const hasExplicitBreak =
+                    /class=["'][^"']*page-break[^"']*["']|style=["'][^"']*(?:page-break|break-after|break-before)[^"']*["']/i.test(
+                        singleProcessedContent,
+                    );
+                if (hasExplicitBreak && measureContainerRef.current) {
+                    const chunks = paginateDomContainer(
+                        measureContainerRef.current,
+                        getA4ContentHeightPx(),
+                    );
+                    setPaginatedSinglePages(chunks);
+                } else {
+                    setPaginatedSinglePages([singleProcessedContent]);
+                }
+                return;
+            }
+
             if (measureContainerRef.current) {
                 const chunks = paginateDomContainer(
                     measureContainerRef.current,
@@ -1962,7 +2036,7 @@ export default function PreviewModal({
         return () => {
             cancelled = true;
         };
-    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline]);
+    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline, isCustomHtml]);
 
     const getItemName = useCallback(
         (item: ProposalItem): string => {
@@ -2045,13 +2119,6 @@ export default function PreviewModal({
         (formData as any)?.customer_phone,
         (formData as any)?.customer_address,
     ]);
-
-    const [paginatedFullProposalPages, setPaginatedFullProposalPages] =
-        useState<string[]>([]);
-    const [
-        paginatedFullProposalBackgrounds,
-        setPaginatedFullProposalBackgrounds,
-    ] = useState<string[]>([]);
 
     const fullProposalHtml = useMemo(() => {
         if (isSinglePageMode || !formData) return "";
@@ -2373,45 +2440,7 @@ export default function PreviewModal({
         other_details,
     ]);
 
-    useEffect(() => {
-        if (!isSinglePageMode) return;
-        if (!singleProcessedContent) {
-            setPaginatedSinglePages((prev) => (prev.length === 0 ? prev : []));
-            return;
-        }
 
-        const runPagination = () => {
-            if (measureContainerRef.current) {
-                const chunks = paginateDomContainer(
-                    measureContainerRef.current,
-                    getA4ContentHeightPx(),
-                );
-                setPaginatedSinglePages((prev) =>
-                    prev.length === chunks.length && prev.every((val, idx) => val === chunks[idx])
-                        ? prev
-                        : chunks,
-                );
-            } else {
-                setPaginatedSinglePages((prev) =>
-                    prev.length === 1 && prev[0] === singleProcessedContent
-                        ? prev
-                        : [singleProcessedContent],
-                );
-            }
-        };
-
-        let cancelled = false;
-
-        const start = async () => {
-            if (document.fonts?.ready) await document.fonts.ready;
-            if (!cancelled) runPagination();
-        };
-
-        start();
-        return () => {
-            cancelled = true;
-        };
-    }, [isSinglePageMode, singleProcessedContent, isModalOpen, inline]);
 
     useEffect(() => {
         if (isSinglePageMode || !fullProposalHtml) {
@@ -2433,6 +2462,7 @@ export default function PreviewModal({
                 );
 
                 const bgs: string[] = [];
+                const customHtmlFlags: boolean[] = [];
                 chunks.forEach((chunkHtml) => {
                     const match = chunkHtml.match(
                         /data-proposal-section-index=["'](\d+)["']/,
@@ -2445,15 +2475,27 @@ export default function PreviewModal({
                             matchedSec.background_image.trim() !== ""
                         ) {
                             bgs.push(matchedSec.background_image);
-                            return;
+                        } else {
+                            bgs.push(defaultBgImage);
                         }
+
+                        const secContent = matchedSec?.content || "";
+                        const isSecCustomHtml = /<style|<link\s+rel|<!doctype|<html|<head/i.test(secContent);
+                        customHtmlFlags.push(isSecCustomHtml);
+                        return;
                     }
                     bgs.push(defaultBgImage);
+                    customHtmlFlags.push(false);
                 });
                 setPaginatedFullProposalBackgrounds((prev) =>
                     prev.length === bgs.length && prev.every((val, idx) => val === bgs[idx])
                         ? prev
                         : bgs,
+                );
+                setPaginatedFullProposalCustomHtml((prev) =>
+                    prev.length === customHtmlFlags.length && prev.every((val, idx) => val === customHtmlFlags[idx])
+                        ? prev
+                        : customHtmlFlags,
                 );
             } else {
                 setPaginatedFullProposalPages((prev) =>
@@ -2465,6 +2507,11 @@ export default function PreviewModal({
                     prev.length === 1 && prev[0] === defaultBgImage
                         ? prev
                         : [defaultBgImage],
+                );
+                setPaginatedFullProposalCustomHtml((prev) =>
+                    prev.length === 1 && prev[0] === false
+                        ? prev
+                        : [false],
                 );
             }
         };
@@ -2522,6 +2569,7 @@ export default function PreviewModal({
                             headerLogo={headerLogo}
                             headerLogoAlign={headerLogoAlign}
                             content={pageHtml}
+                            customHtml={isCustomHtml}
                         />
                     ))
                 ) : (
@@ -2534,6 +2582,7 @@ export default function PreviewModal({
                         headerLogo={headerLogo}
                         headerLogoAlign={headerLogoAlign}
                         content={singleProcessedContent}
+                        customHtml={isCustomHtml}
                     />
                 )
             ) : paginatedFullProposalPages.length > 0 ? (
@@ -2550,6 +2599,7 @@ export default function PreviewModal({
                         headerLogo={headerLogo}
                         headerLogoAlign={headerLogoAlign}
                         content={pageHtml}
+                        customHtml={Boolean(paginatedFullProposalCustomHtml[pIdx])}
                     />
                 ))
             ) : (
