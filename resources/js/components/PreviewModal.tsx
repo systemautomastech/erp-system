@@ -6,6 +6,7 @@ import React, {
     useEffect,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { usePage } from "@inertiajs/react";
 import {
     Dialog,
     DialogContent,
@@ -157,6 +158,96 @@ export function isCustomHtmlContent(html?: string | null): boolean {
         html,
     );
 }
+
+/**
+ * Helper to scope all CSS rules (including inside @media queries)
+ */
+function scopeCssRules(cssText: string, scopeSelector: string): string {
+    // 1. First handle @media or @supports rules by recursively scoping their inner rules
+    let processed = cssText.replace(/@(media|supports)\b[^{]*\{([\s\S]*?\})\s*\}/gi, (atMatch, atType, innerBlock) => {
+        const header = atMatch.slice(0, atMatch.indexOf('{') + 1);
+        const scopedInner = scopeCssRules(innerBlock, scopeSelector);
+        return `${header}\n${scopedInner}\n}`;
+    });
+
+    // 2. Scope regular rules (e.g. .selector { ... })
+    processed = processed.replace(/([^{}@]+)\{([^}]+)\}/g, (ruleMatch, selectorGroup, declarationBlock) => {
+        const trimmedSelector = selectorGroup.trim();
+
+        // Skip other at-rules like @keyframes, @font-face, @page
+        if (trimmedSelector.startsWith("@")) {
+            return ruleMatch;
+        }
+
+        const selectors = trimmedSelector.split(",");
+        const scopedSelectors = selectors.map((sel: string) => {
+            let s = sel.trim();
+            if (!s) return "";
+
+            // Replace global root selectors with scopeSelector
+            if (/^(html|body|:root)$/i.test(s)) {
+                return scopeSelector;
+            }
+            if (/^(html|body|:root)[\s>+~]/i.test(s)) {
+                return s.replace(/^(html|body|:root)([\s>+~])/i, `${scopeSelector}$2`);
+            }
+
+            // If selector already starts with scopeSelector, keep it
+            if (s.startsWith(scopeSelector)) {
+                return s;
+            }
+
+            // Universal selector * -> .proposal-preview-sheet *
+            return `${scopeSelector} ${s}`;
+        });
+
+        return `${scopedSelectors.filter(Boolean).join(", ")} {${declarationBlock}}`;
+    });
+
+    return processed;
+}
+
+/**
+ * Scopes user-supplied CSS rules inside <style> tags to only apply within the document/preview page container,
+ * strips external stylesheet links, strips dangerous script tags & event handlers,
+ * and cleans outer <!DOCTYPE>, <html>, <head>, <body> tags to prevent DOM pollution.
+ */
+export function scopeAndSanitizeDocumentHtml(
+    rawHtml?: string | null,
+    scopeSelector = ".proposal-preview-sheet",
+): string {
+    if (!rawHtml) return "";
+
+    let clean = rawHtml;
+
+    // 1. Remove dangerous script tags & javascript: protocols
+    clean = clean
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/on\w+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, "");
+
+    // 2. Remove external <link rel="stylesheet"> or <link> tags that pollute global page (e.g. Bootstrap CDN)
+    clean = clean.replace(/<link\b[^>]*>/gi, "");
+
+    // 3. Remove outer meta tags, title tags, DOCTYPE
+    clean = clean
+        .replace(/<!doctype[^>]*>/gi, "")
+        .replace(/<\/?(html|head|meta|title)\b[^>]*>/gi, "");
+
+    // 4. Transform <body>...</body> to clean <div>
+    clean = clean.replace(/<body\b([^>]*)>/gi, "<div class=\"proposal-body-wrapper\" $1>");
+    clean = clean.replace(/<\/body>/gi, "</div>");
+
+    // 5. Scope all <style>...</style> blocks (including nested @media)
+    clean = clean.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, cssText) => {
+        const scopedCss = scopeCssRules(cssText, scopeSelector);
+        return `<style${attrs}>${scopedCss}</style>`;
+    });
+
+    return clean;
+}
+
+// Backward-compatible alias
+export const scopeAndSanitizeProposalHtml = scopeAndSanitizeDocumentHtml;
 
 export const A4_PAGE_WIDTH_MM = 210;
 export const A4_PAGE_HEIGHT_MM = 297;
@@ -336,8 +427,8 @@ export function getA4ContentHeightPx(): number {
     return (
         height ||
         mmToPx(A4_PAGE_HEIGHT_MM) -
-            mmToPx(A4_HEADER_RESERVED_MM) -
-            mmToPx(A4_FOOTER_RESERVED_MM)
+        mmToPx(A4_HEADER_RESERVED_MM) -
+        mmToPx(A4_FOOTER_RESERVED_MM)
     );
 }
 
@@ -806,8 +897,8 @@ function buildTableChunkHtml(
     const marker =
         sectionIndex !== undefined
             ? ` data-proposal-section-index="${escapeHtmlAttribute(
-                  sectionIndex,
-              )}"`
+                sectionIndex,
+            )}"`
             : "";
 
     return (
@@ -887,7 +978,7 @@ function paginateTableWithLabel(
         if (
             currentPageAccumulatedHeight > 0 &&
             currentPageAccumulatedHeight + combinedHeight >
-                effectiveMaxHeight + PAGINATION_EPSILON_PX
+            effectiveMaxHeight + PAGINATION_EPSILON_PX
         ) {
             pages.push(combinedHtml);
 
@@ -1015,7 +1106,7 @@ function paginateTableWithLabel(
         if (
             pageHeight > 0 &&
             pageHeight + chunkHeight >
-                effectiveMaxHeight + PAGINATION_EPSILON_PX
+            effectiveMaxHeight + PAGINATION_EPSILON_PX
         ) {
             pages.push("__PAGINATION_PUSH_CURRENT_PAGE__");
 
@@ -1133,7 +1224,7 @@ export function paginateDomContainer(
             if (
                 currentPageAccumulatedHeight > 0 &&
                 currentPageAccumulatedHeight + combinedHeight >
-                    effectiveMaxHeight + PAGINATION_EPSILON_PX
+                effectiveMaxHeight + PAGINATION_EPSILON_PX
             ) {
                 pushCurrentPage();
             }
@@ -1262,7 +1353,7 @@ export function paginateDomContainer(
             if (
                 currentPageAccumulatedHeight > 0 &&
                 currentPageAccumulatedHeight + chunkHeight >
-                    effectiveMaxHeight + PAGINATION_EPSILON_PX
+                effectiveMaxHeight + PAGINATION_EPSILON_PX
             ) {
                 pushCurrentPage();
             }
@@ -1766,16 +1857,16 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                         width: "210mm",
                         ...(customHtml
                             ? {
-                                  minHeight: "297mm",
-                                  boxSizing: "border-box",
-                              }
+                                minHeight: "297mm",
+                                boxSizing: "border-box",
+                            }
                             : {
-                                  height: "297mm",
-                                  minHeight: "297mm",
-                                  maxHeight: "297mm",
-                                  boxSizing: "border-box",
-                                  overflow: "hidden",
-                              }),
+                                height: "297mm",
+                                minHeight: "297mm",
+                                maxHeight: "297mm",
+                                boxSizing: "border-box",
+                                overflow: "hidden",
+                            }),
                         pageBreakAfter: "always",
                         breakAfter: "page",
                         pageBreakInside: "avoid",
@@ -1823,23 +1914,23 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                         zIndex: 1,
                         ...(customHtml
                             ? {
-                                  padding: 0,
-                                  margin: 0,
-                                  width: "100%",
-                                  minHeight: "297mm",
-                                  boxSizing: "border-box",
-                                  display: "block",
-                              }
+                                padding: 0,
+                                margin: 0,
+                                width: "100%",
+                                minHeight: "297mm",
+                                boxSizing: "border-box",
+                                display: "block",
+                            }
                             : {
-                                  padding: "32mm 15mm 20mm",
-                                  height: "calc(297mm - 52mm)",
-                                  minHeight: "calc(297mm - 52mm)",
-                                  maxHeight: "calc(297mm - 52mm)",
-                                  boxSizing: "border-box",
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  justifyContent: "flex-start",
-                              }),
+                                padding: "32mm 15mm 20mm",
+                                height: "calc(297mm - 52mm)",
+                                minHeight: "calc(297mm - 52mm)",
+                                maxHeight: "calc(297mm - 52mm)",
+                                boxSizing: "border-box",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "flex-start",
+                            }),
                     }}
                 >
                     {children ? (
@@ -1848,26 +1939,28 @@ export const ProposalPreviewSheet = React.memo<ProposalPreviewSheetProps>(
                         <div
                             className={cn(
                                 !customHtml &&
-                                    cn(
-                                        "html-preview-container flex-1 flex flex-col",
-                                        PROPOSAL_CONTENT_CLASSES,
-                                    ),
+                                cn(
+                                    "html-preview-container flex-1 flex flex-col",
+                                    PROPOSAL_CONTENT_CLASSES,
+                                ),
                                 customHtml && "w-full h-full",
                             )}
                             style={
                                 !customHtml
                                     ? {
-                                          display: "flex",
-                                          flexDirection: "column",
-                                          flex: 1,
-                                          width: "100%",
-                                      }
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        flex: 1,
+                                        width: "100%",
+                                    }
                                     : {
-                                          width: "100%",
-                                          height: "100%",
-                                      }
+                                        width: "100%",
+                                        height: "100%",
+                                    }
                             }
-                            dangerouslySetInnerHTML={{ __html: content }}
+                            dangerouslySetInnerHTML={{
+                                __html: scopeAndSanitizeDocumentHtml(content),
+                            }}
                         />
                     ) : null}
                 </div>
@@ -1906,6 +1999,7 @@ export default function PreviewModal({
     hideHeaderBar = false,
 }: PreviewModalProps) {
     const { t } = useTranslation();
+    const pageProps = usePage<any>()?.props || {};
     const isModalOpen = Boolean(isOpen ?? open);
 
     useEffect(() => {
@@ -1937,15 +2031,24 @@ export default function PreviewModal({
     const previewContainerRef = useRef<HTMLDivElement>(null);
     const measureContainerRef = useRef<HTMLDivElement>(null);
 
-    const activeSettings = proposalSetting || settings || null;
+    const activeSettings = useMemo(() => {
+        return (
+            settings ||
+            proposalSetting ||
+            (pageProps as any)?.proposalSetting ||
+            (pageProps as any)?.quotationSetting ||
+            {}
+        );
+    }, [settings, proposalSetting, pageProps]);
+
     const templateColor =
         activeSettings?.template_color || DEFAULT_TEMPLATE_COLOR;
     const isLogoEnabled =
         activeSettings?.show_logo !== undefined
             ? activeSettings.show_logo === "1" ||
-              activeSettings.show_logo === true ||
-              activeSettings.show_logo === 1 ||
-              activeSettings.show_logo === "true"
+            activeSettings.show_logo === true ||
+            activeSettings.show_logo === 1 ||
+            activeSettings.show_logo === "true"
             : true;
     const rawLogo =
         activeSettings?.logo_image || activeSettings?.company_logo || "";
@@ -1961,9 +2064,9 @@ export default function PreviewModal({
 
     const isCustomHtml = Boolean(
         customHtml ||
-            (isSinglePageMode &&
-                content &&
-                isCustomHtmlContent(content)),
+        (isSinglePageMode &&
+            content &&
+            isCustomHtmlContent(content)),
     );
 
     const singleProcessedContent = useMemo(() => {
@@ -1973,10 +2076,11 @@ export default function PreviewModal({
             return "&nbsp;";
         }
         if (!rawContent) return "";
-        return replaceProposalShortcodes(content, {
+        const processed = replaceProposalShortcodes(content, {
             settings: activeSettings,
             isDefaultPageSetup: isDefaultPageSetup ?? true,
         });
+        return scopeAndSanitizeDocumentHtml(processed);
     }, [isSinglePageMode, content, backgroundImage, defaultBgImage, activeSettings, isDefaultPageSetup]);
 
     const [paginatedSinglePages, setPaginatedSinglePages] = useState<string[]>(
@@ -2274,26 +2378,24 @@ export default function PreviewModal({
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
                                 </tr>
-                                ${
-                                    secDiscountOtc > 0
-                                        ? `
+                                ${secDiscountOtc > 0
+                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
                                     <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountOtc)}</td>
                                 </tr>`
-                                        : ""
-                                }
-                                ${
-                                    secTaxOtc > 0
-                                        ? `
+                        : ""
+                    }
+                                ${secTaxOtc > 0
+                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxOtc)}</td>
                                 </tr>`
-                                        : ""
-                                }
+                        : ""
+                    }
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
@@ -2362,26 +2464,24 @@ export default function PreviewModal({
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
                                 </tr>
-                                ${
-                                    secDiscountMrc > 0
-                                        ? `
+                                ${secDiscountMrc > 0
+                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
                                     <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountMrc)}</td>
                                 </tr>`
-                                        : ""
-                                }
-                                ${
-                                    secTaxMrc > 0
-                                        ? `
+                        : ""
+                    }
+                                ${secTaxMrc > 0
+                        ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
                                     <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxMrc)}</td>
                                 </tr>`
-                                        : ""
-                                }
+                        : ""
+                    }
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
                                     <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
@@ -2424,12 +2524,13 @@ export default function PreviewModal({
         });
 
         const combinedRaw = htmlParts.join("\n\n");
-        return replaceProposalShortcodes(combinedRaw, {
+        const processed = replaceProposalShortcodes(combinedRaw, {
             proposal: formData,
             customer,
             settings: activeSettings,
             isDefaultPageSetup: false,
         });
+        return scopeAndSanitizeDocumentHtml(processed);
     }, [
         isSinglePageMode,
         formData,
