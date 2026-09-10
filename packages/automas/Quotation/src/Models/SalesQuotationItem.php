@@ -20,6 +20,7 @@ class SalesQuotationItem extends Model
         'description',
         'quantity',
         'unit_price',
+        'discount_type',
         'discount_percentage',
         'discount_amount',
         'tax_percentage',
@@ -55,10 +56,15 @@ class SalesQuotationItem extends Model
     public function calculateAmounts()
     {
         $lineTotal = $this->quantity * $this->unit_price;
-        $this->discount_amount = ($lineTotal * $this->discount_percentage) / 100;
-        $afterDiscount = $lineTotal - $this->discount_amount;
+        if ($this->discount_type === 'fixed') {
+            $this->discount_amount = min($lineTotal, max(0, (float) $this->discount_amount));
+            $this->discount_percentage = $lineTotal > 0 ? round(($this->discount_amount / $lineTotal) * 100, 4) : 0;
+        } else {
+            $this->discount_amount = ($lineTotal * $this->discount_percentage) / 100;
+        }
+        $afterDiscount = max(0, $lineTotal - $this->discount_amount);
         $this->tax_amount = ($afterDiscount * $this->tax_percentage) / 100;
-        $this->total_amount = $afterDiscount + $this->tax_amount;
+        $this->total_amount = max(0, $afterDiscount + $this->tax_amount);
     }
 
     protected static function boot()

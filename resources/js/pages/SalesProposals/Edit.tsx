@@ -183,6 +183,7 @@ export default function Edit() {
             product_type: item.product_type || proposal.type || 'product',
             quantity: item.quantity || 1,
             unit_price: item.unit_price || 0,
+            discount_type: item.discount_type || (item.section === 'mrc' ? proposal.mrc_discount_type : proposal.otc_discount_type) || 'percentage',
             discount_percentage: item.discount_percentage || 0,
             discount_amount: item.discount_amount || 0,
             tax_percentage: item.tax_percentage || 0,

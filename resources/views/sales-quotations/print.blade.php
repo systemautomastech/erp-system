@@ -209,6 +209,21 @@
         }
         return $res;
     };
+
+    $getAmountFontSize = function ($amountStr, $defaultSize = 10) {
+        $cleanStr = strip_tags((string) $amountStr);
+        $len = mb_strlen($cleanStr);
+        if ($len > 18) {
+            return '7.5px';
+        }
+        if ($len > 15) {
+            return '8.5px';
+        }
+        if ($len > 12) {
+            return '9.5px';
+        }
+        return $defaultSize . 'px';
+    };
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -429,17 +444,17 @@
         }
 
         .quotation-table th.col-item {
-            width: 16%;
+            width: 15%;
             text-align: left;
         }
 
         .quotation-table th.col-desc {
-            width: 33%;
+            width: 28%;
             text-align: left;
         }
 
         .quotation-table th.col-qty {
-            width: 7%;
+            width: 6%;
             text-align: center;
             padding: 6px 4px !important;
         }
@@ -449,8 +464,13 @@
             text-align: right;
         }
 
+        .quotation-table th.col-discount {
+            width: 9%;
+            text-align: right;
+        }
+
         .quotation-table th.col-tax {
-            width: 14%;
+            width: 12%;
             text-align: right;
         }
 
@@ -757,31 +777,8 @@
         $otcTotal = max(0, $otcSubtotal - $otcDiscount + $otcTax);
         $mrcTotal = max(0, $mrcSubtotal - $mrcDiscount + $mrcTax);
 
-        // Helper to format discount label with percentage if applicable
+        // Helper to format discount label
         $getDiscountLabel = function ($discountAmount, $subtotal, $items) {
-            if ($discountAmount <= 0) {
-                return 'Discount:';
-            }
-            // Check if items have uniform percentage
-            $discountedItems = $items->filter(fn($i) => (float) ($i->discount_amount ?? 0) > 0);
-            if ($discountedItems->count() > 0) {
-                $percentages = $discountedItems->map(fn($i) => (float) ($i->discount_percentage ?? 0))->unique();
-                if ($percentages->count() === 1 && $percentages->first() > 0) {
-                    $pct = $percentages->first();
-                    $pctStr = ($pct == (int) $pct) ? (int) $pct : rtrim(rtrim(number_format($pct, 2), '0'), '.');
-                    return "Discount ({$pctStr}%):";
-                }
-            }
-            // Fallback: If section subtotal and discount yield a clean percentage
-            if ($subtotal > 0 && $discountAmount > 0) {
-                $calcPct = ($discountAmount / $subtotal) * 100;
-                $roundedPct = round($calcPct, 2);
-                $diff = abs($discountAmount - (($subtotal * $roundedPct) / 100));
-                if ($diff < 0.05) {
-                    $pctStr = ($roundedPct == (int) $roundedPct) ? (int) $roundedPct : rtrim(rtrim(number_format($roundedPct, 2), '0'), '.');
-                    return "Discount ({$pctStr}%):";
-                }
-            }
             return 'Discount:';
         };
 
@@ -1024,83 +1021,107 @@
 
                             <table class="quotation-table">
                                 <thead>
-                                    <tr>
-                                        <th class="col-sn">S/N</th>
-                                        <th class="col-item">Item / Service</th>
-                                        <th class="col-desc">Description</th>
-                                        <th class="col-qty">Qty.</th>
-                                        <th class="col-price">Price (BDT)</th>
-                                        <th class="col-tax">Tax / VAT</th>
-                                        <th class="col-total">Total (BDT)</th>
-                                    </tr>
+                                     <tr>
+                                         <th class="col-sn">S/N</th>
+                                         <th class="col-item">Item / Service</th>
+                                         <th class="col-desc">Description</th>
+                                         <th class="col-qty">Qty.</th>
+                                         <th class="col-price">Price (BDT)</th>
+                                         <th class="col-discount">Discount</th>
+                                         <th class="col-tax">Tax / VAT</th>
+                                         <th class="col-total">Total (BDT)</th>
+                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($otcItems as $index => $item)
-                                        @php
-                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
-                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
-                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
-                                            $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
-                                        @endphp
-                                        <tr>
-                                            <td class="quotation-td-sn">{{ $index + 1 }}</td>
-                                            <td class="quotation-td-item">{{ $pName }}</td>
-                                            <td class="quotation-item-desc">{!! $pDesc !!}</td>
-                                            <td class="quotation-td-qty">
-                                                {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
-                                            </td>
-                                            <td class="quotation-td-price">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td class="quotation-td-tax">
-                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                                    @foreach($item->taxes as $tItem)
-                                                        <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
-                                                    @endforeach
-                                                @elseif((float) ($item->tax_percentage ?? 0) > 0)
-                                                    <div>{{ (float) $item->tax_percentage }}%</div>
-                                                @elseif((float) ($item->tax_amount ?? 0) > 0)
-                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
-                                                @else
-                                                    <span style="color: #94a3b8;">-</span>
-                                                @endif
-                                            </td>
-                                            <td class="quotation-td-total">{{ number_format($lTotal, 2) }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="7" class="quotation-no-items">No OTC items added.</td>
-                                        </tr>
-                                    @endforelse
+                                     @forelse($otcItems as $index => $item)
+                                         @php
+                                             $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                             $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
+                                             $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                             $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                             $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
+                                         @endphp
+                                         <tr>
+                                             <td class="quotation-td-sn">{{ $index + 1 }}</td>
+                                             <td class="quotation-td-item">{{ $pName }}</td>
+                                             <td class="quotation-item-desc">{!! $pDesc !!}</td>
+                                             <td class="quotation-td-qty">
+                                                 {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
+                                             </td>
+                                             <td class="quotation-td-price">{{ number_format($item->unit_price, 2) }}</td>
+                                             <td class="quotation-td-price">
+                                                 @php $itemOtcDiscType = $item->discount_type ?? 'percentage'; @endphp
+                                                 @if($itemOtcDiscType === 'percentage' && (float)($item->discount_percentage ?? 0) > 0)
+                                                     <div>{{ (float) $item->discount_percentage }}%</div>
+                                                     @if((float)($item->discount_amount ?? 0) > 0)
+                                                         <div style="font-size: 10px; color: #64748b;">(৳{{ number_format($item->discount_amount, 2) }})</div>
+                                                     @endif
+                                                 @elseif($itemOtcDiscType === 'fixed' && (float)($item->discount_amount ?? 0) > 0)
+                                                     <div>৳{{ number_format($item->discount_amount, 2) }}</div>
+                                                 @elseif((float)($item->discount_percentage ?? 0) > 0)
+                                                     <div>{{ (float) $item->discount_percentage }}%</div>
+                                                 @elseif((float)($item->discount_amount ?? 0) > 0)
+                                                     <div>৳{{ number_format($item->discount_amount, 2) }}</div>
+                                                 @else
+                                                     <span style="color: #94a3b8;">-</span>
+                                                 @endif
+                                             </td>
+                                             <td class="quotation-td-tax">
+                                                 @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                     @foreach($item->taxes as $tItem)
+                                                         <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
+                                                     @endforeach
+                                                 @elseif((float) ($item->tax_percentage ?? 0) > 0)
+                                                     <div>{{ (float) $item->tax_percentage }}%</div>
+                                                 @elseif((float) ($item->tax_amount ?? 0) > 0)
+                                                     <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                 @else
+                                                     <span style="color: #94a3b8;">-</span>
+                                                 @endif
+                                             </td>
+                                             <td class="quotation-td-total">{{ number_format($lTotal, 2) }}</td>
+                                         </tr>
+                                     @empty
+                                         <tr>
+                                             <td colspan="8" class="quotation-no-items">No OTC items added.</td>
+                                         </tr>
+                                     @endforelse
                                 </tbody>
                                 <tfoot>
-                                    @if(count($otcItems) > 0)
-                                        <tr>
-                                            <td colspan="5"></td>
-                                            <td class="quotation-summary-label">Total (BDT):</td>
-                                            <td class="quotation-summary-value">{{ number_format($otcSubtotal, 2) }}</td>
-                                        </tr>
-                                        @if($otcDiscount > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="quotation-summary-label">{{ $otcDiscountLabel ?? 'Discount:' }}</td>
-                                                <td class="quotation-summary-value">-{{ number_format($otcDiscount, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                        @if($otcTax > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="quotation-summary-label">VAT/Tax:</td>
-                                                <td class="quotation-summary-value">+{{ number_format($otcTax, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                        @if($otcDiscount > 0 || $otcTax > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="quotation-summary-label">Grand Total:</td>
-                                                <td class="quotation-summary-value">{{ number_format($otcTotal, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                    @endif
+                                     @if(count($otcItems) > 0)
+                                         @php
+                                             $otcSubtotalStr = number_format($otcSubtotal, 2);
+                                             $otcDiscountStr = '(-) ' . number_format($otcDiscount, 2);
+                                             $otcTaxStr = '(+) ' . number_format($otcTax, 2);
+                                             $otcTotalStr = number_format($otcTotal, 2);
+                                         @endphp
+                                         <tr>
+                                             <td colspan="5"></td>
+                                             <td colspan="2" class="quotation-summary-label">Total (BDT):</td>
+                                             <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($otcSubtotalStr, 10) }};">{{ $otcSubtotalStr }}</td>
+                                         </tr>
+                                         @if($otcDiscount > 0)
+                                             <tr>
+                                                 <td colspan="5"></td>
+                                                 <td colspan="2" class="quotation-summary-label">{{ $otcDiscountLabel ?? 'Discount:' }}</td>
+                                                 <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($otcDiscountStr, 10) }};">{{ $otcDiscountStr }}</td>
+                                             </tr>
+                                         @endif
+                                         @if($otcTax > 0)
+                                             <tr>
+                                                 <td colspan="5"></td>
+                                                 <td colspan="2" class="quotation-summary-label">VAT/Tax:</td>
+                                                 <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($otcTaxStr, 10) }};">{{ $otcTaxStr }}</td>
+                                             </tr>
+                                         @endif
+                                         @if($otcDiscount > 0 || $otcTax > 0)
+                                             <tr>
+                                                 <td colspan="5"></td>
+                                                 <td colspan="2" class="quotation-summary-label">Grand Total:</td>
+                                                 <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($otcTotalStr, 10) }};">{{ $otcTotalStr }}</td>
+                                             </tr>
+                                         @endif
+                                     @endif
                                 </tfoot>
                             </table>
                         </div>
@@ -1122,89 +1143,109 @@
                     @endif
                     <div class="quotation-page__body">
                         <div class="quotation-charges-wrapper">
-                            <div class="quotation-section-title title-mrc">
+                            <div class="quotation-section-title title-mrc" style="{{ $pIdx === 0 ? '' : 'margin-top: 2rem;' }}">
                                 {{ $page['title'] }}
                             </div>
 
                             <table class="quotation-table">
                                 <thead>
-                                    <tr>
-                                        <th class="col-sn">S/N</th>
-                                        <th class="col-item">Item / Service</th>
-                                        <th class="col-desc">Description</th>
-                                        <th class="col-qty">Qty.</th>
-                                        <th class="col-price">Price (BDT)</th>
-                                        <th class="col-tax">Tax / VAT</th>
-                                        <th class="col-total">Total (BDT)</th>
-                                    </tr>
+                                     <tr>
+                                         <th class="col-sn">S/N</th>
+                                         <th class="col-item">Item / Service</th>
+                                         <th class="col-desc">Description</th>
+                                         <th class="col-qty">Qty.</th>
+                                         <th class="col-price">Price (BDT)</th>
+                                         <th class="col-discount">Discount</th>
+                                         <th class="col-tax">Tax / VAT</th>
+                                         <th class="col-total">Total (BDT)</th>
+                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($mrcItems as $index => $item)
-                                        @php
-                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
-                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
-                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
-                                            $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
-                                        @endphp
-                                        <tr>
-                                            <td class="quotation-td-sn">{{ $index + 1 }}</td>
-                                            <td class="quotation-td-item">{{ $pName }}</td>
-                                            <td class="quotation-item-desc">{!! $pDesc !!}</td>
-                                            <td class="quotation-td-qty">
-                                                {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
-                                            </td>
-                                            <td class="quotation-td-price">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td class="quotation-td-tax">
-                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                                    @foreach($item->taxes as $tItem)
-                                                        <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
-                                                    @endforeach
-                                                @elseif((float) ($item->tax_percentage ?? 0) > 0)
-                                                    <div>{{ (float) $item->tax_percentage }}%</div>
-                                                @elseif((float) ($item->tax_amount ?? 0) > 0)
-                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
-                                                @else
-                                                    <span style="color: #94a3b8;">-</span>
-                                                @endif
-                                            </td>
-                                            <td class="quotation-td-total">{{ number_format($lTotal, 2) }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="7" class="quotation-no-items">No MRC items added.</td>
-                                        </tr>
-                                    @endforelse
+                                     @forelse($mrcItems as $index => $item)
+                                         @php
+                                             $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                             $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
+                                             $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                             $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                             $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
+                                         @endphp
+                                         <tr>
+                                             <td class="quotation-td-sn">{{ $index + 1 }}</td>
+                                             <td class="quotation-td-item">{{ $pName }}</td>
+                                             <td class="quotation-item-desc">{!! $pDesc !!}</td>
+                                             <td class="quotation-td-qty">
+                                                 {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
+                                             </td>
+                                             <td class="quotation-td-price">{{ number_format($item->unit_price, 2) }}</td>
+                                             <td class="quotation-td-price">
+                                                 @php $effMrcType = $item->discount_type ?? $quotation->mrc_discount_type ?? 'percentage'; @endphp
+                                                 @if($effMrcType === 'percentage' && (float)($item->discount_percentage ?? 0) > 0)
+                                                     <div>{{ (float) $item->discount_percentage }}%</div>
+                                                     @if((float)($item->discount_amount ?? 0) > 0)
+                                                         <div style="font-size: 10px; color: #64748b;">(৳{{ number_format($item->discount_amount, 2) }})</div>
+                                                     @endif
+                                                 @elseif((float)($item->discount_amount ?? 0) > 0)
+                                                     <div>৳{{ number_format($item->discount_amount, 2) }}</div>
+                                                 @else
+                                                     <span style="color: #94a3b8;">-</span>
+                                                 @endif
+                                             </td>
+                                             <td class="quotation-td-tax">
+                                                 @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                     @foreach($item->taxes as $tItem)
+                                                         <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
+                                                     @endforeach
+                                                 @elseif((float) ($item->tax_percentage ?? 0) > 0)
+                                                     <div>{{ (float) $item->tax_percentage }}%</div>
+                                                 @elseif((float) ($item->tax_amount ?? 0) > 0)
+                                                     <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                 @else
+                                                     <span style="color: #94a3b8;">-</span>
+                                                 @endif
+                                             </td>
+                                             <td class="quotation-td-total">{{ number_format($lTotal, 2) }}</td>
+                                         </tr>
+                                     @empty
+                                         <tr>
+                                             <td colspan="8" class="quotation-no-items">No MRC items added.</td>
+                                         </tr>
+                                     @endforelse
                                 </tbody>
                                 <tfoot>
-                                    @if(count($mrcItems) > 0)
-                                        <tr>
-                                            <td colspan="5"></td>
-                                            <td class="quotation-summary-label">Total (BDT):</td>
-                                            <td class="quotation-summary-value">{{ number_format($mrcSubtotal, 2) }}</td>
-                                        </tr>
-                                        @if($mrcDiscount > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="quotation-summary-label">{{ $mrcDiscountLabel ?? 'Discount:' }}</td>
-                                                <td class="quotation-summary-value">-{{ number_format($mrcDiscount, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                        @if($mrcTax > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="quotation-summary-label">VAT/Tax:</td>
-                                                <td class="quotation-summary-value">+{{ number_format($mrcTax, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                        @if($mrcDiscount > 0 || $mrcTax > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="quotation-summary-label">Grand Total:</td>
-                                                <td class="quotation-summary-value">{{ number_format($mrcTotal, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                    @endif
+                                     @if(count($mrcItems) > 0)
+                                         @php
+                                             $mrcSubtotalStr = number_format($mrcSubtotal, 2);
+                                             $mrcDiscountStr = '(-) ' . number_format($mrcDiscount, 2);
+                                             $mrcTaxStr = '(+) ' . number_format($mrcTax, 2);
+                                             $mrcTotalStr = number_format($mrcTotal, 2);
+                                         @endphp
+                                         <tr>
+                                             <td colspan="5"></td>
+                                             <td colspan="2" class="quotation-summary-label">Total (BDT):</td>
+                                             <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($mrcSubtotalStr, 10) }};">{{ $mrcSubtotalStr }}</td>
+                                         </tr>
+                                         @if($mrcDiscount > 0)
+                                             <tr>
+                                                 <td colspan="5"></td>
+                                                 <td colspan="2" class="quotation-summary-label">{{ $mrcDiscountLabel ?? 'Discount:' }}</td>
+                                                 <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($mrcDiscountStr, 10) }};">{{ $mrcDiscountStr }}</td>
+                                             </tr>
+                                         @endif
+                                         @if($mrcTax > 0)
+                                             <tr>
+                                                 <td colspan="5"></td>
+                                                 <td colspan="2" class="quotation-summary-label">VAT/Tax:</td>
+                                                 <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($mrcTaxStr, 10) }};">{{ $mrcTaxStr }}</td>
+                                             </tr>
+                                         @endif
+                                         @if($mrcDiscount > 0 || $mrcTax > 0)
+                                             <tr>
+                                                 <td colspan="5"></td>
+                                                 <td colspan="2" class="quotation-summary-label">Grand Total:</td>
+                                                 <td class="quotation-summary-value" style="font-size: {{ $getAmountFontSize($mrcTotalStr, 10) }};">{{ $mrcTotalStr }}</td>
+                                             </tr>
+                                         @endif
+                                     @endif
                                 </tfoot>
                             </table>
                         </div>

@@ -1781,6 +1781,21 @@ const formatAmountOnly = (val: number | string): string => {
     });
 };
 
+const getAmountFontSize = (amountStr: string, defaultSize = 10): string => {
+    const cleanStr = amountStr.replace(/<[^>]*>/g, "");
+    const len = cleanStr.length;
+    if (len > 18) {
+        return "7.5px";
+    }
+    if (len > 15) {
+        return "8.5px";
+    }
+    if (len > 12) {
+        return "9.5px";
+    }
+    return `${defaultSize}px`;
+};
+
 // =============================================================================
 // REUSABLE PAGE COMPONENTS
 // =============================================================================
@@ -2209,7 +2224,12 @@ export default function PreviewModal({
     );
 
     const customer = useMemo(() => {
-        if ((formData as any)?.customer_mode === "new") {
+        const isNew =
+            (formData as any)?.customer_mode === "new" ||
+            (formData as any)?.customer_type === "new" ||
+            (!formData?.customer_id && Boolean((formData as any)?.customer_name || (formData as any)?.customer_email));
+
+        if (isNew) {
             return {
                 id: 0,
                 name: (formData as any)?.customer_name || "",
@@ -2220,13 +2240,27 @@ export default function PreviewModal({
                 type: (formData as any)?.customer_type || "Individual",
             };
         }
-        return customers.find(
-            (c) => String(c.id) === String(formData?.customer_id),
+        return (
+            customers.find(
+                (c) => String(c.id) === String(formData?.customer_id),
+            ) ||
+            ((formData as any)?.customer_name
+                ? {
+                      id: Number(formData?.customer_id) || 0,
+                      name: (formData as any)?.customer_name || "",
+                      email: (formData as any)?.customer_email || "",
+                      mobile_no: (formData as any)?.customer_phone || "",
+                      phone: (formData as any)?.customer_phone || "",
+                      address: (formData as any)?.customer_address || "",
+                      type: (formData as any)?.customer_type || "Individual",
+                  }
+                : undefined)
         );
     }, [
         customers,
         formData?.customer_id,
         (formData as any)?.customer_mode,
+        (formData as any)?.customer_type,
         (formData as any)?.customer_name,
         (formData as any)?.customer_email,
         (formData as any)?.customer_phone,
@@ -2353,11 +2387,16 @@ export default function PreviewModal({
                     const taxAmt = Number(item.tax_amount) || 0;
                     const discPct = Number(item.discount_percentage) || 0;
                     const discAmt = Number(item.discount_amount) || 0;
+                    const effectiveDiscType = item.discount_type || 'percentage';
                     let discCellHtml = "-";
-                    if ((item.discount_type || 'percentage') === 'percentage' && discPct > 0) {
-                        discCellHtml = `<div>${discPct}%</div>${discAmt > 0 ? `<div style="font-size: 9px; color: #64748b;">(${formatAmountOnly(discAmt)})</div>` : ''}`;
+                    if (effectiveDiscType === 'percentage' && discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>${discAmt > 0 ? `<div style="font-size: 9px; color: #64748b;">(৳${formatAmountOnly(discAmt)})</div>` : ''}`;
+                    } else if (effectiveDiscType === 'fixed' && discAmt > 0) {
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
+                    } else if (discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>`;
                     } else if (discAmt > 0) {
-                        discCellHtml = formatAmountOnly(discAmt);
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
                     }
 
                     rowsHtml += `
@@ -2399,32 +2438,32 @@ export default function PreviewModal({
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(formatAmountOnly(secSubtotalOtc), 10)}; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
                                 </tr>
                                 ${secDiscountOtc > 0
                         ? `
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
-                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">(-) ${formatAmountOnly(secDiscountOtc)}</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
+                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(-) ${formatAmountOnly(secDiscountOtc)}`, 10)}; padding: 6px 8px !important;">(-) ${formatAmountOnly(secDiscountOtc)}</td>
                                 </tr>`
                         : ""
                     }
                                 ${secTaxOtc > 0
                         ? `
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">(+) ${formatAmountOnly(secTaxOtc)}</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(+) ${formatAmountOnly(secTaxOtc)}`, 10)}; padding: 6px 8px !important;">(+) ${formatAmountOnly(secTaxOtc)}</td>
                                 </tr>`
                         : ""
                     }
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
-                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalOtc)} BDT</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
+                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: ${getAmountFontSize(`${formatAmountOnly(secTotalOtc)} BDT`, 10)}; padding: 7px 8px !important;">${formatAmountOnly(secTotalOtc)} BDT</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -2449,11 +2488,16 @@ export default function PreviewModal({
                     const taxAmt = Number(item.tax_amount) || 0;
                     const discPct = Number(item.discount_percentage) || 0;
                     const discAmt = Number(item.discount_amount) || 0;
+                    const effectiveDiscType = item.discount_type || 'percentage';
                     let discCellHtml = "-";
-                    if ((item.discount_type || 'percentage') === 'percentage' && discPct > 0) {
-                        discCellHtml = `<div>${discPct}%</div>${discAmt > 0 ? `<div style="font-size: 9px; color: #64748b;">(${formatAmountOnly(discAmt)})</div>` : ''}`;
+                    if (effectiveDiscType === 'percentage' && discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>${discAmt > 0 ? `<div style="font-size: 9px; color: #64748b;">(৳${formatAmountOnly(discAmt)})</div>` : ''}`;
+                    } else if (effectiveDiscType === 'fixed' && discAmt > 0) {
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
+                    } else if (discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>`;
                     } else if (discAmt > 0) {
-                        discCellHtml = formatAmountOnly(discAmt);
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
                     }
 
                     rowsHtml += `
@@ -2496,32 +2540,32 @@ export default function PreviewModal({
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(formatAmountOnly(secSubtotalMrc), 10)}; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
                                 </tr>
                                 ${secDiscountMrc > 0
                         ? `
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
-                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">(-) ${formatAmountOnly(secDiscountMrc)}</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
+                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(-) ${formatAmountOnly(secDiscountMrc)}`, 10)}; padding: 6px 8px !important;">(-) ${formatAmountOnly(secDiscountMrc)}</td>
                                 </tr>`
                         : ""
                     }
                                 ${secTaxMrc > 0
                         ? `
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">(+) ${formatAmountOnly(secTaxMrc)}</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(+) ${formatAmountOnly(secTaxMrc)}`, 10)}; padding: 6px 8px !important;">(+) ${formatAmountOnly(secTaxMrc)}</td>
                                 </tr>`
                         : ""
                     }
                                 <tr>
-                                    <td colspan="6" class="border border-slate-200"></td>
-                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
-                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalMrc)} BDT</td>
+                                    <td colspan="5" class="border border-slate-200"></td>
+                                    <td colspan="2" class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
+                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: ${getAmountFontSize(`${formatAmountOnly(secTotalMrc)} BDT`, 10)}; padding: 7px 8px !important;">${formatAmountOnly(secTotalMrc)} BDT</td>
                                 </tr>
                             </tfoot>
                         </table>

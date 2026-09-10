@@ -84,22 +84,32 @@ export default function ItemsTable({
         item.quantity = Math.min(Math.max(Number(item.quantity) || 0, 0), 999999);
         item.unit_price = Number(item.unit_price) || 0;
         item.tax_percentage = isTaxEnabled ? (Number(item.tax_percentage) || 0) : 0;
-        item.discount_type = discountType;
+        
+        if (field === 'discount_amount') {
+            item.discount_type = 'fixed';
+        } else if (field === 'discount_percentage') {
+            item.discount_type = 'percentage';
+        } else if (!item.discount_type) {
+            item.discount_type = discountType || 'percentage';
+        }
+        
+        const effectiveDiscType = item.discount_type;
 
         const lineTotal = item.quantity * item.unit_price;
         let discountAmount = 0;
         let discountPct = 0;
 
-        if (discountType === 'percentage') {
+        if (effectiveDiscType === 'percentage') {
             discountPct = Math.min(Math.max(Number(item.discount_percentage) || 0, 0), 100);
             discountAmount = (lineTotal * discountPct) / 100;
+            item.discount_percentage = discountPct;
+            item.discount_amount = Number(discountAmount.toFixed(2));
         } else {
             discountAmount = Math.min(Math.max(Number(item.discount_amount) || 0, 0), lineTotal);
             discountPct = lineTotal > 0 ? (discountAmount / lineTotal) * 100 : 0;
+            item.discount_percentage = Number(discountPct.toFixed(4));
+            item.discount_amount = discountAmount;
         }
-
-        item.discount_percentage = Number(discountPct.toFixed(4));
-        item.discount_amount = Number(discountAmount.toFixed(4));
 
         const afterDiscount = Math.max(0, lineTotal - discountAmount);
         const taxAmount = isTaxEnabled ? (afterDiscount * (Number(item.tax_percentage) || 0)) / 100 : 0;
@@ -119,6 +129,7 @@ export default function ItemsTable({
         })) || []) : [];
 
         const defaultDesc = product?.long_description || product?.description || '';
+        const effectiveDiscType = newItems[index].discount_type || discountType;
 
         newItems[index] = {
             ...newItems[index],
@@ -127,7 +138,7 @@ export default function ItemsTable({
             tax_percentage: Number(totalTaxRate) || 0,
             taxes: taxes,
             description: defaultDesc,
-            discount_type: discountType,
+            discount_type: effectiveDiscType,
             discount_percentage: newItems[index].discount_percentage || 0,
             discount_amount: newItems[index].discount_amount || 0,
         };
@@ -139,16 +150,17 @@ export default function ItemsTable({
         let discountAmount = 0;
         let discountPct = 0;
 
-        if (discountType === 'percentage') {
+        if (effectiveDiscType === 'percentage') {
             discountPct = Math.min(Math.max(Number(item.discount_percentage) || 0, 0), 100);
             discountAmount = (lineTotal * discountPct) / 100;
+            item.discount_percentage = discountPct;
+            item.discount_amount = Number(discountAmount.toFixed(2));
         } else {
             discountAmount = Math.min(Math.max(Number(item.discount_amount) || 0, 0), lineTotal);
             discountPct = lineTotal > 0 ? (discountAmount / lineTotal) * 100 : 0;
+            item.discount_percentage = Number(discountPct.toFixed(4));
+            item.discount_amount = discountAmount;
         }
-
-        item.discount_percentage = Number(discountPct.toFixed(4));
-        item.discount_amount = Number(discountAmount.toFixed(4));
 
         const afterDiscount = Math.max(0, lineTotal - discountAmount);
         const taxAmount = isTaxEnabled ? (afterDiscount * (Number(item.tax_percentage) || 0)) / 100 : 0;
@@ -192,11 +204,13 @@ export default function ItemsTable({
                                             let discPct = 0;
 
                                             if (val === 'percentage') {
-                                                discAmount = Math.min(Math.max(Number(item.discount_amount) || 0, 0), lineTotal);
-                                                discPct = lineTotal > 0 ? (discAmount / lineTotal) * 100 : 0;
-                                            } else {
-                                                discPct = Math.min(Math.max(Number(item.discount_percentage) || 0, 0), 100);
+                                                discAmount = Number(item.discount_amount) || 0;
+                                                discPct = lineTotal > 0 ? (discAmount / lineTotal) * 100 : (Number(item.discount_percentage) || 0);
                                                 discAmount = (lineTotal * discPct) / 100;
+                                            } else {
+                                                discAmount = Number(item.discount_amount) || ((lineTotal * (Number(item.discount_percentage) || 0)) / 100);
+                                                discAmount = Math.min(Math.max(discAmount, 0), lineTotal);
+                                                discPct = lineTotal > 0 ? (discAmount / lineTotal) * 100 : 0;
                                             }
 
                                             const afterDisc = Math.max(0, lineTotal - discAmount);
@@ -205,7 +219,7 @@ export default function ItemsTable({
                                                 ...item,
                                                 discount_type: val,
                                                 discount_percentage: Number(discPct.toFixed(4)),
-                                                discount_amount: Number(discAmount.toFixed(4)),
+                                                discount_amount: Math.round(discAmount * 100) / 100,
                                                 tax_amount: Number(taxAmt.toFixed(4)),
                                                 total_amount: Number((afterDisc + taxAmt).toFixed(4))
                                             };
@@ -412,12 +426,12 @@ export default function ItemsTable({
                                         <div className="relative w-20">
                                             <Input
                                                 type="number"
-                                                value={discountType === 'percentage'
+                                                value={(item.discount_type || discountType) === 'percentage'
                                                     ? (item.discount_percentage || 0)
                                                     : (item.discount_amount || 0)}
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
-                                                    if (discountType === 'percentage') {
+                                                    if ((item.discount_type || discountType) === 'percentage') {
                                                         updateItem(index, 'discount_percentage', val);
                                                     } else {
                                                         updateItem(index, 'discount_amount', val);
@@ -425,11 +439,11 @@ export default function ItemsTable({
                                                 }}
                                                 className="w-20 text-sm pr-6 text-right font-medium"
                                                 min="0"
-                                                max={discountType === 'percentage' ? 100 : undefined}
+                                                max={(item.discount_type || discountType) === 'percentage' ? 100 : undefined}
                                                 step="0.01"
                                             />
                                             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
-                                                {discountType === 'percentage' ? '%' : '৳'}
+                                                {(item.discount_type || discountType) === 'percentage' ? '%' : '৳'}
                                             </span>
                                         </div>
                                     </td>
@@ -499,10 +513,10 @@ export default function ItemsTable({
                                 <Button
                                     type="button"
                                     onClick={addItem}
-                                    variant="default"
                                     size="sm"
+                                    className="gap-2"
                                 >
-                                    + {t('Add Item')}
+                                    <Plus className="h-4 w-4" /> {t('Add Item')}
                                 </Button>
                             )}
                         </div>

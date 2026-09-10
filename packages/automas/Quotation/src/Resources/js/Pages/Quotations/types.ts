@@ -11,6 +11,7 @@ export interface QuotationItem {
     unit_price: number;
     discount_percentage: number;
     discount_amount: number;
+    discount_type?: 'percentage' | 'fixed' | string;
     tax_percentage: number;
     tax_amount: number;
     total_amount: number;

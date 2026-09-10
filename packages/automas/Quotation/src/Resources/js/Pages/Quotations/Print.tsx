@@ -135,6 +135,18 @@ export default function Print() {
                 },
             ];
         }
+        if (quotation?.customer_name || quotation?.customer_email || quotation?.customer_phone || quotation?.customer_address) {
+            return [
+                {
+                    id: 0,
+                    name: quotation.customer_name || '',
+                    email: quotation.customer_email || '',
+                    mobile_no: quotation.customer_phone || '',
+                    phone: quotation.customer_phone || '',
+                    address: quotation.customer_address || '',
+                },
+            ];
+        }
         return customers;
     }, [quotation, customers]);
 
@@ -245,6 +257,8 @@ export default function Print() {
                     product_description: item.product_description || item.description || item.product?.description || '',
                     quantity,
                     unit_price: unitPrice,
+                    discount_type: item.discount_type || 'percentage',
+                    discount_percentage: Number(item.discount_percentage || 0),
                     discount_amount: Number(item.discount_amount || 0),
                     tax_amount: Number(item.tax_amount || 0),
                     total_amount: item.total_amount !== undefined ? Number(item.total_amount) : quantity * unitPrice,
