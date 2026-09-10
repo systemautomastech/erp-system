@@ -133,9 +133,15 @@
             return '';
         }
 
-        $format = $companySettings['dateFormat'] ?? 'Y-m-d';
+        $format = $companySettings['dateFormat'] ?? ($companySettings['date_format'] ?? 'Y-m-d');
+
+        // Normalize JS format tokens (e.g., 'f' for short month) to PHP Carbon tokens ('M')
+        $format = preg_replace('/\bf\b/', 'M', $format);
 
         try {
+            if ($date instanceof \Carbon\Carbon || $date instanceof \DateTimeInterface) {
+                return $date->format($format);
+            }
             return \Carbon\Carbon::parse($date)->format($format);
         } catch (\Exception $e) {
             return (string) $date;
@@ -1052,6 +1058,7 @@
 
         <div
             class="
+                relative
                 flex
                 justify-between
                 items-center
@@ -1060,6 +1067,17 @@
                 border-b
                 border-gray-200
             ">
+
+            @if ($showLogo && $logoUrl)
+                <div class="mb-2"
+                    style="
+                        position: absolute;
+                        top: -75px;
+                        left: 0;
+                    ">
+                    <img src="{{ $logoUrl }}" alt="Logo" class="max-h-14 max-w-[200px] object-contain">
+                </div>
+            @endif
 
             <div>
                 <span
@@ -1435,7 +1453,7 @@
 
         <template id="invoice-payment-summary">
 
-            <div class="mb-4 page-break-inside-avoid">
+            <div class="mb-4 mt-6 payment-summary-wrapper page-break-inside-avoid">
 
                 <div
                     style="
@@ -2141,6 +2159,16 @@
                 }
 
                 result.forEach((page, index) => {
+                    // Check if payment summary is at the top of the page (no table rows above it or table is hidden)
+                    const psWrapper = page.top.querySelector('.payment-summary-wrapper');
+                    if (psWrapper) {
+                        const hasItemsOnPage = page.table.style.display !== 'none' && page.tbody.children.length > 0;
+                        if (!hasItemsOnPage) {
+                            psWrapper.classList.remove('mt-6');
+                            psWrapper.classList.add('mt-0');
+                        }
+                    }
+
                     page.page.style.pageBreakAfter =
                         index === result.length - 1 ?
                         'avoid' :
