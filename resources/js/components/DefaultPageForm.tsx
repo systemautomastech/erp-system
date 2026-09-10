@@ -176,7 +176,7 @@ export default function DefaultPageForm({
         setUseCustomBackground(
             Boolean(
                 defaultPage?.background_image &&
-                    String(defaultPage.background_image).trim() !== "",
+                String(defaultPage.background_image).trim() !== "",
             ),
         );
     }, [defaultPage?.background_image]);
