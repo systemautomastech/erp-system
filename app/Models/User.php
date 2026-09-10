@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Permission\Models\Permission as ModelsPermission;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Str;
@@ -146,6 +147,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function vendor()
     {
         return $this->hasOne(\Automas\Account\Models\Vendor::class, 'user_id');
+    }
+
+    public function userGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(UserGroup::class, 'user_group_users', 'user_id', 'user_group_id')
+                    ->withPivot('created_at');
     }
 
     public static function CompanySetting($user_id)

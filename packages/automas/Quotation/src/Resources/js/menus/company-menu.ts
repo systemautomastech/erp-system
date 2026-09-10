@@ -9,7 +9,7 @@ export const quotationCompanyMenu = (t: (key: string) => string) => [
         title: t('Quotation'),
         icon: FileCheck,
         permission: 'manage-quotations',
-        order: 25,
+        order: 30,
         children: [
             {
                 title: t('Quotation'),
@@ -23,4 +23,4 @@ export const quotationCompanyMenu = (t: (key: string) => string) => [
             },
         ],
     },
-];
+];

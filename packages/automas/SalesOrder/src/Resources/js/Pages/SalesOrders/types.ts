@@ -9,6 +9,10 @@ export interface SalesOrder {
     quote_id?: number;
     status: 'draft' | 'confirmed' | 'cancelled';
     delivery_status: 'pending' | 'partial' | 'delivered';
+    assignment_status: 'unassigned' | 'group_assigned' | 'acquired';
+    assigned_group_id?: number;
+    acquired_by?: number;
+    acquired_at?: string;
     customer_id?: number;
     warehouse_id?: number;
     order_date: string;
@@ -39,9 +43,20 @@ export interface SalesOrder {
     customer?: { id: number; name: string; email?: string };
     warehouse?: { id: number; name: string };
     assigned_users?: Array<{ id: number; name: string }>;
+    assigned_group?: UserGroup;
+    acquired_by_user?: { id: number; name: string };
     items?: SalesOrderItem[];
     deliveries?: SalesOrderDelivery[];
     quotation?: { id: number; quotation_number: string };
+}
+
+export interface UserGroup {
+    id: number;
+    name: string;
+    description?: string;
+    is_active: boolean;
+    users_count?: number;
+    users?: Array<{ id: number; name: string; email?: string }>;
 }
 
 export interface SalesOrderItem {
@@ -155,6 +170,7 @@ export interface SalesOrdersIndexProps {
     customers?: DropdownOption[];
     users?: DropdownOption[];
     warehouses?: DropdownOption[];
+    userGroups?: UserGroup[];
     settings?: SalesOrderSettings;
     filters?: Record<string, string>;
 }
@@ -165,9 +181,14 @@ export interface SalesOrderShowProps {
     deliveries: SalesOrderDelivery[];
     quotation?: any;
     settings: SalesOrderSettings;
+    userGroups?: UserGroup[];
     canConfirm: boolean;
     canCancel: boolean;
     canDeliver: boolean;
+    canAssignGroup: boolean;
+    canAcquire: boolean;
+    canRelease: boolean;
+    canReassign: boolean;
 }
 
 export interface SalesOrderFormProps {

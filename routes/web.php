@@ -33,6 +33,7 @@ use App\Http\Controllers\AIAgentChatController;
 use App\Http\Controllers\ProposalSetupController;
 use App\Http\Controllers\ProposalDefaultPageController;
 use App\Http\Controllers\ProposalSubjectController;
+use App\Http\Controllers\UserGroupController;
 
 Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Route::get('/dashboard', function () {
@@ -56,6 +57,10 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::patch('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
     Route::post('users/{user}/assign-plan', [UserController::class, 'assignPlan'])->name('users.assign-plan');
     Route::resource('roles', RoleController::class);
+
+    // User Groups
+    Route::resource('user-groups', UserGroupController::class);
+    Route::get('user-groups-list/active', [UserGroupController::class, 'listActive'])->name('user-groups.list-active');
 
     Route::middleware(['PlanModuleCheck:ProductService'])->group(function () {
         Route::resource('warehouses', WarehouseController::class);

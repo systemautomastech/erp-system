@@ -30,6 +30,12 @@ Route::middleware(['web', 'auth', 'verified'])->group(function () {
         Route::get('/{salesOrder}/print', [SalesOrderController::class, 'print'])->name('print');
         Route::get('/{salesOrder}/pdf', [SalesOrderController::class, 'pdf'])->name('pdf');
 
+        // Group Assignment & Acquisition
+        Route::post('/{salesOrder}/assign-group', [SalesOrderController::class, 'assignGroup'])->name('assign-group');
+        Route::post('/{salesOrder}/acquire', [SalesOrderController::class, 'acquire'])->name('acquire');
+        Route::post('/{salesOrder}/release', [SalesOrderController::class, 'release'])->name('release');
+        Route::post('/{salesOrder}/reassign', [SalesOrderController::class, 'reassign'])->name('reassign');
+
         // Deliveries (nested under a sales order)
         Route::get('/{salesOrder}/deliveries/create', [SalesOrderDeliveryController::class, 'create'])->name('deliveries.create');
         Route::post('/{salesOrder}/deliveries', [SalesOrderDeliveryController::class, 'store'])->name('deliveries.store');

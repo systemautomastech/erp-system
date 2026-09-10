@@ -73,6 +73,12 @@ class PermissionRoleSeeder extends Seeder
             ['name' => 'edit-roles', 'module' => 'roles', 'label' => 'Edit Roles'],
             ['name' => 'delete-roles', 'module' => 'roles', 'label' => 'Delete Roles'],
 
+            // User Group management
+            ['name' => 'manage-user-groups', 'module' => 'user-groups', 'label' => 'Manage User Groups'],
+            ['name' => 'create-user-groups', 'module' => 'user-groups', 'label' => 'Create User Groups'],
+            ['name' => 'edit-user-groups', 'module' => 'user-groups', 'label' => 'Edit User Groups'],
+            ['name' => 'delete-user-groups', 'module' => 'user-groups', 'label' => 'Delete User Groups'],
+
             // Warehouse management
             ['name' => 'manage-warehouses', 'module' => 'warehouses', 'label' => 'Manage Warehouses'],
             ['name' => 'manage-any-warehouses', 'module' => 'warehouses', 'label' => 'Manage All Warehouses'],

@@ -38,6 +38,12 @@ class PermissionTableSeeder extends Seeder
 
             // ── Settings ─────────────────────────────────────────────────
             ['name' => 'manage-sales-order-settings', 'module' => 'sales-order-settings', 'label' => 'Manage Sales Order Settings'],
+
+            // ── Group Assignment & Acquisition ────────────────────────────
+            ['name' => 'assign-group-sales-orders',   'module' => 'sales-orders', 'label' => 'Assign Group to Sales Orders'],
+            ['name' => 'acquire-sales-orders',         'module' => 'sales-orders', 'label' => 'Acquire Sales Orders'],
+            ['name' => 'release-sales-orders',         'module' => 'sales-orders', 'label' => 'Release Sales Orders'],
+            ['name' => 'reassign-sales-orders',        'module' => 'sales-orders', 'label' => 'Reassign Sales Orders'],
         ];
 
         // Roles that should receive all permissions by default
