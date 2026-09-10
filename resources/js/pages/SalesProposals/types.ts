@@ -9,6 +9,7 @@ export interface ProposalItem {
     description?: string;
     quantity: number;
     unit_price: number;
+    discount_type?: 'percentage' | 'fixed';
     discount_percentage: number;
     discount_amount: number;
     tax_percentage: number;

@@ -332,18 +332,25 @@ export default function Create() {
         const otcSubtotal = otcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
         const mrcSubtotal = mrcItems.reduce((acc, i) => acc + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
 
-        let otcDiscount = 0;
-        if (data.otc_discount_type === 'percentage') {
-            otcDiscount = (otcSubtotal * Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), 100)) / 100;
-        } else {
-            otcDiscount = Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), otcSubtotal);
+        const otcItemsDiscSum = otcItems.reduce((acc, i) => acc + (Number(i.discount_amount) || 0), 0);
+        const mrcItemsDiscSum = mrcItems.reduce((acc, i) => acc + (Number(i.discount_amount) || 0), 0);
+
+        let otcDiscount = otcItemsDiscSum;
+        if (otcItemsDiscSum === 0 && (Number(data.otc_discount_value) || 0) > 0) {
+            if (data.otc_discount_type === 'percentage') {
+                otcDiscount = (otcSubtotal * Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), 100)) / 100;
+            } else {
+                otcDiscount = Math.min(Math.max(Number(data.otc_discount_value) || 0, 0), otcSubtotal);
+            }
         }
 
-        let mrcDiscount = 0;
-        if (data.mrc_discount_type === 'percentage') {
-            mrcDiscount = (mrcSubtotal * Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), 100)) / 100;
-        } else {
-            mrcDiscount = Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), mrcSubtotal);
+        let mrcDiscount = mrcItemsDiscSum;
+        if (mrcItemsDiscSum === 0 && (Number(data.mrc_discount_value) || 0) > 0) {
+            if (data.mrc_discount_type === 'percentage') {
+                mrcDiscount = (mrcSubtotal * Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), 100)) / 100;
+            } else {
+                mrcDiscount = Math.min(Math.max(Number(data.mrc_discount_value) || 0, 0), mrcSubtotal);
+            }
         }
 
         const otcTax = otcItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);

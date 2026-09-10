@@ -421,17 +421,17 @@
         }
 
         .proposal-table th.col-item {
-            width: 16%;
+            width: 15%;
             text-align: left;
         }
 
         .proposal-table th.col-desc {
-            width: 33%;
+            width: 28%;
             text-align: left;
         }
 
         .proposal-table th.col-qty {
-            width: 7%;
+            width: 6%;
             text-align: center;
             padding: 6px 4px !important;
         }
@@ -441,8 +441,13 @@
             text-align: right;
         }
 
+        .proposal-table th.col-discount {
+            width: 9%;
+            text-align: right;
+        }
+
         .proposal-table th.col-tax {
-            width: 14%;
+            width: 12%;
             text-align: right;
         }
 
@@ -1023,6 +1028,7 @@
                                         <th class="col-desc">Description</th>
                                         <th class="col-qty">Qty.</th>
                                         <th class="col-price">Price (BDT)</th>
+                                        <th class="col-discount">Discount</th>
                                         <th class="col-tax">Tax / VAT</th>
                                         <th class="col-total">Total (BDT)</th>
                                     </tr>
@@ -1044,6 +1050,18 @@
                                                 {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
                                             </td>
                                             <td class="proposal-td-price">{{ number_format($item->unit_price, 2) }}</td>
+                                            <td class="proposal-td-price">
+                                                @if(($item->discount_type ?? 'percentage') === 'percentage' && (float)($item->discount_percentage ?? 0) > 0)
+                                                    <div>{{ (float) $item->discount_percentage }}%</div>
+                                                    @if((float)($item->discount_amount ?? 0) > 0)
+                                                        <div style="font-size: 10px; color: #64748b;">({{ number_format($item->discount_amount, 2) }})</div>
+                                                    @endif
+                                                @elseif((float)($item->discount_amount ?? 0) > 0)
+                                                    <div>{{ number_format($item->discount_amount, 2) }}</div>
+                                                @else
+                                                    <span style="color: #94a3b8;">-</span>
+                                                @endif
+                                            </td>
                                             <td class="proposal-td-tax">
                                                 @if(!empty($item->taxes) && count($item->taxes) > 0)
                                                     @foreach($item->taxes as $tItem)
@@ -1061,34 +1079,34 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="proposal-no-items">No OTC items added.</td>
+                                            <td colspan="8" class="proposal-no-items">No OTC items added.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
                                 <tfoot>
                                     @if(count($otcItems) > 0)
                                         <tr>
-                                            <td colspan="5"></td>
+                                            <td colspan="6"></td>
                                             <td class="proposal-summary-label">Total (BDT):</td>
                                             <td class="proposal-summary-value">{{ number_format($otcSubtotal, 2) }}</td>
                                         </tr>
                                         @if($otcDiscount > 0)
                                             <tr>
-                                                <td colspan="5"></td>
+                                                <td colspan="6"></td>
                                                 <td class="proposal-summary-label">{{ $otcDiscountLabel ?? 'Discount:' }}</td>
-                                                <td class="proposal-summary-value">-{{ number_format($otcDiscount, 2) }}</td>
+                                                <td class="proposal-summary-value">(-) {{ number_format($otcDiscount, 2) }}</td>
                                             </tr>
                                         @endif
                                         @if($otcTax > 0)
                                             <tr>
-                                                <td colspan="5"></td>
+                                                <td colspan="6"></td>
                                                 <td class="proposal-summary-label">VAT/Tax:</td>
-                                                <td class="proposal-summary-value">+{{ number_format($otcTax, 2) }}</td>
+                                                <td class="proposal-summary-value">(+) {{ number_format($otcTax, 2) }}</td>
                                             </tr>
                                         @endif
                                         @if($otcDiscount > 0 || $otcTax > 0)
                                             <tr>
-                                                <td colspan="5"></td>
+                                                <td colspan="6"></td>
                                                 <td class="proposal-summary-label">Grand Total:</td>
                                                 <td class="proposal-summary-value">{{ number_format($otcTotal, 2) }}</td>
                                             </tr>
@@ -1115,89 +1133,102 @@
                     @endif
                     <div class="proposal-page__body">
                         <div class="proposal-charges-wrapper">
-                            <div class="proposal-section-title title-mrc">
+                            <div class="proposal-section-title title-mrc" style="{{ $pIdx === 0 ? '' : 'margin-top: 2rem;' }}">
                                 {{ $page['title'] }}
                             </div>
 
                             <table class="proposal-table">
                                 <thead>
-                                    <tr>
-                                        <th class="col-sn">S/N</th>
-                                        <th class="col-item">Item / Service</th>
-                                        <th class="col-desc">Description</th>
-                                        <th class="col-qty">Qty.</th>
-                                        <th class="col-price">Price (BDT)</th>
-                                        <th class="col-tax">Tax / VAT</th>
-                                        <th class="col-total">Total (BDT)</th>
-                                    </tr>
+                                     <tr>
+                                         <th class="col-sn">S/N</th>
+                                         <th class="col-item">Item / Service</th>
+                                         <th class="col-desc">Description</th>
+                                         <th class="col-qty">Qty.</th>
+                                         <th class="col-price">Price (BDT)</th>
+                                         <th class="col-discount">Discount</th>
+                                         <th class="col-tax">Tax / VAT</th>
+                                         <th class="col-total">Total (BDT)</th>
+                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($mrcItems as $index => $item)
-                                        @php
-                                            $pName = $item->product->name ?? $item->product_name ?? 'Item';
-                                            $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
-                                            $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
-                                            $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
-                                            $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
-                                        @endphp
-                                        <tr>
-                                            <td class="proposal-td-sn">{{ $index + 1 }}</td>
-                                            <td class="proposal-td-item">{{ $pName }}</td>
-                                            <td class="proposal-item-desc">{!! $pDesc !!}</td>
-                                            <td class="proposal-td-qty">
-                                                {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
-                                            </td>
-                                            <td class="proposal-td-price">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td class="proposal-td-tax">
-                                                @if(!empty($item->taxes) && count($item->taxes) > 0)
-                                                    @foreach($item->taxes as $tItem)
-                                                        <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
-                                                    @endforeach
-                                                @elseif((float) ($item->tax_percentage ?? 0) > 0)
-                                                    <div>{{ (float) $item->tax_percentage }}%</div>
-                                                @elseif((float) ($item->tax_amount ?? 0) > 0)
-                                                    <div>{{ number_format($item->tax_amount, 2) }}</div>
-                                                @else
-                                                    <span style="color: #94a3b8;">-</span>
-                                                @endif
-                                            </td>
-                                            <td class="proposal-td-total">{{ number_format($lTotal, 2) }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="7" class="proposal-no-items">No MRC items added.</td>
-                                        </tr>
-                                    @endforelse
+                                     @forelse($mrcItems as $index => $item)
+                                         @php
+                                             $pName = $item->product->name ?? $item->product_name ?? 'Item';
+                                             $pDesc = $item->description ?? $item->product_description ?? $item->product->description ?? '';
+                                             $pUnit = $item->product->unitRelation->unit_name ?? (!is_numeric($item->product->unit ?? '') ? ($item->product->unit ?? '') : '');
+                                             $lTotal = (float) ($item->total_amount ?? ($item->quantity * $item->unit_price));
+                                             $displayQty = ((float) $item->quantity == (int) $item->quantity) ? (int) $item->quantity : (float) $item->quantity;
+                                         @endphp
+                                         <tr>
+                                             <td class="proposal-td-sn">{{ $index + 1 }}</td>
+                                             <td class="proposal-td-item">{{ $pName }}</td>
+                                             <td class="proposal-item-desc">{!! $pDesc !!}</td>
+                                             <td class="proposal-td-qty">
+                                                 {{ $displayQty . ($pUnit ? ' ' . $pUnit : '') }}
+                                             </td>
+                                             <td class="proposal-td-price">{{ number_format($item->unit_price, 2) }}</td>
+                                             <td class="proposal-td-price">
+                                                 @if(($item->discount_type ?? 'percentage') === 'percentage' && (float)($item->discount_percentage ?? 0) > 0)
+                                                     <div>{{ (float) $item->discount_percentage }}%</div>
+                                                     @if((float)($item->discount_amount ?? 0) > 0)
+                                                         <div style="font-size: 10px; color: #64748b;">({{ number_format($item->discount_amount, 2) }})</div>
+                                                     @endif
+                                                 @elseif((float)($item->discount_amount ?? 0) > 0)
+                                                     <div>{{ number_format($item->discount_amount, 2) }}</div>
+                                                 @else
+                                                     <span style="color: #94a3b8;">-</span>
+                                                 @endif
+                                             </td>
+                                             <td class="proposal-td-tax">
+                                                 @if(!empty($item->taxes) && count($item->taxes) > 0)
+                                                     @foreach($item->taxes as $tItem)
+                                                         <div>{{ $tItem->tax_name }} ({{ (float) $tItem->tax_rate }}%)</div>
+                                                     @endforeach
+                                                 @elseif((float) ($item->tax_percentage ?? 0) > 0)
+                                                     <div>{{ (float) $item->tax_percentage }}%</div>
+                                                 @elseif((float) ($item->tax_amount ?? 0) > 0)
+                                                     <div>{{ number_format($item->tax_amount, 2) }}</div>
+                                                 @else
+                                                     <span style="color: #94a3b8;">-</span>
+                                                 @endif
+                                             </td>
+                                             <td class="proposal-td-total">{{ number_format($lTotal, 2) }}</td>
+                                         </tr>
+                                     @empty
+                                         <tr>
+                                             <td colspan="8" class="proposal-no-items">No MRC items added.</td>
+                                         </tr>
+                                     @endforelse
                                 </tbody>
                                 <tfoot>
-                                    @if(count($mrcItems) > 0)
-                                        <tr>
-                                            <td colspan="5"></td>
-                                            <td class="proposal-summary-label">Total (BDT):</td>
-                                            <td class="proposal-summary-value">{{ number_format($mrcSubtotal, 2) }}</td>
-                                        </tr>
-                                        @if($mrcDiscount > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="proposal-summary-label">{{ $mrcDiscountLabel ?? 'Discount:' }}</td>
-                                                <td class="proposal-summary-value">-{{ number_format($mrcDiscount, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                        @if($mrcTax > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="proposal-summary-label">VAT/Tax:</td>
-                                                <td class="proposal-summary-value">+{{ number_format($mrcTax, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                        @if($mrcDiscount > 0 || $mrcTax > 0)
-                                            <tr>
-                                                <td colspan="5"></td>
-                                                <td class="proposal-summary-label">Grand Total:</td>
-                                                <td class="proposal-summary-value">{{ number_format($mrcTotal, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                    @endif
+                                     @if(count($mrcItems) > 0)
+                                         <tr>
+                                             <td colspan="6"></td>
+                                             <td class="proposal-summary-label">Total (BDT):</td>
+                                             <td class="proposal-summary-value">{{ number_format($mrcSubtotal, 2) }}</td>
+                                         </tr>
+                                         @if($mrcDiscount > 0)
+                                             <tr>
+                                                 <td colspan="6"></td>
+                                                 <td class="proposal-summary-label">{{ $mrcDiscountLabel ?? 'Discount:' }}</td>
+                                                 <td class="proposal-summary-value">(-) {{ number_format($mrcDiscount, 2) }}</td>
+                                             </tr>
+                                         @endif
+                                         @if($mrcTax > 0)
+                                             <tr>
+                                                 <td colspan="6"></td>
+                                                 <td class="proposal-summary-label">VAT/Tax:</td>
+                                                 <td class="proposal-summary-value">(+) {{ number_format($mrcTax, 2) }}</td>
+                                             </tr>
+                                         @endif
+                                         @if($mrcDiscount > 0 || $mrcTax > 0)
+                                             <tr>
+                                                 <td colspan="6"></td>
+                                                 <td class="proposal-summary-label">Grand Total:</td>
+                                                 <td class="proposal-summary-value">{{ number_format($mrcTotal, 2) }}</td>
+                                             </tr>
+                                         @endif
+                                     @endif
                                 </tfoot>
                             </table>
                         </div>
