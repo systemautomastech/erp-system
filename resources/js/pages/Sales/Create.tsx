@@ -354,34 +354,10 @@ export default function Create() {
                     {/* Invoice Items Table */}
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Package className="h-5 w-5" />
-                                    {t('Invoice Items')}
-                                </CardTitle>
-                                <Button
-                                    type="button"
-                                    onClick={() => {
-                                        const newItem: SalesInvoiceItem = {
-                                            product_id: 0,
-                                            product_type: 'product',
-                                            description: '',
-                                            quantity: 1,
-                                            unit_price: 0,
-                                            discount_percentage: 0,
-                                            discount_amount: 0,
-                                            tax_percentage: 0,
-                                            tax_amount: 0,
-                                            total_amount: 0
-                                        };
-                                        setData('items', [...data.items, newItem]);
-                                    }}
-                                    variant="default"
-                                    size="sm"
-                                >
-                                    + {t('Add Item')}
-                                </Button>
-                            </div>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <Package className="h-5 w-5" />
+                                {t('Invoice Items')}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <InvoiceItemsTable
@@ -389,15 +365,15 @@ export default function Create() {
                                 onChange={(items) => setData('items', items)}
                                 errors={errors}
                                 products={products}
-                                showAddButton={false}
+                                showAddButton={true}
                                 onRefresh={handleRefresh}
                                 isRefreshing={isRefreshing}
                                 warehouseId={data.warehouse_id}
                             />
 
-                            {/* Invoice Summary - Bottom of Items */}
-                            <div className="mt-6 flex justify-end">
-                                <div className="w-80 bg-muted/30 rounded-lg p-4">
+                            {/* Invoice Summary */}
+                            <div className="mt-4 flex justify-end">
+                                <div className="w-full sm:w-80 bg-muted/30 rounded-lg p-4">
                                     <h3 className="font-semibold mb-3">{t('Invoice Summary')}</h3>
                                     <div>
                                         <div className="flex justify-between text-sm">
