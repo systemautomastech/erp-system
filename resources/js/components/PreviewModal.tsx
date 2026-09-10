@@ -45,6 +45,8 @@ export interface ProposalItem {
     unit_price?: number;
     total_amount?: number;
     discount_amount?: number;
+    discount_percentage?: number;
+    discount_type?: string;
     tax_amount?: number;
     section?: string;
     product?: {
@@ -1779,6 +1781,21 @@ const formatAmountOnly = (val: number | string): string => {
     });
 };
 
+const getAmountFontSize = (amountStr: string, defaultSize = 10): string => {
+    const cleanStr = amountStr.replace(/<[^>]*>/g, "");
+    const len = cleanStr.length;
+    if (len > 18) {
+        return "7.5px";
+    }
+    if (len > 15) {
+        return "8.5px";
+    }
+    if (len > 12) {
+        return "9.5px";
+    }
+    return `${defaultSize}px`;
+};
+
 // =============================================================================
 // REUSABLE PAGE COMPONENTS
 // =============================================================================
@@ -2017,6 +2034,9 @@ export default function PreviewModal({
                 if (printTitle) {
                     document.title = printTitle;
                 }
+                window.onafterprint = () => {
+                    window.close();
+                };
                 window.print();
             }, 600);
             return () => clearTimeout(timer);
@@ -2168,8 +2188,8 @@ export default function PreviewModal({
 
     const getItemDesc = useCallback(
         (item: ProposalItem): string => {
-            if (item.product_description) return item.product_description;
             if (item.description) return item.description;
+            if (item.product_description) return item.product_description;
             if (item.product?.description) return item.product.description;
             if (item.product_id && availableProducts.length > 0) {
                 const found = availableProducts.find(
@@ -2204,7 +2224,12 @@ export default function PreviewModal({
     );
 
     const customer = useMemo(() => {
-        if ((formData as any)?.customer_mode === "new") {
+        const isNew =
+            (formData as any)?.customer_mode === "new" ||
+            (formData as any)?.customer_type === "new" ||
+            (!formData?.customer_id && Boolean((formData as any)?.customer_name || (formData as any)?.customer_email));
+
+        if (isNew) {
             return {
                 id: 0,
                 name: (formData as any)?.customer_name || "",
@@ -2215,13 +2240,27 @@ export default function PreviewModal({
                 type: (formData as any)?.customer_type || "Individual",
             };
         }
-        return customers.find(
-            (c) => String(c.id) === String(formData?.customer_id),
+        return (
+            customers.find(
+                (c) => String(c.id) === String(formData?.customer_id),
+            ) ||
+            ((formData as any)?.customer_name
+                ? {
+                      id: Number(formData?.customer_id) || 0,
+                      name: (formData as any)?.customer_name || "",
+                      email: (formData as any)?.customer_email || "",
+                      mobile_no: (formData as any)?.customer_phone || "",
+                      phone: (formData as any)?.customer_phone || "",
+                      address: (formData as any)?.customer_address || "",
+                      type: (formData as any)?.customer_type || "Individual",
+                  }
+                : undefined)
         );
     }, [
         customers,
         formData?.customer_id,
         (formData as any)?.customer_mode,
+        (formData as any)?.customer_type,
         (formData as any)?.customer_name,
         (formData as any)?.customer_email,
         (formData as any)?.customer_phone,
@@ -2239,14 +2278,16 @@ export default function PreviewModal({
                     !i.section) &&
                 (Number(i.product_id) > 0 ||
                     Number(i.unit_price) > 0 ||
-                    Boolean(i.product_description)),
+                    Boolean(i.product_description) ||
+                    Boolean(i.description)),
         );
         const mrcItems = items.filter(
             (i) =>
                 i.section === "mrc" &&
                 (Number(i.product_id) > 0 ||
                     Number(i.unit_price) > 0 ||
-                    Boolean(i.product_description)),
+                    Boolean(i.product_description) ||
+                    Boolean(i.description)),
         );
 
         const secSubtotalOtc = otcItems.reduce(
@@ -2254,8 +2295,12 @@ export default function PreviewModal({
                 sum + Number(item.quantity ?? 1) * Number(item.unit_price || 0),
             0,
         );
-        let secDiscountOtc = 0;
-        if ((formData as any).otc_discount_value > 0) {
+        const otcItemDiscSum = otcItems.reduce(
+            (sum, item) => sum + Number(item.discount_amount || 0),
+            0,
+        );
+        let secDiscountOtc = otcItemDiscSum;
+        if (otcItemDiscSum === 0 && Number((formData as any).otc_discount_value) > 0) {
             const discVal = Number((formData as any).otc_discount_value) || 0;
             if ((formData as any).otc_discount_type === "percentage") {
                 secDiscountOtc =
@@ -2279,8 +2324,12 @@ export default function PreviewModal({
                 sum + Number(item.quantity ?? 1) * Number(item.unit_price || 0),
             0,
         );
-        let secDiscountMrc = 0;
-        if ((formData as any).mrc_discount_value > 0) {
+        const mrcItemDiscSum = mrcItems.reduce(
+            (sum, item) => sum + Number(item.discount_amount || 0),
+            0,
+        );
+        let secDiscountMrc = mrcItemDiscSum;
+        if (mrcItemDiscSum === 0 && Number((formData as any).mrc_discount_value) > 0) {
             const discVal = Number((formData as any).mrc_discount_value) || 0;
             if ((formData as any).mrc_discount_type === "percentage") {
                 secDiscountMrc =
@@ -2336,6 +2385,19 @@ export default function PreviewModal({
                             : qty * price;
                     const desc = getItemDesc(item);
                     const taxAmt = Number(item.tax_amount) || 0;
+                    const discPct = Number(item.discount_percentage) || 0;
+                    const discAmt = Number(item.discount_amount) || 0;
+                    const effectiveDiscType = item.discount_type || 'percentage';
+                    let discCellHtml = "-";
+                    if (effectiveDiscType === 'percentage' && discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>${discAmt > 0 ? `<div style="font-size: 9px; color: #64748b;">(৳${formatAmountOnly(discAmt)})</div>` : ''}`;
+                    } else if (effectiveDiscType === 'fixed' && discAmt > 0) {
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
+                    } else if (discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>`;
+                    } else if (discAmt > 0) {
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
+                    }
 
                     rowsHtml += `
                         <tr class="border-b border-slate-200 hover:bg-slate-50/50">
@@ -2348,6 +2410,7 @@ export default function PreviewModal({
                             </td>
                             <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${discCellHtml}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : "-"}</td>
                             <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
                         </tr>
@@ -2361,11 +2424,12 @@ export default function PreviewModal({
                             <thead>
                                 <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
                                     <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t("S/N")}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t("Item / Service")}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t("Description")}</th>
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t("Qty.")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 15%; padding: 7.5px 8px !important;">${t("Item / Service")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 28%; padding: 7.5px 8px !important;">${t("Description")}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 6%; white-space: nowrap; padding: 7.5px 4px !important;">${t("Qty.")}</th>
                                     <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Price (BDT)")}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Tax / VAT")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 9%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Discount")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Tax / VAT")}</th>
                                     <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Total (BDT)")}</th>
                                 </tr>
                             </thead>
@@ -2375,15 +2439,15 @@ export default function PreviewModal({
                             <tfoot>
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(formatAmountOnly(secSubtotalOtc), 10)}; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalOtc)}</td>
                                 </tr>
                                 ${secDiscountOtc > 0
                         ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
-                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountOtc)}</td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
+                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(-) ${formatAmountOnly(secDiscountOtc)}`, 10)}; padding: 6px 8px !important;">(-) ${formatAmountOnly(secDiscountOtc)}</td>
                                 </tr>`
                         : ""
                     }
@@ -2391,15 +2455,15 @@ export default function PreviewModal({
                         ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxOtc)}</td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(+) ${formatAmountOnly(secTaxOtc)}`, 10)}; padding: 6px 8px !important;">(+) ${formatAmountOnly(secTaxOtc)}</td>
                                 </tr>`
                         : ""
                     }
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
-                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalOtc)} BDT</td>
+                                    <td colspan="2" class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
+                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: ${getAmountFontSize(`${formatAmountOnly(secTotalOtc)} BDT`, 10)}; padding: 7px 8px !important;">${formatAmountOnly(secTotalOtc)} BDT</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -2422,6 +2486,19 @@ export default function PreviewModal({
                             : qty * price;
                     const desc = getItemDesc(item);
                     const taxAmt = Number(item.tax_amount) || 0;
+                    const discPct = Number(item.discount_percentage) || 0;
+                    const discAmt = Number(item.discount_amount) || 0;
+                    const effectiveDiscType = item.discount_type || 'percentage';
+                    let discCellHtml = "-";
+                    if (effectiveDiscType === 'percentage' && discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>${discAmt > 0 ? `<div style="font-size: 9px; color: #64748b;">(৳${formatAmountOnly(discAmt)})</div>` : ''}`;
+                    } else if (effectiveDiscType === 'fixed' && discAmt > 0) {
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
+                    } else if (discPct > 0) {
+                        discCellHtml = `<div>${discPct}%</div>`;
+                    } else if (discAmt > 0) {
+                        discCellHtml = `৳${formatAmountOnly(discAmt)}`;
+                    }
 
                     rowsHtml += `
                         <tr class="border-b border-slate-200 hover:bg-slate-50/50">
@@ -2434,24 +2511,27 @@ export default function PreviewModal({
                             </td>
                             <td class="text-center border border-slate-200 align-top whitespace-nowrap" style="font-size: 10px; padding: 6.5px 4px !important;">${qty}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(price)}</td>
+                            <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${discCellHtml}</td>
                             <td class="text-right border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${taxAmt > 0 ? formatAmountOnly(taxAmt) : "-"}</td>
                             <td class="text-right font-medium text-slate-900 border border-slate-200 align-top" style="font-size: 10px; padding: 6.5px 8px !important;">${formatAmountOnly(lineTotal)}</td>
                         </tr>
                     `;
                 });
 
+                const titleMarginTop = sectionIndex === 0 ? "" : "margin-top: 2rem;";
                 htmlParts.push(`
-                    <div class="proposal-section-block mrc-charges-block" data-proposal-section-index="${sectionIndex}" style="margin-top: 1.5rem; margin-bottom: 1.25rem;">
-                        <div class="font-bold mb-2 text-[#293240] text-sm">${title}</div>
+                    <div class="proposal-section-block mrc-charges-block" data-proposal-section-index="${sectionIndex}" style="margin-bottom: 1.25rem;">
+                        <div class="font-bold mb-2 text-[#293240] text-sm" style="${titleMarginTop}">${title}</div>
                         <table class="charges-table w-full text-xs mb-2 border-collapse border border-slate-300" style="font-size: 11px; width: 100%; table-layout: fixed;">
                             <thead>
                                 <tr class="text-center font-semibold" style="background-color: ${templateColor}; color: #ffffff;">
                                     <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 5%; white-space: nowrap; padding: 7.5px 4px !important;">${t("S/N")}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 16%; padding: 7.5px 8px !important;">${t("Item / Service")}</th>
-                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 33%; padding: 7.5px 8px !important;">${t("Description")}</th>
-                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 7%; white-space: nowrap; padding: 7.5px 4px !important;">${t("Qty.")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 15%; padding: 7.5px 8px !important;">${t("Item / Service")}</th>
+                                    <th class="border border-slate-300 text-white text-left" style="font-size: 10px; width: 28%; padding: 7.5px 8px !important;">${t("Description")}</th>
+                                    <th class="border border-slate-300 text-white text-center" style="font-size: 10px; width: 6%; white-space: nowrap; padding: 7.5px 4px !important;">${t("Qty.")}</th>
                                     <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Price (BDT)")}</th>
-                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 14%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Tax / VAT")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 9%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Discount")}</th>
+                                    <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 12%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Tax / VAT")}</th>
                                     <th class="border border-slate-300 text-white text-right" style="font-size: 10px; width: 13%; white-space: nowrap; padding: 7.5px 8px !important;">${t("Total (BDT)")}</th>
                                 </tr>
                             </thead>
@@ -2461,15 +2541,15 @@ export default function PreviewModal({
                             <tfoot>
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Subtotal")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(formatAmountOnly(secSubtotalMrc), 10)}; padding: 6px 8px !important;">${formatAmountOnly(secSubtotalMrc)}</td>
                                 </tr>
                                 ${secDiscountMrc > 0
                         ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
-                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">-${formatAmountOnly(secDiscountMrc)}</td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Discount")}:</td>
+                                    <td class="text-right text-rose-600 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(-) ${formatAmountOnly(secDiscountMrc)}`, 10)}; padding: 6px 8px !important;">(-) ${formatAmountOnly(secDiscountMrc)}</td>
                                 </tr>`
                         : ""
                     }
@@ -2477,15 +2557,15 @@ export default function PreviewModal({
                         ? `
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
-                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: 10px; padding: 6px 8px !important;">+${formatAmountOnly(secTaxMrc)}</td>
+                                    <td colspan="2" class="font-medium text-slate-700 bg-slate-50 border border-slate-200 text-right" style="font-size: 10px; padding: 6px 8px !important;">${t("Tax / VAT")}:</td>
+                                    <td class="text-right text-slate-900 font-semibold border border-slate-200" style="font-size: ${getAmountFontSize(`(+) ${formatAmountOnly(secTaxMrc)}`, 10)}; padding: 6px 8px !important;">(+) ${formatAmountOnly(secTaxMrc)}</td>
                                 </tr>`
                         : ""
                     }
                                 <tr>
                                     <td colspan="5" class="border border-slate-200"></td>
-                                    <td class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
-                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: 10px; padding: 7px 8px !important;">${formatAmountOnly(secTotalMrc)} BDT</td>
+                                    <td colspan="2" class="font-bold text-slate-900 border border-slate-200 text-right" style="font-size: 10px; padding: 7px 8px !important;">${t("Total")}:</td>
+                                    <td class="text-right font-bold text-slate-900 border border-slate-200" style="font-size: ${getAmountFontSize(`${formatAmountOnly(secTotalMrc)} BDT`, 10)}; padding: 7px 8px !important;">${formatAmountOnly(secTotalMrc)} BDT</td>
                                 </tr>
                             </tfoot>
                         </table>

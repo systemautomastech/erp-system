@@ -122,6 +122,21 @@
         return $symbolPosition === 'before' ? "{$symbol}{$space}{$formatted}" : "{$formatted}{$space}{$symbol}";
     };
 
+    $getAmountFontSize = function ($amountStr, $defaultSize = 10) {
+        $cleanStr = strip_tags((string) $amountStr);
+        $len = mb_strlen($cleanStr);
+        if ($len > 18) {
+            return '7.5px';
+        }
+        if ($len > 15) {
+            return '8.5px';
+        }
+        if ($len > 12) {
+            return '9.5px';
+        }
+        return $defaultSize . 'px';
+    };
+
     /*
     |--------------------------------------------------------------------------
     | Date
@@ -1211,7 +1226,7 @@
                     font-size: 9.5px;
                     width: 12%;
                 ">
-                {{ __('TOTAL') }}
+                {{ __('Total') }}
             </th>
 
         </tr>
@@ -1229,9 +1244,10 @@
 
             <tr class="page-break-inside-avoid">
 
-                <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                <td colspan="5" style="border: 1px solid #94a3b8;"></td>
 
                 <td
+                    colspan="2"
                     style="
                         padding: 5px 8px;
                         font-weight: 600;
@@ -1243,12 +1259,15 @@
                 </td>
 
                 <td
+                    class="summary-amount-cell"
                     style="
                         padding: 5px 8px;
                         text-align: right;
                         font-weight: 600;
                         color: #1e293b;
                         border: 1px solid #94a3b8;
+                        font-size: {{ $getAmountFontSize($formatCurrency($invoice->subtotal), 10) }};
+                        white-space: nowrap;
                     ">
                     {{ $formatCurrency($invoice->subtotal) }}
                 </td>
@@ -1259,9 +1278,10 @@
             @if ($invoice->discount_amount > 0)
                 <tr class="page-break-inside-avoid">
 
-                    <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                    <td colspan="5" style="border: 1px solid #94a3b8;"></td>
 
                     <td
+                        colspan="2"
                         style="
                                                             padding: 5px 8px;
                                                             font-weight: 600;
@@ -1273,12 +1293,15 @@
                     </td>
 
                     <td
+                        class="summary-amount-cell"
                         style="
                                                             padding: 5px 8px;
                                                             text-align: right;
                                                             font-weight: 600;
                                                             color: #dc2626;
                                                             border: 1px solid #94a3b8;
+                                                            font-size: {{ $getAmountFontSize('-' . $formatCurrency($invoice->discount_amount), 10) }};
+                                                            white-space: nowrap;
                                                         ">
                         -{{ $formatCurrency($invoice->discount_amount) }}
                     </td>
@@ -1293,9 +1316,10 @@
                     @if ($taxInfo['amount'] > 0)
                         <tr class="page-break-inside-avoid">
 
-                            <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                            <td colspan="5" style="border: 1px solid #94a3b8;"></td>
 
                             <td
+                                colspan="2"
                                 style="
                                                                                                                                     padding: 5px 8px;
                                                                                                                                     font-weight: 600;
@@ -1307,12 +1331,15 @@
                             </td>
 
                             <td
+                                class="summary-amount-cell"
                                 style="
                                                                                                                                     padding: 5px 8px;
                                                                                                                                     text-align: right;
                                                                                                                                     font-weight: 600;
                                                                                                                                     color: #1e293b;
                                                                                                                                     border: 1px solid #94a3b8;
+                                                                                                                                    font-size: {{ $getAmountFontSize($formatCurrency($taxInfo['amount']), 10) }};
+                                                                                                                                    white-space: nowrap;
                                                                                                                                 ">
                                 {{ $formatCurrency($taxInfo['amount']) }}
                             </td>
@@ -1323,9 +1350,10 @@
             @elseif($invoice->tax_amount > 0)
                 <tr class="page-break-inside-avoid">
 
-                    <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                    <td colspan="5" style="border: 1px solid #94a3b8;"></td>
 
                     <td
+                        colspan="2"
                         style="
                                                             padding: 5px 8px;
                                                             font-weight: 600;
@@ -1337,12 +1365,15 @@
                     </td>
 
                     <td
+                        class="summary-amount-cell"
                         style="
                                                             padding: 5px 8px;
                                                             text-align: right;
                                                             font-weight: 600;
                                                             color: #1e293b;
                                                             border: 1px solid #94a3b8;
+                                                            font-size: {{ $getAmountFontSize($formatCurrency($invoice->tax_amount), 10) }};
+                                                            white-space: nowrap;
                                                         ">
                         {{ $formatCurrency($invoice->tax_amount) }}
                     </td>
@@ -1354,9 +1385,10 @@
 
             <tr class="page-break-inside-avoid" style="font-weight: 700;">
 
-                <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                <td colspan="5" style="border: 1px solid #94a3b8;"></td>
 
                 <td
+                    colspan="2"
                     style="
                         padding: 6px 8px;
                         font-size: 11px;
@@ -1364,16 +1396,18 @@
                         border: 1px solid #94a3b8;
                         text-align: right;
                     ">
-                    {{ __('TOTAL') }}:
+                    {{ __('Total') }}:
                 </td>
 
                 <td
+                    class="summary-amount-cell"
                     style="
                         padding: 6px 8px;
-                        font-size: 11px;
+                        font-size: {{ $getAmountFontSize($formatCurrency($invoice->total_amount), 11) }};
                         text-align: right;
                         color: #0f172a;
                         border: 1px solid #94a3b8;
+                        white-space: nowrap;
                     ">
                     {{ $formatCurrency($invoice->total_amount) }}
                 </td>
@@ -1384,9 +1418,10 @@
             @if (($invoice->paid_amount ?? 0) > 0 && ($invoice->balance_amount ?? 0) > 0)
                 <tr class="page-break-inside-avoid">
 
-                    <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                    <td colspan="5" style="border: 1px solid #94a3b8;"></td>
 
                     <td
+                        colspan="2"
                         style="
                                                             padding: 5px 8px;
                                                             font-weight: 600;
@@ -1398,12 +1433,15 @@
                     </td>
 
                     <td
+                        class="summary-amount-cell"
                         style="
                                                             padding: 5px 8px;
                                                             text-align: right;
                                                             font-weight: 600;
                                                             color: #1e293b;
                                                             border: 1px solid #94a3b8;
+                                                            font-size: {{ $getAmountFontSize($formatCurrency($invoice->paid_amount), 10) }};
+                                                            white-space: nowrap;
                                                         ">
                         {{ $formatCurrency($invoice->paid_amount) }}
                     </td>
@@ -1413,9 +1451,10 @@
 
                 <tr class="page-break-inside-avoid" style="font-weight: 700;">
 
-                    <td colspan="6" style="border: 1px solid #94a3b8;"></td>
+                    <td colspan="5" style="border: 1px solid #94a3b8;"></td>
 
                     <td
+                        colspan="2"
                         style="
                                                             padding: 5px 8px;
                                                             font-size: 10.5px;
@@ -1427,12 +1466,14 @@
                     </td>
 
                     <td
+                        class="summary-amount-cell"
                         style="
                                                             padding: 5px 8px;
-                                                            font-size: 10.5px;
+                                                            font-size: {{ $getAmountFontSize($formatCurrency($invoice->balance_amount), 10.5) }};
                                                             text-align: right;
                                                             color: #0f172a;
                                                             border: 1px solid #94a3b8;
+                                                            white-space: nowrap;
                                                         ">
                         {{ $formatCurrency($invoice->balance_amount) }}
                     </td>
@@ -2231,6 +2272,24 @@
 
             /*
             |--------------------------------------------------------------------------
+            | Auto-fit Summary Amount Cells
+            |--------------------------------------------------------------------------
+            */
+
+            function fitSummaryAmounts() {
+                const cells = document.querySelectorAll('.summary-amount-cell');
+                cells.forEach((cell) => {
+                    let currentSize = parseFloat(window.getComputedStyle(cell).fontSize) || 10;
+                    const minSize = 6;
+                    while (cell.scrollWidth > cell.clientWidth && currentSize > minSize) {
+                        currentSize -= 0.5;
+                        cell.style.fontSize = currentSize + 'px';
+                    }
+                });
+            }
+
+            /*
+            |--------------------------------------------------------------------------
             | Start
             |--------------------------------------------------------------------------
             */
@@ -2239,6 +2298,8 @@
                 await waitForPage();
 
                 addLastPage();
+
+                fitSummaryAmounts();
 
                 await new Promise(
                     (resolve) =>
@@ -2343,6 +2404,9 @@
                                 return;
                             }
 
+                            window.onafterprint = function() {
+                                window.close();
+                            };
                             window.print();
                         };
 

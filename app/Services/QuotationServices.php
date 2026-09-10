@@ -99,13 +99,19 @@ class QuotationServices
                 $qty = max(1, (int) ($item['quantity'] ?? 1));
                 $price = max(0, (float) ($item['unit_price'] ?? 0));
                 $section = $item['section'] ?? 'otc';
-                $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
-                $taxRate = $this->calculateEffectiveTaxRate($item, $isTaxEnabled);
-
                 $lineTotal = $qty * $price;
-                $discAmount = ($lineTotal * $discRate) / 100;
+
+                $discType = $item['discount_type'] ?? 'percentage';
+                if ($discType === 'fixed') {
+                    $discAmount = min($lineTotal, max(0, (float) ($item['discount_amount'] ?? 0)));
+                } else {
+                    $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+                    $discAmount = ($lineTotal * $discRate) / 100;
+                }
+
+                $taxRate = $this->calculateEffectiveTaxRate($item, $isTaxEnabled);
                 $netTotal = $lineTotal - $discAmount;
-                $taxAmount = ($lineTotal * $taxRate) / 100;
+                $taxAmount = ($netTotal * $taxRate) / 100;
 
                 $subtotal += $lineTotal;
                 $itemDiscountTotal += $discAmount;
@@ -254,8 +260,21 @@ class QuotationServices
 
             $qty = max(1, (int) ($item['quantity'] ?? 1));
             $price = max(0, (float) ($item['unit_price'] ?? 0));
-            $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+            $discType = $item['discount_type'] ?? 'percentage';
+            $lineTotal = $qty * $price;
+
+            if ($discType === 'fixed') {
+                $discAmt = min($lineTotal, max(0, (float) ($item['discount_amount'] ?? 0)));
+                $discRate = $lineTotal > 0 ? round(($discAmt / $lineTotal) * 100, 4) : 0;
+            } else {
+                $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+                $discAmt = ($lineTotal * $discRate) / 100;
+            }
+
             $taxRate = $this->calculateEffectiveTaxRate($item, $isTaxEnabled);
+            $afterDisc = max(0, $lineTotal - $discAmt);
+            $taxAmt = $isTaxEnabled ? (($afterDisc * $taxRate) / 100) : 0;
+            $totalAmt = max(0, $afterDisc + $taxAmt);
 
             $quotationItem = SalesQuotationItem::create([
                 'quotation_id' => $quotationId,
@@ -265,8 +284,12 @@ class QuotationServices
                 'description' => $item['description'] ?? $item['product_description'] ?? null,
                 'quantity' => $qty,
                 'unit_price' => $price,
+                'discount_type' => $discType,
                 'discount_percentage' => $discRate,
+                'discount_amount' => $discAmt,
                 'tax_percentage' => $taxRate,
+                'tax_amount' => $taxAmt,
+                'total_amount' => $totalAmt,
             ]);
 
             if ($isTaxEnabled && !empty($item['taxes']) && is_array($item['taxes'])) {
