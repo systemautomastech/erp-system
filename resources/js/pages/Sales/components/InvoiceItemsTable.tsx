@@ -399,18 +399,19 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                 </table>
             </div>
 
-            {showAddButton && (
-                <div className="flex justify-start">
+            <div className="pt-4 border-t border-border flex items-center justify-start px-3">
+                {showAddButton && (
                     <Button
                         type="button"
                         onClick={addItem}
                         variant="default"
                         size="sm"
+                        className="gap-1"
                     >
                         + {t('Add Item')}
                     </Button>
-                </div>
-            )}
+                )}
+            </div>
 
             <InputError message={errors.items} />
         </div>
