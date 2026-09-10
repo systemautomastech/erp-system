@@ -47,6 +47,7 @@ class SalesQuotation extends Model
         'status',
         'converted_to_invoice',
         'invoice_id',
+        'sales_order_id',
         'payment_terms',
         'notes',
         'creator_id',
@@ -66,6 +67,7 @@ class SalesQuotation extends Model
             'is_prepaid' => 'boolean',
             'is_tax_enabled' => 'boolean',
             'converted_to_invoice' => 'boolean',
+            'sales_order_id'       => 'integer',
         ];
     }
 
@@ -172,4 +174,17 @@ class SalesQuotation extends Model
             }
         }
     }
-}
+
+    /**
+     * Loose reference back to the Sales Order this quotation was converted into.
+     * No FK constraint enforced — SalesOrder addon may not always be active.
+     */
+    public function salesOrder(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        if (class_exists(\Automas\SalesOrder\Models\SalesOrder::class)) {
+            return $this->belongsTo(\Automas\SalesOrder\Models\SalesOrder::class, 'sales_order_id');
+        }
+        // Return a stub BelongsTo that will yield null
+        return $this->belongsTo(static::class, 'sales_order_id');
+    }
+}

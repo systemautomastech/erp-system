@@ -56,7 +56,8 @@
                 "Database\\Seeders\\": "database/seeders/",
                 "Automas\\LandingPage\\": "packages/automas/LandingPage/src/",
                 "Automas\\Lead\\": "packages/automas/Lead/src/",
-                "Automas\\SmartReports\\": "packages/automas/SmartReports/src/"
+                "Automas\\SmartReports\\": "packages/automas/SmartReports/src/",
+                "Automas\\SalesOrder\\": "packages/automas/SalesOrder/src/"
             },
             "files": [
                 "app/Helpers/Helper.php"
