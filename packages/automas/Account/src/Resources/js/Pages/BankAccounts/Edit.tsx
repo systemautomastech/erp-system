@@ -135,7 +135,7 @@ export default function EditBankAccount({ bankaccount, onSuccess }: EditBankAcco
                         <SelectTrigger>
                             <SelectValue placeholder={t('Select Gl Account')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent searchable>
                             {chartofaccounts.map((item: any) => (
                                 <SelectItem key={item.id} value={item.id.toString()}>
                                     {item.account_code} - {item.account_name}

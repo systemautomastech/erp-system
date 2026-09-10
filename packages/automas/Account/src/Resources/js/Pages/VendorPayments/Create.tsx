@@ -19,8 +19,8 @@ export default function Create({ vendors, bankAccounts, onSuccess }: CreateVendo
     const { t } = useTranslation();
     const [outstandingInvoices, setOutstandingInvoices] = useState<PurchaseInvoice[]>([]);
     const [availableDebitNotes, setAvailableDebitNotes] = useState<DebitNote[]>([]);
-    const [selectedAllocations, setSelectedAllocations] = useState<{invoice_id: number; amount: number}[]>([]);
-    const [selectedDebitNotes, setSelectedDebitNotes] = useState<{debit_note_id: number; amount: number}[]>([]);
+    const [selectedAllocations, setSelectedAllocations] = useState<{ invoice_id: number; amount: number }[]>([]);
+    const [selectedDebitNotes, setSelectedDebitNotes] = useState<{ debit_note_id: number; amount: number }[]>([]);
 
     const { data, setData, post, processing, errors } = useForm<CreateVendorPaymentFormData>({
         payment_date: new Date().toISOString().split('T')[0],
@@ -102,7 +102,7 @@ export default function Create({ vendors, bankAccounts, onSuccess }: CreateVendo
         updateTotalAmount(newAllocations, selectedDebitNotes);
     };
 
-    const updateTotalAmount = (allocations: {invoice_id: number; amount: number}[], debitNotes = selectedDebitNotes) => {
+    const updateTotalAmount = (allocations: { invoice_id: number; amount: number }[], debitNotes = selectedDebitNotes) => {
         const allocationsTotal = allocations.reduce((sum, allocation) => sum + Number(allocation.amount || 0), 0);
         const debitNotesTotal = debitNotes.reduce((sum, debitNote) => sum + Number(debitNote.amount || 0), 0);
         const total = allocationsTotal - debitNotesTotal; // Debit notes reduce payment amount
@@ -156,7 +156,7 @@ export default function Create({ vendors, bankAccounts, onSuccess }: CreateVendo
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Vendor')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent searchable>
                                 {vendors?.map((vendor) => (
                                     <SelectItem key={vendor.id} value={vendor.id.toString()}>
                                         {vendor.name}
@@ -173,7 +173,7 @@ export default function Create({ vendors, bankAccounts, onSuccess }: CreateVendo
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Bank Account')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent searchable>
                                 {bankAccounts?.map((account) => (
                                     <SelectItem key={account.id} value={account.id.toString()}>
                                         {account.account_name} ({account.account_number})
@@ -338,13 +338,13 @@ export default function Create({ vendors, bankAccounts, onSuccess }: CreateVendo
                                                         if (isNaN(newAmount)) return;
                                                         const note = availableDebitNotes.find(d => d.id === debitNote.debit_note_id);
                                                         const totalInvoiceAmount = selectedAllocations.reduce((sum, a) => sum + Number(a.amount || 0), 0);
-                                                        const otherDebitNotesSum = selectedDebitNotes.reduce((sum, d, i) => 
+                                                        const otherDebitNotesSum = selectedDebitNotes.reduce((sum, d, i) =>
                                                             i !== index ? sum + Number(d.amount || 0) : sum, 0
                                                         );
                                                         const maxAllowedForThis = totalInvoiceAmount - otherDebitNotesSum;
                                                         const maxAmount = Math.min(note?.balance_amount || 0, maxAllowedForThis);
                                                         const validAmount = Math.max(0, Math.min(newAmount, maxAmount));
-                                                        const newDebitNotes = selectedDebitNotes.map((d, i) => 
+                                                        const newDebitNotes = selectedDebitNotes.map((d, i) =>
                                                             i === index ? { ...d, amount: validAmount } : d
                                                         );
                                                         setSelectedDebitNotes(newDebitNotes);

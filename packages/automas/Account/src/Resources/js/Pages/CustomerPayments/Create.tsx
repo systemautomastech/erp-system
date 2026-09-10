@@ -19,8 +19,8 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
     const { t } = useTranslation();
     const [outstandingInvoices, setOutstandingInvoices] = useState<SalesInvoice[]>([]);
     const [availableCreditNotes, setAvailableCreditNotes] = useState<CreditNote[]>([]);
-    const [selectedAllocations, setSelectedAllocations] = useState<{invoice_id: number; amount: number}[]>([]);
-    const [selectedCreditNotes, setSelectedCreditNotes] = useState<{credit_note_id: number; amount: number}[]>([]);
+    const [selectedAllocations, setSelectedAllocations] = useState<{ invoice_id: number; amount: number }[]>([]);
+    const [selectedCreditNotes, setSelectedCreditNotes] = useState<{ credit_note_id: number; amount: number }[]>([]);
 
     const { data, setData, post, processing, errors } = useForm<CreateCustomerPaymentFormData>({
         payment_date: new Date().toISOString().split('T')[0],
@@ -102,7 +102,7 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
         updateTotalAmount(newAllocations, selectedCreditNotes);
     };
 
-    const updateTotalAmount = (allocations: {invoice_id: number; amount: number}[], creditNotes = selectedCreditNotes) => {
+    const updateTotalAmount = (allocations: { invoice_id: number; amount: number }[], creditNotes = selectedCreditNotes) => {
         const allocationsTotal = allocations.reduce((sum, allocation) => sum + Number(allocation.amount || 0), 0);
         const creditNotesTotal = creditNotes.reduce((sum, creditNote) => sum + Number(creditNote.amount || 0), 0);
         const total = allocationsTotal - creditNotesTotal; // Credit notes reduce payment amount
@@ -151,7 +151,7 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Customer')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent searchable>
                                 {customers?.map((customer) => (
                                     <SelectItem key={customer.id} value={customer.id.toString()}>
                                         {customer.name}
@@ -168,7 +168,7 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Bank Account')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent searchable>
                                 {bankAccounts?.map((account) => (
                                     <SelectItem key={account.id} value={account.id.toString()}>
                                         {account.account_name} ({account.account_number})
@@ -333,13 +333,13 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
                                                         if (isNaN(newAmount)) return;
                                                         const note = availableCreditNotes.find(c => c.id === creditNote.credit_note_id);
                                                         const totalInvoiceAmount = selectedAllocations.reduce((sum, a) => sum + Number(a.amount || 0), 0);
-                                                        const otherCreditNotesSum = selectedCreditNotes.reduce((sum, c, i) => 
+                                                        const otherCreditNotesSum = selectedCreditNotes.reduce((sum, c, i) =>
                                                             i !== index ? sum + Number(c.amount || 0) : sum, 0
                                                         );
                                                         const maxAllowedForThis = totalInvoiceAmount - otherCreditNotesSum;
                                                         const maxAmount = Math.min(note?.balance_amount || 0, maxAllowedForThis);
                                                         const validAmount = Math.max(0, Math.min(newAmount, maxAmount));
-                                                        const newCreditNotes = selectedCreditNotes.map((c, i) => 
+                                                        const newCreditNotes = selectedCreditNotes.map((c, i) =>
                                                             i === index ? { ...c, amount: validAmount } : c
                                                         );
                                                         setSelectedCreditNotes(newCreditNotes);

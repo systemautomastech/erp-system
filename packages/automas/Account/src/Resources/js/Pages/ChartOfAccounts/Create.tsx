@@ -79,7 +79,7 @@ export default function Create({ onSuccess }: CreateChartOfAccountProps) {
                         <SelectTrigger>
                             <SelectValue placeholder={t('Select Account Type')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent searchable>
                             {accounttypes.map((item: any) => (
                                 <SelectItem key={item.id} value={item.id.toString()}>
                                     {item.name}
