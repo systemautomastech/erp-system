@@ -2343,6 +2343,9 @@
                                 return;
                             }
 
+                            window.onafterprint = function() {
+                                window.close();
+                            };
                             window.print();
                         };
 

@@ -1446,6 +1446,9 @@
             @if(empty($isServerPdf))
                 var urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('print') === '1' || urlParams.has('print')) {
+                    window.onafterprint = function () {
+                        window.close();
+                    };
                     setTimeout(function () {
                         window.print();
                     }, 400);
