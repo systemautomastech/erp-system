@@ -59,7 +59,14 @@ export const replaceQuotationShortcodes = (
   const rawProposalLogo = context.quotationSetting?.logo_image || context.settings?.logo_image || rawCompanyLogo;
   const proposalLogoUrl = getImagePath(rawProposalLogo);
 
-  const proposalSubject = context.formData?.subject || context.proposal?.subject || '';
+  const proposalSubject =
+    context.formData?.subject ||
+    context.formData?.quotation_subject ||
+    context.proposal?.subject ||
+    context.proposal?.quotation_subject ||
+    context.formData?.notes ||
+    context.proposal?.notes ||
+    (context.isDefaultPageSetup ? 'Quotation Subject' : '');
   const proposalNumber = context.formData?.quotation_number || context.proposal?.quotation_number || '';
   const proposalDate = context.formData?.invoice_date || context.formData?.quotation_date || context.proposal?.quotation_date || context.proposal?.invoice_date;
   const formattedProposalDate = proposalDate ? formatDate(proposalDate, pageProps) : '';
@@ -146,6 +153,7 @@ export const replaceQuotationShortcodes = (
     creator_name: userName,
     creator_email: userEmail,
     creator_phone: userPhone,
+    subject: proposalSubject,
     quotation_subject: proposalSubject,
     proposal_subject: proposalSubject,
     quotation_number: proposalNumber,

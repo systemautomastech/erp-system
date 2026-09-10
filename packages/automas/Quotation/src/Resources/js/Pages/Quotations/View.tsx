@@ -20,7 +20,7 @@ interface SalesQuotation {
     customer_email?: string | null;
     customer_phone?: string | null;
     customer_address?: string | null;
-    customer: { id: number; name: string; email: string; phone?: string; address?: string };
+    customer?: { id: number; name: string; email: string; phone?: string; address?: string } | null;
     subtotal: number;
     tax_amount: number;
     discount_amount: number;
@@ -135,8 +135,14 @@ export default function View() {
                             <div>
                                 <h3 className="font-semibold mb-2">{t('CUSTOMER')}</h3>
                                 <div className="text-sm space-y-1">
-                                    <div className="font-medium">{quotation.customer?.name}</div>
-                                    <div className="text-muted-foreground">{quotation.customer?.email}</div>
+                                    <div className="font-medium">{quotation.customer?.name || quotation.customer_name || '-'}</div>
+                                    <div className="text-muted-foreground">{quotation.customer?.email || quotation.customer_email || ''}</div>
+                                    {(quotation.customer?.phone || quotation.customer_phone) && (
+                                        <div className="text-xs text-muted-foreground">{quotation.customer?.phone || quotation.customer_phone}</div>
+                                    )}
+                                    {(quotation.customer?.address || quotation.customer_address) && (
+                                        <div className="text-xs text-muted-foreground">{quotation.customer?.address || quotation.customer_address}</div>
+                                    )}
                                 </div>
                             </div>
 

@@ -60,9 +60,16 @@ export const replaceProposalShortcodes = (
   const rawProposalLogo = context.proposalSetting?.logo_image || context.settings?.logo_image || rawCompanyLogo;
   const proposalLogoUrl = getImagePath(rawProposalLogo);
 
-  const proposalSubject = context.formData?.subject || context.proposal?.subject || '';
-  const proposalNumber = context.formData?.proposal_number || context.proposal?.proposal_number || '';
-  const proposalDate = context.formData?.invoice_date || context.formData?.proposal_date || context.proposal?.proposal_date || context.proposal?.invoice_date;
+  const proposalSubject =
+    context.formData?.subject ||
+    context.proposal?.subject ||
+    context.formData?.quotation_subject ||
+    context.proposal?.quotation_subject ||
+    context.formData?.notes ||
+    context.proposal?.notes ||
+    (context.isDefaultPageSetup ? 'Quotation Subject' : '');
+  const proposalNumber = context.formData?.proposal_number || context.proposal?.proposal_number || context.formData?.quotation_number || context.proposal?.quotation_number || '';
+  const proposalDate = context.formData?.invoice_date || context.formData?.proposal_date || context.formData?.quotation_date || context.proposal?.proposal_date || context.proposal?.quotation_date || context.proposal?.invoice_date;
   const formattedProposalDate = proposalDate ? formatDate(proposalDate, pageProps) : '';
   const dueDate = context.formData?.due_date || context.proposal?.due_date;
   const formattedDueDate = dueDate ? formatDate(dueDate, pageProps) : '';
@@ -127,10 +134,10 @@ export const replaceProposalShortcodes = (
 
   const userId = employeeRecord?.employee_id || (authUser?.id ? String(authUser.id) : (context.formData?.user_id || ''));
 
-  const subTotal = context.totals?.subtotal ?? context.formData?.subtotal ?? context.proposal?.subtotal;
-  const totalTax = context.totals?.tax_amount ?? context.totals?.taxAmount ?? context.formData?.tax_amount ?? context.proposal?.tax_amount;
-  const totalDiscount = context.totals?.discount_amount ?? context.totals?.discountAmount ?? context.formData?.discount_amount ?? context.proposal?.discount_amount;
-  const totalAmount = context.totals?.total ?? context.totals?.total_amount ?? context.formData?.total_amount ?? context.proposal?.total_amount;
+  const subTotal = context.totals?.subtotal ?? context.totals?.sub_total ?? context.formData?.subtotal ?? context.formData?.sub_total ?? context.proposal?.subtotal ?? context.proposal?.sub_total;
+  const totalTax = context.totals?.tax_amount ?? context.totals?.taxAmount ?? context.totals?.total_tax ?? context.formData?.tax_amount ?? context.formData?.total_tax ?? context.proposal?.tax_amount ?? context.proposal?.total_tax;
+  const totalDiscount = context.totals?.discount_amount ?? context.totals?.discountAmount ?? context.totals?.total_discount ?? context.formData?.discount_amount ?? context.formData?.total_discount ?? context.proposal?.discount_amount ?? context.proposal?.total_discount;
+  const totalAmount = context.totals?.total ?? context.totals?.total_amount ?? context.formData?.total_amount ?? context.formData?.total ?? context.proposal?.total_amount ?? context.proposal?.total;
 
   const values: Record<string, string> = {
     app_name: appName,
@@ -148,11 +155,17 @@ export const replaceProposalShortcodes = (
     creator_email: userEmail,
     creator_phone: userPhone,
     proposal_subject: proposalSubject,
+    quotation_subject: proposalSubject,
+    subject: proposalSubject,
     proposal_number: proposalNumber,
+    quotation_number: proposalNumber,
     proposal_date: formattedProposalDate,
+    quotation_date: formattedProposalDate,
     proposal_due_date: formattedDueDate,
+    quotation_due_date: formattedDueDate,
     due_date: formattedDueDate,
     proposal_validity: context.formData?.payment_terms || context.proposal?.payment_terms || '',
+    quotation_validity: context.formData?.payment_terms || context.proposal?.payment_terms || '',
     customer_name: customerName,
     customer_email: customerEmail,
     customer_phone: customerPhone,

@@ -270,7 +270,15 @@ class ProposalService
 
                 $qty = max(1, (int) ($item['quantity'] ?? 1));
                 $price = max(0, (float) ($item['unit_price'] ?? 0));
-                $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+                $lineTotal = $qty * $price;
+
+                $discType = $item['discount_type'] ?? 'percentage';
+                if ($discType === 'fixed') {
+                    $discAmount = min($lineTotal, max(0, (float) ($item['discount_amount'] ?? 0)));
+                } else {
+                    $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+                    $discAmount = ($lineTotal * $discRate) / 100;
+                }
 
                 $taxRate = 0.0;
                 if ($isTaxEnabled) {
@@ -280,8 +288,6 @@ class ProposalService
                     }
                 }
 
-                $lineTotal = $qty * $price;
-                $discAmount = ($lineTotal * $discRate) / 100;
                 $netTotal = $lineTotal - $discAmount;
                 $taxAmount = ($netTotal * $taxRate) / 100;
 
@@ -600,7 +606,16 @@ class ProposalService
 
             $qty = max(1, (int) ($item['quantity'] ?? 1));
             $price = max(0, (float) ($item['unit_price'] ?? 0));
-            $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+            $discType = $item['discount_type'] ?? 'percentage';
+            $lineTotal = $qty * $price;
+
+            if ($discType === 'fixed') {
+                $discAmt = min($lineTotal, max(0, (float) ($item['discount_amount'] ?? 0)));
+                $discRate = $lineTotal > 0 ? round(($discAmt / $lineTotal) * 100, 4) : 0;
+            } else {
+                $discRate = max(0, min(100, (float) ($item['discount_percentage'] ?? 0)));
+                $discAmt = ($lineTotal * $discRate) / 100;
+            }
 
             $taxRate = 0.0;
             if ($isTaxEnabled) {
@@ -610,6 +625,10 @@ class ProposalService
                 }
             }
 
+            $afterDisc = max(0, $lineTotal - $discAmt);
+            $taxAmt = $isTaxEnabled ? (($afterDisc * $taxRate) / 100) : 0;
+            $totalAmt = max(0, $afterDisc + $taxAmt);
+
             $proposalItem = new SalesProposalItem();
             $proposalItem->proposal_id = $proposalId;
             $proposalItem->product_id = $item['product_id'];
@@ -618,8 +637,12 @@ class ProposalService
             $proposalItem->description = $item['description'] ?? $item['product_description'] ?? null;
             $proposalItem->quantity = $qty;
             $proposalItem->unit_price = $price;
+            $proposalItem->discount_type = $discType;
             $proposalItem->discount_percentage = $discRate;
+            $proposalItem->discount_amount = $discAmt;
             $proposalItem->tax_percentage = $taxRate;
+            $proposalItem->tax_amount = $taxAmt;
+            $proposalItem->total_amount = $totalAmt;
             $proposalItem->save();
 
             if ($isTaxEnabled && !empty($item['taxes']) && is_array($item['taxes'])) {
