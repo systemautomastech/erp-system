@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePage } from '@inertiajs/react';
 import { SalesInvoiceItem } from '../types';
 import ProductSelector from './ProductSelector';
 import { calculateLineItemAmounts } from './TaxCalculator';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputError } from '@/components/ui/input-error';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { formatCurrency } from '@/utils/helpers';
+import { formatCurrency, getCurrencySymbol, getCompanySetting } from '@/utils/helpers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 
@@ -32,10 +33,29 @@ interface Props {
     onRefresh?: () => void | Promise<void>;
     isRefreshing?: boolean;
     warehouseId?: string | number;
+    discountType?: 'percentage' | 'fixed';
+    onDiscountTypeChange?: (type: 'percentage' | 'fixed') => void;
 }
 
-export default function InvoiceItemsTable({ items, onChange, errors, products = [], showAddButton = true, onRefresh, isRefreshing = false, warehouseId }: Props) {
+export default function InvoiceItemsTable({
+    items,
+    onChange,
+    errors,
+    products = [],
+    showAddButton = true,
+    onRefresh,
+    isRefreshing = false,
+    warehouseId,
+    discountType: parentDiscountType,
+    onDiscountTypeChange
+}: Props) {
     const { t } = useTranslation();
+    const pageProps = usePage().props;
+    const currencySymbol = getCurrencySymbol(pageProps);
+    const currencyCode = getCompanySetting('defaultCurrency', pageProps) || 'BDT';
+
+    const [tableDiscountType, setTableDiscountType] = React.useState<'percentage' | 'fixed'>('percentage');
+    const effectiveTableDiscountType = parentDiscountType || tableDiscountType;
 
     const addItem = () => {
         const newItem: SalesInvoiceItem = {
@@ -44,6 +64,7 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
             description: '',
             quantity: 1,
             unit_price: 0,
+            discount_type: effectiveTableDiscountType,
             discount_percentage: 0,
             discount_amount: 0,
             tax_percentage: 0,
@@ -65,11 +86,18 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
 
         const item = newItems[index];
 
-        if (field === 'unit_price' || field === 'quantity' || field === 'discount_percentage' || field === 'tax_percentage') {
+        if (field === 'unit_price' || field === 'quantity' || field === 'discount_percentage' || field === 'discount_amount' || field === 'tax_percentage') {
             item.quantity = Math.min(Math.max(Number(item.quantity) || 0, 0), 999999);
             item.unit_price = Number(item.unit_price) || 0;
-            item.discount_percentage = Number(item.discount_percentage) || 0;
             item.tax_percentage = Number(item.tax_percentage) || 0;
+        }
+
+        if (field === 'discount_amount') {
+            item.discount_type = 'fixed';
+        } else if (field === 'discount_percentage') {
+            item.discount_type = 'percentage';
+        } else if (!item.discount_type) {
+            item.discount_type = effectiveTableDiscountType;
         }
 
         // If tax_percentage is 0 but product has taxes, recalculate tax_percentage
@@ -84,9 +112,12 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
             item.quantity,
             item.unit_price,
             item.discount_percentage,
-            item.tax_percentage
+            item.tax_percentage,
+            item.discount_type || 'percentage',
+            item.discount_amount
         );
 
+        item.discount_percentage = calculations.discountPercentage;
         item.discount_amount = calculations.discountAmount;
         item.tax_amount = calculations.taxAmount;
         item.total_amount = calculations.totalAmount;
@@ -111,22 +142,25 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
             tax_percentage: Number(totalTaxRate) || 0,
             taxes: taxes,
             description: defaultDesc,
+            discount_type: newItems[index]?.discount_type || effectiveTableDiscountType,
         };
 
         const item = newItems[index];
         item.quantity = Number(item.quantity) || 1;
-        item.discount_percentage = Number(item.discount_percentage) || 0;
 
         const calculations = calculateLineItemAmounts(
             item.quantity,
             item.unit_price,
-            item.discount_percentage,
-            item.tax_percentage
+            item.discount_percentage || 0,
+            item.tax_percentage,
+            item.discount_type || 'percentage',
+            item.discount_amount || 0
         );
 
-        item.discount_amount = Number(calculations.discountAmount) || 0;
-        item.tax_amount = Number(calculations.taxAmount) || 0;
-        item.total_amount = Number(calculations.totalAmount) || 0;
+        item.discount_percentage = calculations.discountPercentage;
+        item.discount_amount = calculations.discountAmount;
+        item.tax_amount = calculations.taxAmount;
+        item.total_amount = calculations.totalAmount;
 
         onChange(newItems);
     };
@@ -147,10 +181,60 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                                 {t('Qty')} <span className="text-red-500">*</span>
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                {t('Unit Price')} <span className="text-red-500">*</span>
+                                {t('Unit Price')} ({currencyCode}) <span className="text-red-500">*</span>
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                {t('Discount')} %
+                                <Select
+                                    value={effectiveTableDiscountType}
+                                    onValueChange={(val: 'percentage' | 'fixed') => {
+                                        if (onDiscountTypeChange) {
+                                            onDiscountTypeChange(val);
+                                        } else {
+                                            setTableDiscountType(val);
+                                        }
+                                        const updated = items.map((item) => {
+                                            const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+                                            let discAmount = 0;
+                                            let discPct = 0;
+
+                                            if (val === 'percentage') {
+                                                discAmount = Number(item.discount_amount) || 0;
+                                                discPct = lineTotal > 0 ? (discAmount / lineTotal) * 100 : (Number(item.discount_percentage) || 0);
+                                                discAmount = (lineTotal * discPct) / 100;
+                                            } else {
+                                                discAmount = Number(item.discount_amount) || ((lineTotal * (Number(item.discount_percentage) || 0)) / 100);
+                                                discAmount = Math.min(Math.max(discAmount, 0), lineTotal);
+                                                discPct = lineTotal > 0 ? (discAmount / lineTotal) * 100 : 0;
+                                            }
+
+                                            const afterDisc = Math.max(0, lineTotal - discAmount);
+                                            const taxAmt = (afterDisc * (Number(item.tax_percentage) || 0)) / 100;
+                                            return {
+                                                ...item,
+                                                discount_type: val,
+                                                discount_percentage: Number(discPct.toFixed(4)),
+                                                discount_amount: Math.round(discAmount * 100) / 100,
+                                                tax_amount: Number(taxAmt.toFixed(4)),
+                                                total_amount: Number((afterDisc + taxAmt).toFixed(4))
+                                            };
+                                        });
+                                        onChange(updated);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 text-xs font-semibold border-none shadow-none p-0 focus:ring-0 text-foreground bg-transparent flex items-center gap-1 hover:text-primary transition-colors cursor-pointer w-auto [&>svg]:opacity-70">
+                                        <span>
+                                            {t('Discount')} ({effectiveTableDiscountType === 'percentage' ? '%' : currencyCode})
+                                        </span>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="percentage" className="text-xs">
+                                            {t('Percentage')} (%)
+                                        </SelectItem>
+                                        <SelectItem value="fixed" className="text-xs">
+                                            {t('Fixed')} ({currencyCode})
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                                 {t('Tax')}
@@ -176,7 +260,7 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
 
                             const currentType = item.product_type && selectableTypes.includes(item.product_type)
                                 ? item.product_type
-                                : (selectableTypes[0] || 'product');
+                                : (selectableTypes.includes('product') ? 'product' : (selectableTypes[0] || 'product'));
 
                             // Filter products strictly by the available current type
                             const filteredProducts = products.filter(p => {
@@ -275,6 +359,7 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                                             onChange={(productId, prod) => handleProductSelect(index, productId, prod)}
                                             placeholder={t('Select {{type}}', { type: formatTypeName(currentType) })}
                                             warehouseId={warehouseId}
+                                            isRefreshing={isRefreshing}
                                         />
                                         <InputError message={errors[`items.${index}.product_id`]} />
 
@@ -349,15 +434,29 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                                         <InputError message={errors[`items.${index}.unit_price`]} />
                                     </td>
                                     <td className="px-4 py-4">
-                                        <Input
-                                            type="number"
-                                            value={item.discount_percentage}
-                                            onChange={(e) => updateItem(index, 'discount_percentage', parseFloat(e.target.value) || 0)}
-                                            className="w-20 text-sm"
-                                            min="0"
-                                            max="100"
-                                            step="0.01"
-                                        />
+                                        <div className="relative w-24">
+                                            <Input
+                                                type="number"
+                                                value={(item.discount_type || effectiveTableDiscountType) === 'percentage'
+                                                    ? (item.discount_percentage || 0)
+                                                    : (item.discount_amount || 0)}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    if ((item.discount_type || effectiveTableDiscountType) === 'percentage') {
+                                                        updateItem(index, 'discount_percentage', val);
+                                                    } else {
+                                                        updateItem(index, 'discount_amount', val);
+                                                    }
+                                                }}
+                                                className="w-24 text-sm pr-6 text-right font-medium"
+                                                min="0"
+                                                max={(item.discount_type || effectiveTableDiscountType) === 'percentage' ? 100 : undefined}
+                                                step="0.01"
+                                            />
+                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                                                {(item.discount_type || effectiveTableDiscountType) === 'percentage' ? '%' : '৳'}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td className="px-4 py-4">
                                         <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">

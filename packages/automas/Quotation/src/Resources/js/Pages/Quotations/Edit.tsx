@@ -342,12 +342,16 @@ export default function Edit() {
 
         if (warehouseId) {
             try {
+                setIsRefreshingProducts(true);
+                setAvailableProducts([]);
                 const response = await fetch(route('quotations.warehouse.products') + `?warehouse_id=${warehouseId}`);
                 const warehouseProducts = await response.json();
-                setAvailableProducts(warehouseProducts);
+                setAvailableProducts(Array.isArray(warehouseProducts) ? warehouseProducts : []);
             } catch (error) {
                 console.error('Failed to fetch warehouse products:', error);
                 setAvailableProducts([]);
+            } finally {
+                setIsRefreshingProducts(false);
             }
         } else {
             setAvailableProducts([]);

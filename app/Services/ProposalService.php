@@ -24,7 +24,8 @@ use Illuminate\Support\Facades\Schema;
 class ProposalService
 {
     public function __construct(
-        protected QuotationServices $quotationService
+        protected QuotationServices $quotationService,
+        protected WarehouseService $warehouseService
     ) {
     }
 
@@ -176,67 +177,7 @@ class ProposalService
         return $boardData;
     }
 
-    public function getFormattedWarehouseProducts(?int $warehouseId = null)
-    {
-        $query = ProductServiceItem::with('unitRelation:id,unit_name')
-            ->select('id', 'name', 'sku', 'description', 'sale_price', 'long_description', 'tax_ids', 'unit', 'type')
-            ->where('is_active', true)
-            ->where(function ($q) {
-                $q->where('created_by', creatorId())
-                    ->orWhere('creator_id', creatorId());
-            });
 
-        if ($warehouseId) {
-            $query->with([
-                'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
-            ]);
-        }
-
-        $allTaxes = ProductServiceTax::select('id', 'tax_name', 'rate')
-            ->where('created_by', creatorId())
-            ->orWhere('creator_id', creatorId())
-            ->get()
-            ->keyBy('id');
-
-        return $query->get()->map(function ($product) use ($allTaxes) {
-            $stock = $product->relationLoaded('warehouseStocks') && $product->warehouseStocks->isNotEmpty()
-                ? $product->warehouseStocks->first()->quantity
-                : 0;
-
-            $unit = $product->unitRelation?->unit_name ?? (is_numeric($product->unit) ? '' : ($product->unit ?? ''));
-
-            $taxIds = $product->tax_ids;
-            if (is_string($taxIds)) {
-                $taxIds = json_decode($taxIds, true);
-            }
-            $taxes = [];
-            if (is_array($taxIds) && !empty($taxIds)) {
-                foreach ($taxIds as $id) {
-                    if (isset($allTaxes[$id])) {
-                        $taxes[] = [
-                            'id' => $allTaxes[$id]->id,
-                            'tax_name' => $allTaxes[$id]->tax_name,
-                            'rate' => $allTaxes[$id]->rate,
-                        ];
-                    }
-                }
-            }
-
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'description' => $product->description,
-                'long_description' => $product->long_description,
-                'sku' => $product->sku,
-                'sale_price' => $product->sale_price,
-                'unit' => $product->unit,
-                'unit_name' => $unit,
-                'type' => $product->type,
-                'stock_quantity' => $stock,
-                'taxes' => $taxes,
-            ];
-        });
-    }
 
     public function hasRecurringBillingItems(?array $items): bool
     {

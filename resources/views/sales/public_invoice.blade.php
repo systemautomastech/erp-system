@@ -91,6 +91,29 @@
     |--------------------------------------------------------------------------
     */
 
+    $currencyCode = $companySettings['defaultCurrency'] ?? '';
+
+    $formatNumber = function ($amount) use ($companySettings) {
+        $amount = is_numeric($amount) ? (float) $amount : 0;
+
+        $decimalPlaces = (int) ($companySettings['decimalFormat'] ?? 2);
+
+        $decimalSeparator = $companySettings['decimalSeparator'] ?? '.';
+
+        $thousandsSeparator = $companySettings['thousandsSeparator'] ?? ',';
+
+        $floatNumber = ($companySettings['floatNumber'] ?? '1') !== '0';
+
+        $number = $floatNumber ? $amount : floor($amount);
+
+        return number_format(
+            $number,
+            $decimalPlaces,
+            $decimalSeparator,
+            $thousandsSeparator === 'none' ? '' : $thousandsSeparator,
+        );
+    };
+
     $formatCurrency = function ($amount) use ($companySettings) {
         $amount = is_numeric($amount) ? (float) $amount : 0;
 
@@ -653,17 +676,6 @@
                                                                 font-weight: 500;
                                                             ">
                             {{ $item->quantity }}
-
-                            @if (!empty($unitName))
-                                <span
-                                    style="
-                                                                                                        font-size: 9px;
-                                                                                                        color: #475569;
-                                                                                                        font-weight: 400;
-                                                                                                    ">
-                                    {{ $unitName }}
-                                </span>
-                            @endif
                         </td>
 
                         <td
@@ -674,7 +686,7 @@
                                                                 vertical-align: top;
                                                                 color: #1e293b;
                                                             ">
-                            {{ $formatCurrency($item->unit_price) }}
+                            {{ $formatNumber($item->unit_price) }}
                         </td>
 
                         <td
@@ -685,12 +697,27 @@
                                                                 vertical-align: top;
                                                                 color: #1e293b;
                                                             ">
-                            @if ($item->discount_percentage > 0)
-                                <div>
-                                    {{ (float) $item->discount_percentage }}%
-                                </div>
+                            @if (($item->discount_type ?? 'percentage') === 'fixed')
+                                @if ((float) ($item->discount_amount ?? 0) > 0)
+                                    <div style="font-weight: 500;">
+                                        {{ $formatNumber($item->discount_amount) }}
+                                    </div>
+                                @else
+                                    <span>-</span>
+                                @endif
                             @else
-                                <span>-</span>
+                                @if ($item->discount_percentage > 0)
+                                    <div>
+                                        {{ (float) $item->discount_percentage }}%
+                                    </div>
+                                    @if ((float) ($item->discount_amount ?? 0) > 0)
+                                        <div style="font-size: 8.5px; color: #64748b;">
+                                            {{ $formatNumber($item->discount_amount) }}
+                                        </div>
+                                    @endif
+                                @else
+                                    <span>-</span>
+                                @endif
                             @endif
                         </td>
 
@@ -738,7 +765,7 @@
                                                                 font-weight: 600;
                                                                 color: #0f172a;
                                                             ">
-                            {{ $formatCurrency($item->total_amount) }}
+                            {{ $formatNumber($item->total_amount) }}
                         </td>
                     </tr>
                 @endforeach
@@ -1149,7 +1176,7 @@
                     font-size: 9.5px;
                     width: 5%;
                 ">
-                {{ __('SN') }}
+                {{ __('S/N') }}
             </th>
 
             <th
@@ -1158,9 +1185,9 @@
                     border: 1px solid #94a3b8;
                     text-align: left;
                     font-size: 9.5px;
-                    width: 22%;
+                    width: 16%;
                 ">
-                {{ __('ITEMS') }}
+                {{ __('Item/Service') }}
             </th>
 
             <th
@@ -1169,9 +1196,9 @@
                     border: 1px solid #94a3b8;
                     text-align: left;
                     font-size: 9.5px;
-                    width: 23%;
+                    width: 29%;
                 ">
-                {{ __('DESCRIPTION') }}
+                {{ __('Description') }}
             </th>
 
             <th
@@ -1180,9 +1207,9 @@
                     border: 1px solid #94a3b8;
                     text-align: center;
                     font-size: 9.5px;
-                    width: 9%;
+                    width: 6%;
                 ">
-                {{ __('QTY') }}
+                {{ __('Qty') }}
             </th>
 
             <th
@@ -1193,7 +1220,7 @@
                     font-size: 9.5px;
                     width: 11%;
                 ">
-                {{ __('PRICE') }}
+                {{ __('Price') }}{{ $currencyCode ? ' (' . $currencyCode . ')' : '' }}
             </th>
 
             <th
@@ -1204,7 +1231,7 @@
                     font-size: 9.5px;
                     width: 10%;
                 ">
-                {{ __('DISCOUNT') }}
+                {{ __('Discount') }}
             </th>
 
             <th
@@ -1215,7 +1242,7 @@
                     font-size: 9.5px;
                     width: 10%;
                 ">
-                {{ __('TAX/VAT') }}
+                {{ __('Tax/VAT') }}
             </th>
 
             <th
@@ -1224,9 +1251,9 @@
                     border: 1px solid #94a3b8;
                     text-align: right;
                     font-size: 9.5px;
-                    width: 12%;
+                    width: 13%;
                 ">
-                {{ __('Total') }}
+                {{ __('Total') }}{{ $currencyCode ? ' (' . $currencyCode . ')' : '' }}
             </th>
 
         </tr>
@@ -1266,10 +1293,10 @@
                         font-weight: 600;
                         color: #1e293b;
                         border: 1px solid #94a3b8;
-                        font-size: {{ $getAmountFontSize($formatCurrency($invoice->subtotal), 10) }};
+                        font-size: {{ $getAmountFontSize($formatNumber($invoice->subtotal), 10) }};
                         white-space: nowrap;
                     ">
-                    {{ $formatCurrency($invoice->subtotal) }}
+                    {{ $formatNumber($invoice->subtotal) }}
                 </td>
 
             </tr>
@@ -1298,12 +1325,11 @@
                                                             padding: 5px 8px;
                                                             text-align: right;
                                                             font-weight: 600;
-                                                            color: #dc2626;
                                                             border: 1px solid #94a3b8;
-                                                            font-size: {{ $getAmountFontSize('-' . $formatCurrency($invoice->discount_amount), 10) }};
+                                                            font-size: {{ $getAmountFontSize('-' . $formatNumber($invoice->discount_amount), 10) }};
                                                             white-space: nowrap;
                                                         ">
-                        -{{ $formatCurrency($invoice->discount_amount) }}
+                        {{'(-) ' . $formatNumber($invoice->discount_amount) }}
                     </td>
 
                 </tr>
@@ -1338,10 +1364,10 @@
                                                                                                                                     font-weight: 600;
                                                                                                                                     color: #1e293b;
                                                                                                                                     border: 1px solid #94a3b8;
-                                                                                                                                    font-size: {{ $getAmountFontSize($formatCurrency($taxInfo['amount']), 10) }};
+                                                                                                                                    font-size: {{ $getAmountFontSize($formatNumber($taxInfo['amount']), 10) }};
                                                                                                                                     white-space: nowrap;
                                                                                                                                 ">
-                                {{ $formatCurrency($taxInfo['amount']) }}
+                                {{'(+) ' . $formatNumber($taxInfo['amount']) }}
                             </td>
 
                         </tr>
@@ -1372,10 +1398,10 @@
                                                             font-weight: 600;
                                                             color: #1e293b;
                                                             border: 1px solid #94a3b8;
-                                                            font-size: {{ $getAmountFontSize($formatCurrency($invoice->tax_amount), 10) }};
+                                                            font-size: {{ $getAmountFontSize($formatNumber($invoice->tax_amount), 10) }};
                                                             white-space: nowrap;
                                                         ">
-                        {{ $formatCurrency($invoice->tax_amount) }}
+                        {{'(+) '. $formatNumber($invoice->tax_amount) }}
                     </td>
 
                 </tr>
@@ -1403,13 +1429,13 @@
                     class="summary-amount-cell"
                     style="
                         padding: 6px 8px;
-                        font-size: {{ $getAmountFontSize($formatCurrency($invoice->total_amount), 11) }};
+                        font-size: {{ $getAmountFontSize($formatNumber($invoice->total_amount), 11) }};
                         text-align: right;
                         color: #0f172a;
                         border: 1px solid #94a3b8;
                         white-space: nowrap;
                     ">
-                    {{ $formatCurrency($invoice->total_amount) }}
+                    {{ $formatNumber($invoice->total_amount) }}
                 </td>
 
             </tr>
@@ -1440,10 +1466,10 @@
                                                             font-weight: 600;
                                                             color: #1e293b;
                                                             border: 1px solid #94a3b8;
-                                                            font-size: {{ $getAmountFontSize($formatCurrency($invoice->paid_amount), 10) }};
+                                                            font-size: {{ $getAmountFontSize($formatNumber($invoice->paid_amount), 10) }};
                                                             white-space: nowrap;
                                                         ">
-                        {{ $formatCurrency($invoice->paid_amount) }}
+                        {{ $formatNumber($invoice->paid_amount) }}
                     </td>
 
                 </tr>
@@ -1469,13 +1495,13 @@
                         class="summary-amount-cell"
                         style="
                                                             padding: 5px 8px;
-                                                            font-size: {{ $getAmountFontSize($formatCurrency($invoice->balance_amount), 10.5) }};
+                                                            font-size: {{ $getAmountFontSize($formatNumber($invoice->balance_amount), 10.5) }};
                                                             text-align: right;
                                                             color: #0f172a;
                                                             border: 1px solid #94a3b8;
                                                             white-space: nowrap;
                                                         ">
-                        {{ $formatCurrency($invoice->balance_amount) }}
+                        {{ $formatNumber($invoice->balance_amount) }}
                     </td>
 
                 </tr>

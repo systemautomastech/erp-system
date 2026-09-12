@@ -246,6 +246,7 @@ export default function Create() {
 
         try {
             setIsRefreshingProducts(true);
+            setAvailableProducts([]);
             const response = await fetch(route('quotations.warehouse.products') + `?warehouse_id=${warehouseId}`);
             if (!response.ok) throw new Error('Failed to fetch products');
             const data = await response.json();

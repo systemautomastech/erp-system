@@ -23,14 +23,17 @@ use App\Events\EditSalesInvoice;
 use App\Models\SalesInvoiceSetup;
 use App\Models\EmailTemplate;
 use App\Services\CustomerService;
+use App\Services\WarehouseService;
 use Spatie\LaravelPdf\Facades\Pdf;
 
 class SalesInvoiceController extends Controller
 {
     public function __construct(
-        protected CustomerService $customerService
+        protected CustomerService $customerService,
+        protected WarehouseService $warehouseService
     ) {
     }
+
     private function checkInvoiceAccess(SalesInvoice $salesInvoice)
     {
         if (Auth::user()->can('manage-any-sales-invoices')) {
@@ -46,6 +49,7 @@ class SalesInvoiceController extends Controller
         }
         return false;
     }
+    
     public function index(Request $request)
     {
         if (Auth::user()->can('manage-sales-invoices')) {
@@ -71,7 +75,12 @@ class SalesInvoiceController extends Controller
                 $baseQuery->where('warehouse_id', $request->warehouse_id);
             }
             if ($request->search) {
-                $baseQuery->where('invoice_number', 'like', '%' . $request->search . '%');
+                $baseQuery->where(function ($q) use ($request) {
+                    $q->where('invoice_number', 'like', '%' . $request->search . '%')
+                      ->orWhereHas('customer', function ($cq) use ($request) {
+                          $cq->where('name', 'like', '%' . $request->search . '%');
+                      });
+                });
             }
             if ($request->date_range) {
                 $dates = explode(' - ', $request->date_range);
@@ -217,35 +226,8 @@ class SalesInvoiceController extends Controller
     {
         if (Auth::user()->can('create-sales-invoices')) {
             $customers = $this->customerService->getCustomers();
-            $products = ProductServiceItem::with(['unitRelation', 'warehouseStocks'])
-                ->select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
-                ->where('is_active', true)
-                ->where('created_by', creatorId())
-                ->get()
-                ->map(function ($product) {
-                    $totalStock = $product->warehouseStocks->sum('quantity');
-                    return [
-                        'id' => $product->id,
-                        'name' => $product->name,
-                        'sku' => $product->sku,
-                        'description' => $product->description,
-                        'sale_price' => $product->sale_price,
-                        'unit' => $product->unit,
-                        'unit_name' => $product->unitRelation?->unit_name ?? $product->unit,
-                        'type' => $product->type,
-                        'stock_quantity' => $totalStock,
-                        'warehouse_stocks' => $product->warehouseStocks->pluck('quantity', 'warehouse_id'),
-                        'taxes' => $product->taxes->map(function ($tax) {
-                            return [
-                                'id' => $tax->id,
-                                'tax_name' => $tax->tax_name,
-                                'rate' => $tax->rate
-                            ];
-                        })
-                    ];
-                });
-
-            $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
+            $products = $this->warehouseService->getWarehouseProducts();
+            $warehouses = $this->warehouseService->getActiveWarehouses();
             $setupSettings = SalesInvoiceSetup::getSettings(creatorId());
 
             return Inertia::render('Sales/Create', [
@@ -367,35 +349,8 @@ class SalesInvoiceController extends Controller
             EditSalesInvoice::dispatch($salesInvoice);
 
             $customers = $this->customerService->getCustomers();
-            $products = ProductServiceItem::with(['unitRelation', 'warehouseStocks'])
-                ->select('id', 'name', 'sku', 'description', 'long_description', 'sale_price', 'tax_ids', 'unit', 'type')
-                ->where('is_active', true)
-                ->where('created_by', creatorId())
-                ->get()
-                ->map(function ($product) {
-                    $totalStock = $product->warehouseStocks->sum('quantity');
-                    return [
-                        'id' => $product->id,
-                        'name' => $product->name,
-                        'sku' => $product->sku,
-                        'description' => $product->description,
-                        'sale_price' => $product->sale_price,
-                        'unit' => $product->unit,
-                        'unit_name' => $product->unitRelation?->unit_name ?? $product->unit,
-                        'type' => $product->type,
-                        'stock_quantity' => $totalStock,
-                        'warehouse_stocks' => $product->warehouseStocks->pluck('quantity', 'warehouse_id'),
-                        'taxes' => $product->taxes->map(function ($tax) {
-                            return [
-                                'id' => $tax->id,
-                                'tax_name' => $tax->tax_name,
-                                'rate' => $tax->rate
-                            ];
-                        })
-                    ];
-                });
-
-            $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
+            $products = $this->warehouseService->getWarehouseProducts($salesInvoice->warehouse_id);
+            $warehouses = $this->warehouseService->getActiveWarehouses();
 
             return Inertia::render('Sales/Edit', [
                 'invoice' => $salesInvoice,
@@ -509,10 +464,15 @@ class SalesInvoiceController extends Controller
         $totalTax = 0;
 
         foreach ($items as $item) {
-            $lineTotal = $item['quantity'] * $item['unit_price'];
-            $discountAmount = ($lineTotal * ($item['discount_percentage'] ?? 0)) / 100;
-            $afterDiscount = $lineTotal - $discountAmount;
-            $taxAmount = ($afterDiscount * ($item['tax_percentage'] ?? 0)) / 100;
+            $lineTotal = ($item['quantity'] ?? 0) * ($item['unit_price'] ?? 0);
+            $discType = $item['discount_type'] ?? 'percentage';
+            if ($discType === 'fixed') {
+                $discountAmount = min(max((float) ($item['discount_amount'] ?? 0), 0), $lineTotal);
+            } else {
+                $discountAmount = ($lineTotal * (float) ($item['discount_percentage'] ?? 0)) / 100;
+            }
+            $afterDiscount = max(0, $lineTotal - $discountAmount);
+            $taxAmount = ($afterDiscount * (float) ($item['tax_percentage'] ?? 0)) / 100;
 
             $subtotal += $lineTotal;
             $totalDiscount += $discountAmount;
@@ -523,7 +483,7 @@ class SalesInvoiceController extends Controller
             'subtotal' => $subtotal,
             'tax_amount' => $totalTax,
             'discount_amount' => $totalDiscount,
-            'total_amount' => $subtotal + $totalTax - $totalDiscount
+            'total_amount' => max(0, $subtotal + $totalTax - $totalDiscount)
         ];
     }
 
@@ -537,7 +497,16 @@ class SalesInvoiceController extends Controller
             $item->product_type = $itemData['product_type'] ?? 'product';
             $item->quantity = $itemData['quantity'];
             $item->unit_price = $itemData['unit_price'];
-            $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
+            $item->discount_type = $itemData['discount_type'] ?? 'percentage';
+            $lineTotal = (float) $item->quantity * (float) $item->unit_price;
+            if ($item->discount_type === 'fixed') {
+                $discAmt = min(max((float) ($itemData['discount_amount'] ?? 0), 0), $lineTotal);
+                $item->discount_amount = $discAmt;
+                $item->discount_percentage = $lineTotal > 0 ? round(($discAmt / $lineTotal) * 100, 4) : 0;
+            } else {
+                $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
+                $item->discount_amount = ($lineTotal * (float) $item->discount_percentage) / 100;
+            }
             $item->tax_percentage = $itemData['tax_percentage'] ?? 0;
             $item->save();
 
@@ -578,43 +547,8 @@ class SalesInvoiceController extends Controller
     public function getWarehouseProducts(Request $request)
     {
         if (Auth::user()->can('create-sales-invoices') || Auth::user()->can('edit-sales-invoices')) {
-            $warehouseId = $request->warehouse_id;
-
-            if (!$warehouseId) {
-                return response()->json([]);
-            }
-            $products = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
-                ->where('is_active', true)
-                ->where('created_by', creatorId())
-                ->whereHas('warehouseStocks', function ($q) use ($warehouseId) {
-                    $q->where('warehouse_id', $warehouseId)
-                        ->where('quantity', '>', 0);
-                })
-                ->with([
-                    'warehouseStocks' => function ($q) use ($warehouseId) {
-                        $q->where('warehouse_id', $warehouseId);
-                    }
-                ])
-                ->get()
-                ->map(function ($product) {
-                    $stock = $product->warehouseStocks->first();
-                    return [
-                        'id' => $product->id,
-                        'name' => $product->name,
-                        'sku' => $product->sku,
-                        'sale_price' => $product->sale_price,
-                        'unit' => $product->unit,
-                        'type' => $product->type,
-                        'stock_quantity' => $stock ? $stock->quantity : 0,
-                        'taxes' => $product->taxes->map(function ($tax) {
-                            return [
-                                'id' => $tax->id,
-                                'tax_name' => $tax->tax_name,
-                                'rate' => $tax->rate
-                            ];
-                        })
-                    ];
-                });
+            $warehouseId = $request->warehouse_id ? (int) $request->warehouse_id : null;
+            $products = $this->warehouseService->getWarehouseProducts($warehouseId);
             return response()->json($products);
         } else {
             return response()->json([], 403);
