@@ -28,6 +28,7 @@ interface UserGroup {
 interface EditProps {
     group: UserGroup;
     users: User[];
+    [key: string]: any;
 }
 
 export default function Edit() {

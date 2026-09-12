@@ -37,6 +37,7 @@ interface PageProps {
     };
     auth: any;
     filters: Record<string, string>;
+    [key: string]: any;
 }
 
 export default function Index() {
@@ -80,9 +81,8 @@ export default function Index() {
                     <div className="flex items-center gap-3 flex-1 max-w-md">
                         <SearchInput
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(val) => setSearch(val)}
                             onSearch={handleSearch}
-                            onClear={clearSearch}
                             placeholder={t('Search groups...')}
                         />
                     </div>
@@ -98,7 +98,7 @@ export default function Index() {
                 <Card>
                     <CardContent className="p-0">
                         {groups.data.length === 0 ? (
-                            <NoRecordsFound title={t('No user groups found')} description={t('Create your first user group to get started.')} />
+                            <NoRecordsFound icon={Users} title={t('No user groups found')} description={t('Create your first user group to get started.')} />
                         ) : (
                             <>
                                 <div className="overflow-x-auto">
@@ -213,17 +213,9 @@ export default function Index() {
                                 {groups.last_page > 1 && (
                                     <div className="px-4 py-3 border-t">
                                         <Pagination
-                                            currentPage={groups.current_page}
-                                            lastPage={groups.last_page}
-                                            from={groups.from}
-                                            to={groups.to}
-                                            total={groups.total}
-                                            onPageChange={(page) =>
-                                                router.get(route('user-groups.index'), { ...initialFilters, name: search, page }, {
-                                                    preserveState: true,
-                                                    replace: true,
-                                                })
-                                            }
+                                            data={groups}
+                                            routeName="user-groups.index"
+                                            filters={{ name: search }}
                                         />
                                     </div>
                                 )}
@@ -234,12 +226,12 @@ export default function Index() {
             </div>
 
             <ConfirmationDialog
-                isOpen={deleteState.isOpen}
-                onClose={closeDeleteDialog}
-                onConfirm={confirmDelete}
+                open={deleteState.isOpen}
+                onOpenChange={closeDeleteDialog}
                 title={t('Delete User Group')}
                 message={deleteState.message}
                 confirmText={t('Delete')}
+                onConfirm={confirmDelete}
                 variant="destructive"
             />
         </AuthenticatedLayout>

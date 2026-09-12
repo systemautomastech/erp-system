@@ -19,6 +19,7 @@ interface User {
 
 interface CreateProps {
     users: User[];
+    [key: string]: any;
 }
 
 export default function Create() {

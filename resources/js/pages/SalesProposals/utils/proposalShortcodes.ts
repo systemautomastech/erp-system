@@ -7,12 +7,16 @@ export interface ProposalShortcodeContext {
   customer?: any;
   totals?: {
     subtotal?: number;
+    sub_total?: number;
     total?: number;
     total_amount?: number;
     tax_amount?: number;
     taxAmount?: number;
+    total_tax?: number;
     discount_amount?: number;
     discountAmount?: number;
+    total_discount?: number;
+    [key: string]: any;
   };
   proposalSetting?: any;
   pageProps?: any;

@@ -29,6 +29,7 @@ interface UserGroup {
 interface PageProps {
     group: UserGroup;
     auth: any;
+    [key: string]: any;
 }
 
 export default function Show() {
