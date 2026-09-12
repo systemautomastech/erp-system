@@ -74,6 +74,14 @@ interface Extension {
     user_name: string | null;
 }
 
+export interface DurationBrackets {
+    under_30s?: number;
+    from_30s_to_1m?: number;
+    from_1m_to_5m?: number;
+    from_5m_to_15m?: number;
+    over_15m?: number;
+}
+
 interface Summary {
     total_calls?: number;
     inbound_calls?: number;
@@ -86,8 +94,28 @@ interface Summary {
     congestion_calls?: number;
     inbound_answered?: number;
     inbound_missed?: number;
+    inbound_failed?: number;
+    inbound_answer_rate?: number;
+    inbound_duration?: number;
+    inbound_talk_time?: number;
+    inbound_ring_time?: number;
+    inbound_avg_duration?: number;
+    inbound_avg_talk_time?: number;
+    inbound_avg_ring_time?: number;
+
     outbound_answered?: number;
     outbound_unanswered?: number;
+    outbound_failed?: number;
+    outbound_answer_rate?: number;
+    outbound_duration?: number;
+    outbound_talk_time?: number;
+    outbound_ring_time?: number;
+    outbound_avg_duration?: number;
+    outbound_avg_talk_time?: number;
+    outbound_avg_ring_time?: number;
+
+    duration_brackets?: DurationBrackets;
+
     total_duration?: number;
     total_talk_time?: number;
     total_ring_time?: number;
@@ -204,6 +232,7 @@ interface ChartsData {
     extensionPerformance?: ExtensionPerformanceItem[];
     liveStatus?: LiveStatus;
     peaks?: PeaksData;
+    durationBrackets?: DurationBrackets;
 }
 
 interface CallReportPermissions {
@@ -594,6 +623,55 @@ export default function SummaryIndex({
     const displayTotalTalkTime = summary?.total_talk_time ?? summary?.totalTalkTime ?? 0;
     const displayTotalRingTime = summary?.total_ring_time ?? summary?.totalRingTime ?? (displayTotalCalls > 0 ? Math.max(0, displayTotalDuration - displayTotalTalkTime) : 0);
 
+    // Inbound (Incoming) Call Metrics
+    const displayInboundCalls = summary?.inbound_calls ?? summary?.incoming ?? 0;
+    const displayInboundAnswered = summary?.inbound_answered ?? 0;
+    const displayInboundMissed = summary?.inbound_missed ?? (displayInboundCalls > 0 ? Math.max(0, displayInboundCalls - displayInboundAnswered) : 0);
+    const displayInboundFailed = summary?.inbound_failed ?? 0;
+    const displayInboundAnswerRate = summary?.inbound_answer_rate ?? (displayInboundCalls > 0 ? Number(((displayInboundAnswered / displayInboundCalls) * 100).toFixed(1)) : 0);
+    const displayInboundMissRate = displayInboundCalls > 0 ? Number(((displayInboundMissed / displayInboundCalls) * 100).toFixed(1)) : 0;
+    const displayInboundDuration = summary?.inbound_duration ?? 0;
+    const displayInboundTalkTime = summary?.inbound_talk_time ?? 0;
+    const displayInboundRingTime = summary?.inbound_ring_time ?? (displayInboundDuration > displayInboundTalkTime ? displayInboundDuration - displayInboundTalkTime : 0);
+    const displayInboundAvgTalkTime = summary?.inbound_avg_talk_time ?? (displayInboundAnswered > 0 ? Math.round(displayInboundTalkTime / displayInboundAnswered) : 0);
+    const displayInboundAvgRingTime = summary?.inbound_avg_ring_time ?? (displayInboundCalls > 0 ? Math.round(displayInboundRingTime / displayInboundCalls) : 0);
+
+    // Outbound (Outgoing) Call Metrics
+    const displayOutboundCalls = summary?.outbound_calls ?? summary?.outgoing ?? 0;
+    const displayOutboundAnswered = summary?.outbound_answered ?? 0;
+    const displayOutboundUnanswered = summary?.outbound_unanswered ?? (displayOutboundCalls > 0 ? Math.max(0, displayOutboundCalls - displayOutboundAnswered) : 0);
+    const displayOutboundFailed = summary?.outbound_failed ?? 0;
+    const displayOutboundAnswerRate = summary?.outbound_answer_rate ?? (displayOutboundCalls > 0 ? Number(((displayOutboundAnswered / displayOutboundCalls) * 100).toFixed(1)) : 0);
+    const displayOutboundUnansweredRate = displayOutboundCalls > 0 ? Number(((displayOutboundUnanswered / displayOutboundCalls) * 100).toFixed(1)) : 0;
+    const displayOutboundDuration = summary?.outbound_duration ?? 0;
+    const displayOutboundTalkTime = summary?.outbound_talk_time ?? 0;
+    const displayOutboundRingTime = summary?.outbound_ring_time ?? (displayOutboundDuration > displayOutboundTalkTime ? displayOutboundDuration - displayOutboundTalkTime : 0);
+    const displayOutboundAvgTalkTime = summary?.outbound_avg_talk_time ?? (displayOutboundAnswered > 0 ? Math.round(displayOutboundTalkTime / displayOutboundAnswered) : 0);
+
+    // Duration brackets classification
+    const durationBracketsData = summary?.duration_brackets || charts?.durationBrackets || {
+        under_30s: 0,
+        from_30s_to_1m: 0,
+        from_1m_to_5m: 0,
+        from_5m_to_15m: 0,
+        over_15m: 0,
+    };
+    const totalBracketCalls = (
+        (durationBracketsData.under_30s || 0) +
+        (durationBracketsData.from_30s_to_1m || 0) +
+        (durationBracketsData.from_1m_to_5m || 0) +
+        (durationBracketsData.from_5m_to_15m || 0) +
+        (durationBracketsData.over_15m || 0)
+    ) || (displayAnswered > 0 ? displayAnswered : 1);
+
+    const durationTiers = [
+        { key: 'under_30s', label: '< 30s', tag: t('Brief / Drop'), count: durationBracketsData.under_30s || 0, color: '#94a3b8', bg: 'bg-slate-400' },
+        { key: 'from_30s_to_1m', label: '30s - 1m', tag: t('Short Inquiry'), count: durationBracketsData.from_30s_to_1m || 0, color: '#f59e0b', bg: 'bg-amber-500' },
+        { key: 'from_1m_to_5m', label: '1m - 5m', tag: t('Standard Call'), count: durationBracketsData.from_1m_to_5m || 0, color: '#3b82f6', bg: 'bg-blue-500' },
+        { key: 'from_5m_to_15m', label: '5m - 15m', tag: t('Detailed Support'), count: durationBracketsData.from_5m_to_15m || 0, color: '#10b981', bg: 'bg-emerald-500' },
+        { key: 'over_15m', label: '> 15m', tag: t('Extended Call'), count: durationBracketsData.over_15m || 0, color: '#8b5cf6', bg: 'bg-purple-500' },
+    ];
+
     const dispositionData: ChartItem[] = useMemo(() => {
         if (charts?.status && charts.status.length > 0) {
             const hasData = charts.status.some((item) => item.value > 0);
@@ -871,7 +949,7 @@ export default function SummaryIndex({
                     </CardContent>
                 </Card>
 
-                {/* Call Volumes & Outcomes (4 Cards) */}
+                {/* Call Volumes & Outcomes (4 Cards with Directional Split) */}
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
                     {/* 1. Total Calls */}
                     <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
@@ -884,8 +962,16 @@ export default function SummaryIndex({
                                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                                         {displayTotalCalls}
                                     </p>
-                                    <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                                    <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
                                         <span>{answerRateVal}% {t('Answered')}</span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium">
+                                            {t('In')}: {displayInboundCalls}
+                                        </span>
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-medium">
+                                            {t('Out')}: {displayOutboundCalls}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
@@ -909,8 +995,16 @@ export default function SummaryIndex({
                                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                                         {displayAnswered}
                                     </p>
-                                    <div className="mt-1 text-[11px] font-semibold text-emerald-600">
+                                    <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                                         <span>{answerRateVal}% {t('Answer Rate')}</span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
+                                            {t('In')}: {displayInboundAnswered}
+                                        </span>
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-medium">
+                                            {t('Out')}: {displayOutboundAnswered}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
@@ -923,19 +1017,27 @@ export default function SummaryIndex({
                         </CardContent>
                     </Card>
 
-                    {/* 3. No Answer */}
+                    {/* 3. Missed / No Answer */}
                     <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
                         <CardContent className="p-4">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {t('No Answer')}
+                                        {t('Missed / No Answer')}
                                     </p>
                                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                                         {displayNoAnswer}
                                     </p>
-                                    <div className="mt-1 text-[11px] font-semibold text-amber-600">
-                                        <span>{noAnswerRateVal}% {t('Missed')}</span>
+                                    <div className="mt-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                                        <span>{noAnswerRateVal}% {t('Miss Rate')}</span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-medium">
+                                            {t('In')}: {displayInboundMissed}
+                                        </span>
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-medium">
+                                            {t('Out')}: {displayOutboundUnanswered}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
@@ -948,19 +1050,27 @@ export default function SummaryIndex({
                         </CardContent>
                     </Card>
 
-                    {/* 4. Failed */}
+                    {/* 4. Failed / Unreachable */}
                     <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
                         <CardContent className="p-4">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {t('Failed')}
+                                        {t('Failed / Busy')}
                                     </p>
                                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                                         {displayFailed}
                                     </p>
-                                    <div className="mt-1 text-[11px] font-semibold text-rose-600">
+                                    <div className="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
                                         <span>{failedRateVal}% {t('Failed')}</span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-medium">
+                                            {t('Busy')}: {summary?.busy_calls ?? 0}
+                                        </span>
+                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                                            {t('Err')}: {(summary?.failed_calls ?? 0) + (summary?.congestion_calls ?? 0)}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400">
@@ -974,79 +1084,303 @@ export default function SummaryIndex({
                     </Card>
                 </div>
 
-                {/* 3 Distinct Call Duration Metrics: Total Duration, Total Talk Time, Total Ring Time */}
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-                    {/* Total Duration */}
-                    <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {t('Total Duration')}
-                                    </p>
-                                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                                        {formatDuration(displayTotalDuration)}
-                                    </p>
-                                    <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                        <span>{t('Avg Duration')}: {formatDuration(displayAvgDuration)}</span>
-                                    </div>
+                {/* Directional Summary Deck: Inbound vs Outbound Performance */}
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+                    {/* Inbound (Incoming) Card */}
+                    <Card className="border border-blue-100 dark:border-blue-900/40 shadow-sm bg-gradient-to-br from-blue-50/40 via-white to-white dark:from-blue-950/20 dark:via-slate-900 dark:to-slate-900 transition-all duration-200">
+                        <CardHeader className="p-4 pb-3 border-b border-blue-50 dark:border-blue-950/60 flex flex-row items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+                                    <PhoneIncoming className="h-4 w-4" />
                                 </div>
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
-                                    <Clock className="h-4.5 w-4.5" />
+                                <div>
+                                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                        {t('Incoming Calls (Inbound)')}
+                                    </CardTitle>
+                                    <CardDescription className="text-[11px] text-slate-500 dark:text-slate-400">
+                                        {t('Customer inquiries and incoming calls to extensions')}
+                                    </CardDescription>
                                 </div>
                             </div>
-                            <div className="mt-3">
-                                <Sparkline color="#6366f1" id="dur" />
+                            <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-950 px-2.5 py-0.5 text-xs font-bold text-blue-700 dark:text-blue-300">
+                                {displayInboundCalls} {t('Calls')}
+                            </span>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-3 space-y-4">
+                            {/* Outcome breakdown grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                                <div className="p-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
+                                    <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">{t('Answered')}</p>
+                                    <p className="text-lg font-bold text-emerald-800 dark:text-emerald-200">{displayInboundAnswered}</p>
+                                    <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">{displayInboundAnswerRate}%</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40">
+                                    <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">{t('Missed')}</p>
+                                    <p className="text-lg font-bold text-amber-800 dark:text-amber-200">{displayInboundMissed}</p>
+                                    <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{displayInboundMissRate}%</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{t('Talk Time')}</p>
+                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{formatDuration(displayInboundTalkTime)}</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Avg: {formatDuration(displayInboundAvgTalkTime)}</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{t('Wait Time')}</p>
+                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{formatDuration(displayInboundRingTime)}</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Avg: {formatDuration(displayInboundAvgRingTime)}</p>
+                                </div>
+                            </div>
+
+                            {/* Answer vs Missed Segmented Progress */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                                    <span>{t('Resolution Ratio')}</span>
+                                    <span>{displayInboundAnswered} / {displayInboundCalls} {t('answered')}</span>
+                                </div>
+                                <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+                                    <div
+                                        className="h-full bg-emerald-500 transition-all duration-500"
+                                        style={{ width: `${Math.min(displayInboundAnswerRate, 100)}%` }}
+                                        title={`${t('Answered')}: ${displayInboundAnswerRate}%`}
+                                    />
+                                    <div
+                                        className="h-full bg-amber-500 transition-all duration-500"
+                                        style={{ width: `${Math.min(displayInboundMissRate, 100)}%` }}
+                                        title={`${t('Missed')}: ${displayInboundMissRate}%`}
+                                    />
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Total Talk Time */}
-                    <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {t('Total Talk Time')}
-                                    </p>
-                                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                                        {formatDuration(displayTotalTalkTime)}
-                                    </p>
-                                    <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                        <span>{t('Avg Talk Time')}: {formatDuration(displayAvgTalkTime)}</span>
-                                    </div>
+                    {/* Outbound (Outgoing) Card */}
+                    <Card className="border border-purple-100 dark:border-purple-900/40 shadow-sm bg-gradient-to-br from-purple-50/40 via-white to-white dark:from-purple-950/20 dark:via-slate-900 dark:to-slate-900 transition-all duration-200">
+                        <CardHeader className="p-4 pb-3 border-b border-purple-50 dark:border-purple-950/60 flex flex-row items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400">
+                                    <PhoneOutgoing className="h-4 w-4" />
                                 </div>
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
-                                    <PhoneCall className="h-4.5 w-4.5" />
+                                <div>
+                                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                        {t('Outgoing Calls (Outbound)')}
+                                    </CardTitle>
+                                    <CardDescription className="text-[11px] text-slate-500 dark:text-slate-400">
+                                        {t('Outbound agent calls to external clients and leads')}
+                                    </CardDescription>
                                 </div>
                             </div>
-                            <div className="mt-3">
-                                <Sparkline color="#10b981" id="talk" />
+                            <span className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-950 px-2.5 py-0.5 text-xs font-bold text-purple-700 dark:text-purple-300">
+                                {displayOutboundCalls} {t('Calls')}
+                            </span>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-3 space-y-4">
+                            {/* Outcome breakdown grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                                <div className="p-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
+                                    <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">{t('Connected')}</p>
+                                    <p className="text-lg font-bold text-emerald-800 dark:text-emerald-200">{displayOutboundAnswered}</p>
+                                    <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">{displayOutboundAnswerRate}%</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
+                                    <p className="text-[11px] font-medium text-rose-700 dark:text-rose-300">{t('Unanswered')}</p>
+                                    <p className="text-lg font-bold text-rose-800 dark:text-rose-200">{displayOutboundUnanswered}</p>
+                                    <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{displayOutboundUnansweredRate}%</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{t('Talk Time')}</p>
+                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{formatDuration(displayOutboundTalkTime)}</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Avg: {formatDuration(displayOutboundAvgTalkTime)}</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{t('Dial / Ring')}</p>
+                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{formatDuration(displayOutboundRingTime)}</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Total Ring</p>
+                                </div>
+                            </div>
+
+                            {/* Connected vs Unanswered Segmented Progress */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                                    <span>{t('Connection Ratio')}</span>
+                                    <span>{displayOutboundAnswered} / {displayOutboundCalls} {t('connected')}</span>
+                                </div>
+                                <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+                                    <div
+                                        className="h-full bg-emerald-500 transition-all duration-500"
+                                        style={{ width: `${Math.min(displayOutboundAnswerRate, 100)}%` }}
+                                        title={`${t('Connected')}: ${displayOutboundAnswerRate}%`}
+                                    />
+                                    <div
+                                        className="h-full bg-rose-500 transition-all duration-500"
+                                        style={{ width: `${Math.min(displayOutboundUnansweredRate, 100)}%` }}
+                                        title={`${t('Unanswered')}: ${displayOutboundUnansweredRate}%`}
+                                    />
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
+                </div>
 
-                    {/* Total Ring Time */}
-                    <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {t('Total Ring Time')}
-                                    </p>
-                                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                                        {formatDuration(displayTotalRingTime)}
-                                    </p>
-                                    <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                        <span>{t('Avg Ring Time')}: {formatDuration(displayAvgRingTime)}</span>
+                {/* Classified Call Duration Analytics (3 Duration Cards + Call Length Distribution) */}
+                <div className="space-y-4">
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                        {/* 1. Total Duration */}
+                        <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
+                            <CardContent className="p-4">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            {t('Total Duration')}
+                                        </p>
+                                        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                                            {formatDuration(displayTotalDuration)}
+                                        </p>
+                                        <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                            <span>{t('Avg')}: {formatDuration(displayAvgDuration)}</span>
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                            <span className="inline-flex items-center gap-1 rounded bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 font-medium text-blue-700 dark:text-blue-300">
+                                                {t('In')}: {formatDuration(displayInboundDuration)}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 rounded bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 font-medium text-purple-700 dark:text-purple-300">
+                                                {t('Out')}: {formatDuration(displayOutboundDuration)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
+                                        <Clock className="h-4.5 w-4.5" />
                                     </div>
                                 </div>
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400">
-                                    <Bell className="h-4.5 w-4.5" />
+                                <div className="mt-3">
+                                    <Sparkline color="#6366f1" id="dur" />
                                 </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 2. Total Talk Time */}
+                        <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
+                            <CardContent className="p-4">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            {t('Total Talk Time')}
+                                        </p>
+                                        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                                            {formatDuration(displayTotalTalkTime)}
+                                        </p>
+                                        <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                            <span>{t('Avg')}: {formatDuration(displayAvgTalkTime)}</span>
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                            <span className="inline-flex items-center gap-1 rounded bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
+                                                {t('In')}: {formatDuration(displayInboundTalkTime)}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 rounded bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 font-medium text-indigo-700 dark:text-indigo-300">
+                                                {t('Out')}: {formatDuration(displayOutboundTalkTime)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                        <PhoneCall className="h-4.5 w-4.5" />
+                                    </div>
+                                </div>
+                                <div className="mt-3">
+                                    <Sparkline color="#10b981" id="talk" />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 3. Total Ring Time */}
+                        <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow">
+                            <CardContent className="p-4">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            {t('Total Ring / Wait Time')}
+                                        </p>
+                                        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                                            {formatDuration(displayTotalRingTime)}
+                                        </p>
+                                        <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                            <span>{t('Avg')}: {formatDuration(displayAvgRingTime)}</span>
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                            <span className="inline-flex items-center gap-1 rounded bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 font-medium text-purple-700 dark:text-purple-300">
+                                                {t('Wait')}: {formatDuration(displayInboundRingTime)}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 font-medium text-slate-700 dark:text-slate-300">
+                                                {t('Dial')}: {formatDuration(displayOutboundRingTime)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400">
+                                        <Bell className="h-4.5 w-4.5" />
+                                    </div>
+                                </div>
+                                <div className="mt-3">
+                                    <Sparkline color="#8b5cf6" id="ring" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Call Length Distribution (5 Classified Brackets) */}
+                    <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900">
+                        <CardHeader className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800/80 flex flex-row items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+                                    <BarChart3 className="h-4 w-4 text-slate-500" />
+                                    {t('Call Duration Classification')}
+                                </CardTitle>
+                                <span className="text-[11px] text-slate-400 font-normal">
+                                    ({t('Answered Calls by Talk Time Length')})
+                                </span>
                             </div>
-                            <div className="mt-3">
-                                <Sparkline color="#8b5cf6" id="ring" />
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                                {displayAnswered} {t('Answered Calls')}
+                            </span>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                                {durationTiers.map((tier) => {
+                                    const pct = totalBracketCalls > 0 ? Math.round((tier.count / totalBracketCalls) * 100) : 0;
+                                    return (
+                                        <div
+                                            key={tier.key}
+                                            className="p-3 rounded-lg border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between"
+                                        >
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                    {tier.label}
+                                                </span>
+                                                <span
+                                                    className="inline-block h-2 w-2 rounded-full"
+                                                    style={{ backgroundColor: tier.color }}
+                                                />
+                                            </div>
+                                            <div className="flex items-baseline justify-between mb-1">
+                                                <span className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
+                                                    {tier.count}
+                                                </span>
+                                                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                                    {pct}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mb-1.5">
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-500"
+                                                    style={{
+                                                        width: `${pct}%`,
+                                                        backgroundColor: tier.color,
+                                                    }}
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                                                {tier.tag}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </CardContent>
                     </Card>
