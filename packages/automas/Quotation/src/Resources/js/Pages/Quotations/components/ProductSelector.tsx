@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Product {
@@ -24,6 +25,7 @@ interface Props {
     onSelect?: (productId: number, product?: Product) => void;
     placeholder?: string;
     disabled?: boolean;
+    isRefreshing?: boolean;
 }
 
 export default function ProductSelector({
@@ -34,7 +36,8 @@ export default function ProductSelector({
     onChange,
     onSelect,
     placeholder,
-    disabled
+    disabled,
+    isRefreshing
 }: Props) {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
@@ -72,17 +75,25 @@ export default function ProductSelector({
         }
     };
 
-    const isDisabled = disabled || (warehouseId !== undefined && !hasWarehouse);
+    const isDisabled = disabled || (warehouseId !== undefined && !hasWarehouse) || isRefreshing;
 
-    let displayPlaceholder = placeholder || t('Select Product');
+    let displayPlaceholder: React.ReactNode = placeholder || t('Select Product');
     if (warehouseId !== undefined && !hasWarehouse) {
         displayPlaceholder = t('Select Warehouse First');
+    } else if (isRefreshing) {
+        displayPlaceholder = (
+            <div className="flex items-center gap-2 text-muted-foreground font-medium">
+                <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                <span>{t('Loading products...')}</span>
+            </div>
+        );
     } else if (products.length === 0) {
         displayPlaceholder = t('No products found');
     }
 
     return (
         <Select
+            key={`${warehouseId ?? 'none'}-${isRefreshing ? 'loading' : products.length}`}
             open={isOpen}
             value={actualValue ? actualValue.toString() : ''}
             onValueChange={handleProductChange}
@@ -90,7 +101,11 @@ export default function ProductSelector({
             disabled={isDisabled}
         >
             <SelectTrigger className="w-full">
-                <SelectValue placeholder={displayPlaceholder} />
+                {isRefreshing ? (
+                    displayPlaceholder
+                ) : (
+                    <SelectValue placeholder={displayPlaceholder as string} />
+                )}
             </SelectTrigger>
             {!isDisabled && (
                 <SelectContent searchable>

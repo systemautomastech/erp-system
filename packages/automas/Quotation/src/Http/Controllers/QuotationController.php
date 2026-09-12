@@ -67,7 +67,10 @@ class QuotationController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('quotation_number', 'like', "%{$search}%")
-                    ->orWhere('customer_name', 'like', "%{$search}%");
+                    ->orWhere('customer_name', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
