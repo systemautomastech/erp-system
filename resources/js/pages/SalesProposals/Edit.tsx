@@ -310,6 +310,8 @@ export default function Edit() {
         setData('warehouse_id', warehouseId);
 
         try {
+            setIsRefreshingProducts(true);
+            setAvailableProducts([]);
             const url = warehouseId
                 ? route('sales-proposals.warehouse.products') + `?warehouse_id=${warehouseId}`
                 : route('sales-proposals.warehouse.products');
@@ -319,6 +321,8 @@ export default function Edit() {
         } catch (error) {
             console.error('Failed to fetch warehouse products:', error);
             setAvailableProducts([]);
+        } finally {
+            setIsRefreshingProducts(false);
         }
     };
 

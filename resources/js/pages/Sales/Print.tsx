@@ -254,13 +254,21 @@ export default function Print() {
                                         <td className="text-center py-4">{item.quantity}</td>
                                         <td className="text-right py-4">{formatCurrency(item.unit_price)}</td>
                                         <td className="text-right py-4">
-                                            {item.discount_percentage > 0 ? (
-                                                <>
-                                                    <div className="text-sm">{item.discount_percentage}%</div>
+                                            {item.discount_type === 'fixed' ? (
+                                                item.discount_amount > 0 ? (
                                                     <div className="text-sm font-medium">-{formatCurrency(item.discount_amount)}</div>
-                                                </>
+                                                ) : (
+                                                    <div className="text-sm">-</div>
+                                                )
                                             ) : (
-                                                <div className="text-sm">0%</div>
+                                                item.discount_percentage > 0 ? (
+                                                    <>
+                                                        <div className="text-sm">{item.discount_percentage}%</div>
+                                                        <div className="text-sm font-medium text-gray-500">-{formatCurrency(item.discount_amount)}</div>
+                                                    </>
+                                                ) : (
+                                                    <div className="text-sm">0%</div>
+                                                )
                                             )}
                                         </td>
                                         <td className="text-right py-4">

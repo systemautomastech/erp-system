@@ -108,9 +108,6 @@ const getDynamicSectionTargetId = (pageType?: string) => {
     }
 };
 
-const isHtmlContent = (content: string) =>
-    /<!doctype|<html|<head|<body|<style|<table|<div|<section|<article|<header|<footer/i.test(content || '');
-
 export default function PageOrder({ sections, setSections, defaultPages = [], quotationSetting: propSetting }: Props) {
     const { t } = useTranslation();
     const pageProps = usePage<any>().props;
@@ -154,7 +151,10 @@ export default function PageOrder({ sections, setSections, defaultPages = [], qu
     const handleEditorTypeChange = (val: 'text' | 'html') => {
         setContentEditorType(val);
         if (val === 'text') {
+            setTextContent('');
             setEditorKey((prev) => prev + 1);
+        } else {
+            setHtmlContent('');
         }
     };
 
@@ -172,7 +172,7 @@ export default function PageOrder({ sections, setSections, defaultPages = [], qu
 
     const populateModalData = (title: string, rawContent: string, bg: string, pageType: string) => {
         setModalTitle(title);
-        const isHtml = isHtmlContent(rawContent || '');
+        const isHtml = pageType === 'html' || pageType === 'custom';
         if (isHtml) {
             setContentEditorType('html');
             setHtmlContent(rawContent || '');

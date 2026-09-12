@@ -41,7 +41,9 @@ class StoreSalesInvoiceRequest extends FormRequest
             'items.*.product_type' => 'nullable|string|max:50',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.discount_type' => 'nullable|in:percentage,fixed',
             'items.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
+            'items.*.discount_amount' => 'nullable|numeric|min:0',
             'items.*.tax_percentage' => 'nullable|numeric|min:0|max:100'
         ];
     }

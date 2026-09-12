@@ -1,12 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePage } from '@inertiajs/react';
 import { QuotationItem } from '../types';
 import ProductSelector from './ProductSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputError } from '@/components/ui/input-error';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { formatCurrency } from '@/utils/helpers';
+import { formatCurrency, getCompanySetting } from '@/utils/helpers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 
@@ -46,6 +47,8 @@ export default function ItemsTable({
     onDiscountValueChange,
 }: Props) {
     const { t } = useTranslation();
+    const pageProps = usePage().props;
+    const currencyCode = getCompanySetting('defaultCurrency', pageProps) || 'BDT';
 
     const addItem = () => {
         const newItem: QuotationItem = {
@@ -85,7 +88,7 @@ export default function ItemsTable({
         item.quantity = Math.min(Math.max(Number(item.quantity) || 0, 0), 999999);
         item.unit_price = Number(item.unit_price) || 0;
         item.tax_percentage = isTaxEnabled ? (Number(item.tax_percentage) || 0) : 0;
-        
+
         if (field === 'discount_amount') {
             item.discount_type = 'fixed';
         } else if (field === 'discount_percentage') {
@@ -93,7 +96,7 @@ export default function ItemsTable({
         } else if (!item.discount_type) {
             item.discount_type = discountType || 'percentage';
         }
-        
+
         const effectiveDiscType = item.discount_type;
 
         const lineTotal = item.quantity * item.unit_price;
@@ -190,7 +193,7 @@ export default function ItemsTable({
                                 </th>
                             )}
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                {t('Unit Price')} <span className="text-red-500">*</span>
+                                {t('Unit Price')} ({currencyCode}) <span className="text-red-500">*</span>
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                                 <Select
@@ -230,7 +233,7 @@ export default function ItemsTable({
                                 >
                                     <SelectTrigger className="h-8 text-xs font-semibold border-none shadow-none p-0 focus:ring-0 text-foreground bg-transparent flex items-center gap-1 hover:text-primary transition-colors cursor-pointer w-auto [&>svg]:opacity-70">
                                         <span>
-                                            {t('Discount')} ({discountType === 'percentage' ? '%' : '৳'})
+                                            {t('Discount')} ({discountType === 'percentage' ? '%' : currencyCode})
                                         </span>
                                     </SelectTrigger>
                                     <SelectContent>
@@ -238,7 +241,7 @@ export default function ItemsTable({
                                             {t('Percentage')} (%)
                                         </SelectItem>
                                         <SelectItem value="fixed" className="text-xs">
-                                            {t('Fixed')} (৳)
+                                            {t('Fixed')} ({currencyCode})
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -311,7 +314,24 @@ export default function ItemsTable({
                                                 </SelectContent>
                                             </Select>
 
-                                            <div className="flex flex-col gap-1">
+                                             <div className="flex flex-col gap-1">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        try {
+                                                            window.open(route('product-service.items.create'), '_blank');
+                                                        } catch (e) {
+                                                            window.open('/product-service/items/create', '_blank');
+                                                        }
+                                                    }}
+                                                    className="h-6 px-1.5 text-[10px] text-primary hover:text-primary gap-1 border-dashed w-24 justify-start"
+                                                >
+                                                    <Plus className="h-3 w-3 shrink-0" />
+                                                    <span className="truncate">{t('Add {{type}}', { type: formatTypeName(currentType) })}</span>
+                                                </Button>
+
                                                 {onRefresh && (
                                                     <Button
                                                         type="button"
@@ -335,6 +355,7 @@ export default function ItemsTable({
                                             warehouseId={currentType === 'product' ? warehouseId : undefined}
                                             onSelect={(prodId, prod) => handleProductSelect(index, prodId, prod)}
                                             disabled={!warehouseId && currentType === 'product'}
+                                            isRefreshing={isRefreshing}
                                             placeholder={!warehouseId && currentType === 'product'
                                                 ? t('Select Warehouse First')
                                                 : t('Select {{type}}', { type: formatTypeName(currentType) })}

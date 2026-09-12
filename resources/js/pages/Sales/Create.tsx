@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Head, useForm, usePage, router, Link } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFlashMessages } from '@/hooks/useFlashMessages';
@@ -34,14 +34,40 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { customers, products, warehouses, default_payment_terms, invoice_number } = usePage<CreateProps>().props;
+    const [availableProducts, setAvailableProducts] = useState<any[]>(Array.isArray(products) ? products : []);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
+    const fetchWarehouseProducts = async (warehouseId: string) => {
+        if (!warehouseId) {
+            setAvailableProducts(Array.isArray(products) ? products : []);
+            return;
+        }
+
+        try {
+            setIsRefreshing(true);
+            setAvailableProducts([]); // Immediately clear old products so user never sees previous warehouse items
+            const response = await fetch(route('sales-invoices.warehouse.products') + `?warehouse_id=${warehouseId}`);
+            if (!response.ok) throw new Error('Failed to fetch products');
+            const data = await response.json();
+            setAvailableProducts(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching warehouse products:', error);
+            setAvailableProducts([]);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     const handleRefresh = () => {
-        setIsRefreshing(true);
-        router.reload({
-            only: ['products'],
-            onFinish: () => setIsRefreshing(false)
-        });
+        if (data.warehouse_id) {
+            fetchWarehouseProducts(data.warehouse_id);
+        } else {
+            setIsRefreshing(true);
+            router.reload({
+                only: ['products'],
+                onFinish: () => setIsRefreshing(false)
+            });
+        }
     };
 
     useFlashMessages();
@@ -65,6 +91,7 @@ export default function Create() {
             description: '',
             quantity: 1,
             unit_price: 0,
+            discount_type: 'percentage',
             discount_percentage: 0,
             discount_amount: 0,
             tax_percentage: 0,
@@ -72,6 +99,14 @@ export default function Create() {
             total_amount: 0
         }] as SalesInvoiceItem[]
     });
+
+    useEffect(() => {
+        if (data.warehouse_id) {
+            fetchWarehouseProducts(data.warehouse_id);
+        } else {
+            setAvailableProducts(Array.isArray(products) ? products : []);
+        }
+    }, [data.warehouse_id]);
 
     const selectedCustomer = useMemo(() => {
         if (!data.customer_id) return null;
@@ -224,7 +259,27 @@ export default function Create() {
                                     <Label htmlFor="warehouse_id">
                                         {t('Warehouse')}
                                     </Label>
-                                    <Select value={data.warehouse_id} onValueChange={(value) => setData('warehouse_id', value)}>
+                                    <Select
+                                        value={data.warehouse_id}
+                                        onValueChange={(value) => {
+                                            setData((prev) => ({
+                                                ...prev,
+                                                warehouse_id: value,
+                                                items: prev.items.map((item) => ({
+                                                    ...item,
+                                                    product_id: 0,
+                                                    unit_price: 0,
+                                                    description: '',
+                                                    tax_percentage: 0,
+                                                    taxes: [],
+                                                    tax_amount: 0,
+                                                    discount_amount: 0,
+                                                    total_amount: 0,
+                                                }))
+                                            }));
+                                            fetchWarehouseProducts(value);
+                                        }}
+                                    >
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('Select Warehouse')} />
                                         </SelectTrigger>
@@ -364,7 +419,7 @@ export default function Create() {
                                 items={data.items}
                                 onChange={(items) => setData('items', items)}
                                 errors={errors}
-                                products={products}
+                                products={availableProducts}
                                 showAddButton={true}
                                 onRefresh={handleRefresh}
                                 isRefreshing={isRefreshing}

@@ -18,6 +18,11 @@ export const productserviceCompanyMenu = (t: (key: string) => string) => [
                 permission: 'manage-product-service-item',
             },
             {
+                title: t('Stocks'),
+                href: route('product-service.stock.index'),
+                permission: 'manage-stock',
+            },
+            {
                 title: t('System Setup'),
                 href: route('product-service.item-categories.index'),
                 permission: 'manage-product-service-item',

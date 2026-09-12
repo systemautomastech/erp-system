@@ -40,16 +40,29 @@ export function calculateLineItemAmounts(
     quantity: number,
     unitPrice: number,
     discountPercentage: number = 0,
-    taxPercentage: number = 0
+    taxPercentage: number = 0,
+    discountType: 'percentage' | 'fixed' = 'percentage',
+    discountAmountVal: number = 0
 ) {
     const lineTotal = quantity * unitPrice;
-    const discountAmount = (lineTotal * discountPercentage) / 100;
-    const afterDiscount = lineTotal - discountAmount;
+    let discountAmount = 0;
+    let effectivePct = 0;
+
+    if (discountType === 'fixed') {
+        discountAmount = Math.min(Math.max(Number(discountAmountVal) || 0, 0), lineTotal);
+        effectivePct = lineTotal > 0 ? (discountAmount / lineTotal) * 100 : 0;
+    } else {
+        effectivePct = Math.min(Math.max(Number(discountPercentage) || 0, 0), 100);
+        discountAmount = (lineTotal * effectivePct) / 100;
+    }
+
+    const afterDiscount = Math.max(0, lineTotal - discountAmount);
     const taxAmount = (afterDiscount * taxPercentage) / 100;
     const totalAmount = afterDiscount + taxAmount;
 
     return {
         discountAmount,
+        discountPercentage: effectivePct,
         taxAmount,
         totalAmount
     };

@@ -23,8 +23,19 @@ class WarehouseService
      */
     public function getWarehouseProducts(?int $warehouseId = null)
     {
-        $productsQuery = ProductServiceItem::with('unitRelation:id,unit_name')
-            ->select('id', 'name', 'sku', 'description', 'sale_price', 'long_description', 'tax_ids', 'unit', 'type')
+        $query = ProductServiceItem::query()
+            ->with('unitRelation:id,unit_name')
+            ->select([
+                'id',
+                'name',
+                'sku',
+                'description',
+                'long_description',
+                'sale_price',
+                'tax_ids',
+                'unit',
+                'type',
+            ])
             ->where('is_active', true)
             ->where(function ($q) {
                 $q->where('created_by', creatorId())
@@ -32,34 +43,40 @@ class WarehouseService
             });
 
         if ($warehouseId) {
-            $productsQuery->with([
-                'warehouseStocks' => fn($q) => $q->where('warehouse_id', $warehouseId)
+            $query->where(function ($q) use ($warehouseId) {
+                $q->where('type', 'service')
+                    ->orWhereHas('warehouseStocks', function ($sub) use ($warehouseId) {
+                        $sub->where('warehouse_id', $warehouseId);
+                    });
+            })->with([
+                'warehouseStocks' => fn ($q) => $q->where('warehouse_id', $warehouseId),
             ]);
         }
 
-        return $productsQuery->get()->map(function ($product) {
+        return $query->get()->map(function ($product) {
             $stockQuantity = $product->relationLoaded('warehouseStocks') && $product->warehouseStocks->isNotEmpty()
                 ? $product->warehouseStocks->first()->quantity
                 : 0;
 
-            $unitName = $product->unitRelation?->unit_name ?? (is_numeric($product->unit) ? '' : ($product->unit ?? ''));
+            $unitName = $product->unitRelation?->unit_name
+                ?? (is_numeric($product->unit) ? '' : ($product->unit ?? ''));
 
             return [
                 'id' => $product->id,
                 'name' => $product->name,
+                'sku' => $product->sku,
                 'description' => $product->description,
                 'long_description' => $product->long_description,
-                'sku' => $product->sku,
                 'sale_price' => $product->sale_price,
                 'unit' => $product->unit,
                 'unit_name' => $unitName,
                 'type' => $product->type,
                 'stock_quantity' => $stockQuantity,
-                'taxes' => $product->taxes->map(fn($tax) => [
+                'taxes' => $product->taxes->map(fn ($tax) => [
                     'id' => $tax->id,
                     'tax_name' => $tax->tax_name,
-                    'rate' => $tax->rate
-                ])
+                    'rate' => $tax->rate,
+                ]),
             ];
         });
     }

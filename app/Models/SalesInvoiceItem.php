@@ -15,6 +15,7 @@ class SalesInvoiceItem extends Model
         'product_type',
         'quantity',
         'unit_price',
+        'discount_type',
         'discount_percentage',
         'discount_amount',
         'tax_percentage',
@@ -52,9 +53,16 @@ class SalesInvoiceItem extends Model
     public function calculateAmounts()
     {
         $lineTotal = $this->quantity * $this->unit_price;
-        $this->discount_amount = ($lineTotal * $this->discount_percentage) / 100;
-        $afterDiscount = $lineTotal - $this->discount_amount;
-        $this->tax_amount = ($afterDiscount * $this->tax_percentage) / 100;
+        if (($this->discount_type ?? 'percentage') === 'fixed') {
+            $discountAmount = min(max((float) ($this->discount_amount ?? 0), 0), $lineTotal);
+            $this->discount_amount = $discountAmount;
+            $this->discount_percentage = $lineTotal > 0 ? round(($discountAmount / $lineTotal) * 100, 2) : 0;
+        } else {
+            $this->discount_type = 'percentage';
+            $this->discount_amount = ($lineTotal * ($this->discount_percentage ?? 0)) / 100;
+        }
+        $afterDiscount = max(0, $lineTotal - $this->discount_amount);
+        $this->tax_amount = ($afterDiscount * ($this->tax_percentage ?? 0)) / 100;
         $this->total_amount = $afterDiscount + $this->tax_amount;
     }
 
