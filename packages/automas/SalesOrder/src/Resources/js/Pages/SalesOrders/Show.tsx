@@ -160,6 +160,28 @@ export default function Show() {
                             </Button>
                         )}
 
+                        {canAcquire && (
+                            <Button
+                                size="sm"
+                                onClick={handleAcquire}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                <Lock className="h-4 w-4 mr-1.5" />
+                                {t('Acquire Order')}
+                            </Button>
+                        )}
+
+                        {canDeliver && (
+                            <Button
+                                size="sm"
+                                onClick={() => router.visit(route('salesorder.orders.deliveries.create', salesOrder.id))}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                <Truck className="h-4 w-4 mr-1.5" />
+                                {t('Create Delivery Challan')}
+                            </Button>
+                        )}
+
                         {canConfirm && (
                             <Button
                                 size="sm"

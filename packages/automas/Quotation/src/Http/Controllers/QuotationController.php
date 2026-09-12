@@ -394,6 +394,10 @@ class QuotationController extends Controller
             return back()->with('error', __('Permission denied'));
         }
 
+        if ($quotation->status !== 'accepted') {
+            return back()->with('error', __('Only accepted quotations can be converted to a Sales Order.'));
+        }
+
         if ($quotation->sales_order_id) {
             return back()->with('error', __('This quotation has already been converted to a Sales Order.'));
         }
@@ -457,7 +461,7 @@ class QuotationController extends Controller
                 $salesOrder = \Automas\SalesOrder\Models\SalesOrder::create([
                     'name'                   => $quotation->subject ?: ($quotation->quotation_number ?? 'Quotation Conversion'),
                     'quote_id'               => $quotation->id,
-                    'status'                 => \Automas\SalesOrder\Models\SalesOrder::STATUS_DRAFT,
+                    'status'                 => \Automas\SalesOrder\Models\SalesOrder::STATUS_CONFIRMED,
                     'delivery_status'        => \Automas\SalesOrder\Models\SalesOrder::DELIVERY_STATUS_PENDING,
                     'assignment_status'      => $assignmentStatus,
                     'assigned_group_id'      => $assignedGroupId,

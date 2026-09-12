@@ -204,7 +204,7 @@ class SalesOrderDeliveryController extends Controller
             return back()->with('error', __('Access denied'));
         }
 
-        $delivery->load(['salesOrder.customer', 'items.salesOrderItem', 'creator']);
+        $delivery->load(['salesOrder.customer', 'items.salesOrderItem.product', 'creator']);
         $settings = SalesOrderSetting::getSettings();
 
         $quotation = null;
@@ -229,7 +229,7 @@ class SalesOrderDeliveryController extends Controller
             return back()->with('error', __('Access denied'));
         }
 
-        $delivery->load(['salesOrder.customer', 'items.salesOrderItem', 'creator']);
+        $delivery->load(['salesOrder.customer', 'items.salesOrderItem.product', 'creator']);
         $settings = SalesOrderSetting::getSettings();
 
         return Inertia::render('SalesOrder/SalesOrders/Challan', [

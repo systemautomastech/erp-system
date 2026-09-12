@@ -1,9 +1,7 @@
 import React, { useEffect } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import { formatDate, formatCurrency, getImagePath } from '@/utils/helpers';
-import { Button } from '@/components/ui/button';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { formatCurrency, formatDate, getCompanySetting, getImagePath } from '@/utils/helpers';
 import { SalesOrder } from './types';
 
 interface PrintProps {
@@ -12,256 +10,318 @@ interface PrintProps {
         warehouse?: any;
         items?: any[];
     };
-    settings?: Record<string, any>;
-    autoPrint?: boolean;
+    settings?: {
+        logo_image?: string;
+        show_logo?: string;
+        bg_letterhead?: string;
+        enable_letterhead?: string;
+        template_color?: string;
+        default_terms?: string;
+        default_notes?: string;
+        footer_note?: string;
+        [key: string]: any;
+    };
+    [key: string]: any;
 }
 
-export default function Print({ salesOrder, settings = {}, autoPrint = false }: PrintProps) {
+export default function Print() {
     const { t } = useTranslation();
+    const { salesOrder, settings = {} } = usePage<PrintProps>().props;
+
     const customer = salesOrder.customer || {};
     const items = salesOrder.items || [];
-    const brandColor = settings.template_color || '#2563EB';
+
+    const showLogo = settings.show_logo !== 'off';
+    const logoUrl = showLogo && settings.logo_image ? getImagePath(settings.logo_image) : null;
+
+    const enableLetterhead = settings.enable_letterhead === 'on';
+    const bgLetterheadUrl = enableLetterhead && settings.bg_letterhead ? getImagePath(settings.bg_letterhead) : null;
 
     useEffect(() => {
-        if (autoPrint) {
-            const timer = setTimeout(() => {
-                window.print();
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [autoPrint]);
+        const handleAfterPrint = () => {
+            window.close();
+        };
+        window.addEventListener('afterprint', handleAfterPrint);
+
+        const timer = setTimeout(() => {
+            window.print();
+        }, 300);
+
+        return () => {
+            window.removeEventListener('afterprint', handleAfterPrint);
+            clearTimeout(timer);
+        };
+    }, []);
 
     return (
-        <div className="min-h-screen bg-slate-100 py-8 px-4 print:bg-white print:p-0">
+        <div className="min-h-screen bg-white">
             <Head title={t('Sales Order — :num', { num: salesOrder.order_number })} />
 
-            {/* Print Action Bar */}
-            <div className="max-w-4xl mx-auto mb-6 flex justify-between items-center print:hidden">
-                <Button
-                    variant="outline"
-                    onClick={() => window.history.back()}
-                    className="bg-white"
-                >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    {t('Back')}
-                </Button>
-                <div className="flex gap-2">
-                    <Button
-                        onClick={() => window.print()}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                        <Printer className="h-4 w-4 mr-2" />
-                        {t('Print Sales Order')}
-                    </Button>
-                </div>
-            </div>
+            <div className="invoice-container bg-white max-w-4xl mx-auto p-8 relative overflow-hidden">
+                {/* Background Letterhead Image */}
+                {bgLetterheadUrl && (
+                    <img
+                        src={bgLetterheadUrl}
+                        alt="Letterhead Background"
+                        className="letterhead-bg-layer absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+                    />
+                )}
 
-            {/* Print Sheet (A4 size format) */}
-            <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-lg p-10 shadow-sm print:shadow-none print:border-none print:p-8 print:max-w-none">
-                {/* ─── Header ─── */}
-                <div className="flex justify-between items-start pb-6 border-b border-slate-200">
-                    <div className="space-y-1">
-                        {settings.show_logo !== 'off' && settings.logo_image ? (
-                            <img
-                                src={getImagePath(settings.logo_image)}
-                                alt="Company Logo"
-                                className="h-14 max-w-[200px] object-contain mb-2"
-                            />
-                        ) : (
-                            <h2 className="text-2xl font-bold tracking-tight" style={{ color: brandColor }}>
-                                {settings.company_name || 'AutomasERP'}
-                            </h2>
-                        )}
-                        <p className="text-xs text-slate-500 max-w-xs">
-                            {settings.company_address || ''}
-                        </p>
-                    </div>
-
-                    <div className="text-right space-y-1">
-                        <span
-                            className="inline-block px-3 py-1 text-sm font-bold uppercase tracking-wider rounded text-white"
-                            style={{ backgroundColor: brandColor }}
-                        >
-                            {t('SALES ORDER')}
-                        </span>
-                        <div className="pt-2 text-sm">
-                            <span className="font-semibold text-slate-700">{t('Order No')}: </span>
-                            <span className="font-bold text-slate-900">#{salesOrder.order_number}</span>
-                        </div>
-                        <div className="text-sm">
-                            <span className="text-slate-500">{t('Date')}: </span>
-                            <span className="text-slate-700">{formatDate(salesOrder.order_date)}</span>
-                        </div>
-                        {salesOrder.expected_delivery_date && (
-                            <div className="text-sm">
-                                <span className="text-slate-500">{t('Expected Delivery')}: </span>
-                                <span className="text-slate-700">{formatDate(salesOrder.expected_delivery_date)}</span>
+                <div className="relative z-10">
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-8">
+                        <div className="w-1/2">
+                            {logoUrl ? (
+                                <div className="mb-4">
+                                    <img
+                                        src={logoUrl}
+                                        alt="Company Logo"
+                                        className="max-h-16 max-w-[200px] object-contain"
+                                    />
+                                </div>
+                            ) : (
+                                <h1 className="text-2xl font-bold mb-4">
+                                    {getCompanySetting('company_name') || settings.company_name || 'YOUR COMPANY'}
+                                </h1>
+                            )}
+                            <div className="text-sm space-y-1">
+                                {(getCompanySetting('company_address') || settings.company_address) && (
+                                    <p>{getCompanySetting('company_address') || settings.company_address}</p>
+                                )}
+                                {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
+                                    <p>
+                                        {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
+                                    </p>
+                                )}
+                                {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
+                                {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
+                                {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
+                                {getCompanySetting('registration_number') && <p>{t('Registration')}: {getCompanySetting('registration_number')}</p>}
                             </div>
-                        )}
-                    </div>
-                </div>
+                        </div>
 
-                {/* ─── Customer & Addresses ─── */}
-                <div className="grid grid-cols-2 gap-8 py-6 border-b border-slate-200 text-sm">
-                    {/* Bill To */}
-                    <div className="space-y-1">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                            {t('CUSTOMER / BILL TO')}
-                        </h4>
-                        <p className="font-bold text-slate-800 text-base">{customer.name || '-'}</p>
-                        {customer.mobile_no && (
-                            <p className="text-slate-600">{t('Phone')}: {customer.mobile_no}</p>
-                        )}
-                        {customer.email && (
-                            <p className="text-slate-600">{t('Email')}: {customer.email}</p>
-                        )}
-                        <div className="pt-1 text-slate-600 text-xs leading-relaxed">
-                            <p className="font-semibold text-slate-700">{t('Billing Address')}:</p>
-                            <p>{salesOrder.billing_address || '-'}</p>
-                            {(salesOrder.billing_city || salesOrder.billing_state) && (
-                                <p>{[salesOrder.billing_city, salesOrder.billing_state, salesOrder.billing_postal_code].filter(Boolean).join(', ')}</p>
-                            )}
-                            {salesOrder.billing_country && <p>{salesOrder.billing_country}</p>}
+                        <div className="text-right w-1/2">
+                            <h2 className="text-2xl font-bold mb-2">{t('SALES ORDER')}</h2>
+                            <p className="text-lg font-semibold">#{salesOrder.order_number}</p>
+                            <div className="text-sm mt-2 space-y-1">
+                                <p>{t('Date')}: {formatDate(salesOrder.order_date)}</p>
+                                {salesOrder.expected_delivery_date && (
+                                    <p>{t('Expected Delivery')}: {formatDate(salesOrder.expected_delivery_date)}</p>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Ship To */}
-                    <div className="space-y-1 pl-6 border-l border-slate-100">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                            {t('SHIP TO')}
-                        </h4>
-                        <p className="font-bold text-slate-800 text-base">{customer.name || '-'}</p>
-                        <div className="pt-1 text-slate-600 text-xs leading-relaxed">
-                            <p className="font-semibold text-slate-700">{t('Shipping Address')}:</p>
-                            <p>{salesOrder.shipping_address || salesOrder.billing_address || t('Same as billing address')}</p>
-                            {(salesOrder.shipping_city || salesOrder.shipping_state) && (
-                                <p>{[salesOrder.shipping_city, salesOrder.shipping_state, salesOrder.shipping_postal_code].filter(Boolean).join(', ')}</p>
-                            )}
-                            {salesOrder.shipping_country && <p>{salesOrder.shipping_country}</p>}
+                    {/* Customer / Bill To & Ship To */}
+                    <div className="flex justify-between mb-8">
+                        <div className="w-1/2">
+                            <h3 className="font-bold mb-3">{t('BILL TO')}</h3>
+                            <div className="text-sm space-y-1">
+                                <p className="font-semibold">{customer.name || salesOrder.billing_address || '-'}</p>
+                                {customer.email && <p>{customer.email}</p>}
+                                {customer.mobile_no && <p>{t('Phone')}: {customer.mobile_no}</p>}
+                                {salesOrder.billing_address && <p className="whitespace-pre-line">{salesOrder.billing_address}</p>}
+                                {(salesOrder.billing_city || salesOrder.billing_state) && (
+                                    <p>{[salesOrder.billing_city, salesOrder.billing_state, salesOrder.billing_postal_code].filter(Boolean).join(', ')}</p>
+                                )}
+                                {salesOrder.billing_country && <p>{salesOrder.billing_country}</p>}
+                            </div>
+                        </div>
+
+                        <div className="text-right w-1/2">
+                            <h3 className="font-bold mb-3">{t('SHIP TO')}</h3>
+                            <div className="text-sm space-y-1">
+                                {salesOrder.shipping_address ? (
+                                    <>
+                                        <p className="font-semibold">{customer.name || '-'}</p>
+                                        <p className="whitespace-pre-line">{salesOrder.shipping_address}</p>
+                                        {(salesOrder.shipping_city || salesOrder.shipping_state) && (
+                                            <p>{[salesOrder.shipping_city, salesOrder.shipping_state, salesOrder.shipping_postal_code].filter(Boolean).join(', ')}</p>
+                                        )}
+                                        {salesOrder.shipping_country && <p>{salesOrder.shipping_country}</p>}
+                                    </>
+                                ) : (
+                                    <p className="text-gray-500">{t('Same as billing address')}</p>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* ─── Order Items Table ─── */}
-                <div className="py-6">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b-2 border-slate-800 text-xs uppercase font-bold text-slate-800">
-                                <th className="py-2.5 px-3 text-left w-10">#</th>
-                                <th className="py-2.5 px-3 text-left">{t('Item & Description')}</th>
-                                <th className="py-2.5 px-3 text-right w-16">{t('Qty')}</th>
-                                <th className="py-2.5 px-3 text-right w-24">{t('Unit Price')}</th>
-                                <th className="py-2.5 px-3 text-right w-20">{t('Disc %')}</th>
-                                <th className="py-2.5 px-3 text-right w-28">{t('Total')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {items.length > 0 ? (
-                                items.map((item: any, idx: number) => {
+                    {/* Items Table */}
+                    <div className="mb-8">
+                        <table className="w-full table-fixed">
+                            <thead>
+                                <tr className="border-b border-gray-300">
+                                    <th className="text-left py-3 font-bold">{t('ITEM')}</th>
+                                    <th className="text-center py-3 font-bold">{t('QTY')}</th>
+                                    <th className="text-right py-3 font-bold">{t('PRICE')}</th>
+                                    <th className="text-right py-3 font-bold">{t('DISCOUNT')}</th>
+                                    <th className="text-right py-3 font-bold">{t('TAX')}</th>
+                                    <th className="text-right py-3 font-bold">{t('TOTAL')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((item: any, index: number) => {
+                                    const productName = item.product?.name || item.name || '';
+                                    const sku = item.product?.sku || item.sku || '';
+                                    const desc = item.description || item.product?.description || item.product?.long_description || '';
                                     const lineTotal = (item.quantity || 0) * (item.unit_price || item.price || 0);
-                                    const disc = (lineTotal * (item.discount_percentage || 0)) / 100;
-                                    const afterDisc = lineTotal - disc;
-                                    const tax = (afterDisc * (item.tax_percentage || 0)) / 100;
-                                    const total = item.final_price ?? (afterDisc + tax);
+                                    const discAmt = item.discount_amount ?? ((lineTotal * (item.discount_percentage || 0)) / 100);
+                                    const afterDisc = lineTotal - discAmt;
+                                    const taxAmt = item.tax_amount ?? ((afterDisc * (item.tax_percentage || 0)) / 100);
+                                    const itemTotal = item.total_amount ?? item.final_price ?? (afterDisc + taxAmt);
 
                                     return (
-                                        <tr key={item.id || idx}>
-                                            <td className="py-3 px-3 text-slate-500">{idx + 1}</td>
-                                            <td className="py-3 px-3">
-                                                <p className="font-semibold text-slate-800">
-                                                    {item.description || `Item #${item.product_id || item.id}`}
-                                                </p>
-                                                {item.unit && (
-                                                    <span className="text-xs text-slate-400">{t('Unit')}: {item.unit}</span>
+                                        <tr key={index} className="page-break-inside-avoid">
+                                            <td className="py-4">
+                                                <div className="font-semibold">{productName}</div>
+                                                {sku && (
+                                                    <div className="text-xs text-gray-500">{t('SKU')}: {sku}</div>
+                                                )}
+                                                {desc && (
+                                                    <div
+                                                        className="text-xs text-gray-600 mt-1 prose prose-xs max-w-none"
+                                                        dangerouslySetInnerHTML={{ __html: desc }}
+                                                    />
                                                 )}
                                             </td>
-                                            <td className="py-3 px-3 text-right font-medium text-slate-800">
-                                                {item.quantity}
+                                            <td className="text-center py-4">{item.quantity}</td>
+                                            <td className="text-right py-4">{formatCurrency(item.unit_price || item.price)}</td>
+                                            <td className="text-right py-4">
+                                                {item.discount_type === 'fixed' ? (
+                                                    discAmt > 0 ? (
+                                                        <div className="text-sm font-medium">-{formatCurrency(discAmt)}</div>
+                                                    ) : (
+                                                        <div className="text-sm">-</div>
+                                                    )
+                                                ) : (
+                                                    (item.discount_percentage || 0) > 0 ? (
+                                                        <>
+                                                            <div className="text-sm">{item.discount_percentage}%</div>
+                                                            <div className="text-sm font-medium text-gray-500">-{formatCurrency(discAmt)}</div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="text-sm">0%</div>
+                                                    )
+                                                )}
                                             </td>
-                                            <td className="py-3 px-3 text-right text-slate-600">
-                                                {formatCurrency(item.unit_price || item.price)}
+                                            <td className="text-right py-4">
+                                                {item.taxes && item.taxes.length > 0 ? (
+                                                    <>
+                                                        {item.taxes.map((tax: any, taxIndex: number) => (
+                                                            <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
+                                                        ))}
+                                                        <div className="text-sm font-medium">{formatCurrency(taxAmt)}</div>
+                                                    </>
+                                                ) : (item.tax_percentage || 0) > 0 ? (
+                                                    <>
+                                                        <div className="text-sm">{item.tax_percentage}%</div>
+                                                        <div className="text-sm font-medium">{formatCurrency(taxAmt)}</div>
+                                                    </>
+                                                ) : (
+                                                    <div className="text-sm">0%</div>
+                                                )}
                                             </td>
-                                            <td className="py-3 px-3 text-right text-slate-600">
-                                                {item.discount_percentage ? `${item.discount_percentage}%` : '-'}
-                                            </td>
-                                            <td className="py-3 px-3 text-right font-semibold text-slate-900">
-                                                {formatCurrency(total)}
-                                            </td>
+                                            <td className="text-right py-4 font-semibold">{formatCurrency(itemTotal)}</td>
                                         </tr>
                                     );
-                                })
-                            ) : (
-                                <tr>
-                                    <td colSpan={6} className="py-6 text-center text-slate-400">
-                                        {t('No items in this order.')}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
 
-                {/* ─── Totals & Notes ─── */}
-                <div className="grid grid-cols-2 gap-8 py-4 border-t border-slate-200">
-                    <div className="text-xs text-slate-600 space-y-3">
+                    {/* Summary Totals Box */}
+                    <div className="flex justify-end mb-4 page-break-inside-avoid">
+                        <div className="w-80 page-break-inside-avoid">
+                            <div className="border border-gray-400 p-4 page-break-inside-avoid">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <span>{t('Subtotal')}:</span>
+                                        <span>{formatCurrency(salesOrder.subtotal ?? 0)}</span>
+                                    </div>
+                                    {(salesOrder.discount_amount ?? 0) > 0 && (
+                                        <div className="flex justify-between">
+                                            <span>{t('Discount')}:</span>
+                                            <span>-{formatCurrency(salesOrder.discount_amount)}</span>
+                                        </div>
+                                    )}
+                                    {(salesOrder.tax_amount ?? 0) > 0 && (
+                                        <div className="flex justify-between">
+                                            <span>{t('Tax')}:</span>
+                                            <span>{formatCurrency(salesOrder.tax_amount)}</span>
+                                        </div>
+                                    )}
+                                    <div className="border-t border-gray-400 pt-2 mt-2">
+                                        <div className="flex justify-between font-bold text-lg">
+                                            <span>{t('TOTAL')}:</span>
+                                            <span>{formatCurrency(salesOrder.total_amount ?? 0)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="border-t border-gray-400 pt-4 text-center">
                         {salesOrder.notes && (
-                            <div>
-                                <span className="font-bold text-slate-700">{t('Order Notes')}:</span>
-                                <p className="mt-1 whitespace-pre-wrap">{salesOrder.notes}</p>
+                            <div className="text-sm text-gray-600 mb-2">
+                                <span className="font-semibold">{t('Notes')}: </span>
+                                <span dangerouslySetInnerHTML={{ __html: salesOrder.notes }} />
                             </div>
                         )}
                         {settings.default_terms && (
-                            <div>
-                                <span className="font-bold text-slate-700">{t('Terms & Conditions')}:</span>
-                                <p className="mt-1 whitespace-pre-wrap">{settings.default_terms}</p>
-                            </div>
+                            <p className="font-semibold">{t('PAYMENT TERMS')}: {settings.default_terms}</p>
                         )}
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between py-1 border-b border-slate-100">
-                            <span className="text-slate-500">{t('Subtotal')}:</span>
-                            <span className="font-medium text-slate-800">{formatCurrency(salesOrder.subtotal ?? 0)}</span>
-                        </div>
-                        {(salesOrder.discount_amount ?? 0) > 0 && (
-                            <div className="flex justify-between py-1 border-b border-slate-100">
-                                <span className="text-slate-500">{t('Discount')}:</span>
-                                <span className="font-medium text-red-600">-{formatCurrency(salesOrder.discount_amount)}</span>
-                            </div>
-                        )}
-                        {(salesOrder.tax_amount ?? 0) > 0 && (
-                            <div className="flex justify-between py-1 border-b border-slate-100">
-                                <span className="text-slate-500">{t('Tax')}:</span>
-                                <span className="font-medium text-slate-800">{formatCurrency(salesOrder.tax_amount)}</span>
-                            </div>
-                        )}
-                        <div className="flex justify-between py-2 border-t-2 border-slate-800 text-base font-bold text-slate-900">
-                            <span>{t('Total Amount')}:</span>
-                            <span style={{ color: brandColor }}>{formatCurrency(salesOrder.total_amount ?? 0)}</span>
-                        </div>
+                        <p className="text-sm mt-2">{t('Thank you for your business!')}</p>
                     </div>
                 </div>
-
-                {/* ─── Signatures Block ─── */}
-                <div className="grid grid-cols-2 gap-16 pt-16 mt-8 border-t border-slate-200 text-center text-xs text-slate-600">
-                    <div className="border-t border-dashed border-slate-400 pt-2">
-                        <p className="font-bold text-slate-800">{customer.name || t('Customer')}</p>
-                        <p className="text-slate-400">{t('Customer Acceptance & Signature')}</p>
-                    </div>
-
-                    <div className="border-t border-dashed border-slate-400 pt-2">
-                        <p className="font-bold text-slate-800">{settings.company_name || 'AutomasERP'}</p>
-                        <p className="text-slate-400">{t('Authorized Signature')}</p>
-                    </div>
-                </div>
-
-                {/* Footer Note */}
-                {settings.footer_note && (
-                    <div className="mt-8 pt-4 border-t border-slate-100 text-center text-[11px] text-slate-400">
-                        {settings.footer_note}
-                    </div>
-                )}
             </div>
+
+            <style>{`
+                body {
+                    -webkit-print-color-adjust: exact;
+                    color-adjust: exact;
+                    font-family: Arial, sans-serif;
+                }
+
+                @page {
+                    margin: 0.5in;
+                    size: A4;
+                }
+
+                .invoice-container {
+                    max-width: 100%;
+                    margin: 0;
+                    box-shadow: none;
+                }
+
+                .letterhead-bg-layer {
+                    position: absolute;
+                    inset: 0;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    z-index: 0;
+                    pointer-events: none;
+                }
+
+                .page-break-inside-avoid {
+                    page-break-inside: avoid;
+                    break-inside: avoid;
+                }
+
+                @media print {
+                    body {
+                        background: white;
+                    }
+
+                    .invoice-container {
+                        box-shadow: none;
+                    }
+                }
+            `}</style>
         </div>
     );
 }
+

@@ -85,6 +85,7 @@ export default function ConvertToSalesOrderModal({
         customer_address: quotation.customer?.address || quotation.customer_address || '',
         assignment_check: 'none',
         assigned_user_id: '',
+        assigned_user_ids: [] as string[],
         assigned_group_id: '',
     });
 
@@ -101,11 +102,26 @@ export default function ConvertToSalesOrderModal({
                 customer_address: quotation.customer?.address || quotation.customer_address || '',
                 assignment_check: 'none',
                 assigned_user_id: '',
+                assigned_user_ids: [],
                 assigned_group_id: '',
             });
             setErrors({});
         }
     }, [isOpen, quotation, t]);
+
+    const toggleUserSelection = (userId: number) => {
+        setFormData(prev => {
+            const idStr = String(userId);
+            const current = prev.assigned_user_ids || [];
+            const exists = current.includes(idStr);
+            const updated = exists ? current.filter(id => id !== idStr) : [...current, idStr];
+            return {
+                ...prev,
+                assigned_user_ids: updated,
+                assigned_user_id: updated[0] || ''
+            };
+        });
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -124,8 +140,12 @@ export default function ConvertToSalesOrderModal({
             payload.customer_address = formData.customer_address;
         }
 
-        if (formData.assignment_check === 'user' && formData.assigned_user_id) {
-            payload.assigned_user_id = formData.assigned_user_id;
+        if (formData.assignment_check === 'user') {
+            if (formData.assigned_user_ids && formData.assigned_user_ids.length > 0) {
+                payload.assigned_user_ids = formData.assigned_user_ids;
+            } else if (formData.assigned_user_id) {
+                payload.assigned_user_id = formData.assigned_user_id;
+            }
         } else if (formData.assignment_check === 'group' && formData.assigned_group_id) {
             payload.assigned_group_id = formData.assigned_group_id;
         }
@@ -327,23 +347,28 @@ export default function ConvertToSalesOrderModal({
                         )}
 
                         {formData.assignment_check === 'user' && (
-                            <div className="col-span-2">
-                                <Label htmlFor="assigned_user_id">{t('Assigned User')}</Label>
-                                <Select
-                                    value={formData.assigned_user_id}
-                                    onValueChange={(val) => setFormData(prev => ({ ...prev, assigned_user_id: val }))}
-                                >
-                                    <SelectTrigger id="assigned_user_id">
-                                        <SelectValue placeholder={t('Select User')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {users?.map((user) => (
-                                            <SelectItem key={user.id} value={String(user.id)}>
-                                                {user.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div className="col-span-2 space-y-2">
+                                <Label>{t('Assigned User(s)')}</Label>
+                                <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2 bg-muted/20">
+                                    {users?.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground italic">{t('No workspace users found.')}</p>
+                                    ) : (
+                                        users?.map((user) => {
+                                            const isChecked = formData.assigned_user_ids.includes(String(user.id)) || formData.assigned_user_id === String(user.id);
+                                            return (
+                                                <label key={user.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-background/80 p-1.5 rounded transition-colors">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded text-primary focus:ring-primary h-4 w-4"
+                                                        checked={isChecked}
+                                                        onChange={() => toggleUserSelection(user.id)}
+                                                    />
+                                                    <span>{user.name}</span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

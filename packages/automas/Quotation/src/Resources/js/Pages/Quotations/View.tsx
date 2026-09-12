@@ -108,7 +108,7 @@ export default function View() {
                         </Button>
                     ) : (
                         <>
-                            {isSalesOrderActive && (
+                            {isSalesOrderActive && quotation.status === 'accepted' && (
                                 <ConvertToSalesOrderModal
                                     quotation={quotation}
                                     customers={customers}

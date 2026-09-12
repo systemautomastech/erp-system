@@ -59,8 +59,38 @@ class SalesOrderController extends Controller
             ->paginate($request->per_page ?? 10)
             ->withQueryString();
 
-        $salesOrders->getCollection()->transform(function ($order) {
+        $authUser = Auth::user();
+        $isCompanyOrAdmin = in_array($authUser->type, ['company', 'superadmin', 'admin']);
+        $userGroupIds = \App\Models\UserGroup::where('is_active', true)
+            ->whereHas('users', fn($q) => $q->where('users.id', $authUser->id))
+            ->pluck('id')
+            ->toArray();
+
+        $salesOrders->getCollection()->transform(function ($order) use ($authUser, $isCompanyOrAdmin, $userGroupIds) {
             $order->amount = $order->getTotal();
+            $isGroupMember = $order->assigned_group_id && in_array($order->assigned_group_id, $userGroupIds);
+            $isAssignedUser = $order->assignedUsers->contains('id', $authUser->id);
+
+            $order->can_deliver = $order->status === SalesOrder::STATUS_CONFIRMED
+                && $order->delivery_status !== SalesOrder::DELIVERY_STATUS_FULL
+                && (
+                    $isCompanyOrAdmin
+                    || $authUser->can('create-sales-order-deliveries')
+                    || $authUser->can('manage-sales-order-deliveries')
+                    || ($order->assignment_status === SalesOrder::ASSIGNMENT_ACQUIRED && $order->acquired_by === $authUser->id)
+                    || $isAssignedUser
+                    || $order->creator_id === $authUser->id
+                );
+
+            $order->can_acquire = $order->delivery_status !== SalesOrder::DELIVERY_STATUS_FULL
+                && $order->assignment_status !== SalesOrder::ASSIGNMENT_ACQUIRED
+                && (
+                    $isCompanyOrAdmin
+                    || ($order->assignment_status === SalesOrder::ASSIGNMENT_GROUP_ASSIGNED && $isGroupMember)
+                    || ($order->assignment_status === SalesOrder::ASSIGNMENT_UNASSIGNED)
+                    || $authUser->can('acquire-sales-orders')
+                );
+
             return $order;
         });
 
@@ -228,6 +258,9 @@ class SalesOrderController extends Controller
                 ->exists()
             : false;
 
+        $isCompanyOrAdmin = in_array($authUser->type, ['company', 'superadmin', 'admin']);
+        $isAssignedUser = $salesOrder->assignedUsers->contains('id', $authUser->id);
+
         return Inertia::render('SalesOrder/SalesOrders/Show', [
             'salesOrder'      => $salesOrder,
             'orderItems'      => $items,
@@ -237,18 +270,30 @@ class SalesOrderController extends Controller
             'userGroups'      => $userGroups,
             'canConfirm'      => $salesOrder->status === SalesOrder::STATUS_DRAFT,
             'canCancel'       => in_array($salesOrder->status, [SalesOrder::STATUS_DRAFT, SalesOrder::STATUS_CONFIRMED]),
-            'canDeliver'      => $salesOrder->status === SalesOrder::STATUS_CONFIRMED
+            'canDeliver'      => in_array($salesOrder->status, [SalesOrder::STATUS_CONFIRMED, SalesOrder::STATUS_DRAFT])
                               && $salesOrder->delivery_status !== SalesOrder::DELIVERY_STATUS_FULL
-                              && $salesOrder->assignment_status === SalesOrder::ASSIGNMENT_ACQUIRED
-                              && $salesOrder->acquired_by === $authUser->id,
-            'canAssignGroup'  => $authUser->can('assign-group-sales-orders') && $salesOrder->status === SalesOrder::STATUS_CONFIRMED,
-            'canAcquire'      => $authUser->can('acquire-sales-orders')
-                              && $salesOrder->assignment_status === SalesOrder::ASSIGNMENT_GROUP_ASSIGNED
-                              && $isGroupMember,
+                              && (
+                                  $isCompanyOrAdmin
+                                  || $authUser->can('create-sales-order-deliveries')
+                                  || $authUser->can('manage-sales-order-deliveries')
+                                  || ($salesOrder->assignment_status === SalesOrder::ASSIGNMENT_ACQUIRED && $salesOrder->acquired_by === $authUser->id)
+                                  || $isAssignedUser
+                                  || $salesOrder->creator_id === $authUser->id
+                              ),
+            'canAssignGroup'  => ($authUser->can('assign-group-sales-orders') || $authUser->can('reassign-sales-orders') || $authUser->can('edit-sales-orders') || $isCompanyOrAdmin),
+            'canAcquire'      => $salesOrder->delivery_status !== SalesOrder::DELIVERY_STATUS_FULL
+                              && $salesOrder->assignment_status !== SalesOrder::ASSIGNMENT_ACQUIRED
+                              && (
+                                  $isCompanyOrAdmin
+                                  || ($salesOrder->assignment_status === SalesOrder::ASSIGNMENT_GROUP_ASSIGNED && $isGroupMember)
+                                  || ($salesOrder->assignment_status === SalesOrder::ASSIGNMENT_UNASSIGNED)
+                                  || $authUser->can('acquire-sales-orders')
+                              ),
             'canRelease'      => $authUser->can('release-sales-orders')
                               && $salesOrder->assignment_status === SalesOrder::ASSIGNMENT_ACQUIRED
-                              && ($salesOrder->acquired_by === $authUser->id || $authUser->can('reassign-sales-orders')),
-            'canReassign'     => $authUser->can('reassign-sales-orders') && $salesOrder->status === SalesOrder::STATUS_CONFIRMED,
+                              && ($salesOrder->acquired_by === $authUser->id || $authUser->can('reassign-sales-orders') || $isCompanyOrAdmin),
+            'canReassign'     => ($authUser->can('reassign-sales-orders') || $authUser->can('assign-group-sales-orders') || $isCompanyOrAdmin)
+                              && $salesOrder->status === SalesOrder::STATUS_CONFIRMED,
         ]);
     }
 
@@ -261,6 +306,12 @@ class SalesOrderController extends Controller
         }
         if (!$this->canAccess($salesOrder)) {
             return back()->with('error', __('Access denied'));
+        }
+        if ($salesOrder->is_invoiced) {
+            return back()->with('error', __('Cannot edit a Sales Order that has already been converted to an invoice.'));
+        }
+        if ($salesOrder->delivery_status === SalesOrder::DELIVERY_STATUS_FULL) {
+            return back()->with('error', __('Cannot edit a Sales Order after all deliveries are completed.'));
         }
         if ($salesOrder->status === SalesOrder::STATUS_CANCELLED) {
             return back()->with('error', __('Cannot edit a cancelled Sales Order.'));
@@ -306,6 +357,15 @@ class SalesOrderController extends Controller
         }
         if (!$this->canAccess($salesOrder)) {
             return redirect()->route('salesorder.orders.index')->with('error', __('Access denied'));
+        }
+        if ($salesOrder->is_invoiced) {
+            return back()->with('error', __('Cannot edit a Sales Order that has already been converted to an invoice.'));
+        }
+        if ($salesOrder->delivery_status === SalesOrder::DELIVERY_STATUS_FULL) {
+            return back()->with('error', __('Cannot edit a Sales Order after all deliveries are completed.'));
+        }
+        if ($salesOrder->status === SalesOrder::STATUS_CANCELLED) {
+            return back()->with('error', __('Cannot edit a cancelled Sales Order.'));
         }
 
         $validated = $request->validated();
@@ -486,21 +546,23 @@ class SalesOrderController extends Controller
                 if ($locked->created_by != creatorId()) {
                     throw new \InvalidArgumentException(__('Access denied'));
                 }
-                if ($locked->assignment_status !== SalesOrder::ASSIGNMENT_GROUP_ASSIGNED) {
+                if (!in_array($locked->assignment_status, [SalesOrder::ASSIGNMENT_GROUP_ASSIGNED, SalesOrder::ASSIGNMENT_UNASSIGNED])) {
                     throw new \InvalidArgumentException(__('This order is not available for acquisition.'));
                 }
                 if ($locked->status !== SalesOrder::STATUS_CONFIRMED) {
                     throw new \InvalidArgumentException(__('Only confirmed orders can be acquired.'));
                 }
 
-                // Verify user is an active member of the assigned group
-                $isMember = \App\Models\UserGroup::where('id', $locked->assigned_group_id)
-                    ->where('is_active', true)
-                    ->whereHas('users', fn($q) => $q->where('users.id', $user->id))
-                    ->exists();
+                // If group-assigned, verify user is an active member or admin/company
+                if ($locked->assignment_status === SalesOrder::ASSIGNMENT_GROUP_ASSIGNED && !in_array($user->type, ['company', 'superadmin', 'admin'])) {
+                    $isMember = \App\Models\UserGroup::where('id', $locked->assigned_group_id)
+                        ->where('is_active', true)
+                        ->whereHas('users', fn($q) => $q->where('users.id', $user->id))
+                        ->exists();
 
-                if (!$isMember) {
-                    throw new \InvalidArgumentException(__('You are not an active member of the assigned group.'));
+                    if (!$isMember) {
+                        throw new \InvalidArgumentException(__('You are not an active member of the assigned group.'));
+                    }
                 }
 
                 $locked->update([
@@ -632,7 +694,7 @@ class SalesOrderController extends Controller
             return back()->with('error', __('Access denied'));
         }
 
-        $salesOrder->load(['customer', 'warehouse', 'assignedUsers', 'items.taxes']);
+        $salesOrder->load(['customer', 'warehouse', 'assignedUsers', 'items.taxes', 'items.product']);
         $settings = SalesOrderSetting::getSettings();
 
         return Inertia::render('SalesOrder/SalesOrders/Print', [
@@ -651,7 +713,7 @@ class SalesOrderController extends Controller
             return back()->with('error', __('Access denied'));
         }
 
-        $salesOrder->load(['customer', 'warehouse', 'assignedUsers', 'items.taxes']);
+        $salesOrder->load(['customer', 'warehouse', 'assignedUsers', 'items.taxes', 'items.product']);
         $settings = SalesOrderSetting::getSettings();
 
         return Inertia::render('SalesOrder/SalesOrders/Print', [

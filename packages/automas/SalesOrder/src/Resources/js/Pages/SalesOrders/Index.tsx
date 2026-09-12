@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
     Plus, Edit, Trash2, Copy, FileText, Eye, ShoppingCart, RotateCcw,
-    Truck, Users, CheckCircle2, Clock, XCircle, AlertCircle
+    Truck, Users, CheckCircle2, Clock, XCircle, AlertCircle, Lock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SearchInput } from "@/components/ui/search-input";
@@ -358,6 +358,38 @@ export default function Index() {
                             <TooltipContent><p>{t('Invoice Details')}</p></TooltipContent>
                         </Tooltip>
                     ) : null}
+
+                    {item.can_acquire && (
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => router.post(route('salesorder.orders.acquire', item.id))}
+                                    className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700"
+                                >
+                                    <Lock className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>{t('Acquire Order')}</p></TooltipContent>
+                        </Tooltip>
+                    )}
+
+                    {item.can_deliver && (
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => router.visit(route('salesorder.orders.deliveries.create', item.id))}
+                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                                >
+                                    <Truck className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>{t('Create Delivery Challan')}</p></TooltipContent>
+                        </Tooltip>
+                    )}
 
                     {auth.user?.permissions?.includes('view-sales-orders') && (
                         <Tooltip delayDuration={0}>

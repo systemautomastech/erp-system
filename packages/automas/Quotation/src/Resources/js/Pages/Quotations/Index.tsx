@@ -290,8 +290,8 @@ export default function Index() {
                 </Tooltip>
             )}
 
-            {(!item.sales_order_id && !item.converted_to_invoice) && (
-                (isSalesOrderActive || (auth.user?.permissions?.includes('convert-quotations') && item.status === 'accepted')) && (
+            {(!item.sales_order_id && !item.converted_to_invoice && item.status === 'accepted') && (
+                ((isSalesOrderActive && (auth.user?.permissions?.includes('convert-quotation-to-sales-order') || auth.user?.permissions?.includes('edit-quotations') || auth.user?.permissions?.includes('create-sales-orders'))) || auth.user?.permissions?.includes('convert-quotations')) && (
                     <DropdownMenu>
                         <TooltipProvider>
                             <Tooltip delayDuration={0}>
@@ -306,7 +306,7 @@ export default function Index() {
                             </Tooltip>
                         </TooltipProvider>
                         <DropdownMenuContent align="end">
-                            {isSalesOrderActive && (
+                            {isSalesOrderActive && item.status === 'accepted' && (
                                 <DropdownMenuItem
                                     onClick={() => setSoModalQuotation(item)}
                                     className="cursor-pointer flex items-center gap-2"
