@@ -11,5 +11,9 @@ class SalesOrderDatabaseSeeder extends Seeder
     {
         Model::unguard();
         $this->call(PermissionTableSeeder::class);
+        $this->call(NotificationsTableSeeder::class);
+        $this->call(EmailTemplatesSeeder::class);
+        $this->call(MarketplaceSettingSeeder::class);
     }
 }
+

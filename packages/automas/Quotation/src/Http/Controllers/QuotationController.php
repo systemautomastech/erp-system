@@ -2,6 +2,7 @@
 
 namespace Automas\Quotation\Http\Controllers;
 
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use App\Services\QuotationServices;
 use App\Services\CustomerService;
@@ -13,6 +14,7 @@ use Automas\Quotation\Http\Requests\SalesQuotation\StoreSalesQuotationRequest;
 use Automas\Quotation\Http\Requests\SalesQuotation\UpdateSalesQuotationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Automas\Quotation\Events\AcceptSalesQuotation;
 use Automas\Quotation\Events\ConvertSalesQuotation;
@@ -108,12 +110,20 @@ class QuotationController extends Controller
             }
         }
 
+        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $isSalesOrderActive = class_exists(\Automas\SalesOrder\Models\SalesOrder::class) && module_is_active('SalesOrder', $creatorId);
+        $users = User::where('created_by', $creatorId)->emp()->select('id', 'name', 'email')->get();
+        $userGroups = \App\Models\UserGroup::where('created_by', $creatorId)->active()->select('id', 'name')->get();
+
         return Inertia::render('Quotation/Quotations/Index', [
-            'quotations' => $quotations,
-            'customers' => $customers,
-            'stats' => $stats,
-            'boardData' => $boardData,
-            'filters' => $request->only(['customer_id', 'status', 'search', 'date_range'])
+            'quotations'         => $quotations,
+            'customers'          => $customers,
+            'users'              => $users,
+            'userGroups'         => $userGroups,
+            'isSalesOrderActive' => $isSalesOrderActive,
+            'stats'              => $stats,
+            'boardData'          => $boardData,
+            'filters'            => $request->only(['customer_id', 'status', 'search', 'date_range'])
         ]);
     }
 
@@ -168,8 +178,18 @@ class QuotationController extends Controller
 
         $quotation->load($this->quotationServices->getQuotationRelations());
 
+        $creatorId = function_exists('creatorId') ? creatorId() : Auth::id();
+        $isSalesOrderActive = class_exists(\Automas\SalesOrder\Models\SalesOrder::class) && module_is_active('SalesOrder', $creatorId);
+        $customers = $this->customerService->getCustomers(['id', 'name', 'email']);
+        $users = User::where('created_by', $creatorId)->emp()->select('id', 'name', 'email')->get();
+        $userGroups = \App\Models\UserGroup::where('created_by', $creatorId)->active()->select('id', 'name')->get();
+
         return Inertia::render('Quotation/Quotations/View', [
-            'quotation' => $quotation
+            'quotation'          => $quotation,
+            'isSalesOrderActive' => $isSalesOrderActive,
+            'customers'          => $customers,
+            'users'              => $users,
+            'userGroups'         => $userGroups,
         ]);
     }
 
@@ -364,4 +384,141 @@ class QuotationController extends Controller
 
         return response()->json($products);
     }
+
+    public function convertToSalesOrder(Request $request, SalesQuotation $quotation)
+    {
+        if (!Auth::user()->can('convert-quotation-to-sales-order') && !Auth::user()->can('edit-quotations') && !Auth::user()->can('create-sales-orders')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        if ($quotation->sales_order_id) {
+            return back()->with('error', __('This quotation has already been converted to a Sales Order.'));
+        }
+
+        if (!class_exists(\Automas\SalesOrder\Models\SalesOrder::class)) {
+            return back()->with('error', __('Sales Order module is not active.'));
+        }
+
+        $quotation->load(['items.taxes', 'customer']);
+
+        try {
+            $salesOrder = DB::transaction(function () use ($quotation, $request) {
+                // 1. Resolve Customer (Existing or New)
+                $customerId = $quotation->customer_id;
+                if ($request->input('customer_type') === 'new' && $request->filled('customer_name')) {
+                    $existingUser = User::where('email', $request->input('customer_email'))
+                        ->where('created_by', creatorId())
+                        ->first();
+                    if ($existingUser) {
+                        $customerId = $existingUser->id;
+                    } else {
+                        $newCustUser = User::create([
+                            'name'       => $request->input('customer_name'),
+                            'email'      => $request->input('customer_email') ?: 'customer_' . time() . '@automas.com',
+                            'mobile_no'  => $request->input('customer_phone') ?? null,
+                            'type'       => 'client',
+                            'password'   => Hash::make('12345678'),
+                            'created_by' => creatorId(),
+                        ]);
+                        $customerId = $newCustUser->id;
+                    }
+                } elseif ($request->input('customer_type') === 'existing' && $request->filled('customer_id')) {
+                    $customerId = (int) $request->input('customer_id');
+                }
+
+                // 2. Calculate Item Totals
+                $subtotal      = 0;
+                $totalTax      = 0;
+                $totalDiscount = 0;
+
+                foreach ($quotation->items as $item) {
+                    $lineTotal     = $item->quantity * $item->unit_price;
+                    $discountAmt   = ($lineTotal * ($item->discount_percentage ?? 0)) / 100;
+                    $afterDiscount = $lineTotal - $discountAmt;
+                    $taxAmt        = ($afterDiscount * ($item->tax_percentage ?? 0)) / 100;
+
+                    $subtotal      += $lineTotal;
+                    $totalDiscount += $discountAmt;
+                    $totalTax      += $taxAmt;
+                }
+
+                // 3. Determine Assignment
+                $assignedGroupId = null;
+                $assignmentStatus = \Automas\SalesOrder\Models\SalesOrder::ASSIGNMENT_UNASSIGNED;
+                if ($request->filled('assigned_group_id')) {
+                    $assignedGroupId = (int) $request->input('assigned_group_id');
+                    $assignmentStatus = \Automas\SalesOrder\Models\SalesOrder::ASSIGNMENT_GROUP_ASSIGNED;
+                }
+
+                // 4. Create Sales Order
+                $salesOrder = \Automas\SalesOrder\Models\SalesOrder::create([
+                    'name'                   => $quotation->subject ?: ($quotation->quotation_number ?? 'Quotation Conversion'),
+                    'quote_id'               => $quotation->id,
+                    'status'                 => \Automas\SalesOrder\Models\SalesOrder::STATUS_DRAFT,
+                    'delivery_status'        => \Automas\SalesOrder\Models\SalesOrder::DELIVERY_STATUS_PENDING,
+                    'assignment_status'      => $assignmentStatus,
+                    'assigned_group_id'      => $assignedGroupId,
+                    'customer_id'            => $customerId,
+                    'warehouse_id'           => $quotation->warehouse_id,
+                    'order_date'             => now()->toDateString(),
+                    'billing_address'        => $quotation->customer_address,
+                    'notes'                  => $quotation->notes,
+                    'subtotal'               => $subtotal,
+                    'tax_amount'             => $totalTax,
+                    'discount_amount'        => $totalDiscount,
+                    'total_amount'           => $subtotal + $totalTax - $totalDiscount,
+                    'creator_id'             => Auth::id(),
+                    'created_by'             => creatorId(),
+                ]);
+
+                // 5. Create Order Items & Item Taxes
+                foreach ($quotation->items as $item) {
+                    $orderItem = \Automas\SalesOrder\Models\SalesOrderItem::create([
+                        'order_id'            => $salesOrder->id,
+                        'product_id'          => $item->product_id,
+                        'quantity'            => $item->quantity,
+                        'unit_price'          => $item->unit_price,
+                        'discount_percentage' => $item->discount_percentage ?? 0,
+                        'tax_percentage'      => $item->tax_percentage ?? 0,
+                        'unit'                => $item->unit ?? null,
+                        'description'         => $item->description ?? null,
+                        'creator_id'          => Auth::id(),
+                        'created_by'          => creatorId(),
+                    ]);
+
+                    if (!empty($item->taxes)) {
+                        foreach ($item->taxes as $tax) {
+                            \Automas\SalesOrder\Models\SalesOrderItemTax::create([
+                                'item_id'  => $orderItem->id,
+                                'tax_name' => $tax->tax_name ?? 'Tax',
+                                'tax_rate' => $tax->tax_rate ?? 0,
+                            ]);
+                        }
+                    }
+                }
+
+                // 6. Assign Users if provided
+                if ($request->has('assigned_user_ids') && is_array($request->input('assigned_user_ids'))) {
+                    $salesOrder->assignedUsers()->sync($request->input('assigned_user_ids'));
+                } elseif ($request->filled('assigned_user_id')) {
+                    $salesOrder->assignedUsers()->sync([(int)$request->input('assigned_user_id')]);
+                }
+
+                // 7. Link Sales Order to Quotation
+                $quotation->update(['sales_order_id' => $salesOrder->id]);
+
+                return $salesOrder;
+            });
+
+            if (\Route::has('salesorder.orders.show')) {
+                return redirect()->route('salesorder.orders.show', $salesOrder->id)
+                    ->with('success', __('Quotation converted to Sales Order successfully.'));
+            }
+
+            return back()->with('success', __('Quotation converted to Sales Order successfully.'));
+        } catch (\Throwable $th) {
+            return back()->with('error', __('Failed to convert quotation to sales order: ') . $th->getMessage());
+        }
+    }
 }
+

@@ -185,5 +185,9 @@
     "The tax rate is required.": "The tax rate is required.",
     "The tax rate must be a valid number.": "The tax rate must be a valid number.",
     "The tax rate must be 0 or greater.": "The tax rate must be 0 or greater.",
-    "The tax rate cannot exceed 100%.": "The tax rate cannot exceed 100%."
+    "The tax rate cannot exceed 100%.": "The tax rate cannot exceed 100%.",
+    "Convert to Sales Order": "Convert to Sales Order",
+    "The quotation has been converted to sales order successfully.": "The quotation has been converted to sales order successfully.",
+    "Sales Order module is not active or available.": "Sales Order module is not active or available.",
+    "Quotation already converted to a Sales Order.": "Quotation already converted to a Sales Order."
 }

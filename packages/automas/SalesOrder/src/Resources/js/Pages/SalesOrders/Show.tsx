@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDate, formatCurrency } from '@/utils/helpers';
-import { FileText, Users, UserCheck, Lock, RotateCcw, ArrowRight, Truck, AlertCircle } from 'lucide-react';
+import { FileText, Users, UserCheck, Lock, RotateCcw, ArrowRight, Truck, AlertCircle, Printer, Edit, CheckCircle, Package } from 'lucide-react';
 import { useFormFields } from '@/hooks/useFormFields';
 
 interface ShowSalesOrderProps {
@@ -94,49 +94,148 @@ export default function Show() {
         router.post(route('salesorder.orders.release', salesOrder.id));
     };
 
+    const totalOrdered = orderItems?.reduce((total: number, item: any) => total + (Number(item.quantity) || 0), 0) || 0;
+    const totalDelivered = orderItems?.reduce((total: number, item: any) => total + (Number(item.delivered_quantity) || 0), 0) || 0;
+    const deliveryPercentage = totalOrdered > 0 ? Math.min(100, Math.round((totalDelivered / totalOrdered) * 100)) : 0;
+
+    const handleConfirm = () => {
+        router.post(route('salesorder.orders.confirm', salesOrder.id));
+    };
+
+    const handleCancelOrder = () => {
+        router.post(route('salesorder.orders.cancel', salesOrder.id));
+    };
+
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                { label: t('Sales'), url: route('salesorder.orders.index') },
                 { label: t('Sales Orders'), url: route('salesorder.orders.index') },
-                { label: t('View') }
+                { label: salesOrder.order_number || t('Details') }
             ]}
             pageTitle={t('Order Details')}
         >
-            <Head title={t('Order Details')} />
+            <Head title={t('Sales Order — :num', { num: salesOrder.order_number })} />
 
             <div className="space-y-6">
+                {/* ─── Action Bar ─── */}
+                <div className="flex flex-wrap items-center justify-between gap-4 bg-muted/30 p-3 rounded-lg border border-border">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.visit(route('salesorder.orders.index'))}
+                        >
+                            <ArrowRight className="h-4 w-4 mr-1.5 rotate-180" />
+                            {t('Back to List')}
+                        </Button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(route('salesorder.orders.print', salesOrder.id), '_blank')}
+                        >
+                            <Printer className="h-4 w-4 mr-1.5" />
+                            {t('Print')}
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(route('salesorder.orders.pdf', salesOrder.id), '_blank')}
+                        >
+                            <FileText className="h-4 w-4 mr-1.5" />
+                            {t('PDF')}
+                        </Button>
+
+                        {auth.user?.permissions?.includes('edit-sales-orders') && salesOrder.status !== 'cancelled' && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.visit(route('salesorder.orders.edit', salesOrder.id))}
+                            >
+                                <Edit className="h-4 w-4 mr-1.5" />
+                                {t('Edit')}
+                            </Button>
+                        )}
+
+                        {canConfirm && (
+                            <Button
+                                size="sm"
+                                onClick={handleConfirm}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                <CheckCircle className="h-4 w-4 mr-1.5" />
+                                {t('Confirm Order')}
+                            </Button>
+                        )}
+
+                        {canCancel && (
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={handleCancelOrder}
+                            >
+                                {t('Cancel Order')}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
                 {/* ─── Order Header Card ─────────────────────────────────────────── */}
                 <Card>
                     <CardContent className="p-6">
-                        <div className="flex justify-between items-center mb-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                             <div>
-                                <p className="text-lg text-muted-foreground">#{salesOrder.order_number}</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <span className={`px-2 py-1 rounded-full text-sm capitalize ${
-                                    salesOrder.status?.toLowerCase() === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                    salesOrder.status?.toLowerCase() === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                    salesOrder.status?.toLowerCase() === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
-                                }`}>
-                                    {salesOrder.status}
-                                </span>
-                                <div className="text-right">
-                                    <div className="text-2xl font-bold">{formatCurrency(
-                                        (() => {
-                                            const subtotal = orderItems?.reduce((total, item) => total + (item.quantity * (item.unit_price || item.price)), 0) || 0;
-                                            const totalDiscount = orderItems?.reduce((total, item) => total + (parseFloat(item.discount_amount || item.discount) || 0), 0) || 0;
-                                            const totalTax = orderItems?.reduce((total, item) => {
-                                                const afterDiscount = (item.quantity * (item.unit_price || item.price)) - (parseFloat(item.discount_amount || item.discount) || 0);
-                                                const taxArray = item.taxes || item.product_taxes;
-                                                return total + (taxArray?.reduce((sum: number, tax: any) => sum + (afterDiscount * (parseFloat(tax.tax_rate || tax.rate) || 0) / 100), 0) || 0);
-                                            }, 0) || 0;
-                                            return subtotal - totalDiscount + totalTax;
-                                        })()
-                                    )}</div>
-                                    <div className="text-sm text-muted-foreground">{t('Total Amount')}</div>
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-2xl font-bold tracking-tight">#{salesOrder.order_number}</h2>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                                        salesOrder.status?.toLowerCase() === 'draft' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                                        salesOrder.status?.toLowerCase() === 'confirmed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                        salesOrder.status?.toLowerCase() === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                        'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {salesOrder.status}
+                                    </span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                                        salesOrder.delivery_status === 'delivered' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                        salesOrder.delivery_status === 'partial' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                        'bg-amber-100 text-amber-800 border border-amber-200'
+                                    }`}>
+                                        <Truck className="h-3 w-3 inline mr-1" />
+                                        {t(salesOrder.delivery_status || 'pending')}
+                                    </span>
                                 </div>
+                                <p className="text-sm text-muted-foreground mt-1">{salesOrder.name}</p>
+                            </div>
+
+                            <div className="text-right">
+                                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                                    {formatCurrency(salesOrder.total_amount ?? 0)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">{t('Total Order Value')}</div>
+                            </div>
+                        </div>
+
+                        {/* ─── Delivery Progress Bar ─── */}
+                        <div className="mb-6 p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                            <div className="flex justify-between items-center text-xs mb-2">
+                                <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                    <Truck className="h-3.5 w-3.5 text-primary" />
+                                    {t('Fulfillment & Delivery Progress')}
+                                </span>
+                                <span className="font-bold text-slate-900 dark:text-slate-100">
+                                    {deliveryPercentage}% ({totalDelivered} / {totalOrdered} {t('items dispatched')})
+                                </span>
+                            </div>
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full transition-all duration-500 rounded-full ${
+                                        deliveryPercentage >= 100 ? 'bg-emerald-600' : deliveryPercentage > 0 ? 'bg-blue-600' : 'bg-slate-300'
+                                    }`}
+                                    style={{ width: `${deliveryPercentage}%` }}
+                                />
                             </div>
                         </div>
 
@@ -449,11 +548,15 @@ export default function Show() {
                                             <div className="text-xs text-muted-foreground">{formatDate(delivery.delivery_date)} &bull; {delivery.creator?.name}</div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs ${delivery.status === 'delivered' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${delivery.status === 'delivered' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                 {delivery.status}
                                             </span>
-                                            <Button size="sm" variant="ghost" onClick={() => router.visit(route('salesorder.orders.deliveries.show', [salesOrder.id, delivery.id]))}>
+                                            <Button size="sm" variant="ghost" onClick={() => router.visit(route('salesorder.deliveries.show', delivery.id))}>
                                                 {t('View')}
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => window.open(route('salesorder.deliveries.challan', delivery.id), '_blank')}>
+                                                <Printer className="h-3.5 w-3.5 mr-1" />
+                                                {t('Challan')}
                                             </Button>
                                         </div>
                                     </div>

@@ -10,9 +10,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
-    Plus, FileText, Eye, Trash2, RefreshCw, Edit as EditIcon, Download, Printer, Send, Check, X, Receipt,
+    Plus, FileText, Eye, Trash2, RefreshCw, Edit as EditIcon, Download, Printer, Send, Check, X, Receipt, ShoppingCart,
     List, Columns3, FilePlus2, CheckCircle2, XCircle, AlertTriangle, Package, CreditCard, CalendarDays, Lightbulb, Clock
 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import ConvertToSalesOrderModal from './components/ConvertToSalesOrderModal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable } from "@/components/ui/data-table";
 import { SearchInput } from "@/components/ui/search-input";
@@ -86,7 +93,7 @@ const STATUS_COLUMNS = [
 
 export default function Index() {
     const { t } = useTranslation();
-    const { quotations: rawQuotations, proposals: rawProposals, auth, customers, stats, boardData } = usePage<any>().props;
+    const { quotations: rawQuotations, proposals: rawProposals, auth, customers, users, userGroups, isSalesOrderActive, stats, boardData } = usePage<any>().props;
     const quotations = rawQuotations || rawProposals;
 
     const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -109,6 +116,7 @@ export default function Index() {
     const [viewMode, setViewMode] = useState<'board' | 'list'>(urlParams.get('view') as 'board' | 'list' || 'list');
     const [showFilters, setShowFilters] = useState(false);
     const [convertState, setConvertState] = useState({ isOpen: false, quotationId: null as number | null });
+    const [soModalQuotation, setSoModalQuotation] = useState<SalesQuotation | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
 
     useFlashMessages();
@@ -255,7 +263,23 @@ export default function Index() {
                 </Tooltip>
             )}
 
-            {item.converted_to_invoice ? (
+            {item.sales_order_id && (
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.get(route('salesorder.orders.show', item.sales_order_id!))}
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                        >
+                            <ShoppingCart className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{t('View Sales Order')}</p></TooltipContent>
+                </Tooltip>
+            )}
+
+            {item.converted_to_invoice && (
                 <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="sm" onClick={() => router.get(route('sales-invoices.show', item.invoice_id))} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
@@ -264,16 +288,44 @@ export default function Index() {
                     </TooltipTrigger>
                     <TooltipContent><p>{t('View Invoice')}</p></TooltipContent>
                 </Tooltip>
-            ) : (
-                auth.user?.permissions?.includes('convert-quotations') && item.status === 'accepted' && (
-                    <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={() => openConvertDialog(item.id)} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
-                                <RefreshCw className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>{t('Convert to Invoice')}</p></TooltipContent>
-                    </Tooltip>
+            )}
+
+            {(!item.sales_order_id && !item.converted_to_invoice) && (
+                (isSalesOrderActive || (auth.user?.permissions?.includes('convert-quotations') && item.status === 'accepted')) && (
+                    <DropdownMenu>
+                        <TooltipProvider>
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
+                                            <RefreshCw className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent><p>{t('Convert')}</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <DropdownMenuContent align="end">
+                            {isSalesOrderActive && (
+                                <DropdownMenuItem
+                                    onClick={() => setSoModalQuotation(item)}
+                                    className="cursor-pointer flex items-center gap-2"
+                                >
+                                    <ShoppingCart className="h-4 w-4 text-primary" />
+                                    <span>{t('Convert to Sales Order')}</span>
+                                </DropdownMenuItem>
+                            )}
+                            {auth.user?.permissions?.includes('convert-quotations') && item.status === 'accepted' && (
+                                <DropdownMenuItem
+                                    onClick={() => openConvertDialog(item.id)}
+                                    className="cursor-pointer flex items-center gap-2"
+                                >
+                                    <Receipt className="h-4 w-4 text-purple-600" />
+                                    <span>{t('Convert to Invoice')}</span>
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )
             )}
 
@@ -874,6 +926,19 @@ export default function Index() {
                     confirmText={t('Convert')}
                     onConfirm={confirmConvert}
                 />
+
+                {soModalQuotation && (
+                    <ConvertToSalesOrderModal
+                        quotation={soModalQuotation}
+                        customers={customers}
+                        users={users}
+                        userGroups={userGroups}
+                        open={Boolean(soModalQuotation)}
+                        onOpenChange={(open) => {
+                            if (!open) setSoModalQuotation(null);
+                        }}
+                    />
+                )}
 
             </AuthenticatedLayout>
         </TooltipProvider>

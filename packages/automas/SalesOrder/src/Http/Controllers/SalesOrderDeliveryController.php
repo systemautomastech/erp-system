@@ -13,6 +13,7 @@ use Automas\SalesOrder\Models\SalesOrderDeliveryItem;
 use Automas\SalesOrder\Models\SalesOrderSetting;
 use Automas\SalesOrder\Events\CreateSalesOrderDelivery;
 use Automas\SalesOrder\Events\CancelSalesOrderDelivery;
+use Automas\SalesOrder\Http\Requests\StoreSalesOrderDeliveryRequest;
 
 class SalesOrderDeliveryController extends Controller
 {
@@ -62,7 +63,7 @@ class SalesOrderDeliveryController extends Controller
 
     // ─── Store Delivery ──────────────────────────────────────────────────────
 
-    public function store(Request $request, SalesOrder $salesOrder)
+    public function store(StoreSalesOrderDeliveryRequest $request, SalesOrder $salesOrder)
     {
         if (!Auth::user()->can('create-sales-order-deliveries')) {
             return back()->with('error', __('Permission denied'));
@@ -76,14 +77,6 @@ class SalesOrderDeliveryController extends Controller
         if ($salesOrder->delivery_status === SalesOrder::DELIVERY_STATUS_FULL) {
             return back()->with('error', __('This Sales Order is already fully delivered.'));
         }
-
-        $request->validate([
-            'delivery_date'          => 'required|date',
-            'notes'                  => 'nullable|string',
-            'items'                  => 'required|array|min:1',
-            'items.*.sales_order_item_id' => 'required|integer|exists:sales_order_items,id',
-            'items.*.quantity'       => 'required|integer|min:1',
-        ]);
 
         $delivery = DB::transaction(function () use ($request, $salesOrder) {
             // Validate quantities against remaining with row locking

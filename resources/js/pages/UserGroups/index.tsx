@@ -12,7 +12,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Pagination } from '@/components/ui/pagination';
 import NoRecordsFound from '@/components/no-records-found';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Edit, Trash2, Users, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Edit, Eye, Trash2, Users, CheckCircle2, XCircle } from 'lucide-react';
 import { formatDate } from '@/utils/helpers';
 
 interface UserGroup {
@@ -117,7 +117,10 @@ export default function Index() {
                                             {groups.data.map((group) => (
                                                 <tr key={group.id} className="hover:bg-muted/20 transition-colors">
                                                     <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                                                            onClick={() => router.visit(route('user-groups.show', group.id))}
+                                                        >
                                                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                                                                 <Users className="w-4 h-4 text-primary" />
                                                             </div>
@@ -155,6 +158,19 @@ export default function Index() {
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-primary hover:text-primary"
+                                                                            onClick={() => router.visit(route('user-groups.show', group.id))}
+                                                                        >
+                                                                            <Eye className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>{t('View')}</TooltipContent>
+                                                                </Tooltip>
                                                                 {canEdit && (
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>

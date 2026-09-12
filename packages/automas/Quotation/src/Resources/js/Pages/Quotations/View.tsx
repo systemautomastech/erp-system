@@ -5,10 +5,10 @@ import { useFlashMessages } from '@/hooks/useFlashMessages';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { RefreshCw, Download, ArrowLeft, Printer, Edit } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card, CardContent } from '@/components/ui/card';
+import { ArrowLeft, ShoppingCart, FileText } from 'lucide-react';
 import { useFormFields } from '@/hooks/useFormFields';
+import ConvertToSalesOrderModal from './components/ConvertToSalesOrderModal';
 
 interface SalesQuotation {
     id: number;
@@ -28,6 +28,7 @@ interface SalesQuotation {
     status: string;
     converted_to_invoice: boolean;
     invoice_id?: number;
+    sales_order_id?: number | null;
     notes?: string;
     payment_terms?: string;
     warehouse?: { id: number; name: string };
@@ -59,45 +60,90 @@ interface SalesQuotation {
 interface ViewProps {
     quotation: SalesQuotation;
     auth: any;
+    isSalesOrderActive?: boolean;
+    customers?: Array<{ id: number; name: string; email?: string }>;
+    users?: Array<{ id: number; name: string }>;
+    userGroups?: Array<{ id: number; name: string }>;
     [key: string]: any;
 }
 
 export default function View() {
     const { t } = useTranslation();
-    const { quotation, auth } = usePage<ViewProps>().props;
+    const { quotation, auth, isSalesOrderActive, customers, users, userGroups } = usePage<ViewProps>().props;
     const [isDownloading, setIsDownloading] = useState(false);
 
     useFlashMessages();
 
-    const customFields = useFormFields('getCustomFields', { ...quotation, module: 'Quotation', sub_module: 'Quotation', id: quotation.id }, () => {}, {}, 'view', t);
+    useFormFields('getCustomFields', { ...quotation, module: 'Quotation', sub_module: 'Quotation', id: quotation.id }, () => {}, {}, 'view', t);
 
     const getquotationStatusColor = (status: string) => {
         switch (status?.toLowerCase()) {
-            case 'draft': return 'bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm';
-            case 'sent': return 'bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-sm';
-            case 'accepted': return 'bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm';
-            case 'rejected': return 'bg-red-100 text-red-700 px-2 py-1 rounded-full text-sm';
-            case 'expired': return 'bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-sm';
-            default: return 'bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm';
+            case 'draft': return 'bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full text-xs font-medium';
+            case 'sent': return 'bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-xs font-medium';
+            case 'accepted': return 'bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-medium';
+            case 'rejected': return 'bg-rose-100 text-rose-700 px-2.5 py-1 rounded-full text-xs font-medium';
+            case 'expired': return 'bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-medium';
+            default: return 'bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full text-xs font-medium';
         }
     };
 
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Sales quotation'), url: route('quotations.index')},
-                {label: t('Sales quotation Details')}
+                { label: t('Sales quotation'), url: route('quotations.index') },
+                { label: t('Sales quotation Details') }
             ]}
             pageTitle={`${t('Sales quotation')} #${quotation.quotation_number}`}
             pageActions={
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.visit(route('quotations.index'))}
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                    {t('Back')}
-                </Button>
+                <div className="flex items-center gap-2">
+                    {quotation.sales_order_id ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.visit(route('salesorder.orders.show', quotation.sales_order_id!))}
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        >
+                            <ShoppingCart className="h-4 w-4 mr-1.5" />
+                            {t('View Sales Order')}
+                        </Button>
+                    ) : (
+                        <>
+                            {isSalesOrderActive && (
+                                <ConvertToSalesOrderModal
+                                    quotation={quotation}
+                                    customers={customers}
+                                    users={users}
+                                    userGroups={userGroups}
+                                />
+                            )}
+
+                            {!quotation.converted_to_invoice && quotation.status === 'accepted' && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (confirm(t('Are you sure you want to convert this quotation directly to an invoice?'))) {
+                                            router.post(route('quotations.convert-to-invoice', quotation.id));
+                                        }
+                                    }}
+                                    className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                >
+                                    <FileText className="h-4 w-4 mr-1.5" />
+                                    {isSalesOrderActive ? t('Convert Directly to Invoice') : t('Convert to Invoice')}
+                                </Button>
+                            )}
+                        </>
+                    )}
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.visit(route('quotations.index'))}
+                    >
+                        <ArrowLeft className="h-4 w-4 mr-1.5" />
+                        {t('Back')}
+                    </Button>
+                </div>
             }
         >
             <Head title={`${t('Sales quotation')} #${quotation.quotation_number}`} />
@@ -159,159 +205,57 @@ export default function View() {
                                             {formatDate(quotation.due_date)}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">{t('Warehouse')}</span>
-                                        <span>{quotation.warehouse?.name || '-'}</span>
-                                    </div>
-                                </div>
-                                <div className="mt-4 p-3 bg-blue-50 rounded">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex flex-wrap gap-2">
-                                            {auth.user?.permissions?.includes('edit-quotations') && quotation.status !== 'accepted' && !quotation.converted_to_invoice && (
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() => router.visit(route('quotations.edit', quotation.id))}
-                                                >
-                                                    <Edit className="h-4 w-4 mr-2" />
-                                                    {t('Edit')}
-                                                </Button>
-                                            )}
-                                            {auth.user?.permissions?.includes('print-quotations') && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => window.open(route('quotations.print', quotation.id) + '?print=1', '_blank')}
-                                                >
-                                                    <Printer className="h-4 w-4 mr-2" />
-                                                    {t('Print/Download')}
-                                                </Button>
-                                            )}
-                                            {auth.user?.permissions?.includes('convert-quotations') && quotation.status === 'accepted' && !quotation.converted_to_invoice && (
-                                                <TooltipProvider>
-                                                    <Tooltip delayDuration={0}>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                size="sm"
-                                                                onClick={() => router.post(route('quotations.convert-to-invoice', quotation.id), {}, {
-                                                                    onSuccess: () => {
-                                                                        router.reload();
-                                                                    }
-                                                                })}
-                                                            >
-                                                                <RefreshCw className="h-4 w-4 mr-2" />
-                                                                {t('Convert to Invoice')}
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>{t('Convert this quotation to an invoice')}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            )}
+                                    {quotation.warehouse && (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">{t('Warehouse')}</span>
+                                            <span>{quotation.warehouse.name}</span>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-xl font-bold text-blue-600">{formatCurrency(quotation.total_amount)}</div>
-                                            <div className="text-sm text-muted-foreground">{t('quotation Amount')}</div>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        {quotation.notes && (
-                            <div className="mt-4 pt-4 border-t">
-                                <span className="font-medium text-sm">{t('Notes')}:</span>
-                                <span className="text-sm text-muted-foreground ml-2">{quotation.notes}</span>
-                            </div>
-                        )}
-
-                        {/* Custom Fields */}
-                        {customFields.length > 0 && (
-                            <div className="mt-4 pt-4 border-t">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {customFields.map((field, index) => (
-                                        <div key={index} className="space-y-2">
-                                            <label className="font-medium text-sm">{(field as any).name || (field as any).label || 'Custom Field'}</label>
-                                            <div className="text-sm text-muted-foreground ml-2">
-                                                {field.component}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <h3 className="text-lg font-semibold">
-                            {t('quotation Items')}
-                        </h3>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full">
-                                <thead>
-                                    <tr className="border-b">
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Product')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Qty')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Unit Price')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Discount')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Tax')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Total')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {quotation.items?.map((item, index) => (
-                                        <tr key={index}>
-                                            <td className="px-4 py-4">
-                                                <div className="font-medium">{item.product?.name}</div>
-                                                {item.product?.sku && (
-                                                    <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
-                                                )}
-                                                {item.product?.description && (
-                                                    <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4 text-right">{item.quantity}</td>
-                                            <td className="px-4 py-4 text-right">{formatCurrency(item.unit_price)}</td>
-                                            <td className="px-4 py-4 text-right">
-                                                {item.discount_percentage > 0 ? (
-                                                    <div>
-                                                        <div>{item.discount_percentage}%</div>
-                                                        <div className="text-sm text-muted-foreground">
-                                                            -{formatCurrency(item.discount_amount)}
-                                                        </div>
-                                                    </div>
-                                                ) : '-'}
-                                            </td>
-                                            <td className="px-4 py-4 text-right">
-                                                {item.taxes && item.taxes.length > 0 ? (
-                                                    <div>
-                                                        {item.taxes.map((tax, taxIndex) => (
-                                                            <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
-                                                        ))}
-                                                        <div className="text-sm text-muted-foreground">
-                                                            {formatCurrency(item.tax_amount)}
-                                                        </div>
-                                                    </div>
-                                                ) : item.tax_percentage > 0 ? (
-                                                    <div>
-                                                        <div>{item.tax_percentage}%</div>
-                                                        <div className="text-sm text-muted-foreground">
-                                                            {formatCurrency(item.tax_amount)}
-                                                        </div>
-                                                    </div>
-                                                ) : '-'}
-                                            </td>
-                                            <td className="px-4 py-4 text-right font-semibold">
-                                                {formatCurrency(item.total_amount)}
-                                            </td>
+                        <div className="mt-8 border-t pt-6">
+                            <h3 className="font-semibold mb-4">{t('ORDER ITEMS')}</h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs uppercase bg-gray-50 border-b">
+                                        <tr>
+                                            <th className="px-4 py-3">{t('Product')}</th>
+                                            <th className="px-4 py-3 text-right">{t('Qty')}</th>
+                                            <th className="px-4 py-3 text-right">{t('Unit Price')}</th>
+                                            <th className="px-4 py-3 text-right">{t('Discount')}</th>
+                                            <th className="px-4 py-3 text-right">{t('Tax')}</th>
+                                            <th className="px-4 py-3 text-right">{t('Total')}</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {quotation.items?.map((item) => (
+                                            <tr key={item.id}>
+                                                <td className="px-4 py-4">
+                                                    <div className="font-medium text-gray-900">
+                                                        {item.product?.name || item.description || '-'}
+                                                    </div>
+                                                    {item.description && (
+                                                        <div className="text-xs text-muted-foreground">{item.description}</div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-right">{item.quantity}</td>
+                                                <td className="px-4 py-4 text-right">{formatCurrency(item.unit_price)}</td>
+                                                <td className="px-4 py-4 text-right">
+                                                    {item.discount_percentage > 0 ? `${item.discount_percentage}%` : '-'}
+                                                </td>
+                                                <td className="px-4 py-4 text-right">
+                                                    {item.tax_percentage > 0 ? `${item.tax_percentage}%` : '-'}
+                                                </td>
+                                                <td className="px-4 py-4 text-right font-semibold">
+                                                    {formatCurrency(item.total_amount)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <div className="mt-6 flex justify-end">
