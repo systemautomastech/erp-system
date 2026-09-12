@@ -1,12 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePage } from '@inertiajs/react';
 import { ProposalItem } from '../types';
 import ProductSelector from './ProductSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputError } from '@/components/ui/input-error';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { formatCurrency } from '@/utils/helpers';
+import { formatCurrency, getCompanySetting } from '@/utils/helpers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 
@@ -19,7 +20,7 @@ interface Props {
     invoiceType?: string;
     warehouseId?: string | number | null;
     onRefresh?: () => void | Promise<void>;
-    isRefreshing?: boolean;
+    isRefreshing?: boolean;    
     isTaxEnabled?: boolean;
     defaultSection?: string;
     discountType?: 'percentage' | 'fixed';
@@ -46,6 +47,8 @@ export default function ItemsTable({
     onDiscountValueChange,
 }: Props) {
     const { t } = useTranslation();
+    const pageProps = usePage().props;
+    const currencyCode = getCompanySetting('defaultCurrency', pageProps) || 'BDT';
 
     const addItem = () => {
         const newItem: ProposalItem = {
@@ -189,7 +192,7 @@ export default function ItemsTable({
                                 </th>
                             )}
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                {t('Unit Price')} <span className="text-red-500">*</span>
+                                {t('Unit Price')} ({currencyCode}) <span className="text-red-500">*</span>
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                                 <Select
@@ -229,7 +232,7 @@ export default function ItemsTable({
                                 >
                                     <SelectTrigger className="h-8 text-xs font-semibold border-none shadow-none p-0 focus:ring-0 text-foreground bg-transparent flex items-center gap-1 hover:text-primary transition-colors cursor-pointer w-auto [&>svg]:opacity-70">
                                         <span>
-                                            {t('Discount')} ({discountType === 'percentage' ? '%' : '৳'})
+                                            {t('Discount')} ({discountType === 'percentage' ? '%' : currencyCode})
                                         </span>
                                     </SelectTrigger>
                                     <SelectContent>
@@ -237,7 +240,7 @@ export default function ItemsTable({
                                             {t('Percentage')} (%)
                                         </SelectItem>
                                         <SelectItem value="fixed" className="text-xs">
-                                            {t('Fixed')} (৳)
+                                            {t('Fixed')} ({currencyCode})
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -350,6 +353,7 @@ export default function ItemsTable({
                                             products={filteredProducts}
                                             value={item.product_id}
                                             warehouseId={warehouseId}
+                                            isRefreshing={isRefreshing}
                                             onChange={(productId, product) => handleProductSelect(index, productId, product)}
                                         />
                                         <InputError message={errors[`items.${index}.product_id`]} />

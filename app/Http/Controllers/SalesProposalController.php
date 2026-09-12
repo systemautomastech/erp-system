@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\CustomerService;
 use App\Services\ProposalService;
+use App\Services\WarehouseService;
 use Automas\ProductService\Models\ProductServiceItem;
 use Automas\Quotation\Models\QuotationSubject;
 use Illuminate\Http\Request;
@@ -28,7 +29,8 @@ class SalesProposalController extends Controller
 {
     public function __construct(
         protected ProposalService $proposalService,
-        protected CustomerService $customerService
+        protected CustomerService $customerService,
+        protected WarehouseService $warehouseService
     ) {
     }
 
@@ -54,7 +56,10 @@ class SalesProposalController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('proposal_number', 'like', "%{$search}%")
                     ->orWhere('reference', 'like', "%{$search}%")
-                    ->orWhere('subject', 'like', "%{$search}%");
+                    ->orWhere('subject', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -111,7 +116,7 @@ class SalesProposalController extends Controller
         }
 
         $customers = $this->customerService->getCustomers();
-        $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
+        $warehouses = $this->warehouseService->getActiveWarehouses();
         $defaultPages = $this->proposalService->getActiveDefaultPages(Auth::id());
         $proposalSetting = ProposalSetting::getSettings(creatorId());
         $subjects = ProposalSubject::where('created_by', creatorId())->orderBy('name')->get(['id', 'name']);
@@ -188,10 +193,10 @@ class SalesProposalController extends Controller
         $salesProposal->load($this->proposalService->getProposalRelations());
 
         $customers = $this->customerService->getCustomers();
-        $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('creator_id', creatorId())->get();
+        $warehouses = $this->warehouseService->getActiveWarehouses();
         $proposalSetting = ProposalSetting::getSettings(creatorId());
         $defaultPages = $this->proposalService->getActiveDefaultPages(Auth::id());
-        $products = $this->proposalService->getFormattedWarehouseProducts($salesProposal->warehouse_id);
+        $products = $this->warehouseService->getWarehouseProducts($salesProposal->warehouse_id);
         $subjects = ProposalSubject::where('created_by', creatorId())->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('SalesProposals/Edit', [
@@ -438,7 +443,8 @@ class SalesProposalController extends Controller
             return response()->json([], 403);
         }
 
-        $products = $this->proposalService->getFormattedWarehouseProducts($request->warehouse_id ? (int) $request->warehouse_id : null);
+        $warehouseId = $request->warehouse_id ? (int) $request->warehouse_id : null;
+        $products = $this->warehouseService->getWarehouseProducts($warehouseId);
 
         return response()->json($products);
     }
