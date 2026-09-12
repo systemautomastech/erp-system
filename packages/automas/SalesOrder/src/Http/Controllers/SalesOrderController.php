@@ -29,7 +29,7 @@ class SalesOrderController extends Controller
             return back()->with('error', __('Permission denied'));
         }
 
-        $salesOrders = SalesOrder::with(['customer', 'assignedUsers', 'items'])
+        $salesOrders = SalesOrder::with(['customer', 'assignedUsers', 'items', 'assignedGroup', 'acquiredByUser'])
             ->accessible()
             ->when($request->name, fn($q) => $q->where(function ($sq) use ($request) {
                 $sq->where('name', 'like', '%' . $request->name . '%')
@@ -37,6 +37,14 @@ class SalesOrderController extends Controller
             }))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->delivery_status, fn($q) => $q->where('delivery_status', $request->delivery_status))
+            ->when($request->assignment_status, fn($q) => $q->where('assignment_status', $request->assignment_status))
+            ->when($request->assigned_group_id, fn($q) => $q->where('assigned_group_id', $request->assigned_group_id))
+            ->when($request->my_acquired, fn($q) => $q->where('acquired_by', Auth::id()))
+            ->when($request->available_to_me, function ($q) {
+                // Orders that are group_assigned AND current user is member of assigned group
+                $q->where('assignment_status', SalesOrder::ASSIGNMENT_GROUP_ASSIGNED)
+                  ->whereHas('assignedGroup', fn($sq) => $sq->whereHas('users', fn($uq) => $uq->where('users.id', Auth::id())));
+            })
             ->when($request->customer_id, fn($q) => $q->where('customer_id', $request->customer_id))
             ->when($request->assigned_user_id, fn($q) => $q->whereHas('assignedUsers', fn($sq) => $sq->where('users.id', $request->assigned_user_id)))
             ->when($request->date_from, fn($q) => $q->whereDate('order_date', '>=', $request->date_from))
@@ -56,16 +64,21 @@ class SalesOrderController extends Controller
             return $order;
         });
 
-        $customers = $this->getCustomers();
-        $users     = $this->getWorkspaceUsers();
-        $settings  = SalesOrderSetting::getSettings();
+        $customers  = $this->getCustomers();
+        $users      = $this->getWorkspaceUsers();
+        $settings   = SalesOrderSetting::getSettings();
+        $userGroups = \App\Models\UserGroup::where('created_by', creatorId())
+            ->active()
+            ->select('id', 'name')
+            ->get();
 
         return Inertia::render('SalesOrder/SalesOrders/Index', [
             'salesOrders' => $salesOrders,
             'customers'   => $customers,
             'users'       => $users,
+            'userGroups'  => $userGroups,
             'settings'    => $settings,
-            'filters'     => $request->only(['name', 'status', 'delivery_status', 'customer_id', 'assigned_user_id', 'date_from', 'date_to']),
+            'filters'     => $request->only(['name', 'status', 'delivery_status', 'assignment_status', 'assigned_group_id', 'customer_id', 'assigned_user_id', 'date_from', 'date_to', 'my_acquired', 'available_to_me']),
         ]);
     }
 
@@ -160,7 +173,7 @@ class SalesOrderController extends Controller
             return redirect()->route('salesorder.orders.index')->with('error', __('Access denied'));
         }
 
-        $salesOrder->load(['customer', 'warehouse', 'assignedUsers', 'allDeliveries.items.salesOrderItem']);
+        $salesOrder->load(['customer', 'warehouse', 'assignedUsers', 'allDeliveries.items.salesOrderItem', 'assignedGroup', 'acquiredByUser']);
 
         $items = $salesOrder->items()->with(['taxes', 'deliveryItems' => function ($q) {
             $q->whereHas('delivery', fn($dq) => $dq->where('status', '!=', 'cancelled'));
@@ -200,16 +213,42 @@ class SalesOrderController extends Controller
 
         $settings = SalesOrderSetting::getSettings();
 
+        $authUser = Auth::user();
+        $userGroups = \App\Models\UserGroup::where('created_by', creatorId())
+            ->active()
+            ->select('id', 'name')
+            ->withCount('users')
+            ->get();
+
+        // Determine if current user is a member of the assigned group
+        $isGroupMember = $salesOrder->assigned_group_id
+            ? \App\Models\UserGroup::where('id', $salesOrder->assigned_group_id)
+                ->where('is_active', true)
+                ->whereHas('users', fn($q) => $q->where('users.id', $authUser->id))
+                ->exists()
+            : false;
+
         return Inertia::render('SalesOrder/SalesOrders/Show', [
-            'salesOrder' => $salesOrder,
-            'orderItems' => $items,
-            'quotation'  => $quotation,
-            'deliveries' => $salesOrder->allDeliveries->load(['items.salesOrderItem', 'creator']),
-            'settings'   => $settings,
-            'canConfirm' => $salesOrder->status === SalesOrder::STATUS_DRAFT,
-            'canCancel'  => in_array($salesOrder->status, [SalesOrder::STATUS_DRAFT, SalesOrder::STATUS_CONFIRMED]),
-            'canDeliver' => $salesOrder->status === SalesOrder::STATUS_CONFIRMED
-                        && $salesOrder->delivery_status !== SalesOrder::DELIVERY_STATUS_FULL,
+            'salesOrder'      => $salesOrder,
+            'orderItems'      => $items,
+            'quotation'       => $quotation,
+            'deliveries'      => $salesOrder->allDeliveries->load(['items.salesOrderItem', 'creator']),
+            'settings'        => $settings,
+            'userGroups'      => $userGroups,
+            'canConfirm'      => $salesOrder->status === SalesOrder::STATUS_DRAFT,
+            'canCancel'       => in_array($salesOrder->status, [SalesOrder::STATUS_DRAFT, SalesOrder::STATUS_CONFIRMED]),
+            'canDeliver'      => $salesOrder->status === SalesOrder::STATUS_CONFIRMED
+                              && $salesOrder->delivery_status !== SalesOrder::DELIVERY_STATUS_FULL
+                              && $salesOrder->assignment_status === SalesOrder::ASSIGNMENT_ACQUIRED
+                              && $salesOrder->acquired_by === $authUser->id,
+            'canAssignGroup'  => $authUser->can('assign-group-sales-orders') && $salesOrder->status === SalesOrder::STATUS_CONFIRMED,
+            'canAcquire'      => $authUser->can('acquire-sales-orders')
+                              && $salesOrder->assignment_status === SalesOrder::ASSIGNMENT_GROUP_ASSIGNED
+                              && $isGroupMember,
+            'canRelease'      => $authUser->can('release-sales-orders')
+                              && $salesOrder->assignment_status === SalesOrder::ASSIGNMENT_ACQUIRED
+                              && ($salesOrder->acquired_by === $authUser->id || $authUser->can('reassign-sales-orders')),
+            'canReassign'     => $authUser->can('reassign-sales-orders') && $salesOrder->status === SalesOrder::STATUS_CONFIRMED,
         ]);
     }
 
@@ -386,6 +425,160 @@ class SalesOrderController extends Controller
         return back()->with('success', __('Sales Order cancelled.'));
     }
 
+    // ─── Assign Group ─────────────────────────────────────────────────────────
+
+    public function assignGroup(Request $request, SalesOrder $salesOrder)
+    {
+        if (!Auth::user()->can('assign-group-sales-orders')) {
+            return back()->with('error', __('Permission denied'));
+        }
+        if (!$this->canAccess($salesOrder)) {
+            return back()->with('error', __('Access denied'));
+        }
+        if ($salesOrder->status !== SalesOrder::STATUS_CONFIRMED) {
+            return back()->with('error', __('Only confirmed Sales Orders can be group-assigned.'));
+        }
+        if ($salesOrder->assignment_status === SalesOrder::ASSIGNMENT_ACQUIRED) {
+            return back()->with('error', __('Order is already acquired. Release it before reassigning to a group.'));
+        }
+
+        $request->validate([
+            'assigned_group_id' => 'required|integer|exists:user_groups,id',
+        ]);
+
+        // Verify group belongs to this workspace
+        $group = \App\Models\UserGroup::where('id', $request->assigned_group_id)
+            ->where('created_by', creatorId())
+            ->where('is_active', true)
+            ->first();
+
+        if (!$group) {
+            return back()->with('error', __('Invalid or inactive user group.'));
+        }
+
+        $salesOrder->update([
+            'assigned_group_id' => $group->id,
+            'assignment_status' => SalesOrder::ASSIGNMENT_GROUP_ASSIGNED,
+        ]);
+
+        return back()->with('success', __('Sales Order assigned to group ":group".', ['group' => $group->name]));
+    }
+
+    // ─── Acquire ──────────────────────────────────────────────────────────────
+
+    /**
+     * Atomic acquisition — only one user can acquire an order at a time.
+     * Uses DB lockForUpdate() to prevent race conditions.
+     */
+    public function acquire(SalesOrder $salesOrder)
+    {
+        if (!Auth::user()->can('acquire-sales-orders')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $user = Auth::user();
+
+        try {
+            DB::transaction(function () use ($salesOrder, $user) {
+                // Re-fetch with row lock to prevent race condition
+                $locked = SalesOrder::lockForUpdate()->findOrFail($salesOrder->id);
+
+                if ($locked->created_by != creatorId()) {
+                    throw new \InvalidArgumentException(__('Access denied'));
+                }
+                if ($locked->assignment_status !== SalesOrder::ASSIGNMENT_GROUP_ASSIGNED) {
+                    throw new \InvalidArgumentException(__('This order is not available for acquisition.'));
+                }
+                if ($locked->status !== SalesOrder::STATUS_CONFIRMED) {
+                    throw new \InvalidArgumentException(__('Only confirmed orders can be acquired.'));
+                }
+
+                // Verify user is an active member of the assigned group
+                $isMember = \App\Models\UserGroup::where('id', $locked->assigned_group_id)
+                    ->where('is_active', true)
+                    ->whereHas('users', fn($q) => $q->where('users.id', $user->id))
+                    ->exists();
+
+                if (!$isMember) {
+                    throw new \InvalidArgumentException(__('You are not an active member of the assigned group.'));
+                }
+
+                $locked->update([
+                    'assignment_status' => SalesOrder::ASSIGNMENT_ACQUIRED,
+                    'acquired_by'       => $user->id,
+                    'acquired_at'       => now(),
+                ]);
+            });
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', __('You have acquired this Sales Order.'));
+    }
+
+    // ─── Release ──────────────────────────────────────────────────────────────
+
+    public function release(SalesOrder $salesOrder)
+    {
+        if (!Auth::user()->can('release-sales-orders')) {
+            return back()->with('error', __('Permission denied'));
+        }
+        if (!$this->canAccess($salesOrder)) {
+            return back()->with('error', __('Access denied'));
+        }
+        if ($salesOrder->assignment_status !== SalesOrder::ASSIGNMENT_ACQUIRED) {
+            return back()->with('error', __('This order is not currently acquired.'));
+        }
+
+        $user = Auth::user();
+        // Only the acquirer or a manager can release
+        if ($salesOrder->acquired_by !== $user->id && !$user->can('reassign-sales-orders')) {
+            return back()->with('error', __('Only the acquirer or a manager can release this order.'));
+        }
+
+        $salesOrder->update([
+            'assignment_status' => SalesOrder::ASSIGNMENT_GROUP_ASSIGNED,
+            'acquired_by'       => null,
+            'acquired_at'       => null,
+        ]);
+
+        return back()->with('success', __('Sales Order released back to the group queue.'));
+    }
+
+    // ─── Reassign ─────────────────────────────────────────────────────────────
+
+    public function reassign(Request $request, SalesOrder $salesOrder)
+    {
+        if (!Auth::user()->can('reassign-sales-orders')) {
+            return back()->with('error', __('Permission denied'));
+        }
+        if (!$this->canAccess($salesOrder)) {
+            return back()->with('error', __('Access denied'));
+        }
+
+        $request->validate([
+            'assigned_group_id' => 'required|integer|exists:user_groups,id',
+        ]);
+
+        $group = \App\Models\UserGroup::where('id', $request->assigned_group_id)
+            ->where('created_by', creatorId())
+            ->where('is_active', true)
+            ->first();
+
+        if (!$group) {
+            return back()->with('error', __('Invalid or inactive user group.'));
+        }
+
+        $salesOrder->update([
+            'assigned_group_id' => $group->id,
+            'assignment_status' => SalesOrder::ASSIGNMENT_GROUP_ASSIGNED,
+            'acquired_by'       => null,
+            'acquired_at'       => null,
+        ]);
+
+        return back()->with('success', __('Sales Order reassigned to group ":group".', ['group' => $group->name]));
+    }
+
     // ─── Duplicate ───────────────────────────────────────────────────────────
 
     public function duplicate(SalesOrder $salesOrder)
@@ -399,14 +592,18 @@ class SalesOrderController extends Controller
 
         DB::transaction(function () use ($salesOrder) {
             $newOrder = $salesOrder->replicate();
-            $newOrder->order_number    = null; // will auto-generate in boot
-            $newOrder->status          = SalesOrder::STATUS_DRAFT;
-            $newOrder->delivery_status = SalesOrder::DELIVERY_STATUS_PENDING;
-            $newOrder->confirmed_at    = null;
-            $newOrder->is_invoiced     = false;
-            $newOrder->invoice_id      = null;
-            $newOrder->creator_id      = Auth::id();
-            $newOrder->created_by      = creatorId();
+            $newOrder->order_number      = null; // will auto-generate in boot
+            $newOrder->status            = SalesOrder::STATUS_DRAFT;
+            $newOrder->delivery_status   = SalesOrder::DELIVERY_STATUS_PENDING;
+            $newOrder->confirmed_at      = null;
+            $newOrder->is_invoiced       = false;
+            $newOrder->invoice_id        = null;
+            $newOrder->assigned_group_id = null;
+            $newOrder->assignment_status = SalesOrder::ASSIGNMENT_UNASSIGNED;
+            $newOrder->acquired_by       = null;
+            $newOrder->acquired_at       = null;
+            $newOrder->creator_id        = Auth::id();
+            $newOrder->created_by        = creatorId();
             $newOrder->save();
 
             foreach ($salesOrder->items as $item) {

@@ -25,49 +25,10 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
                 href: route('users.index'),
                 permission: 'manage-users',
             },
-        ],
-    },
-    {
-        title: t('Proposal'),
-        icon: Replace,
-        permission: 'manage-sales-proposals',
-        module: 'ProductService',
-        order: 20,
-        children: [
             {
-                title: t('Proposal'),
-                href: route('sales-proposals.index'),
-                permission: 'manage-sales-proposals',
-            },
-            {
-                title: t('System Setup'),
-                href: route('proposal-setup.index'),
-                permission: 'manage-proposal-system-setup',
-            },
-        ],
-    },
-
-    {
-        title: t('Invoice'),
-        icon: Receipt,
-        permission: 'manage-sales-invoices',
-        module: 'ProductService',
-        order: 35,
-        children: [
-            {
-                title: t('Invoice'),
-                href: route('sales-invoices.index'),
-                permission: 'manage-sales-invoices',
-            },
-            {
-                title: t('Invoice Returns'),
-                href: route('sales-returns.index'),
-                permission: 'manage-sales-return-invoices',
-            },
-            {
-                title: t('System Setup'),
-                href: route('sales-invoice-setup.index'),
-                permission: 'manage-sales-invoice-setup',
+                title: t('User Groups'),
+                href: route('user-groups.index'),
+                permission: 'manage-user-groups',
             },
         ],
     },
@@ -76,7 +37,7 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
         icon: ShoppingCart,
         permission: 'manage-purchase-invoices',
         module: 'ProductService',
-        order: 40,
+        order: 20,
         children: [
             {
                 title: t('Purchase Invoice'),
@@ -102,6 +63,49 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
                 title: t('System Setup'),
                 href: route('purchase-invoice-setup.index'),
                 permission: 'manage-purchase-invoice-setup',
+            },
+        ],
+    },
+    {
+        title: t('Proposal'),
+        icon: Replace,
+        permission: 'manage-sales-proposals',
+        module: 'ProductService',
+        order: 25,
+        children: [
+            {
+                title: t('Proposal'),
+                href: route('sales-proposals.index'),
+                permission: 'manage-sales-proposals',
+            },
+            {
+                title: t('System Setup'),
+                href: route('proposal-setup.index'),
+                permission: 'manage-proposal-system-setup',
+            },
+        ],
+    },
+    {
+        title: t('Invoice'),
+        icon: Receipt,
+        permission: 'manage-sales-invoices',
+        module: 'ProductService',
+        order: 40,
+        children: [
+            {
+                title: t('Invoice'),
+                href: route('sales-invoices.index'),
+                permission: 'manage-sales-invoices',
+            },
+            {
+                title: t('Invoice Returns'),
+                href: route('sales-returns.index'),
+                permission: 'manage-sales-return-invoices',
+            },
+            {
+                title: t('System Setup'),
+                href: route('sales-invoice-setup.index'),
+                permission: 'manage-sales-invoice-setup',
             },
         ],
     },

@@ -212,7 +212,7 @@ export default function EditLead({ lead, sources: propSources, subjects: propSub
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select User')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent searchable>
                                 {users?.map((item: any) => (
                                     <SelectItem key={item.id} value={item.id.toString()}>
                                         {item.name}
@@ -274,7 +274,7 @@ export default function EditLead({ lead, sources: propSources, subjects: propSub
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Pipeline')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent searchable>
                                 {pipelines?.map((item: any) => (
                                     <SelectItem key={item.id} value={item.id.toString()}>
                                         {item.name}
@@ -301,7 +301,7 @@ export default function EditLead({ lead, sources: propSources, subjects: propSub
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Stage')} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent searchable>
                                 {stages?.map((item: any) => (
                                     <SelectItem key={item.id} value={item.id.toString()}>
                                         <div className="flex items-center justify-between w-full gap-2">

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\UserGroup;
 use Illuminate\Support\Facades\DB;
 
 class SalesOrder extends Model
@@ -26,6 +27,11 @@ class SalesOrder extends Model
     const STATUS_DRAFT      = 'draft';
     const STATUS_CONFIRMED  = 'confirmed';
     const STATUS_CANCELLED  = 'cancelled';
+
+    // Assignment status constants
+    const ASSIGNMENT_UNASSIGNED    = 'unassigned';
+    const ASSIGNMENT_GROUP_ASSIGNED = 'group_assigned';
+    const ASSIGNMENT_ACQUIRED       = 'acquired';
 
     protected $fillable = [
         'order_number',
@@ -56,6 +62,10 @@ class SalesOrder extends Model
         'is_invoiced',
         'invoice_id',
         'confirmed_at',
+        'assigned_group_id',
+        'assignment_status',
+        'acquired_by',
+        'acquired_at',
         'creator_id',
         'created_by',
     ];
@@ -66,6 +76,7 @@ class SalesOrder extends Model
             'order_date'             => 'date',
             'expected_delivery_date' => 'date',
             'confirmed_at'           => 'datetime',
+            'acquired_at'            => 'datetime',
             'subtotal'               => 'decimal:2',
             'tax_amount'             => 'decimal:2',
             'discount_amount'        => 'decimal:2',
@@ -112,11 +123,15 @@ class SalesOrder extends Model
         }
 
         if ($user->can('manage-own-sales-orders')) {
-            // Records created by or assigned to the user
+            // Records created by, assigned to, or acquired by the user
             return $query->where('sales_orders.created_by', creatorId())
                 ->where(function ($q) use ($user) {
                     $q->where('sales_orders.creator_id', $user->id)
-                      ->orWhereHas('assignedUsers', fn($sq) => $sq->where('users.id', $user->id));
+                      ->orWhere('sales_orders.acquired_by', $user->id)
+                      ->orWhereHas('assignedUsers', fn($sq) => $sq->where('users.id', $user->id))
+                      ->orWhereHas('assignedGroup', function ($sq) use ($user) {
+                          $sq->whereHas('users', fn($uq) => $uq->where('users.id', $user->id));
+                      });
                 });
         }
 
@@ -166,6 +181,16 @@ class SalesOrder extends Model
     {
         return $this->belongsToMany(User::class, 'sales_order_users', 'sales_order_id', 'user_id')
                     ->withTimestamps();
+    }
+
+    public function assignedGroup(): BelongsTo
+    {
+        return $this->belongsTo(UserGroup::class, 'assigned_group_id');
+    }
+
+    public function acquiredByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'acquired_by');
     }
 
     // Loose reference — no FK enforced
