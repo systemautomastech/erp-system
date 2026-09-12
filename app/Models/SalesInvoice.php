@@ -25,6 +25,7 @@ class SalesInvoice extends Model
         'subtotal',
         'tax_amount',
         'discount_amount',
+        'discount_type',
         'total_amount',
         'paid_amount',
         'balance_amount',

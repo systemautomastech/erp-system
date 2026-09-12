@@ -376,14 +376,22 @@ export default function View() {
                                                         </td>
                                                         <td className="px-4 py-4 text-right">{formatCurrency(item.unit_price)}</td>
                                                         <td className="px-4 py-4 text-right">
-                                                            {item.discount_percentage > 0 ? (
-                                                                <div>
-                                                                    <div>{item.discount_percentage}%</div>
-                                                                    <div className="text-sm text-muted-foreground">
+                                                            {item.discount_type === 'fixed' ? (
+                                                                item.discount_amount > 0 ? (
+                                                                    <div className="font-medium text-foreground">
                                                                         -{formatCurrency(item.discount_amount)}
                                                                     </div>
-                                                                </div>
-                                                            ) : '-'}
+                                                                ) : '-'
+                                                            ) : (
+                                                                item.discount_percentage > 0 ? (
+                                                                    <div>
+                                                                        <div>{item.discount_percentage}%</div>
+                                                                        <div className="text-sm text-muted-foreground">
+                                                                            -{formatCurrency(item.discount_amount)}
+                                                                        </div>
+                                                                    </div>
+                                                                ) : '-'
+                                                            )}
                                                         </td>
                                                         <td className="px-4 py-4 text-right">
                                                             {item.taxes && item.taxes.length > 0 ? (
